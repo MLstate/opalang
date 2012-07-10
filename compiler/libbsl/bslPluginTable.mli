@@ -30,6 +30,11 @@
 val store : BslPluginInterface.plugin -> unit
 
 (**
+   Get a plugin from the common table by its name
+*)
+val get : string -> BslPluginInterface.plugin option
+
+(**
    The finalization will check if the dependancies of plugins are satisfied.
    Example scenario : You have built a plugin [libB] using an other plugin [libA],
    with a command like :

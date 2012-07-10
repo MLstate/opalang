@@ -87,3 +87,6 @@ let store plugin =
         #<End>
       in
       Hashtbl.add table mname plugin
+
+let get plugin_name =
+  try Some (Hashtbl.find table plugin_name) with Not_found -> None

@@ -41,6 +41,47 @@ let wclass =
   let doc = "Javascript compiler warnings" in
   WarningClass.create ~name:"jscompiler" ~doc ~err:false ~enable:true ()
 
+type filename = string (* e.g. qmlCpsClientLib.js *)
+type pluginname = string (* e.g. "opabsl", without the .opp extension *)
+
+type linked_file =
+| ExtraLib of filename
+| Plugin of pluginname
+
+let string_of_linked_file = function
+  | ExtraLib s -> s
+  | Plugin s -> s
+
+let stdlib_path =
+  let path =
+    try Sys.getenv InstallDir.name
+    with Not_found -> "."
+  in
+  Filename.concat path InstallDir.opa_packages
+
+let stdlib_qmljs_path =
+  Filename.concat stdlib_path "stdlib.qmljs"
+
+let plugin_object name =
+  name ^ BslConvention.Suffix.nodejspackage ^ ".js"
+
+let filename_of_plugin plugin =
+  let name = plugin.BslPluginInterface.basename in
+  let plugin_path = match plugin.BslPluginInterface.path with
+    | Some path -> path
+    | None -> Filename.concat stdlib_path (name ^ ".opp") (* guess *)
+  in
+  Filename.concat plugin_path (plugin_object name)
+
+let filename_of_linked_file = function
+  | ExtraLib file -> file
+  | Plugin name ->
+    match BslPluginTable.get name with
+    | Some plugin -> filename_of_plugin plugin
+    | None ->
+      let plugin_path = Filename.concat stdlib_path (name ^ ".opp") in
+      Filename.concat plugin_path (plugin_object name)
+
 (**
    PASSES :
    -------
@@ -56,8 +97,8 @@ let wclass =
 
 module JsTreat :
 sig
-  val js_bslfilesloading : Qml2jsOptions.t -> BslLib.env_bsl -> (string * string) list * JsAst.code
-  val js_generation : Qml2jsOptions.t -> (string * string) list -> J.env_js_input -> env_js_output
+  val js_bslfilesloading : Qml2jsOptions.t -> BslLib.env_bsl -> (linked_file * string) list * JsAst.code
+  val js_generation : Qml2jsOptions.t -> (linked_file * string) list -> J.env_js_input -> env_js_output
   val js_treat : Qml2jsOptions.t -> env_js_output -> int
 end =
 struct
@@ -73,7 +114,6 @@ struct
 
   let js_bslfilesloading env_opt env_bsl =
     (* 1) extra libraries *)
-    let generated_files = [] in
     let generated_files =
       let fold acc (extra_lib, conf) =
         let () =
@@ -85,7 +125,7 @@ struct
         in
         let get t =
           let contents = File.content t in
-          (t, contents)::acc
+          (ExtraLib (Filename.basename t), contents)::acc
         in
         match File.get_locations env_opt.extra_path extra_lib with
         | [] ->
@@ -99,7 +139,7 @@ struct
               "I will use this one : @{<bright>%s@}" ) extra_lib (String.concat " " all) t ;
             get t
       in
-      List.fold_left fold generated_files env_opt.extra_lib
+      List.fold_left fold [] env_opt.extra_lib
     in
 
     (* 2) loaded bsl containing js files
@@ -108,14 +148,9 @@ struct
     let generated_files =
       let fold acc loader =
         (* TODO figure out what filter_bsl was being used for *)
-        let filename =
-          let path = Option.default "." loader.BslPluginInterface.path in
-          Filename.concat path
-            (loader.BslPluginInterface.basename ^
-               BslConvention.Suffix.nodejspackage ^
-               ".js") in
+        let filename = filename_of_plugin loader in
         let content = File.content filename in
-        (filename, content) :: acc
+        (Plugin loader.BslPluginInterface.basename, content) :: acc
       in
 
     (*
@@ -150,7 +185,7 @@ struct
       List.fold_left fold generated_files env_bsl.BslLib.plugins
     in
     let ast = List.flatten (List.rev_map (
-                              fun (filename,content) ->
+                              fun (file, content) ->
                                 (*
                                   TODO: we must take care about conf,
                                   and not parse file tagged as Verbatim
@@ -160,12 +195,12 @@ struct
                                 with JsParse.Exception error -> (
                                   let _ = File.output "jserror.js" content in
                                   OManager.error "JavaScript parser error on file '%s'\n%a\n"
-                                    filename JsParse.pp error;
+                                    (string_of_linked_file file) JsParse.pp error;
                                 )
                             ) generated_files) in
     List.rev generated_files, ast
 
-  let write env_opt (filename, contents) =
+  let write env_opt filename contents =
     let filename = Filename.concat env_opt.compilation_directory filename in
     OManager.verbose "writing file @{<bright>%s@}" filename ;
     let success = File.output filename contents in
@@ -174,12 +209,14 @@ struct
   module S =
   struct
     type t = {
-      generated_files : (string * string) list;
+      generated_files : (linked_file * string) list;
     }
     let pass = "ServerJavascriptCompilation"
     let pp fmt {generated_files} =
-      let pp_file fmt (filename, content) =
-        Format.fprintf fmt "// FILE : %s@\n%s" filename content in
+      let pp_file fmt (file, content) =
+        Format.fprintf fmt "// FILE : %s@\n%s"
+          (filename_of_linked_file file) content
+      in
       Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files
   end
 
@@ -210,7 +247,7 @@ struct
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
     let success = File.check_create_path build_dir in
     let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
-    write env_opt (filename, content)
+    write env_opt filename content
 
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
@@ -218,6 +255,7 @@ struct
   (* Copy included BSL files to the build path where
      they can be loaded dynamically *)
   let copy_js_file env_opt filename content =
+    Printf.printf "copying file %s\n" filename;
     let dest = Filename.concat (depends_dir env_opt)
       (Filename.basename filename) in
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 dest in
@@ -258,23 +296,18 @@ struct
     if env_opt.static_link then
       ()
     else
-      begin match stdlib_path with
-      | Some path -> Printf.fprintf load_oc "var __stdlib_path = '%s/';\n" path;
-      | None -> ()
-      end;
+      Printf.fprintf load_oc "var __stdlib_path = '%s/';\n" stdlib_path;
     let generated_files = List.rev generated_files in
-    Format.printf "generated 1: %a\n" (Format.pp_list ", " Format.pp_print_string)
-      (List.map fst generated_files);
     let generated_files =
       R.fold_with_name ~packages:true ~deep:true
         (fun _package generated_files {S. generated_files = opxgenfiles} ->
            let generated_files = List.fold_left
-             (fun generated_files ((filename, content) as opxgenfile) ->
+             (fun generated_files ((file, content) as opxgenfile) ->
                 try
-                  let c = List.assoc filename generated_files in
+                  let c = List.assoc file generated_files in
                   if content <> c then
                     OManager.warning ~wclass "Two files named %s has not the same content\n%!"
-                      filename;
+                      (string_of_linked_file file);
                   generated_files
                 with Not_found -> opxgenfile::generated_files
              ) generated_files opxgenfiles
@@ -282,21 +315,19 @@ struct
            generated_files
         ) generated_files
     in
-    Format.printf "generated 2: %a\n" (Format.pp_list ", " Format.pp_print_string)
-      (List.map fst generated_files);
     List.iter
-      (fun (filename, content) ->
+      (fun (file, content) ->
         #<Ifstatic:JS_IMP_DEBUG 1>
         Printf.fprintf load_oc "console.log('Load file %s')" filename;
         #<End>
         if env_opt.static_link then (
           Printf.fprintf oc "///////////////////////\n";
-          Printf.fprintf oc "// From %s\n" filename;
+          Printf.fprintf oc "// From %s\n" (string_of_linked_file file);
           Printf.fprintf oc "///////////////////////\n";
           Printf.fprintf oc "%s" content;
           Printf.fprintf oc "\n";
         ) else
-          let filename = copy_js_file env_opt filename content in
+          let filename = copy_js_file env_opt (filename_of_linked_file file) content in
           Printf.fprintf load_oc "require('./%s');\n" (Filename.basename filename);
       ) (List.rev generated_files);
     load_oc
@@ -351,19 +382,7 @@ if (process.version < '%s') {
 */
 
 " min_node_version min_node_version max_node_version;
-    let stdlib_path =
-      ObjectFiles.fold_dir ~deep:true ~packages:true
-        (fun acc opx ->
-          if "stdlib.core.opx" = Filename.basename opx then
-            Some (Filename.dirname opx)
-          else
-            acc) None
-    in
-    let is_from_stdlib =
-      match stdlib_path with
-      | Some path -> fun opx -> String.is_prefix path opx
-      | None -> fun _ -> false
-    in
+    let is_from_stdlib opx = String.is_prefix stdlib_path opx in
     let load_oc =
       linking_generation_js_init env_opt stdlib_path generated_files oc
     in
