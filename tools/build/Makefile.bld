@@ -55,7 +55,7 @@ clean::
 
 .PHONY: distclean
 distclean: clean
-	rm -f $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.ml $(CONFIG_PATH)/config.make $(CONFIG_PATH)/config.log
+	rm -f $(CONFIG_PATH)/config.{sh,ml,make,log}
 
 
 -include $(BUILD_DIR)/build_libs.make
