@@ -1,4 +1,4 @@
-Config
+tools/build/Config
 ocamllib/libbase/Mlstate_platform
 ocamllib/libbase/PathTransform
 ocamllib/libbase/Option

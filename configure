@@ -93,7 +93,7 @@ done
 : ${IS_RELEASE:=}
 : ${LIBDIR:=$PREFIX}
 
-CONFIG_PATH=`pwd`/tools/build
+CONFIG_PATH=$PWD/tools/build
 CONFIG_LOG=$CONFIG_PATH/config.log
 
 echo -n > $CONFIG_LOG

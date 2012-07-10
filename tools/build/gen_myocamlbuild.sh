@@ -73,6 +73,7 @@ done
 MYOCAMLBUILD=$BUILD_DIR/myocamlbuild.ml
 
 mkdir -p $BUILD_DIR
+mkdir -p $BUILD_DIR/$CONFIG_PATH
 
 # Generate the myocamlbuild.ml
 {
@@ -124,18 +125,15 @@ mkdir -p $BUILD_DIR
 
 OCAMLBUILD_LIB=$($OCAMLBUILD -where)
 
-cp $CONFIG_ML ${CONFIG_ML}i $BUILD_DIR
+cp $CONFIG_ML ${CONFIG_ML}i $BUILD_DIR/$CONFIG_PATH/
+cd $BUILD_DIR
 if [ "${BYTECODE:-}" ]; then
-    cd $BUILD_DIR
     OCAMLC=${OCAMLOPT/ocamlopt/ocamlc}
-    $OCAMLC -c config.mli
-    $OCAMLC -c config.ml
-    $OCAMLC -w y -I "$OCAMLBUILD_LIB" unix.cma ocamlbuildlib.cma config.ml myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmo -o myocamlbuild
+    $OCAMLC -I $CONFIG_PATH -c $CONFIG_PATH/config.mli
+    $OCAMLC -I $CONFIG_PATH -c $CONFIG_PATH/config.ml
+    $OCAMLC -w y -I "$OCAMLBUILD_LIB" -I $CONFIG_PATH unix.cma ocamlbuildlib.cma $CONFIG_PATH/config.ml myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmo -o myocamlbuild
 else
-    rm -f _build/config.*
-    cp $CONFIG_ML ${CONFIG_ML}i $BUILD_DIR
-    cd $BUILD_DIR
-    $OCAMLOPT -c config.mli
-    $OCAMLOPT -c config.ml
-    $OCAMLOPT -w y -I "$OCAMLBUILD_LIB" unix.cmxa ocamlbuildlib.cmxa config.cmx myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmx -o myocamlbuild
+    $OCAMLOPT -I $CONFIG_PATH -c $CONFIG_PATH/config.mli
+    $OCAMLOPT -I $CONFIG_PATH -c $CONFIG_PATH/config.ml
+    $OCAMLOPT -w y -I "$OCAMLBUILD_LIB" -I $CONFIG_PATH unix.cmxa ocamlbuildlib.cmxa $CONFIG_PATH/config.cmx myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmx -o myocamlbuild
 fi
