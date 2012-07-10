@@ -41,7 +41,7 @@ ServerLog = {{
   @publish warning = wrap(Logger.warning )
   @publish notice  = wrap(Logger.notice  )
   @publish info    = wrap(Logger.info    )
-  @publish debug(t, x) = wrap(Logger.debug   )(t, Debug.dump(x))
+  @publish debug(t, x) = wrap(Logger.debug   )(t, "{x}")
 }}
 
 @private
@@ -51,7 +51,9 @@ Clientlog = {{
   warning = %% BslSyslog.warning %%
   notice  = %% BslSyslog.notice %%
   info    = %% BslSyslog.info %%
-  debug   = %% BslSyslog.debug %%
+  debug(t, x) =
+    __hack_for_ei = @typeof(x)
+    %% BslSyslog.debug %%(t, x)
 }}
 
 /**
