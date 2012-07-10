@@ -490,10 +490,11 @@ let opabsl_files =
   ])
 in
 
-List.iter (fun file ->
-  let tags = Tags.elements (tags_of_pathname ("plugins"/"opabsl"/file)) in
-  tag_file ("opabsl.opp"/file) tags
-) ["opabslPlugin.ml"; "opabslMLRuntime.ml"
+List.iter (
+  fun file ->
+    let tags = Tags.elements (tags_of_pathname ("plugins"/"opabsl"/file)) in
+    tag_file ("opabsl.opp"/file) tags
+) ["opabslPlugin.ml"; "opabslMLRuntime.ml";
    "opabslLoader.ml"; "serverLib.mli"]
 ;
 

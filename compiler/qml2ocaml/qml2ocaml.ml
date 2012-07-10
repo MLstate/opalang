@@ -585,7 +585,7 @@ prerr_endline \"CHECKUP - LIBS - OK\"
     ) options.O.extra_lib
     in
 
-    let extra_lib_native = String.concat_map " " substitute_lib_extension_native extralib in
+    let extra_lib_native = String.concat_map " " substitute_lib_extension_native extra_lib in
     let extra_lib_bytecode = String.concat_map " " substitute_lib_extension_bytecode extra_lib in
 
     (* options for compiler & linker *)
