@@ -12,7 +12,7 @@
 # <**/*>: -include, -traverse
 
 # Subdirectories to include
-<{ocamllib,compiler,lib,tools}>: include
+<{ocamllib,compiler,lib,tools,tools/build}>: include
 
 # Warnings
 <**/*.ml>: warn_L, warn_Z, warn_error_A
