@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -46,6 +46,11 @@
 #define ONELINE_NAME(X) X509_NAME_oneline(X, 0, 0)
 
 #include "../libbase/mlstate_platform.h"
+
+#if defined (__APPLE__)
+/* Disable depricated-declarations on OS X */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #ifdef MLSTATE_WINDOWS
 #include <io.h>
@@ -159,7 +164,7 @@ CAMLprim value ocaml_ssl_ext_compute_digest(value certificate, value dname)
   X509_digest(cert,fdig,digest,&n);
   caml_leave_blocking_section();
   if (digest == NULL) caml_raise_not_found ();
-  
+
   CAMLreturn(caml_copy_string(String_val(digest)));
 }
 
@@ -178,25 +183,25 @@ static int no_client_verify_callback(int ok, X509_STORE_CTX *ctx)
    * certificate that is being verified ... and if we cannot
    * determine that then something is seriously wrong!
    */
-   subject=(char*)ONELINE_NAME(X509_get_subject_name((X509*)xs)); 
-   if (subject == NULL) 
-   { 
-     ERR_print_errors_fp(stderr); 
-     ok = 0; 
-     goto return_time; 
-   } 
-   issuer = (char*)ONELINE_NAME(X509_get_issuer_name((X509*)xs)); 
-   if (issuer == NULL) 
-   { 
-     ERR_print_errors_fp(stderr); 
-     ok = 0; 
-     goto return_time; 
-   } 
+   subject=(char*)ONELINE_NAME(X509_get_subject_name((X509*)xs));
+   if (subject == NULL)
+   {
+     ERR_print_errors_fp(stderr);
+     ok = 0;
+     goto return_time;
+   }
+   issuer = (char*)ONELINE_NAME(X509_get_issuer_name((X509*)xs));
+   if (issuer == NULL)
+   {
+     ERR_print_errors_fp(stderr);
+     ok = 0;
+     goto return_time;
+   }
   signature = (((X509*)xs)->signature)->data;
   if (signature == NULL) {
     ERR_print_errors_fp(stderr);
     ok = 0;
-    goto return_time;    
+    goto return_time;
   }
 
   ok = 1;
@@ -252,7 +257,7 @@ CAMLprim value ocaml_ssl_ext_verify_chain(value certificate, value caf)
   X509_STORE *ctx=X509_STORE_new();
   X509_LOOKUP *lookup=X509_STORE_add_lookup(ctx,X509_LOOKUP_file());
   X509_STORE_CTX *csc=X509_STORE_CTX_new();
-  
+
 /*   printf("CAfile %s\n", cafile); */
 /*   printf("Certificate: "); */
 /*   X509_NAME_print_ex_fp(stdout, */
@@ -260,7 +265,7 @@ CAMLprim value ocaml_ssl_ext_verify_chain(value certificate, value caf)
 /* 			0, XN_FLAG_ONELINE); */
 /*   printf("\n"); */
 
- 
+
   if (ctx == NULL) printf("ctx error\n");
 
   OpenSSL_add_all_algorithms();
