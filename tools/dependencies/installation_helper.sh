@@ -27,7 +27,7 @@ help () {
     cat <<EOF
 
 [1minstallation_helper.sh[0m
-helps download, patch, build and install the dependencies of OPA.
+helps download, patch, build and install the dependencies of Opa.
 
 Usage:
 	$0 --prefix <dir> [options] [commands]
