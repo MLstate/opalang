@@ -93,18 +93,19 @@ done
 : ${IS_RELEASE:=}
 : ${LIBDIR:=$PREFIX}
 
-CONFIG_LOG=$PWD/config.log
+CONFIG_PATH=`pwd`/tools/build
+CONFIG_LOG=$CONFIG_PATH/config.log
 
-echo -n >$CONFIG_LOG
+echo -n > $CONFIG_LOG
 
-echo-check() { echo -n "Checking $*... " >&2 ; echo "# CHECK-START: $*" >>$CONFIG_LOG; }
+echo-check() { echo -n "Checking $*... " >&2 ; echo "# CHECK-START: $*" >> $CONFIG_LOG; }
 echo-ok() {
     local opts=; if [ "X$1" = "X-n" ]; then shift; opts="-n"; fi
-    echo $opts "[1m$*[0m" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >>$CONFIG_LOG;
+    echo $opts "[1m$*[0m" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >> $CONFIG_LOG;
 }
-echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >>$CONFIG_LOG; }
-echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >>$CONFIG_LOG; }
-echo-skip() { echo "[1m[33m$*[0m" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >>$CONFIG_LOG; }
+echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >> $CONFIG_LOG; }
+echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >> $CONFIG_LOG; }
+echo-skip() { echo "[1m[33m$*[0m" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >> $CONFIG_LOG; }
 
 # check OS
 echo-check your OS
@@ -242,7 +243,7 @@ check-ocaml () {
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
     trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
     cd $DIR
-    cat >test.ml <<EOF
+    cat > test.ml <<EOF
 let p = Unix.getpid()
 let _ = Printf.printf "%s, %s %dbit" Sys.ocaml_version Sys.os_type Sys.word_size
 let _ =
@@ -250,7 +251,7 @@ let _ =
 EOF
 
     echo "# $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native" >> $CONFIG_LOG
-    R=0; $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native >test.log 2>&1 || R=$?
+    R=0; $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native > test.log 2>&1 || R=$?
 
     cat test.log >> $CONFIG_LOG
 
@@ -713,7 +714,7 @@ for tag in $ALL_TAGS_LIST; do
 done
 
 # See config.mli for the documentation and spec of these variables
-cat >config.ml <<EOF
+cat > $CONFIG_PATH/config.ml <<EOF
 let prefix = "$PREFIX"
 let lib_dir = "$LIBDIR"
 let ocamllib = "$OCAMLLIB"
@@ -762,7 +763,7 @@ let ext_shared = "$EXT_SHARED"
 
 EOF
 
-cat >config.sh <<EOF
+cat > $CONFIG_PATH/config.sh <<EOF
 PREFIX="$PREFIX"
 LIBDIR="$LIBDIR"
 OCAMLLIB="$OCAMLLIB"
@@ -806,11 +807,11 @@ EXT_OBJ="$EXT_OBJ"
 EXT_SHARED="$EXT_SHARED"
 EOF
 
-sed 's/=["(]\(.*\)[)"]$/ := \1/' config.sh > config.make
+sed 's/=["(]\(.*\)[)"]$/ := \1/' $CONFIG_PATH/config.sh > $CONFIG_PATH/config.make
 if [ -n "${IS_MAC:-}" ]; then
-    echo "INSTALL := gcp -u -L" >>config.make
+    echo "INSTALL := gcp -u -L" >> $CONFIG_PATH/config.make
 elif [ -n "${IS_FREEBSD:-}" ]; then
-    echo "INSTALL := cp" >>config.make
+    echo "INSTALL := cp" >> $CONFIG_PATH/config.make
 fi
 
 {

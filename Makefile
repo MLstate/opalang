@@ -10,8 +10,10 @@
 .PHONY: default
 default: all
 
+CONFIG_PATH = tools/build
+
 # Makefile inclusions
-include config.make
+include $(CONFIG_PATH)/config.make
 include tools/build/Makefile.bld
 
 MAKE ?= $_
@@ -246,7 +248,7 @@ install-bld:
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
 	@echo "_build/myocamlbuild -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
-	@$(INSTALL) build/gen_myocamlbuild.sh build/myocamlbuild_*fix.ml config.sh config.mli config.ml\
+	@$(INSTALL) build/gen_myocamlbuild.sh build/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
 # Install an opa wrapper with different stdlib and options (for some backwards-compatibility)

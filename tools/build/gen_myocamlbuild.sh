@@ -3,16 +3,19 @@
 set -u
 set -e
 
-# This script reads files config.{sh,ml}, build_rules*.ml, build_libs, build_tools and uses them
+# This script reads files config.{sh,ml}, build_rules*.ml, build_libs, build_tools
+# in tools/build/ and uses them
 # to build an ocamlbuild plugin in <build_dir>/myocamlbuild
 #
 # You can then run your compilations with:
 # $ <build_dir>/myocamlbuild -no-plugin -j 6 <targets>
 
-CONFIG_SH=config.sh
+CONFIG_PATH=tools/build
+
+CONFIG_SH=$CONFIG_PATH/config.sh
 if [ ! -e $CONFIG_SH ]; then
-    if [ -e $(dirname "$0")/config.sh ]; then
-        CONFIG_SH=$(dirname "$0")/config.sh
+    if [ -e $CONFIG_PATH/config.sh ]; then
+        CONFIG_SH=$CONFIG_PATH/config.sh
     else
         echo "Error: config.sh not found. Please run ./configure"
         exit 1
@@ -25,7 +28,7 @@ fi
 
 : ${BLDDIR:="$PWD"/tools/build}
 
-CONFIG_ML=config.ml
+CONFIG_ML=$CONFIG_PATH/config.ml
 if [ ! -e $CONFIG_ML ]; then
     echo $BLDDIR/config.ml >&2
     if [ -e $BLDDIR/config.ml ]; then
