@@ -52,12 +52,15 @@ let string_of_linked_file = function
   | ExtraLib s -> s
   | Plugin s -> s
 
+let system_path =
+  try Sys.getenv InstallDir.name
+  with Not_found -> "."
+
+let static_path =
+  Filename.concat system_path InstallDir.lib_opa
+
 let stdlib_path =
-  let path =
-    try Sys.getenv InstallDir.name
-    with Not_found -> "."
-  in
-  Filename.concat path InstallDir.opa_packages
+  Filename.concat system_path InstallDir.opa_packages
 
 let stdlib_qmljs_path =
   Filename.concat stdlib_path "stdlib.qmljs"
@@ -74,7 +77,8 @@ let filename_of_plugin plugin =
   Filename.concat plugin_path (plugin_object name)
 
 let filename_of_linked_file = function
-  | ExtraLib file -> file
+  | ExtraLib file ->
+    Filename.concat static_path file
   | Plugin name ->
     match BslPluginTable.get name with
     | Some plugin -> filename_of_plugin plugin
@@ -252,30 +256,7 @@ struct
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
 
-  (* Copy included BSL files to the build path where
-     they can be loaded dynamically *)
-  let copy_js_file env_opt filename content =
-    Printf.printf "copying file %s\n" filename;
-    let dest = Filename.concat (depends_dir env_opt)
-      (Filename.basename filename) in
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 dest in
-    try
-      let content =
-        List.map fix_exports
-          (JsParse.String.code content ~throw_exn:true) in
-      let fmt = Format.formatter_of_out_channel oc in
-      Format.fprintf fmt "%a" JsPrint.pp_min#code content;
-      close_out oc;
-      dest
-    with
-    | JsParse.Exception e ->
-      let e = Format.to_string JsParse.pp e in
-      OManager.error (
-        "There was a problem when parsing file %s:" ^^
-        "%s\nThis is the PP result:\n%s"
-      ) filename e content
-
-  let linking_generation_js_init env_opt stdlib_path generated_files oc =
+  let linking_generation_js_init env_opt generated_files oc =
     let load_oc =
       (* Channel to output libraries *)
       if env_opt.static_link then
@@ -296,7 +277,7 @@ struct
     if env_opt.static_link then
       ()
     else
-      Printf.fprintf load_oc "var __stdlib_path = '%s/';\n" stdlib_path;
+      Printf.fprintf load_oc "var __stdlib_qmljs_path = '%s/';\n" stdlib_qmljs_path;
     let generated_files = List.rev generated_files in
     let generated_files =
       R.fold_with_name ~packages:true ~deep:true
@@ -327,8 +308,8 @@ struct
           Printf.fprintf oc "%s" content;
           Printf.fprintf oc "\n";
         ) else
-          let filename = copy_js_file env_opt (filename_of_linked_file file) content in
-          Printf.fprintf load_oc "require('./%s');\n" (Filename.basename filename);
+          Printf.fprintf load_oc "require('%s');\n"
+            (filename_of_linked_file file);
       ) (List.rev generated_files);
     load_oc
 
@@ -383,9 +364,7 @@ if (process.version < '%s') {
 
 " min_node_version min_node_version max_node_version;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
-    let load_oc =
-      linking_generation_js_init env_opt stdlib_path generated_files oc
-    in
+    let load_oc = linking_generation_js_init env_opt generated_files oc in
     let js_file opx = Filename.concat opx "a.js" in
     let read_append opx =
       Printf.fprintf oc "///////////////////////\n";
