@@ -234,6 +234,8 @@ uninstall:
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
 
+OCAMLBUILD_OPT ?= -j 6
+
 # Install our ocamlbuild-generation engine
 install-bld:
 	@mkdir -p $(INSTALL_DIR)/bin
@@ -242,7 +244,7 @@ install-bld:
 	@echo "set -u" >> $(INSTALL_DIR)/bin/bld
 	@chmod 755 $(INSTALL_DIR)/bin/bld
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
-	@echo "_build/myocamlbuild -no-plugin -j 6 \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
+	@echo "_build/myocamlbuild -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
 	@$(INSTALL) build/gen_myocamlbuild.sh build/myocamlbuild_*fix.ml config.sh config.mli config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
