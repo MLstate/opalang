@@ -9,7 +9,7 @@
 # sorted by repos, and warning-error directives
 
 # Default : do not include or traverse anything
-# <**/*>: -include, -traverse
+<**/*>: -include, -traverse
 
 # Subdirectories to include
 <{ocamllib,compiler,lib,tools,tools/build}>: include
