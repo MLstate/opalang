@@ -2,21 +2,22 @@
 
 <**/*Loader*.{ml,mli,byte,native}>: use_libbsl
 <crypto/*.{ml,byte,native,opa_plugin}>: use_cryptokit
+
+<badop>: traverse
 <browser_canvas>: traverse
 <crypto>: traverse
-<irc>: traverse
-<unix>:traverse
-<socket>: traverse
 <gcharts>: traverse
-<iconv>: traverse
-<badop>: traverse
 <hlnet>: traverse
-<session>: traverse
-<qos>: traverse
-<server>: traverse
+<iconv>: traverse
+<irc>: traverse
 <mail>: traverse
 <mongo>: traverse
 <opabsl>: traverse, static
+<qos>: traverse
+<server>: traverse
+<session>: traverse
+<socket>: traverse
+<unix>:traverse
 
 # Tag treated differently in build_rules
 <**/*.{opa_plugin,oppf}>: use_opabsl
