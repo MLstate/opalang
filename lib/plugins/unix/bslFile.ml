@@ -15,7 +15,7 @@ module U = Unix
 ##property[mli]
 ##extern-type time_t = int
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
-##extern-type binary = string
+##extern-type binary = Buffer.t
 (** *****************************)
 
 ##register mlstate_dir : void -> string
@@ -110,38 +110,25 @@ let remove_rec file = ignore (File.remove_rec file)
       let path = Filename.dirname n in
       ignore (File.check_create_path path);
 	open_out n
-    in output_string och content ; close_out och
+    in output_string och (Buffer.contents content) ; close_out och
 
 ##register create_full_path: string -> void
 let create_full_path path = ignore (File.check_create_path path)
 
+let buffer_of_string s =
+  let b = Buffer.create (String.length s) in
+  Buffer.add_string b s;
+  b
+
 ##register content_opt: string -> option(binary)
-let content_opt = File.content_opt
+let content_opt x =
+  Option.map buffer_of_string (File.content_opt x)
 
-(**
-   {1 Must reimplement}
 
-   This works on Macintosh, but not Linux, due to limitations of epoll!
-*)
-
-##register [cps-bypass] content_cps: string, continuation(opa[option(binary)]) -> void
-let content_cps filename k =
-  let fd = U.openfile filename [U.O_RDONLY; U.O_NONBLOCK] 0o600 in
-  let size = (U.fstat fd).U.st_size in
-  let sched = Scheduler.default in
-  let addr = NetAddr.mk_file ~fd in
-  let conn = Scheduler.make_connection sched addr in
-  let finalize result =
-    U.close fd;
-    QmlCpsServerLib.return k result
-  in
-  let on_failure _ = finalize ServerLib.none
-  and on_success (_, buffer) = finalize (ServerLib.some (ServerLib.wrap_string (FBuffer.contents buffer))) in
-  Scheduler.read_all ~read_max:(Some size) sched conn ~err_cont:on_failure on_success
 
 (**
    {1 Deprecated}
 *)
 (*Deprecated: use [content_cps]*)
 ##register content : string -> binary
-let content = File.content
+let content x = buffer_of_string (File.content x)
