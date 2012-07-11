@@ -218,7 +218,7 @@ struct
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 filename in
     let package_name = (Filename.basename env_opt.compilation_directory) in
     Printf.fprintf oc "{\n";
-    Printf.fprintf oc "  \"name\": %S,\n" package_name;
+    Printf.fprintf oc "  \"name\": \"%s\",\n" package_name;
     Printf.fprintf oc "  \"version\": \"0.0.0\",\n";
     Printf.fprintf oc "  \"main\": \"a.js\"\n";
     Printf.fprintf oc "}\n";
@@ -365,7 +365,7 @@ check-node-dependencies \"mongodb formidable nodemailer simplesmtp imap\" || exi
 EOF
 
 if [ $? -ne 0 ]; then exit $?; fi;
-NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules\" node \"$0\" \"$@\"; exit $?;
+NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s\" node \"$0\" \"$@\"; exit $?;
 
 if (process.version < '%s') {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= %s)');
@@ -375,7 +375,8 @@ if (process.version < '%s') {
 }
 */
 
-" stdlib_qmljs_path min_node_version min_node_version max_node_version;
+" stdlib_qmljs_path stdlib_path min_node_version
+      min_node_version max_node_version;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
     let load_oc = linking_generation_js_init env_opt generated_files oc in
     let js_file opx = Filename.concat opx "a.js" in

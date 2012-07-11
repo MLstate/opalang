@@ -866,6 +866,17 @@ let make_iterator rename =
   in
   { BR.output = output }
 
+let output_package_json () =
+  let path = Filename.dirname !nodejspackage in
+  let dest = Filename.concat path "package.json" in
+  let main = Filename.basename !nodejspackage in
+  let oc = handle_open_out dest in
+  Printf.fprintf oc "{\n";
+  Printf.fprintf oc "  \"name\": \"%s\",\n" !opp_dir;
+  Printf.fprintf oc "  \"version\": \"0.0.0\",\n";
+  Printf.fprintf oc "  \"main\": \"%s\"\n" main;
+  Printf.fprintf oc "}\n";
+  handle_close_out dest oc
 
 (* after finalization of register session, actually produce files *)
 let files_generation ( finalized_t : BR.finalized_t ) =
@@ -879,6 +890,8 @@ let files_generation ( finalized_t : BR.finalized_t ) =
   BR.out_opa_interface        iterator_opa_interface          finalized_t ;
 
   output !nodejspackage       BR.out_nodejs_package           finalized_t ;
+
+  output_package_json ();
 
   output !jskeys              BR.out_js_keys                  finalized_t ;
 
