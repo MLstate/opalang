@@ -37,6 +37,15 @@ val copy : ?force:bool -> string -> string -> int
      @return The exit code of the underlying command
   *)
 
+val copy_rec : ?force:bool -> string -> string -> int
+  (**
+     [copy ?force source target] copy the content of file or directory
+     named [source] into destination [target]
+     It will create any directories that are needed
+     If [force] is set, then [copy] occurs even when [target] exists
+     @return The exit code of the underlying command
+  *)
+
 val mv : ?force:bool -> string -> string -> int
   (**
      [mv ?force source target] mv the content of file named [source]

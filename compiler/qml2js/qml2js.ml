@@ -291,10 +291,6 @@ struct
         load_oc
       )
     in
-    if env_opt.static_link then
-      ()
-    else
-      Printf.fprintf load_oc "var __stdlib_qmljs_path = '%s/';\n" stdlib_qmljs_path;
     let generated_files = List.rev generated_files in
     let generated_files =
       R.fold_with_name ~packages:true ~deep:true
@@ -379,7 +375,7 @@ if (process.version < '%s') {
 }
 */
 
-" min_node_version min_node_version max_node_version;
+" stdlib_qmljs_path min_node_version min_node_version max_node_version;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
     let load_oc = linking_generation_js_init env_opt generated_files oc in
     let js_file opx = Filename.concat opx "a.js" in
@@ -400,15 +396,16 @@ if (process.version < '%s') {
       in aux(); close_in ic
     in
     let link opx =
-      let short_name = js_file (Filename.basename opx) in
+      let short_name = Filename.basename opx in
       if env_opt.static_link then
         read_append opx
       else if is_from_stdlib opx then
-        Printf.fprintf load_oc "require(__stdlib_path + '%s');\n" short_name
+        Printf.fprintf load_oc "require('%s');\n" short_name
       else
-        let dest_name = Filename.concat (depends_dir env_opt) short_name in
-        let _ = File.copy ~force:true (js_file opx) dest_name = 0 in
-        Printf.fprintf load_oc "require('./%s');\n" short_name
+        let dest_path = Filename.concat (depends_dir env_opt) "node_depends" in
+        let dest_name = Filename.concat dest_path short_name in
+        let _ = File.copy_rec ~force:true opx dest_name = 0 in
+        Printf.fprintf load_oc "require('%s');\n" short_name
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
     read_append env_opt.compilation_directory;

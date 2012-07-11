@@ -497,6 +497,30 @@ let rec remove_rec file =
             Unix.closedir handle;
             Unix.rmdir dir
 
+(** hopefully, this is the ultimate and portable version of cp -R *)
+let copy_rec ?(force=false) src tgt =
+  let path_exists path =
+    try
+      ignore (Sys.is_directory path); true
+    with
+      Sys_error _ -> false in
+  if not (path_exists src) then 1
+  else
+    if src = tgt then 0
+      (* FIXME if you have symbolic links, this check is not enough
+       * and if [force] is set, then you will end up deleting your file *)
+    else
+      begin
+        if force && (path_exists tgt) then remove_rec tgt;
+        if path_exists tgt then 1
+        else
+          let dir = Filename.dirname tgt in
+          if check_create_path dir then
+            let command = (if Base.is_windows then Format.sprintf  "copy \"%s\" \"%s\"" else Format.sprintf "cp -R \"%s\" \"%s\"") src tgt in
+            Sys.command command
+          else 1
+      end
+
 (** iterate a function on the contents of a directory, ignoring subdirectories *)
 let iter_dir f d =
   let dh = Unix.opendir d in
