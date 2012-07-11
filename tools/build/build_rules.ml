@@ -560,9 +560,9 @@ rule "Client lib JS validation"
 
 (*
   -The documentation generator does not work if files are not suffixed with '.js'
-  -But, we do not need to preprocess the opabslgen_ files with ppjs,
+  -But, we do not need to preprocess the opabsl_ files with ppjs,
   as for JS validation (files js_pp_bsl)
-  -We simply use the files opabslgen_ for generating the doc. It is obtained from
+  -We simply use the files opabsl_ for generating the doc. It is obtained from
   the origin js file, and with a resolution of bsl directives (+ generation of additionnal
   type directive for the js validation
 
