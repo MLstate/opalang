@@ -1129,7 +1129,7 @@ let js_validator finalized_t =
     let r = Sys.command command in
     if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
       if r = command_not_found
-      then          warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
+      then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
       else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command
     ) else ()
   | _ -> ()
