@@ -204,11 +204,25 @@ struct
                             ) generated_files) in
     List.rev generated_files, ast
 
-  let write env_opt filename contents =
+  let write_main env_opt filename contents =
     let filename = Filename.concat env_opt.compilation_directory filename in
     OManager.verbose "writing file @{<bright>%s@}" filename ;
     let success = File.output filename contents in
     if not success then OManager.error "cannot write file @{<bright>%S@}" filename
+
+  (* Write a package.json package descriptor that can be understood by
+     node and npm. *)
+  let write_package_json env_opt =
+    let filename = Filename.concat env_opt.compilation_directory "package.json" in
+    OManager.verbose "writing file @{<bright>%s@}" filename ;
+    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 filename in
+    let package_name = (Filename.basename env_opt.compilation_directory) in
+    Printf.fprintf oc "{\n";
+    Printf.fprintf oc "  \"name\": %S,\n" package_name;
+    Printf.fprintf oc "  \"version\": \"0.0.0\",\n";
+    Printf.fprintf oc "  \"main\": \"a.js\"\n";
+    Printf.fprintf oc "}\n";
+    close_out oc
 
   module S =
   struct
@@ -251,7 +265,10 @@ struct
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
     let success = File.check_create_path build_dir in
     let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
-    write env_opt filename content
+    write_main env_opt filename content;
+    match ObjectFiles.compilation_mode () with
+    | `compilation -> write_package_json env_opt
+    | _ -> ()
 
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
