@@ -13,6 +13,16 @@ let binary_of_string s =
 
 ##register string_of_binary\ `Buffer.contents`: binary -> string
 
+##register resize : binary, int -> void
+let resize b size =
+  (* There's no way of changing the hint size for OCaml buffers *)
+  let len = Buffer.length b in
+  if size <> len
+  then
+    let s = if size < len then Buffer.sub b 0 size else Buffer.contents b in
+    Buffer.reset b;
+    Buffer.add_string b s
+
 ##register clear\ `Buffer.clear`: binary -> void
 
 ##register trim: binary -> void
@@ -272,6 +282,38 @@ let get_uint32_be b start =
   lor (((Char.code (Buffer.nth b (start + 1))) lsl 16) land 0x00ff0000)
   lor (((Char.code (Buffer.nth b  start     )) lsl 24) land 0xff000000)
 
+let get_int64_le b p =
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+7)))) 56) 0xff00000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+6)))) 48) 0x00ff000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+5)))) 40) 0x0000ff0000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+4)))) 32) 0x000000ff00000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+3)))) 24) 0x00000000ff000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+2)))) 16) 0x0000000000ff0000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+1))))  8) 0x000000000000ff00L)
+               (Int64.logand (                 (Int64.of_int (Char.code (Buffer.nth b  p   )))   ) 0x00000000000000ffL))))))))
+
+let get_int64_be b p =
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b  p   ))) 56) 0xff00000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+1)))) 48) 0x00ff000000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+2)))) 40) 0x0000ff0000000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+3)))) 32) 0x000000ff00000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+4)))) 24) 0x00000000ff000000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+5)))) 16) 0x0000000000ff0000L)
+  (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+6))))  8) 0x000000000000ff00L)
+               (Int64.logand (                 (Int64.of_int (Char.code (Buffer.nth b (p+7))))   ) 0x00000000000000ffL))))))))
+
+##register get_int53_le : binary, int -> int
+let get_int53_le b p = Int64.to_int (get_int64_le b p) (* will overflow *)
+
+##register get_int53_be : binary, int -> int
+let get_int53_be b p = Int64.to_int (get_int64_be b p) (* will overflow *)
+
+##register get_uint64_le : binary, int -> int64
+let get_uint64_le b p = get_int64_le b p (* it's actually signed *)
+
+##register get_uint64_be : binary, int -> int64
+let get_uint64_be b p = get_int64_be b p (* it's actually signed *)
+
 ##register get_float_le : binary, int -> float
 let get_float_le b p =
   Int32.float_of_bits
@@ -289,26 +331,8 @@ let get_float_be b p =
                  (Int32.logand (                 (Int32.of_int (Char.code (Buffer.nth b (p+3))))   ) 0x000000ffl))))
 
 ##register get_double_le : binary, int -> float
-let get_double_le b p =
-  Int64.float_of_bits
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+7)))) 56) 0xff00000000000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+6)))) 48) 0x00ff000000000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+5)))) 40) 0x0000ff0000000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+4)))) 32) 0x000000ff00000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+3)))) 24) 0x00000000ff000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+2)))) 16) 0x0000000000ff0000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+1))))  8) 0x000000000000ff00L)
-                 (Int64.logand (                 (Int64.of_int (Char.code (Buffer.nth b  p   )))   ) 0x00000000000000ffL))))))))
+let get_double_le b p = Int64.float_of_bits (get_int64_le b p)
 
 ##register get_double_be : binary, int -> float
-let get_double_be b p =
-  Int64.float_of_bits
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b  p   ))) 56) 0xff00000000000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+1)))) 48) 0x00ff000000000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+2)))) 40) 0x0000ff0000000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+3)))) 32) 0x000000ff00000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+4)))) 24) 0x00000000ff000000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+5)))) 16) 0x0000000000ff0000L)
-    (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+6))))  8) 0x000000000000ff00L)
-                 (Int64.logand (                 (Int64.of_int (Char.code (Buffer.nth b (p+7))))   ) 0x00000000000000ffL))))))))
+let get_double_be b p = Int64.float_of_bits (get_int64_be b p)
 
