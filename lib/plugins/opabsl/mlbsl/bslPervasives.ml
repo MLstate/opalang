@@ -204,3 +204,28 @@ let serialize_string_length s =
   let b = Buffer.create 10 in
   ser_int b (String.length s);
   Buffer.contents b
+
+##register memdump : string -> string
+let memdump s =
+  let base = 10 in
+  let bb = Buffer.create 1024 in
+  let bh = Buffer.create 1024 in
+  let ba = Buffer.create 1024 in
+  let len = String.length s in
+  let m, n = len / base, len mod base in
+  for i = 0 to m do
+    let row = i * base in
+    for j = 0 to (if i = m then n-1 else base-1) do
+      let idx = i * base + j in
+      let code = Char.code s.[idx] in
+      Printf.bprintf bh "%02x " code;
+      Printf.bprintf ba "%c" (if code >= 32 && code < 127 then s.[idx] else '.');
+      if j = base-1 || (i = m && j = n-1)
+      then
+        (if base = 10
+         then Printf.bprintf bb "%04d %-30s %-10s\n" row (Buffer.contents bh) (Buffer.contents ba)
+         else Printf.bprintf bb "%04x %-48s %-16s\n" row (Buffer.contents bh) (Buffer.contents ba);
+         Buffer.clear bh; Buffer.clear ba)
+    done
+  done;
+  Buffer.contents bb;;
