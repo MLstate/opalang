@@ -10,6 +10,8 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+import stdlib.core.args
+
 /**
  * Pack binary data into buffers.
  *
@@ -18,7 +20,8 @@
  * valid across thread boundaries.
  *
  * @author Norman Scaife
- * @destination EXTERNAL
+ * @review Quentin Bourgerie
+ * @destination public
  */
 
 /**
@@ -183,6 +186,12 @@ type Pack.data = list(Pack.u)
 type Pack.input = { binary:Pack.t; pos:int }
 
 /**
+ * [Pack.options] is the type of options which is used by the main [pack] and
+ * [unpack] functions.
+ */
+type Pack.options = {signed : bool; endian : bool; size : Pack.s}
+
+/**
  * [Pack.result] is the result type for the Unser module.
  **/
 type Pack.result('a) = outcome((Pack.input,'a),string)
@@ -195,12 +204,6 @@ Pack = {{
   // For debugging buffer contents
   @private memdump = (%% BslPervasives.memdump %%: string -> string)
 
-  /**
-   * A reference bool for dynamically switching debug output on and off.
-   * Enable with [ServerReference.set(Pack.debug,true)].
-   **/
-  debug = ServerReference.create(false)
-
   /** Convenience value for little Endian values **/
   littleEndian = true
 
@@ -210,17 +213,11 @@ Pack = {{
   /** Convenience value for meaningless Endian values, eg. bytes **/
   noEndian = false
 
-  /** The default endianness, can be set from the command line **/
-  defaultEndian = ServerReference.create(bigEndian)
-
   /** Convenience value for signed integers **/
   signedInts = true
 
   /** Convenience value for unsigned integers **/
   unsignedInts = false
-
-  /** The default signedness, can be set from the command line **/
-  defaultInts = ServerReference.create(signedInts)
 
   /** Convenience value for 8-bit integers **/
   byteSize = {B} : Pack.s
@@ -234,8 +231,50 @@ Pack = {{
   /** Convenience value for 64-bit integers **/
   longlongSize = {Ll} : Pack.s
 
-  /** The default integer size, can be set from the command line **/
-  defaultSize = ServerReference.create(longSize)
+  /**
+   * A generator of options which can be overridden by the command line.
+   * Default options are [init] or overridden by the command line :
+   * - --default-endian:[name] : To set the default endian
+   * - --default-ints  : To set the default ints
+   * - --default-size : To set the default size
+   *
+   * @param init The initial options
+   * @param name The name of the pack options
+   */
+  command_line_options(init:Pack.options, name):Pack.options =
+    args = {
+      title = "Pack options for {name}"
+      ~init
+      anonymous = []
+      parsers = [
+        CommandLine.case(["--pack-endian:{name}}"],
+                [("little",Pack.littleEndian),
+                 ("big",   Pack.bigEndian)],
+                "Default endian", "little, big"
+               )(endian,p -> {p with ~endian}),
+
+        CommandLine.case(["--pack-signed:{name}"],
+                [("signed",  Pack.signedInts),
+                 ("unsigned",Pack.unsignedInts)],
+                "Default ints", "signed, unsigned"
+               )(signed,p -> {p with ~signed}),
+
+        CommandLine.case(["--pack-size:{name}"],
+                [("byte",    Pack.byteSize),
+                 ("short",   Pack.shortSize),
+                 ("long",    Pack.longSize),
+                 ("longlong",Pack.longlongSize)],
+                "Default size","byte, short, long, longlong"
+               )(size,p -> {p with ~size}),
+      ]
+    }
+    CommandLine.filter(args)
+
+  /**
+   * Default options are [{signed = signedInts; endian = bigEndian; size =
+   * longSize}]
+   */
+  default_options:Pack.options = {signed = signedInts; endian = bigEndian; size = longSize}
 
   /** size of sized items in bytes **/
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
@@ -309,12 +348,13 @@ Pack = {{
    * @param name string to prefix the output
    * @param input the current Pack.input value
    **/
-  pinput(name:string, input:Pack.input) =
-    if ServerReference.get(debug)
-    then
+  @expand pinput(name:string, input:Pack.input) =
+    #<Ifstatic:OPA_PACK_DEBUG>
       data = Binary.get_string(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
-      jlog("{name}: input=\n{memdump(data)}")
-    else void
+      Log.debug("{name}: input=\n{memdump(data)}")
+    #<Else>
+      void
+    #<End>
 
   /**
    * {2 Encode data}
@@ -480,7 +520,7 @@ Pack = {{
      * @param n number of bytes of padding
      **/
     padn(buf:Pack.t, n:int) : outcome(void,string) =
-      if n <= 0 
+      if n <= 0
       then {success=void}
       else {success=Binary.add_string(buf, String.repeat(n, String.of_byte_unsafe(0)))}
 
@@ -489,7 +529,7 @@ Pack = {{
      * @param n boundary value
      **/
     boundary(buf:Pack.t, n:int) : outcome(void,string) =
-      if n <= 0 
+      if n <= 0
       then {success=void}
       else
         padding = bound(Binary.length(buf),n)
@@ -768,7 +808,7 @@ Pack = {{
     packlen(data:Pack.data) : int =
       (List.fold((u, (s, len) ->
                   match packitemsize(s, u) with
-                  | (s,size,bnd) -> (s,len+size+bound(len,bnd))), data, (ServerReference.get(defaultSize),0))).f2
+                  | (s,size,bnd) -> (s,len+size+bound(len,bnd))), data, (default_options.size,0))).f2
 
     // missing from LowLevelArray?
     @private a2l(a:llarray('a)) : list('a) =
@@ -887,10 +927,15 @@ Pack = {{
      * @return the binary data
      **/
     pack(data:Pack.data) : outcome(Pack.t,string) =
+      pack_with(data, default_options)
+    /**
+     * As [Pack.Decode.pack] but with custom [options].
+     */
+    pack_with(data:Pack.data, options:Pack.options) =
       buf = Binary.create(packlen(data))
-      (_, _, _, res) = pack_data(buf, ServerReference.get(defaultEndian),
-                                      ServerReference.get(defaultInts),
-                                      ServerReference.get(defaultSize), data);
+      (_, _, _, res) = pack_data(buf, options.endian,
+                                      options.signed,
+                                      options.size, data)
       match res with
       | {success=_} -> {success=buf}
       | {~failure} -> {~failure}
@@ -1072,7 +1117,7 @@ Pack = {{
    * {2 Decode data}
    *
    * This module provides functions to extract values from binary data.
-   * 
+   *
    **/
   Decode = {{
 
@@ -1697,15 +1742,21 @@ Pack = {{
      * @return an outcome of the final buffer position and the data read in
      **/
     unpack(data:Pack.data, bin:Pack.t, pos:int) : outcome((int,Pack.data),string) =
+      unpack_with(data:Pack.data, bin:Pack.t, pos:int, default_options)
+
+    /**
+     * As [Pack.Decode.unpack] but with custom [options].
+     */
+    unpack_with(data:Pack.data, bin:Pack.t, pos:int, options:Pack.options) : outcome((int,Pack.data),string) =
       do pinput("Pack.Decode.unpack",{binary=bin; ~pos})
       if data == []
       then {success=(pos,[])}
       else
         match
           List.fold(unpack_item(bin, _, _),
-                    data, {success=(ServerReference.get(defaultEndian),
-                                    ServerReference.get(defaultInts),
-                                    ServerReference.get(defaultSize), pos, [])})
+                    data, {success=(options.endian,
+                                    options.signed,
+                                    options.size, pos, [])})
         with
         | {success=(_,_,_,pos,data)} -> {success=(pos,List.rev(data))}
         | {~failure} -> {~failure}
@@ -2039,7 +2090,7 @@ Pack = {{
       do pinput("Pack.Unser.list", input)
       match int(le, false, size, input) with
       | {success=(input,len)} ->
-         do if ServerReference.get(debug) then jlog("Pack.Unser.list: len={len}") else void
+         do pinput("Pack.Unser.list: len={len}", input)
          rec aux(input, i, l) =
            if i == len
            then {success=(input,List.rev(l))}
@@ -2062,7 +2113,7 @@ Pack = {{
       do pinput("Pack.Unser.array", input)
       match int(le, false, size, input) with
       | {success=(input,len)} ->
-         do if ServerReference.get(debug) then jlog("Pack.Unser.array: len={len}") else void
+         do pinput("Pack.Unser.array: len={len}", input)
          arr = LowLevelArray.create(len, def)
          rec aux(input, i) =
            if i == len
