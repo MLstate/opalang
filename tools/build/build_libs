@@ -46,7 +46,7 @@ internal protocols	  	      compiler/protocols
 internal opapasses	  	      compiler/passes
 internal opalang	  	      compiler/opalang
 internal opacapi	  	      compiler/opacapi
-internal libopa 	  	      compiler/opa
+# internal libopa 	  	      compiler/opa
 
 internal opabsl_for_compiler	      lib/opabsl
 internal opabsl_for_server	      lib/opabsl
