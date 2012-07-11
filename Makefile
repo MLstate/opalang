@@ -12,9 +12,7 @@ default: all
 
 CONFIG_PATH = tools/build
 
-# Makefile inclusions
 include $(CONFIG_PATH)/config.make
-include tools/build/Makefile.bld
 
 MAKE ?= $_
 
@@ -27,6 +25,8 @@ DISABLED_LIBS = libnattraversal
 endif
 
 export
+
+include tools/build/Makefile.bld
 
 ##
 ## STANDARD TARGETS
