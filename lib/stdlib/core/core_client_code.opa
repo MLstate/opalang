@@ -130,8 +130,9 @@ Core_server_code =
 @opacapi Client_code_register_js_code = Core_client_code.register_js_code
 @opacapi Client_code_register_js_code_ast = Core_client_code.register_js_code_ast
 @opacapi Core_server_code_register_server_code = Core_server_code.register_server_code
-@opacapi Client_code_serialize_string_length(s) =
-  i = String.length(s)
-  b = Binary.create(10)
-  do Outcome.get(Pack.Encode.long_be(b, i))
-  string_of_binary(b)
+
+#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Else>
+@opacapi Client_code_serialize_string_length =
+  %%BslPervasives.serialize_string_length%%
+#<End>

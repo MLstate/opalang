@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -191,3 +191,16 @@ let comp_result_lt   = wrap_opa_order_comparison (ServerLib.make_simple_record (
 let comp_result_eq   = wrap_opa_order_comparison (ServerLib.make_simple_record (ServerLib.static_field_of_name "eq"))
 let comp_result_gt   = wrap_opa_order_comparison (ServerLib.make_simple_record (ServerLib.static_field_of_name "gt"))
 let comp_result_neq  = wrap_opa_order_comparison (ServerLib.make_simple_record (ServerLib.static_field_of_name "neq"))
+
+
+##register serialize_string_length : string -> string
+
+let ser_int b i = (* DIRTY DIRTY copy pasting *)
+  for j = 64 / 8 - 1 downto 0 do
+    Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
+  done
+
+let serialize_string_length s =
+  let b = Buffer.create 10 in
+  ser_int b (String.length s);
+  Buffer.contents b
