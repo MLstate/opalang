@@ -521,22 +521,22 @@ rule "Client lib JS validation"
   ~deps: (
          "compiler/qmljsimp/qmlJsImpClientLib.js" ::
          "compiler/qmlcps/qmlCpsClientLib.js"     ::
-         "lib/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ::
-         "lib/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ::
-         "lib/opabsl/jsbsl/selection_ext_bsldom.externs.js" ::
-         "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
+         "lib/plugins/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ::
+         "lib/plugins/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ::
+         "lib/plugins/opabsl/jsbsl/selection_ext_bsldom.externs.js" ::
+         "lib/plugins/opabsl/jsbsl/jquery_extra.externs.js" ::
          (tool_deps "jschecker.jar") @
          (tool_deps "jschecker_externals.js") @
          (tool_deps "jschecker_clientliblib.js") @
          (tool_deps "jschecker_jquery.js") )
   ~prods:[
-    "lib/opabsl/js_validation/imp_client_lib.js";
+    "lib/plugins/opabsl/js_validation/imp_client_lib.js";
   ]
  (fun env build ->
     let run_check clientlib output_file =
       let local = windows_mode in
       [
-        Cmd(S [Sh"mkdir"; A"-p";P "lib/opabsl/js_validation"]);
+        Cmd(S [Sh"mkdir"; A"-p";P "lib/plugins/opabsl/js_validation"]);
         Cmd(S(
           js_checker @
             A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
@@ -547,14 +547,14 @@ rule "Client lib JS validation"
             A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ::
             A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ::
             A"--js"             :: A "lib/plugins/opabsl/jsbsl/selection_ext_bsldom.externs.js" ::
-            A"--js"             :: A "lib/opabsl/jsbsl/jquery_extra.externs.js" ::
+            A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_extra.externs.js" ::
             A"--js"             :: A "compiler/qmlcps/qmlCpsClientLib.js" ::
             []
         ))
       ]
    in
     Seq (
-      run_check "compiler/qmljsimp/qmlJsImpClientLib.js" "lib/opabsl/js_validation/imp_client_lib.js"
+      run_check "compiler/qmljsimp/qmlJsImpClientLib.js" "lib/plugins/opabsl/js_validation/imp_client_lib.js"
     )
  );
 
