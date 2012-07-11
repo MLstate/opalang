@@ -1,3 +1,5 @@
+# -*- conf -*- (for emacs)
+
 <**/*Loader*.{ml,mli,byte,native}>: use_libbsl
 <crypto/*.{ml,byte,native,opa_plugin}>: use_cryptokit
 <browser_canvas>: traverse
@@ -18,4 +20,4 @@
 
 # Tag treated differently in build_rules
 <**/*.{opa_plugin,oppf}>: use_opabsl
-<lib/plugins/opabsl/opabsl.{opa_plugin,oppf}>: -use_opabsl
+<opabsl/opabsl.{opa_plugin,oppf}>: -use_opabsl
