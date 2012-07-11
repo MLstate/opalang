@@ -91,12 +91,12 @@ flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"tools/utils/ocamldoc_plugin.cmxs"]);
    cheat by copying the opabsl generated files so that they can be seen as
    local by opatop. *)
 let magic_import_from_opabsl dest f =
-  rule ("import from opabsl: "^f) ~deps:["opabsl.opp/"^f] ~prod:(dest / f)
+  rule ("import from opabsl: "^f) ~deps:["lib"/"opabsl.opp/"^f] ~prod:(dest / f)
     (fun env build ->
        Seq[Cmd(S[Sh"mkdir";A"-p";P dest]);
-           if Pathname.exists "opabsl.opp"
-           then (build_list build ["opabsl.opp" / f]; cp ("opabsl.opp"/ f) dest)
-           else cp (mlstatelibs/"opabsl.opp"/ f) dest
+           if Pathname.exists ("lib"/"opabsl.opp")
+           then (build_list build ["lib"/"opabsl.opp" / f]; cp ("lib"/"opabsl.opp"/f) dest)
+           else cp (mlstatelibs/"lib"/"opabsl.opp"/ f) dest
           ])
 in
 List.iter
@@ -207,7 +207,7 @@ rule "Opa Compiler Interface Validation (opacapi)"
               A "-o" ;
               P opacapi_validation ;
             ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
-            @ (List.map (fun x -> P (x ^ ".opp")) opa_opacapi_plugins))
+            @ (List.map (fun x -> P ("lib"/(x ^ ".opp"))) opa_opacapi_plugins))
         )
   );
 
@@ -368,7 +368,7 @@ let gen_tag prefix s =
 in
 let use_tag s =
   if s = "use_opabsl" then
-    Some "opabsl.opp"
+    Some ("lib"/"opabsl.opp")
   else
     gen_tag "use" s
 in
@@ -417,7 +417,7 @@ let opp_build opa_plugin opp oppf env build =
     (* HACK:
        For some reason, I couldn't get the dep ocamlbuild function
        to pull this dependency... *)
-    build_list build ["opabsl.opp"/"opabslMLRuntime.cmx"]
+    build_list build ["lib"/"opabsl.opp"/"opabslMLRuntime.cmx"]
   else
     ();
   let files_js = List.filter (fun f-> Pathname.check_extension f "js") files in
@@ -453,9 +453,12 @@ let opp_build opa_plugin opp oppf env build =
        files *)
       [A"--static"; A"--no-build"],
       mv ((Pathname.basename (env opp)) -.- "opp")
-         ((Pathname.basename (env opp)) -.- "save")
+         ("lib"/((Pathname.basename (env opp)) -.- "save"))
     else
-      [], Cmd(S[A"true"])
+      [],
+      mv ((Pathname.basename (env opp)) -.- "opp")
+         ("lib"/((Pathname.basename (env opp)) -.- "opp"))
+
   in
   let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
     preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib @
@@ -484,7 +487,7 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
 dep ["plugin_opabsl"] ["lib"/"plugins"/"opabsl"/"opabsl.oppf"];
 
 let opabsl_files =
-  (List.map (fun file -> "opabsl.opp"/file) [
+  (List.map (fun file -> "lib"/"opabsl.opp"/file) [
     "opabslPlugin.ml"; "opabslMLRuntime.ml";
     "opabslLoader.ml"; "serverLib.mli"
   ])
@@ -492,27 +495,27 @@ in
 
 List.iter (
   fun file ->
-    let tags = Tags.elements (tags_of_pathname ("plugins"/"opabsl"/file)) in
-    tag_file ("opabsl.opp"/file) tags
+    let tags = Tags.elements (tags_of_pathname ("lib"/"plugins"/"opabsl"/file)) in
+    tag_file ("lib"/"opabsl.opp"/file) tags
 ) ["opabslPlugin.ml"; "opabslMLRuntime.ml";
    "opabslLoader.ml"; "serverLib.mli"]
 ;
 
 rule "opabsl files"
   ~deps:[
-    "plugins"/"opabsl"/"opabsl.oppf";
-    "plugins"/"opabsl"/"serverLib.mli"
+    "lib"/"plugins"/"opabsl"/"opabsl.oppf";
+    "lib"/"plugins"/"opabsl"/"serverLib.mli"
   ]
   ~prods:opabsl_files
   (fun _ _ ->
     Seq[
-      mv "opabsl.save" "opabsl.opp";
-      cp ("plugins"/"opabsl"/"serverLib.mli") ("opabsl.opp"/"serverLib.mli");
+      mv ("lib"/"opabsl.save") ("lib"/"opabsl.opp");
+      cp ("lib"/"plugins"/"opabsl"/"serverLib.mli") ("lib"/"opabsl.opp"/"serverLib.mli");
       (* The .mli file is meant to be linked with actual opa
          applications.  Thus, it doesn't expose all the symbols
          defined in the .ml file.  We remove this file so that ocamlc
          export all symbols defined there. *)
-      rm_f ("opabsl.opp"/"opabslMLRuntime.mli")
+      rm_f ("lib"/"opabsl.opp"/"opabslMLRuntime.mli")
     ]
   )
 ;
@@ -820,7 +823,7 @@ let dir_rec_all_files dir =
 in
 
 rule "opa application creator"
-  ~deps:("opabsl_for_server.cmxa" :: (dir_rec_all_files "tools/opa-create"))
+  ~deps:("lib/opabsl_for_server.cmxa" :: (dir_rec_all_files "tools/opa-create"))
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
@@ -829,6 +832,7 @@ rule "opa application creator"
         A"-o"; P opa_create_dst; P opa_create_src;
 	A"--opx-dir";A "stdlib.qmlflat";
 	A"--back-end";A "qmlflat";
+	A"-I"; A "lib";
         A"-I"; A opa_prefix
       ]));
 
@@ -840,7 +844,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
   (fun env build ->
      try
        let plugins = "opabsl" :: string_list_of_file all_plugins_file in
-       let plugins = List.map (fun f -> "lib/plugins" /  f / f -.- "oppf") plugins in
+       let plugins = List.map (fun f -> "lib"/"plugins"/f/f -.- "oppf") plugins in
        build_list build plugins;
        let packages = string_list_of_file (all_packages_file nodebackend) in
        let packages =
@@ -913,6 +917,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
                 A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"--parser"; A"classic";
+                A"-I"; A"lib";
                 opaopt;
                 S all_files;
                ] @ extra_opt));

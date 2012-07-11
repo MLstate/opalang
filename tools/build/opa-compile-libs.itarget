@@ -10,4 +10,4 @@ compiler/libtrx.cmxa
 compiler/qml2ocaml.cmxa
 compiler/qmlflatcompiler.cmxa
 compiler/opalib.cmxa
-lib/opabsl_for_compiler.cmxa
+lib/plugins/opabsl_for_compiler.cmxa

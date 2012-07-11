@@ -1104,35 +1104,35 @@ let finalize s =
 
 let command_not_found = 127
 
-let js_validator finalized_t =
-  let name = finalized_t.f_options.BI.basename in
-  match finalized_t.f_options.BI.js_validator with
-  | Some ((executable, extern_files),cmd_options) when finalized_t.f_js_code <> [] ->
-    let pp_str_list = Format.pp_list " " Format.pp_print_string in
-    let pp_extern_files_list = Format.pp_list " " (
-      if executable = "java" then (fun fmt v -> Format.fprintf fmt "--externs %s" v) (* probably google compiler *)
-      else Format.pp_print_string (* probably js command *)
-    )
-    in
-    let pp_file_list = Format.pp_list " " (
-      if executable = "java" then (fun  fmt v -> Format.fprintf fmt "--js %s" v)
-      else Format.pp_print_string
-    )
-    in
-    let command = Format.sprintf "%s %a %a %a --js_output_file output.js"
-      executable
-      pp_str_list cmd_options
-      pp_extern_files_list extern_files
-      pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
-    in
-    Printf.printf "%s\n" command;
-    let r = Sys.command command in
-    if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
-      if r = command_not_found
-      then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
-      else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command
-    ) else ()
-  | _ -> ()
+let js_validator _finalized_t = ()
+  (* let name = finalized_t.f_options.BI.basename in *)
+  (* match finalized_t.f_options.BI.js_validator with *)
+  (* | Some ((executable, extern_files),cmd_options) when finalized_t.f_js_code <> [] -> *)
+  (*   let pp_str_list = Format.pp_list " " Format.pp_print_string in *)
+  (*   let pp_extern_files_list = Format.pp_list " " ( *)
+  (*     if executable = "java" then (fun fmt v -> Format.fprintf fmt "--externs %s" v) (\* probably google compiler *\) *)
+  (*     else Format.pp_print_string (\* probably js command *\) *)
+  (*   ) *)
+  (*   in *)
+  (*   let pp_file_list = Format.pp_list " " ( *)
+  (*     if executable = "java" then (fun  fmt v -> Format.fprintf fmt "--js %s" v) *)
+  (*     else Format.pp_print_string *)
+  (*   ) *)
+  (*   in *)
+  (*   let command = Format.sprintf "%s %a %a %a --js_output_file output.js" *)
+  (*     executable *)
+  (*     pp_str_list cmd_options *)
+  (*     pp_extern_files_list extern_files *)
+  (*     pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code) *)
+  (*   in *)
+  (*   Printf.printf "%s\n" command; *)
+  (*   let r = Sys.command command in *)
+  (*   if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then ( *)
+  (*     if r = command_not_found *)
+  (*     then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable *)
+  (*     else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command *)
+  (*   ) else () *)
+  (* | _ -> () *)
 ;;
 
 

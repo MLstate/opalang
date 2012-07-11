@@ -13,7 +13,6 @@ ocamllib/libbase.cmxa
 compiler/libtrx.cmxa
 compiler/qmlflatserver.cmxa
 compiler/qmlcpsserver.cmxa
-lib/opabsl_for_server.cmxa
 ocamllib/libruntime.cmxa
 ocamllib/appruntime.cmxa
 ocamllib/oparuntime.cmxa
@@ -25,3 +24,5 @@ ocamllib/libsession.cmxa
 ocamllib/libnet/runtimeMain.cmx
 ocamllib/libnet/runtimeMain.o
 ocamllib/libirc.cmxa
+
+lib/opabsl_for_server.cmxa

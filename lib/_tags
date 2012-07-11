@@ -3,4 +3,4 @@
 # LIB TAGS
 #
 
-<{experimental,opabsl,plugins,stdlib}>: traverse
+<{experimental,plugins,stdlib}>: traverse
