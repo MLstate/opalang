@@ -13,6 +13,28 @@ Binary.prototype = {
   opa_do_not_inspect: true
 }
 
+function i64_of_int_signed(i)
+{
+  var msk = 0;
+  if (i >= 0 && i <= IMAX32) { return {h:0, l:i}; };
+  if (i < IMIN53 || i > IMAX53) { return NAN(); };
+  if (i < 0) { i = 0x20000000000000 + i; msk = 0xffe00000};
+  var h = Math.floor(i / POW2_32);
+  var l = i % POW2_32;
+  return {h:h+msk, l:l};
+}
+
+function i64_to_int_signed(i64)
+{
+  if (is_nan(i64)) return NAN();
+  var sign = land(i64.h,0xffe00000);
+  if (sign != 0) {
+    if (sign != 0xffe00000) throw "Int64.to_int_signed: int64 too big for signed int";
+    return -(0x20000000000000 - (((i64.h & 0x001fffff) * 0x100000000) + i64.l));
+  } else
+    return (i64.h * 0x100000000) + i64.l;
+}
+
 ##register create : int -> binary
 ##args(hint)
 //function create(hint)
@@ -234,7 +256,7 @@ function expand(b, min) {
 ##args(b, i)
 //function add_int53_le(b, i)
 {
-  var i64 = BslNumber_BslInt64_of_int_signed(i);
+  var i64 = i64_of_int_signed(i);
   if (is_nan(i64)) throw("BslBinary.add_int53_be: out of range int "+i);
   if (b.length + 8 > b.contents.length) grow(b);
   b.contents.writeUInt32LE(i64.l, b.length, true);
@@ -247,7 +269,7 @@ function expand(b, min) {
 ##args(b, i)
 //function add_int53_be(b, i)
 {
-  var i64 = BslNumber_BslInt64_of_int_signed(i);
+  var i64 = i64_of_int_signed(i);
   if (is_nan(i64)) throw("BslBinary.add_int53_be: out of range int "+i);
   if (b.length + 8 > b.contents.length) grow(b);
   b.contents.writeUInt32BE(i64.h, b.length, true);
@@ -432,7 +454,7 @@ var FLOATMAX32 = 3.402823466e38;
 //function get_int53_le(b, start)
 {
   if (start > b.length - 8) throw("BslBinary.get_int53_le: insufficient buffer data");
-  return BslNumber_BslInt64_to_int_signed({h:b.contents.readUInt32LE(start+4, true),
+  return i64_to_int_signed({h:b.contents.readUInt32LE(start+4, true),
                                            l:b.contents.readUInt32LE(start, true)});
 }
 
@@ -441,7 +463,7 @@ var FLOATMAX32 = 3.402823466e38;
 //function get_int53_be(b, start)
 {
   if (start > b.length - 8) throw("BslBinary.get_int53_be: insufficient buffer data");
-  return BslNumber_BslInt64_to_int_signed({h:b.contents.readUInt32BE(start, true),
+  return i64_to_int_signed({h:b.contents.readUInt32BE(start, true),
                                            l:b.contents.readUInt32BE(start+4, true)});
 }
 
