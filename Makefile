@@ -254,17 +254,17 @@ install-bld:
 # Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
 install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocamlbuild twice
 	@mkdir -p $(INSTALL_DIR)/bin $(INSTALL_DIR)/share/opa/mlstatebsl
-	@$(INSTALL) $(BUILD_DIR)/lib/plugins/opabsl/mlstatebsl/opabsl_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
+	@$(INSTALL) $(BUILD_DIR)/lib/opabsl.opp/lib/plugins/opabsl/mlstatebsl/opabsl_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
 	@echo "#!/usr/bin/env bash" > $(INSTALL_DIR)/bin/qmlflat
 	@echo "set -e" >> $(INSTALL_DIR)/bin/qmlflat
 	@echo "set -u" >> $(INSTALL_DIR)/bin/qmlflat
 	@chmod 755 $(INSTALL_DIR)/bin/qmlflat
-	@echo 'exec opa --parser classic --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $$(if ! grep -qE "(^| )--no-stdlib( |$$)" <<<"$$*"; then echo $(shell sed "s%^[^# ]\+%$(PREFIX)/share/opa/mlstatebsl/opabsl_&%; t OK; d; :OK" lib/plugins/opabsl/mlstatebsl/bsl-sources); fi) "$$@"' \
+	@echo 'exec opa --parser classic --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern "$$@"' \
 	>> $(INSTALL_DIR)/bin/qmlflat
 
 # installs some dev tools on top of the normal install; these should not change often
 install-all: install install-bld install-qmlflat tools/maxmem
-	@$(INSTALL) platform_helper.sh $(INSTALL_DIR)/bin/
+	@$(INSTALL) tools/platform_helper.sh $(INSTALL_DIR)/bin/
 	@$(INSTALL) tools/maxmem $(INSTALL_DIR)/bin/
 	@rm tools/maxmem
 	@$(INSTALL) tools/plotmem $(INSTALL_DIR)/bin/
