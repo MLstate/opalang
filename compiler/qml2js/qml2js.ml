@@ -202,10 +202,10 @@ struct
     OManager.verbose "writing file @{<bright>%s@}" filename ;
     let package_name = Filename.basename env_opt.compilation_directory in
     let package_desc = JsUtils.basic_package_json package_name "a.js" in
-    if not (File.output filename package_desc) then
-      OManager.error "couldn't output package"
-    else
-      ()
+    match File.pp_output filename Format.pp_print_string package_desc with
+    | None -> ()
+    | Some error ->
+      OManager.error "Couldn't output package: %s\n" error
 
   module S =
   struct

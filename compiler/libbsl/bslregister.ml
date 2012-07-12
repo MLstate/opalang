@@ -871,10 +871,10 @@ let output_package_json () =
   let dest = Filename.concat path "package.json" in
   let main = Filename.basename !nodejspackage in
   let package_desc = JsUtils.basic_package_json !opp_dir main in
-  if not (File.output dest package_desc) then
-    OManager.error "Couldn't write package.json"
-  else
-    ()
+  match File.pp_output dest Format.pp_print_string package_desc with
+  | None -> ()
+  | Some error ->
+    OManager.error "Couldn't write package.json: %s\n" error
 
 (* after finalization of register session, actually produce files *)
 let files_generation ( finalized_t : BR.finalized_t ) =
