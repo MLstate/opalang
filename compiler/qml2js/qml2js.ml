@@ -66,25 +66,23 @@ let stdlib_qmljs_path =
   Filename.concat stdlib_path "stdlib.qmljs"
 
 let plugin_object name =
+  (* pluginNodeJsPackage.js *)
   name ^ BslConvention.Suffix.nodejspackage ^ ".js"
 
-let filename_of_plugin plugin =
+let path_of_plugin plugin =
+  (* plugin_path/plugin.opp *)
   let name = plugin.BslPluginInterface.basename in
   let plugin_path = match plugin.BslPluginInterface.path with
     | Some path -> path
     | None -> Filename.concat stdlib_path (name ^ ".opp") (* guess *)
   in
-  Filename.concat plugin_path (plugin_object name)
+  plugin_path
 
-let filename_of_linked_file = function
-  | ExtraLib file ->
-    Filename.concat static_path file
-  | Plugin name ->
-    match BslPluginTable.get name with
-    | Some plugin -> filename_of_plugin plugin
-    | None ->
-      let plugin_path = Filename.concat stdlib_path (name ^ ".opp") in
-      Filename.concat plugin_path (plugin_object name)
+let filename_of_plugin plugin =
+  (* plugin_path/plugin.opp/pluginNodeJsPackage.js *)
+  let plugin_path = path_of_plugin plugin in
+  let name = plugin.BslPluginInterface.basename in
+  Filename.concat plugin_path (plugin_object name)
 
 (**
    PASSES :
@@ -107,6 +105,23 @@ sig
 end =
 struct
   open Qml2jsOptions
+
+  (* Return [`require name] if [name] should be required whe
+     using the package; [`copy path] if path should be installed
+     locally before requiring *)
+  let require_of_linked_file = function
+    | ExtraLib file ->
+      `require (Filename.concat static_path file)
+    | Plugin name ->
+      match BslPluginTable.get name with
+      | Some plugin ->
+        let path = path_of_plugin plugin in
+        if String.is_prefix stdlib_path path then
+          `require (name ^ ".opp")
+        else
+          `copy path
+      | None ->
+        `require (name ^ ".opp")
 
   let take_n n =
     let rec aux acc i rest =
@@ -156,36 +171,6 @@ struct
         let content = File.content filename in
         (Plugin loader.BslPluginInterface.basename, content) :: acc
       in
-
-    (*
-    let generated_files =
-      let filter_bsl =
-        if env_opt.command_line then
-          fun (filename, content, conf) ->
-            let filename = Filename.basename filename in
-            let b:bool = List.for_all
-              (fun s -> not (String.is_contained s filename))
-              ["bslClient.js"; "bslClientOnly.js"; "bslJson.js"; "syslog.js";
-               "jquery"; "jQuery"; "Anchors";
-               "json2.js"; "ojs.js"]
-              (* every file that need functionality that won't be available in
-               * js or rhino should end up in this match *)
-            in if b then
-              let () =
-                (*
-                  TODO: refactor so that conf is not ignored,
-                  and optimization pass applied
-                *)
-                ignore conf
-              in
-              Some (filename, content)
-            else None
-        else
-          fun (filename, content, _conf) -> Some (filename, content)
-      in
-      let fold acc loader =
-        List.rev_filter_map_append filter_bsl loader.BslPluginInterface.nodejs_code acc
-      in*)
       List.fold_left fold generated_files env_bsl.BslLib.plugins
     in
     let ast = List.flatten (List.rev_map (
@@ -233,7 +218,7 @@ struct
     let pp fmt {generated_files} =
       let pp_file fmt (file, content) =
         Format.fprintf fmt "// FILE : %s@\n%s"
-          (filename_of_linked_file file) content
+          (string_of_linked_file file) content
       in
       Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files
   end
@@ -272,6 +257,13 @@ struct
 
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
+
+  let install_node_module env_opt path =
+    let short_name = Filename.basename path in
+    let dest_path = Filename.concat (depends_dir env_opt) "node_depends" in
+    let dest_name = Filename.concat dest_path short_name in
+    let _ = File.copy_rec ~force:true path dest_name = 0 in
+    ()
 
   let linking_generation_js_init env_opt generated_files oc =
     let load_oc =
@@ -321,8 +313,13 @@ struct
           Printf.fprintf oc "%s" content;
           Printf.fprintf oc "\n";
         ) else
-          Printf.fprintf load_oc "require('%s');\n"
-            (filename_of_linked_file file);
+          let name = match require_of_linked_file file with
+            | `require name -> name
+            | `copy path ->
+              install_node_module env_opt path;
+              Filename.basename path
+          in
+          Printf.fprintf load_oc "require('%s');\n" name;
       ) (List.rev generated_files);
     load_oc
 
@@ -403,9 +400,7 @@ if (process.version < '%s') {
       else if is_from_stdlib opx then
         Printf.fprintf load_oc "require('%s');\n" short_name
       else
-        let dest_path = Filename.concat (depends_dir env_opt) "node_depends" in
-        let dest_name = Filename.concat dest_path short_name in
-        let _ = File.copy_rec ~force:true opx dest_name = 0 in
+        install_node_module env_opt opx;
         Printf.fprintf load_oc "require('%s');\n" short_name
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
