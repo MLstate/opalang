@@ -23,5 +23,4 @@
 
 <teerex/**>: traverse
 <dissemination>: traverse
-
-<ocamldoc_plugin.{ml,byte,native}>: use_ocamldoc
+<utils>: traverse
