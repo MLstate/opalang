@@ -48,6 +48,6 @@ internal qmlpasses	  	      compiler/qmlpasses
 internal qmlslicer	  	      compiler/qmlslicer
 # internal libopa 	  	      compiler/opa
 
-internal opabsl_for_compiler	      lib/opabsl.opp
-internal opabsl_for_server	      lib/opabsl.opp
-internal opabsl_for_interpreter	      lib/opabsl.opp
+internal opabsl_for_compiler	      lib/plugins/opabsl.opp
+internal opabsl_for_server	      lib/plugins/opabsl.opp
+internal opabsl_for_interpreter	      lib/plugins/opabsl.opp

@@ -31,6 +31,10 @@ def_stubs ~dir:"ocamllib/libbase" "stubs";
 def_stubs ~dir:"ocamllib/libsecurity" "ssl_ext";
 def_stubs ~dir:"ocamllib/appruntime" "io";
 
+(* PATHS *)
+
+let plugins_dir = "lib" / "plugins" in
+
 let link_cmd = if windows_mode then S[Sh"cp";A"-r"] else S[Sh"ln";A"-s";A"-f"] in
 
 let extralib_opt = function
@@ -91,12 +95,13 @@ flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"tools/utils/ocamldoc_plugin.cmxs"]);
    cheat by copying the opabsl generated files so that they can be seen as
    local by opatop. *)
 let magic_import_from_opabsl dest f =
-  rule ("import from opabsl: "^f) ~deps:["lib"/"opabsl.opp/"^f] ~prod:(dest / f)
+  let opabsl_opp = "opabsl.opp" in
+  rule ("import from opabsl: "^f) ~deps:[plugins_dir/opabsl_opp/f] ~prod:(dest / f)
     (fun env build ->
        Seq[Cmd(S[Sh"mkdir";A"-p";P dest]);
-           if Pathname.exists ("lib"/"opabsl.opp")
-           then (build_list build ["lib"/"opabsl.opp" / f]; cp ("lib"/"opabsl.opp"/f) dest)
-           else cp (mlstatelibs/"lib"/"opabsl.opp"/ f) dest
+           if Pathname.exists (plugins_dir/opabsl_opp)
+           then (build_list build [plugins_dir/opabsl_opp/f]; cp (plugins_dir/opabsl_opp/f) dest)
+           else cp (mlstatelibs/plugins_dir/opabsl_opp/f) dest
           ])
 in
 List.iter
@@ -207,7 +212,7 @@ rule "Opa Compiler Interface Validation (opacapi)"
               A "-o" ;
               P opacapi_validation ;
             ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
-            @ (List.map (fun x -> P ("lib"/(x ^ ".opp"))) opa_opacapi_plugins))
+            @ (List.map (fun x -> P (plugins_dir/(x ^ ".opp"))) opa_opacapi_plugins))
         )
   );
 
@@ -367,10 +372,8 @@ let gen_tag prefix s =
   else None
 in
 let use_tag s =
-  if s = "use_opabsl" then
-    Some ("lib"/"opabsl.opp")
-  else
-    gen_tag "use" s
+  if s = "use_opabsl" then Some (plugins_dir/"opabsl.opp")
+  else gen_tag "use" s
 in
 let clib_tag s = gen_tag "clib" s in
 let opa_plugin_builder_name = "opa-plugin-builder-bin" in
@@ -417,7 +420,7 @@ let opp_build opa_plugin opp oppf env build =
     (* HACK:
        For some reason, I couldn't get the dep ocamlbuild function
        to pull this dependency... *)
-    build_list build ["lib"/"opabsl.opp"/"opabslMLRuntime.cmx"]
+    build_list build [plugins_dir/"opabsl.opp"/"opabslMLRuntime.cmx"]
   else
     ();
   let files_js = List.filter (fun f-> Pathname.check_extension f "js") files in
@@ -453,11 +456,11 @@ let opp_build opa_plugin opp oppf env build =
        files *)
       [A"--static"; A"--no-build"],
       mv ((Pathname.basename (env opp)) -.- "opp")
-         ("lib"/((Pathname.basename (env opp)) -.- "save"))
+         (plugins_dir/((Pathname.basename (env opp)) -.- "save"))
     else
       [],
       mv ((Pathname.basename (env opp)) -.- "opp")
-         ("lib"/((Pathname.basename (env opp)) -.- "opp"))
+         (plugins_dir/((Pathname.basename (env opp)) -.- "opp"))
 
   in
   let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
@@ -484,10 +487,10 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
-dep ["plugin_opabsl"] ["lib"/"plugins"/"opabsl"/"opabsl.oppf"];
+dep ["plugin_opabsl"] [plugins_dir/"opabsl"/"opabsl.oppf"];
 
 let opabsl_files =
-  (List.map (fun file -> "lib"/"opabsl.opp"/file) [
+  (List.map (fun file -> plugins_dir/"opabsl.opp"/file) [
     "opabslPlugin.ml"; "opabslMLRuntime.ml";
     "opabslLoader.ml"; "serverLib.mli"
   ])
@@ -495,27 +498,27 @@ in
 
 List.iter (
   fun file ->
-    let tags = Tags.elements (tags_of_pathname ("lib"/"plugins"/"opabsl"/file)) in
-    tag_file ("lib"/"opabsl.opp"/file) tags
+    let tags = Tags.elements (tags_of_pathname (plugins_dir/"opabsl"/file)) in
+    tag_file (plugins_dir/"opabsl.opp"/file) tags
 ) ["opabslPlugin.ml"; "opabslMLRuntime.ml";
    "opabslLoader.ml"; "serverLib.mli"]
 ;
 
 rule "opabsl files"
   ~deps:[
-    "lib"/"plugins"/"opabsl"/"opabsl.oppf";
-    "lib"/"plugins"/"opabsl"/"serverLib.mli"
+    plugins_dir/"opabsl"/"opabsl.oppf";
+    plugins_dir/"opabsl"/"serverLib.mli"
   ]
   ~prods:opabsl_files
   (fun _ _ ->
     Seq[
-      mv ("lib"/"opabsl.save") ("lib"/"opabsl.opp");
-      cp ("lib"/"plugins"/"opabsl"/"serverLib.mli") ("lib"/"opabsl.opp"/"serverLib.mli");
+      mv (plugins_dir/"opabsl.save") (plugins_dir/"opabsl.opp");
+      cp (plugins_dir/"opabsl"/"serverLib.mli") (plugins_dir/"opabsl.opp"/"serverLib.mli");
       (* The .mli file is meant to be linked with actual opa
          applications.  Thus, it doesn't expose all the symbols
          defined in the .ml file.  We remove this file so that ocamlc
          export all symbols defined there. *)
-      rm_f ("lib"/"opabsl.opp"/"opabslMLRuntime.mli")
+      rm_f (plugins_dir/"opabsl.opp"/"opabslMLRuntime.mli")
     ]
   )
 ;
@@ -823,7 +826,7 @@ let dir_rec_all_files dir =
 in
 
 rule "opa application creator"
-  ~deps:("lib/opabsl_for_server.cmxa" :: (dir_rec_all_files "tools/opa-create"))
+  ~deps:("lib/plugins/opabsl_for_server.cmxa" :: (dir_rec_all_files "tools/opa-create"))
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
@@ -832,7 +835,7 @@ rule "opa application creator"
         A"-o"; P opa_create_dst; P opa_create_src;
 	A"--opx-dir";A "stdlib.qmlflat";
 	A"--back-end";A "qmlflat";
-	A"-I"; A "lib";
+	A"-I"; A plugins_dir;
         A"-I"; A opa_prefix
       ]));
 
@@ -844,7 +847,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
   (fun env build ->
      try
        let plugins = "opabsl" :: string_list_of_file all_plugins_file in
-       let plugins = List.map (fun f -> "lib"/"plugins"/f/f -.- "oppf") plugins in
+       let plugins = List.map (fun f -> plugins_dir/f/f -.- "oppf") plugins in
        build_list build plugins;
        let packages = string_list_of_file (all_packages_file nodebackend) in
        let packages =
@@ -917,7 +920,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
                 A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"--parser"; A"classic";
-                A"-I"; A"lib";
+                A"-I"; A plugins_dir;
                 opaopt;
                 S all_files;
                ] @ extra_opt));

@@ -57,7 +57,7 @@ internal opa-bin              	 compiler/opa/main.native			lib/opa/bin
 internal opa_bash_completion  	 tools/bash/bash_completion 			share/opa
 
 # for now, these can't be built cleanly from opageneral
-internal opabsl.bypass     	 lib/opabsl.opp/opabsl.bypass			lib/opa/static
+internal opabsl.bypass     	 lib/plugins/opabsl.opp/opabsl.bypass			lib/opa/static
 internal serverLib.cmi        	 lib/plugins/opabsl/serverLib.cmi 			lib/opa/static
 
 # for helping developpers of plugins we can distribute the source of the interface
