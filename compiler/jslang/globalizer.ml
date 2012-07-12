@@ -63,6 +63,8 @@ let _ =
   match read_cmd_line_args args with
   | `ko error -> die error
   | `ok (files, output) ->
+
+    (* Read files and reexport their identifiers *)
     let files = List.map (fun filename ->
       let content = File.content filename in
       let content =
@@ -74,6 +76,20 @@ let _ =
       (filename, JsUtils.export_to_global_namespace content)
     ) files
     in
-    match File.pp_output output process files with
+
+    (* Output nodejs package *)
+    if not (File.check_create_path output) then
+      die "Couldn't create output path";
+    let main_path = Filename.concat output "main.js" in
+    let package_json_path = Filename.concat output "package.json" in
+    let package_desc = JsUtils.basic_package_json output "main.js" in
+    let output_result = File.pp_output package_json_path
+      Format.pp_print_string package_desc
+    in
+    begin match output_result with
     | None -> ()
-    | Some error -> die error
+    | Some error -> OManager.error "Couldn't create package: %s\n" error
+    end;
+    match File.pp_output main_path process files with
+    | None -> ()
+    | Some error -> OManager.error "Couldn't create package: %s\n" error

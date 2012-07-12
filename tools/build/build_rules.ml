@@ -600,6 +600,8 @@ let build_tools_dir = "tools"/"build" in
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
 
 let opacomp_deps_js = string_list_of_file (build_tools_dir/"opa-run-js-libs.itarget") in
+let opacomp_deps_js_cps = string_list_of_file (build_tools_dir/"opa-run-js-cps-libs.itarget") in
+let opacomp_deps_js_no_cps = string_list_of_file (build_tools_dir/"opa-run-js-no-cps-libs.itarget") in
 let opacomp_deps_native = string_list_of_file (build_tools_dir/"opa-run-libs.itarget") in
 let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) opacomp_deps_native in
 
@@ -627,9 +629,28 @@ let copy_lib_to_runtime lib =
   Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f)) files @ [ P (opa_prefix / opa_libs_dir) ]))
 in
 
+let globalizer_prods dest = [dest/"package.json"; dest/"main.js"] in
+let opa_js_runtime_cps = "opa-js-runtime-cps" in
+let opa_js_runtime_no_cps = "opa-js-runtime-no-cps" in
+
+(* Convert the JS runtime to a global-prefixed nodejs package *)
+let js_runtime_rule (files, dest) =
+  rule ("opa js runtime " ^ dest)
+    ~deps:(tool_deps "globalizer" @ files)
+    ~prods:(globalizer_prods dest)
+    (fun env build ->
+      Cmd(S(get_tool "globalizer" :: A"-o" :: A dest ::
+            List.map (fun file -> P file) files))
+    )
+in
+List.iter js_runtime_rule [opacomp_deps_js_cps, opa_js_runtime_cps;
+                           opacomp_deps_js_no_cps, opa_js_runtime_no_cps];
+
+
 rule "opa run-time libraries"
   ~deps:("ocamllib"/"libbase"/"mimetype_database.xml" ::
-            tool_deps "globalizer" @
+            globalizer_prods opa_js_runtime_cps @
+            globalizer_prods opa_js_runtime_no_cps @
             opacomp_deps_native
   )
   ~stamp:"runtime-libs.stamp"
@@ -647,6 +668,10 @@ rule "opa run-time libraries"
        Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f -.- !Options.ext_lib)) mllibs
              @ [ P (opa_prefix / opa_libs_dir) ]));
        Cmd(S(link_cmd :: P (opa_prefix / "ocamllib" / "libbase" / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
+       Cmd(S[link_cmd;
+             P opa_js_runtime_cps; P (opa_prefix / opa_libs_dir)]);
+       Cmd(S[link_cmd;
+             P opa_js_runtime_no_cps; P (opa_prefix / opa_libs_dir)]);
        Seq copylibs
      ]
   );
