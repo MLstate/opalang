@@ -94,6 +94,12 @@ function return_(k, x){}
  * @param {!Continuation} k
  * @param {!*} x
  */
+function return_tc(k, x){}
+
+/**
+ * @param {!Continuation} k
+ * @param {!*} x
+ */
 function execute(k, x){}
 
 /**

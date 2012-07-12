@@ -223,6 +223,7 @@ Task_from_application.prototype = {
     {
         var result = this._fun(this._args);
         this._barrier.release(result);
+        return result;
     }
 }
 
@@ -242,7 +243,7 @@ Task_from_return.prototype = {
     debug_is_a_task: true,//Used for assertion checks
     go: function()
     {
-        this._cont.execute(this._args);
+        return this._cont.execute(this._args);
     }
 }
 
@@ -317,11 +318,11 @@ Continuation.prototype = {
 }
 
 function QmlCpsLib_callcc_directive(f, k){
-    f(k, new Continuation(function(){return js_void}, k._context));
+    return f(k, new Continuation(function(){}, k._context));
 }
 
 function QmlCpsLib_default_handler_cont(k){
-    return new Continuation(function(exn){console.error("Error : uncaught Opa exn", exn)}, k._context, k._options);
+    return new Continuation(function(exn){console.error("Error : uncaught OPA exn", exn)}, k._context, k._options);
 }
 
 function QmlCpsLib_handler_cont(k){
@@ -351,7 +352,14 @@ function push(task)
     launch_schedule();
 }
 
+/**
+ * Indicates if there are a loop_schedule in the call stack.
+ */
 var is_schedule = false;
+
+/**
+ * Number of nested loop_schedule.
+ */
 var loop_level = 0;
 
 /**
@@ -380,7 +388,9 @@ function loop_schedule()
                 break;
             } else {
                 task = tasks.shift();
-                task.go();
+                var r = task.go();
+                for(var i=0; i<100 && r; i++) r = r[0].execute1(r[1]);
+                if (r) push(new Task_from_return(r[0], [r[1]]))
             }
         }
     } catch(e) {
@@ -400,6 +410,11 @@ function launch_schedule(){
     loop_schedule();
 }
 
+function return_tc(k, x){
+    if (is_schedule) return [k, x];
+    else return_(k, x)
+}
+
 /**
  * Returns value [x] to Continuation [k].
  * BEWARE: The compiler manipulates the return_ ident as a "pure" function.
@@ -409,7 +424,8 @@ function return_(k, x){
 }
 
 function execute(k, x){
-    k.execute1(x);
+    var r;
+    if (r = k.execute1(x, true)) push(new Task_from_return(r[0], [r[1]]));
 }
 
 /**
@@ -458,7 +474,7 @@ function uncps(pk, f, name) {
         var k = pk.ccont(function(x){b.release(x)});
         var a = Array.prototype.slice.call(arguments);
         a.push(k);
-        f.apply(this, a);
+        push(new Task_from_application(function(){return f.apply(this, a);}));
         return blocking_wait(b);
     }
 }
@@ -480,4 +496,14 @@ function cps(f) {
  */
 function opa_cps_callback_to_js_callback0(k, f){
     return function(){return f(k.ccont(function(){}));};
+}
+
+/**
+ * Wrap opa function
+ */
+function wrap_tc(opa){
+    return function(){
+        var r = opa.apply(this, arguments);
+        if (r) push(new Task_from_return(r[0], [r[1]]));
+    };
 }
