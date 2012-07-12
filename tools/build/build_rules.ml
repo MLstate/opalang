@@ -34,6 +34,7 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 (* PATHS *)
 
 let plugins_dir = "lib" / "plugins" in
+let opa_prefix = Pathname.pwd / !Options.build_dir in
 
 let link_cmd = if windows_mode then S[Sh"cp";A"-r"] else S[Sh"ln";A"-s";A"-f"] in
 
@@ -468,7 +469,10 @@ let opp_build opa_plugin opp oppf env build =
     options
   in
   Seq[
-    Cmd(S(opa_plugin_builder::options));
+    Cmd(S(
+	  Sh("MLSTATELIBS=\""^ opa_prefix ^"\"") ::
+	  opa_plugin_builder::options
+	));
     Cmd(S[A"touch"; P(env oppf) ] );
     mv_cmd
   ]
@@ -599,8 +603,6 @@ let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) op
 
 let opacomp_deps_native = opacomp_deps_native @ opacomp_deps_js in
 let opacomp_deps_byte = opacomp_deps_byte @ opacomp_deps_js in
-
-let opa_prefix = Pathname.pwd / !Options.build_dir in
 
 let opa_libs_dir = "lib" / "opa" / "static" in
 
