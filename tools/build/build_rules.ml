@@ -448,8 +448,9 @@ let opp_build opa_plugin opp oppf env build =
       unsafe_js @ [A"--js-validator"] @ js_checker @ files_validation
     )
   in
-  let options, mv_cmd =
-    let opp_basename = Pathname.basename (env opp) in
+  let opp_basename = Pathname.basename (env opp) in
+  let origin_path = (opp_basename -.- "opp") in
+  let options, save_path =
     if Tags.mem "static" (tags_of_pathname dir) then
     (* HACK: passing --static or not will change the files produced
        by the plugin builder. Since productions can't be tracked
@@ -457,10 +458,13 @@ let opp_build opa_plugin opp oppf env build =
        to make ocamlbuild believe that we're actually producing the extra
        files *)
       [A"--static"; A"--no-build"],
-      mv (opp_basename -.- "opp") (plugins_dir/(opp_basename -.- "save"))
+      plugins_dir/(opp_basename -.- "save")
     else
-      [], mv (opp_basename -.- "opp") (plugins_dir)
-
+      [], plugins_dir/origin_path
+  in
+  let mv_cmd =
+    Seq([Cmd(S[A"rm"; A"-rf"; A save_path]);
+         mv origin_path save_path])
   in
   let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
     preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib @
