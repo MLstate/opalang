@@ -870,13 +870,11 @@ let output_package_json () =
   let path = Filename.dirname !nodejspackage in
   let dest = Filename.concat path "package.json" in
   let main = Filename.basename !nodejspackage in
-  let oc = handle_open_out dest in
-  Printf.fprintf oc "{\n";
-  Printf.fprintf oc "  \"name\": \"%s\",\n" !opp_dir;
-  Printf.fprintf oc "  \"version\": \"0.0.0\",\n";
-  Printf.fprintf oc "  \"main\": \"%s\"\n" main;
-  Printf.fprintf oc "}\n";
-  handle_close_out dest oc
+  let package_desc = JsUtils.basic_package_json !opp_dir main in
+  if not (File.output dest package_desc) then
+    OManager.error "Couldn't write package.json"
+  else
+    ()
 
 (* after finalization of register session, actually produce files *)
 let files_generation ( finalized_t : BR.finalized_t ) =

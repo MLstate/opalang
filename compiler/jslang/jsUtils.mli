@@ -39,3 +39,8 @@ val globalize_native_ident : JsAst.code_elt -> JsAst.code_elt
      exports.foo = foo; -> global.foo = foo;
 *)
 val export_to_global_namespace : JsAst.code -> JsAst.code
+
+(**
+   Generate a json value that can be used in a package.json file
+*)
+val basic_package_json : ?version:string -> string -> string -> string

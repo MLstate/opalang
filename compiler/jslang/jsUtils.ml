@@ -145,3 +145,12 @@ let export_to_global_namespace code =
   List.map (fun stm ->
     export_to_global_namespace_aux (globalize_native_ident stm)
   ) code
+
+let basic_package_json ?(version="0.1.0") name main =
+  Printf.sprintf (
+    "{\n" ^^
+    "  \"name\": \"%s\",\n" ^^
+    "  \"version\": \"%s\",\n" ^^
+    "  \"main\": \"%s\"\n" ^^
+    "}\n"
+  ) name version main

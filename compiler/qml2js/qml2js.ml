@@ -200,14 +200,12 @@ struct
   let write_package_json env_opt =
     let filename = Filename.concat env_opt.compilation_directory "package.json" in
     OManager.verbose "writing file @{<bright>%s@}" filename ;
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 filename in
-    let package_name = (Filename.basename env_opt.compilation_directory) in
-    Printf.fprintf oc "{\n";
-    Printf.fprintf oc "  \"name\": \"%s\",\n" package_name;
-    Printf.fprintf oc "  \"version\": \"0.0.0\",\n";
-    Printf.fprintf oc "  \"main\": \"a.js\"\n";
-    Printf.fprintf oc "}\n";
-    close_out oc
+    let package_name = Filename.basename env_opt.compilation_directory in
+    let package_desc = JsUtils.basic_package_json package_name "a.js" in
+    if not (File.output filename package_desc) then
+      OManager.error "couldn't output package"
+    else
+      ()
 
   module S =
   struct

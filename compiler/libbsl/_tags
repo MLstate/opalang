@@ -19,6 +19,7 @@
 <bslOcaml.ml>: use_ocamllang
 <bslRegisterParser.{ml,mli,byte,native}>: use_libtrx
 <bslTinyShell.{ml,mli,byte,native}>: use_libtrx
+<bslregister.*>: use_jslang
 <bslregister.{byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
 <portingBsl.{ml,byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
 # subdirs
