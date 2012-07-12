@@ -32,10 +32,10 @@ function CommandLine_ident(names,description,param_doc)(up) {
 }
 
 list(CommandLine.parser({string name})) cmdline_parsers = [
-	CommandLine_ident(["--name", "-n"],
-		"Application name, without spaces, \"/\" or any other special characters",
-		"app_name (no special characters)")({ function(name, r){ r with ~name}}
-	)
+  CommandLine_ident(["--name", "-n"],
+    "Application name, without spaces, \"/\" or any other special characters",
+    "app_name (no special characters)")({ function(name, r){ r with ~name}}
+  )
 ]
 
 options =
@@ -52,12 +52,12 @@ function write(file, content) {
 }
 
 function iter(file, f_content) {
-	n = String.length(SRC_DIR)
-	file = "{options.name}{String.sub(n, String.length(file) - n, file)}"
+  n = String.length(SRC_DIR)
+  file = "{options.name}{String.sub(n, String.length(file) - n, file)}"
         if (File.exists(file)) { Log.warning("OpaCreate", "File {file} already exists. \nPlease delete it and try again."); System.exit(1) }
-	jlog("Generating {file}")
+  jlog("Generating {file}")
     content = String.replace("application_name", options.name, string_of_binary(f_content()))
-	write(file, content)
+  write(file, content)
 }
 
 StringMap.iter(iter, resources)
