@@ -128,13 +128,14 @@ define install-node-package
 @$(INSTALL) $(BUILD_NODE_DIR)/$*.opx/*.js "$(STDLIB_NODE_DIR)/$*.opx/"
 endef
 
+PLUGINS_DIR=lib/plugins
 define install-plugin
 @printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
 @mkdir -p "$(STDLIB_DIR)/$*.opp"
-@$(INSTALL) $(BUILD_DIR)/lib/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
-@for f in `find "$(BUILD_DIR)/lib/$*.opp" -mindepth 2 -iname \*.\*js`; do \
+@$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
+@for f in `find "$(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp" -mindepth 2 -iname \*.\*js`; do \
 	nf=`basename $$f | sed 's/[^_]*_\(.*\)/\1/'`; $(INSTALL) $$f "$(STDLIB_DIR)/$*.opp/$$nf"; done
-@$(if $(wildcard $(BUILD_DIR)/lib/$*.opp/*MLRuntime.*), $(INSTALL) $(BUILD_DIR)/lib/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/")
+@$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*MLRuntime.*), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/")
 endef
 
 
@@ -176,7 +177,7 @@ install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
 	@printf "Installation to $(STDLIB_FLAT_DIR) done.[K\n"
 
 install-pluginopt-%:
-	$(if $(wildcard $(BUILD_DIR)/$*.opp/),$(install-plugin))
+	$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/),$(install-plugin))
 
 install-plugin-%:
 	$(install-plugin)
@@ -254,7 +255,7 @@ install-bld:
 # Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
 install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocamlbuild twice
 	@mkdir -p $(INSTALL_DIR)/bin $(INSTALL_DIR)/share/opa/mlstatebsl
-	@$(INSTALL) $(BUILD_DIR)/lib/plugins/opabsl.opp/lib/plugins/opabsl/mlstatebsl/opabsl_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
+	@$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/opabsl.opp/lib/plugins/opabsl/mlstatebsl/opabsl_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
 	@echo "#!/usr/bin/env bash" > $(INSTALL_DIR)/bin/qmlflat
 	@echo "set -e" >> $(INSTALL_DIR)/bin/qmlflat
 	@echo "set -u" >> $(INSTALL_DIR)/bin/qmlflat
