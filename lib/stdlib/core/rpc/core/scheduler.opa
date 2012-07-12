@@ -70,9 +70,8 @@ Scheduler =
     not_stopped() = state()!={stop}
     rec loop() =
       k = asleep(Reference.get(delay), next)
-      do set_state({pending=k})
-      cb()
-    and next() = if not_stopped() then loop()
+      set_state({pending=k})
+    and next() = if not_stopped() then do loop() cb()
     {
       start() = if not_stopped() then void else loop()
       stop() =
@@ -81,6 +80,7 @@ Scheduler =
         {pending=k} ->
           do set_state({stop})
           abort(k)
+
         end
       change(ms) = Reference.set(delay,ms)
     } : { ... }
@@ -210,13 +210,13 @@ Scheduler =
 
   /**
    * Set the maximum of compute the scheduler can do before scheduling
-   * Use it with caution! 
+   * Use it with caution!
    */
   set_max_compute_successive = %%BslScheduler.set_max_compute_successive%%
 
   /**
    * Set the number of Apply for each compute
-   * Use it with caution! 
+   * Use it with caution!
    */
   set_nb_step_apply = %%BslScheduler.set_nb_step_apply%%
 
