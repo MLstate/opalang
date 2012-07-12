@@ -234,15 +234,11 @@ struct
       )
       env_js_input.Qml2jsOptions.js_init_contents)
 
-  let fix_exports statement =
-    JsUtils.export_to_global_namespace
-      (JsUtils.globalize_native_ident statement)
-
   let compilation_generation env_opt generated_files env_js_input =
     let js_init = get_js_init env_js_input in
     let save = {S.generated_files} in
     R.save save;
-    let js_init = List.map (fun (_, elt) -> fix_exports elt) js_init in
+    let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
     let code = env_js_input.js_code @ js_init in
     let content = Format.to_string JsPrint.scoped_pp_min#code code in
     let filename = "a.js" in

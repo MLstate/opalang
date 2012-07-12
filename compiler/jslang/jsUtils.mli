@@ -38,4 +38,4 @@ val globalize_native_ident : JsAst.code_elt -> JsAst.code_elt
 
      exports.foo = foo; -> global.foo = foo;
 *)
-val export_to_global_namespace : JsAst.code_elt -> JsAst.code_elt
+val export_to_global_namespace : JsAst.code -> JsAst.code

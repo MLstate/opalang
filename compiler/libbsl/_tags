@@ -10,7 +10,7 @@
 <bslTypes.ml>: use_langlang, use_opacapi
 <bslError.ml>: use_passlib
 <bslLib.ml>: use_libtrx, rectypes, use_jslang
-<bslRegisterLib.{ml,mli}>: use_libtrx, use_buildinfos, use_ocamllang
+<bslRegisterLib.{ml,mli}>: use_libtrx, use_buildinfos, use_ocamllang, use_jslang
 <bslRegisterLib.ml>: use_pplib
 <bslInitChecker.ml>:use_opalang
 <bslTypesGeneration.ml>: use_ocamllang

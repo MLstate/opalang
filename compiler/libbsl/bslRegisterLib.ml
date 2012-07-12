@@ -971,8 +971,15 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
 
 let finalizing_nodejs_package nodejs_code =
   let fold buf (filename, contents, conf) =
-    ignore filename; ignore conf;
-    FBuffer.printf buf "%s\n" contents
+    ignore conf;
+    let contents =
+      try
+        JsParse.String.code ~throw_exn:true contents
+      with
+        _ -> OManager.error "Couldn't parse file %s\n" filename
+    in
+    let contents = JsUtils.export_to_global_namespace contents in
+    FBuffer.printf buf "%a\n" JsPrint.pp#code contents
   in
   let buf = FBuffer.create 1024 in
   List.fold_left fold buf nodejs_code

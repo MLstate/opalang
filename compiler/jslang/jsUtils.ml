@@ -108,7 +108,7 @@ let globalize_native_ident stm =
 let prefix_global (name : string) : J.expr =
   JsCons.Expr.dot (JsCons.Expr.native_global "global") name
 
-let export_to_global_namespace stm =
+let export_to_global_namespace_aux stm =
   JsWalk.TStatement.map
     (fun stm ->
       match stm with
@@ -140,3 +140,8 @@ let export_to_global_namespace stm =
         prefix_global name
       | _ -> e
     ) stm
+
+let export_to_global_namespace code =
+  List.map (fun stm ->
+    export_to_global_namespace_aux (globalize_native_ident stm)
+  ) code
