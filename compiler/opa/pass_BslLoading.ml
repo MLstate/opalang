@@ -227,14 +227,21 @@ let resolve_entry search_path entry =
   | false -> entry
   | true  ->
       (* Searching plugin in extra path... *)
-      let candidates = List.filter_map
-        (fun p ->
+      let candidates = List.fold_left
+        (fun acc p ->
            let fullname = Filename.concat p extrapath in
-           #<If:BSL_LOADING>
-             OManager.verbose "Seraching %s on %s => %s : %b" extrapath p fullname (File.is_directory fullname);
-           #<End>;
-           if File.is_directory fullname then Some fullname else None
-        ) search_path in
+           if List.mem fullname acc then
+             acc
+           else (
+             #<If:BSL_LOADING>
+             OManager.verbose "Seraching %s on %s => %s : %b" extrapath
+               p fullname (File.is_directory fullname)
+             #<Else>
+             ()
+             #<End>;
+             if File.is_directory fullname then fullname :: acc else acc
+           )
+        ) [] search_path in
       let aux extrapath =
         OManager.verbose "Select %s" extrapath;
         {S.plugin_name = basename; extralib; extrapath;
