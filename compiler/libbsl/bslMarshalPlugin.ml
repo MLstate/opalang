@@ -145,7 +145,7 @@ let register_ocaml_env s env            = s.s_ocaml_env <- Some env
 let register_javascript_env s env       = s.s_javascript_env <- Some env
 
 let fail action filename message =
-  OManager.printf "Primitives librairy plugin:@ Cannot %s file @{<bright>%S@}@\n" action filename;
+  OManager.printf "Primitives library plugin:@ Cannot %s file @{<bright>%S@}@\n" action filename;
   OManager.error "@[<2>@{<bright>Hint@}:@\n%s@]@\n" message
 
 (* for simplicity, every time the compiler changes, the object files are invalid *)

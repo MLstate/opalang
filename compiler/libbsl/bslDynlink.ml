@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -26,7 +26,7 @@ let load_bypass_plugin = function
         Dynlink.loadfile_private file
       with
       | Dynlink.Error e ->
-          OManager.printf "Primitives librairy plugin:@ Cannot dynlink file @{<bright>%S@}@\n" file;
+          OManager.printf "Primitives library plugin:@ Cannot dynlink file @{<bright>%S@}@\n" file;
           OManager.error "@[<2>@{<bright>Hint@}:@\n%s@]@\n" (Dynlink.error_message e)
     )
   | MarshalPlugin file ->
