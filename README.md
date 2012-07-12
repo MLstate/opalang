@@ -71,6 +71,8 @@ Other files usage:
 * `tools/utils/install_release.sh`: builds a full Opa runtime in order to make a binary package
 * `tools/utils/make_package.sh`: builds various kinds of binary packages from the file
   hierarchy created by `tools/utils/install_release.sh`
+  
+You can find more information about the build system in tools/build/README.
 
 
 ## The build system ##
