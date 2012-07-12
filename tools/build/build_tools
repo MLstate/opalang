@@ -34,6 +34,7 @@ internal genproto             	compiler/protocols/genproto.native
 internal mlidl                	compiler/protocols/mlidl.native
 internal wsdl2ml              	compiler/protocols/wsdl2ml.native
 internal jsstat               	compiler/jslang/jsstat.native
+internal globalizer             compiler/jslang/globalizer.native
 
 # from qml2llvm
 internal opatop			compiler/opatop/opatop.native

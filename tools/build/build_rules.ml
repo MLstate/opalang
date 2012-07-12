@@ -624,7 +624,10 @@ let copy_lib_to_runtime lib =
 in
 
 rule "opa run-time libraries"
-  ~deps:("ocamllib"/"libbase"/"mimetype_database.xml" :: opacomp_deps_native)
+  ~deps:("ocamllib"/"libbase"/"mimetype_database.xml" ::
+            tool_deps "globalizer" @
+            opacomp_deps_native
+  )
   ~stamp:"runtime-libs.stamp"
   (fun _env _build ->
      let mllibs = List.filter (fun f -> Pathname.check_extension f "cmxa") opacomp_deps_native in
