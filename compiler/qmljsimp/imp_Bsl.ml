@@ -82,7 +82,9 @@ struct
        | None -> id
        | Some ret -> ret)
 
-  let function_projection ?(cps=`no)
+  let function_projection
+      ?(more=None)
+      ?(cps=`no)
       ?(check=false) ~inputs ~outputs ~bsltags _env ~key private_env type_params type_return id =
     let cps = if BslTags.do_projection bsltags "cps" then cps else `no in
     let initial_local_vars = private_env.local_vars in
@@ -110,7 +112,7 @@ struct
       match outputs private_env type_return js_ret with
       | Some (private_env, ast) -> (private_env, true), ast
       | None -> (private_env, projected), js_ret in
-    if projected || cps <> `no then
+    if projected || cps <> `no || more <> None then
       let check_arity =
         if check
         then
@@ -151,6 +153,7 @@ struct
                    JsCons.Expr.string (BslKey.to_string key)
                   ]
       in
+      let function_ = match more with None -> function_ | Some more -> more function_ in
       let function_ =
         if check then
           call_typer ~key Imp_Common.ClientLib.type_fun id ~ret:function_
@@ -318,13 +321,17 @@ struct
         aux_external (aux_js_of_qml ~bsltags) key env private_env p id
 
     | B.Fun (_, inputs, output) ->
-        let cps =
+        let cps, more =
           match env.options.Qml2jsOptions.cps, bsltags.BslTags.cps_bypass with
-          | true, false -> `from
-          | false, true -> `to_
-          | true, true | false, false -> `no
+          | true, false -> `from, None
+          | false, true -> `to_, None
+          | true, true -> `no, Some (fun fun_ ->
+                                       JsCons.Expr.call ~pure:true
+                                         (JsCons.Expr.ident (JsAst.Native (`global true, "wrap_tc")))
+                                         [fun_])
+          | false, false -> `no, None
         in
-        function_projection ~cps ~bsltags env ~key
+        function_projection ~more ~cps ~bsltags env ~key
           ~inputs:(aux_qml_of_js ~bsltags key env)
           ~outputs:(aux_js_of_qml ~bsltags key env)
           private_env
