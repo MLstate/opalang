@@ -449,6 +449,7 @@ let opp_build opa_plugin opp oppf env build =
     )
   in
   let options, mv_cmd =
+    let opp_basename = Pathname.basename (env opp) in
     if Tags.mem "static" (tags_of_pathname dir) then
     (* HACK: passing --static or not will change the files produced
        by the plugin builder. Since productions can't be tracked
@@ -456,12 +457,9 @@ let opp_build opa_plugin opp oppf env build =
        to make ocamlbuild believe that we're actually producing the extra
        files *)
       [A"--static"; A"--no-build"],
-      mv ((Pathname.basename (env opp)) -.- "opp")
-         (plugins_dir/((Pathname.basename (env opp)) -.- "save"))
+      mv (opp_basename -.- "opp") (plugins_dir/(opp_basename -.- "save"))
     else
-      [],
-      mv ((Pathname.basename (env opp)) -.- "opp")
-         (plugins_dir/((Pathname.basename (env opp)) -.- "opp"))
+      [], mv (opp_basename -.- "opp") (plugins_dir)
 
   in
   let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
