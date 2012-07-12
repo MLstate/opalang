@@ -63,7 +63,7 @@ opa-node-packages: $(MYOCAMLBUILD)
 opa-both-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-both-packages.stamp
 
-.PHONY: stdlib
+.PHONY: stdlib stdlib-flat stdlib-node
 stdlib: opa-both-packages
 stdlib-flat: opa-flat-packages
 stdlib-node: opa-node-packages
