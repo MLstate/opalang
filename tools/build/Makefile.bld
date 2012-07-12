@@ -38,7 +38,6 @@
 BUILD_DIR ?= _build
 BLDDIR ?= tools/build
 MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild
-OCAMLBUILD_OPT ?= -j 6
 OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin $(OCAMLBUILD_OPT) $(OCAMLBUILD_FLAGS)
 
 INSTALL ?= cp -u

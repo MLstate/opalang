@@ -15,6 +15,7 @@ CONFIG_PATH = tools/build
 include $(CONFIG_PATH)/config.make
 
 MAKE ?= $_
+OCAMLBUILD_OPT ?= -j 6
 
 ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += "--rebuild"
@@ -78,6 +79,10 @@ distrib: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	$(MAKE) $(OPA_TOOLS)
 
+##
+## MANPAGES
+##
+
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
@@ -86,17 +91,22 @@ else
 	@echo "Not building manpages"
 endif
 
+##
+## OPA-CREATE
+##
+
+target-tool-opa-create = tools/opa-create/src/opa-create.exe
+
 .PHONY: opa-create
 opa-create: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) tools/opa-create/src/opa-create.exe
-	@$(copy-tool-opa-create)
+	$(OCAMLBUILD) $(target-tool-opa-create)
+	@mkdir -p $(BUILD_DIR)/bin
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
+
 .PHONY: install-opa-create
 install-opa-create:
-	@$(install-opa-create)
-target-tool-opa-create = tools/opa-create/src/opa-create.exe
-copy-tool-opa-create = mkdir -p $(BUILD_DIR)/bin && $(INSTALL) $(BUILD_DIR)/tools/opa-create/src/opa-create.exe $(BUILD_DIR)/bin/opa-create
-install-opa-create = mkdir -p $(PREFIX)/bin && $(INSTALL) $(BUILD_DIR)/bin/opa-create $(INSTALL_DIR)/bin/opa-create
-
+	@mkdir -p $(PREFIX)/bin
+	$(INSTALL) $(BUILD_DIR)/bin/opa-create $(INSTALL_DIR)/bin/opa-create
 
 ##
 ## INSTALLATION
@@ -236,8 +246,6 @@ uninstall:
 	@tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
-
-OCAMLBUILD_OPT ?= -j 6
 
 # Install our ocamlbuild-generation engine
 install-bld:
