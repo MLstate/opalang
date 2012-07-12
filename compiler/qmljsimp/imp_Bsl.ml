@@ -165,35 +165,36 @@ struct
 
   let aux_option ?(check=false) caller key env private_env typ (id:JsAst.expr) =
     (* no projection for options *)
+    ignore id;
+    ignore check;
     let private_env, x = fresh_var private_env "js" in
-    let private_env, ret = fresh_var private_env "ret" in
     match caller key env private_env typ (JsCons.Expr.ident x) with
     | None -> None
     | Some (private_env, ast) ->
-        let ast =
-          if can_be_false typ then
-            (* 'some' in id ? (x = id.some, {some = ast}) : id *)
-            JsCons.Expr.cond
-              (JsCons.Expr.in_ (JsCons.Expr.string "some") (JsCons.Expr.ident ret))
-              (JsCons.Expr.comma
-                 [JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some")]
-                 (JsCons.Expr.obj ["some", ast]))
-              (JsCons.Expr.ident ret)
-          else
-            (* (x = id.some) ? {some = ast} : id (* none *) *)
-            JsCons.Expr.cond
-              (JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some"))
-              (JsCons.Expr.obj ["some", ast])
-              (JsCons.Expr.ident ret) in
-        let ast =
-          let assign = JsCons.Expr.assign_ident ret ast in
-          JsCons.Expr.comma [assign] ast
-        in
-        let ast =
-          if check then
-            call_typer ~key Imp_Common.ClientLib.type_option id ~ret:ast
-          else
-            ast in
+        (* let ast = *)
+        (*   if can_be_false typ then *)
+        (*     (\* 'some' in id ? (x = id.some, {some = ast}) : id *\) *)
+        (*     JsCons.Expr.cond *)
+        (*       (JsCons.Expr.in_ (JsCons.Expr.string "some") (JsCons.Expr.ident ret)) *)
+        (*       (JsCons.Expr.comma *)
+        (*          [JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some")] *)
+        (*          (JsCons.Expr.obj ["some", ast])) *)
+        (*       (JsCons.Expr.ident ret) *)
+        (*   else *)
+        (*     (\* (x = id.some) ? {some = ast} : id (\* none *\) *\) *)
+        (*     JsCons.Expr.cond *)
+        (*       (JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some")) *)
+        (*       (JsCons.Expr.obj ["some", ast]) *)
+        (*       (JsCons.Expr.ident ret) in *)
+        (* let ast = *)
+        (*   let assign = JsCons.Expr.assign_ident ret ast in *)
+        (*   JsCons.Expr.comma [assign] ast *)
+        (* in *)
+        (* let ast = *)
+        (*   if check then *)
+        (*     call_typer ~key Imp_Common.ClientLib.type_option id ~ret:ast *)
+        (*   else *)
+        (*     ast in *)
         Some (private_env, ast)
 
 
