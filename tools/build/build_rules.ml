@@ -669,9 +669,11 @@ rule "opa run-time libraries"
              @ [ P (opa_prefix / opa_libs_dir) ]));
        Cmd(S(link_cmd :: P (opa_prefix / "ocamllib" / "libbase" / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
        Cmd(S[link_cmd;
-             P opa_js_runtime_cps; P (opa_prefix / opa_libs_dir)]);
+             P (opa_prefix / opa_js_runtime_cps);
+             P (opa_prefix / opa_libs_dir)]);
        Cmd(S[link_cmd;
-             P opa_js_runtime_no_cps; P (opa_prefix / opa_libs_dir)]);
+             P (opa_prefix / opa_js_runtime_no_cps);
+             P (opa_prefix / opa_libs_dir)]);
        Seq copylibs
      ]
   );
