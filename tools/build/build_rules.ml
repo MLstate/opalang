@@ -402,15 +402,9 @@ let opp_build opa_plugin opp oppf env build =
   in
   let lib_dir s =
     [A"--ml";A"-I";A"--ml";P (
-       (* FIXME: very ugly hack !!! *)
-       let compiler_s = "compiler"/s
-       and ocamllib_s = "ocamllib"/s
-       and lib_s = "lib"/s in
-       if Pathname.exists compiler_s then ".."/compiler_s
-       else if Pathname.exists ocamllib_s then ".."/ocamllib_s
-       else if Pathname.exists lib_s then ".."/lib_s
-       else if Pathname.exists s then ".." / s
-       else ("+"^s)
+       let dir = mlstate_lib_dir s in
+       if dir = "." then ("+"^s)
+       else ".."/dir
      )]
   in
   let include_dirs = List.flatten (List.map lib_dir caml_use_lib) in
