@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -454,7 +454,7 @@ let global_inlining_policy_for_var e =
     -> true
   | _ -> false
 
-let global_inlining_policy_for_function _name params body =
+let global_inlining_policy_for_function name params body =
   (* FIXME: same here, when a function is used once, it can be inlined no matter what *)
   (* we inline but we do not want to make the code bigger, and it is difficult to know
    * beforehand if the inlined code will be simplified or not
@@ -480,18 +480,24 @@ let global_inlining_policy_for_function _name params body =
                                 here, and in the local inlining ?*)
     | J.Je_undefined _ -> true
     | _ -> false in
-  match body with
-  | [J.Js_return (_,Some e)] -> (
-      match e with
-      | J.Je_unop (_,_,e1) when simple_expr e1 -> Some e
-       (* FIXME: do not inline operators that do assignments (or side effects like delete?) *)
-      | J.Je_binop (_,_,e1,e2) when simple_expr e1 && simple_expr e2 -> Some e
-      | J.Je_dot (_,e1,_) when simple_expr e1 -> Some e
-      | J.Je_call (_, e1, l, _) when simple_expr e1 && List.for_all (simple_expr ~param_only:true) l ->
-          Some e
-      | _ -> if simple_expr e then Some e else None
-    )
-  | _ -> None
+  match name with
+  | J.Native (_, _s) -> None
+      (* We can't inline native function because of the JavaScript
+         specification. As a simple example you can change dynamically the
+         implementation of a function... *)
+  | _ ->
+      match body with
+      | [J.Js_return (_,Some e)] -> (
+          match e with
+          | J.Je_unop (_,_,e1) when simple_expr e1 -> Some e
+              (* FIXME: do not inline operators that do assignments (or side effects like delete?) *)
+          | J.Je_binop (_,_,e1,e2) when simple_expr e1 && simple_expr e2 -> Some e
+          | J.Je_dot (_,e1,_) when simple_expr e1 -> Some e
+          | J.Je_call (_, e1, l, _) when simple_expr e1 && List.for_all (simple_expr ~param_only:true) l ->
+              Some e
+          | _ -> if simple_expr e then Some e else None
+        )
+      | _ -> None
 
 (* alpha converting [vars] in [body], while returning the new names of [vars]
  * (and the new body of course)*)
