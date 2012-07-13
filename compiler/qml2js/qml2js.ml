@@ -396,9 +396,10 @@ if (process.version < '%s') {
         read_append opx
       else if is_from_stdlib opx then
         Printf.fprintf load_oc "require('%s');\n" short_name
-      else
+      else (
         install_node_module env_opt opx;
         Printf.fprintf load_oc "require('%s');\n" short_name
+      )
     in
     ObjectFiles.iter_dir ~deep:true ~packages:true link;
     read_append env_opt.compilation_directory;
