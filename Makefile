@@ -77,6 +77,7 @@ OPA_TOOLS = opa-create
 distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
+	$(MAKE) manpages
 	$(MAKE) $(OPA_TOOLS)
 
 ##
