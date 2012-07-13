@@ -403,7 +403,7 @@ let opp_build opa_plugin opp oppf env build =
   let lib_dir s =
     [A"--ml";A"-I";A"--ml";P (
        let dir = mlstate_lib_dir s in
-       if dir = "." then ("+"^s)
+       if dir = "." then ("+"^s) (* mlstate_lib_dir will return . if not found *)
        else ".."/dir
      )]
   in
