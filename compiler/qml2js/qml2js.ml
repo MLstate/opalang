@@ -252,7 +252,7 @@ struct
 
   let install_node_module env_opt path =
     let short_name = Filename.basename path in
-    let dest_path = Filename.concat (depends_dir env_opt) "node_depends" in
+    let dest_path = Filename.concat (depends_dir env_opt) "node_modules" in
     let dest_name = Filename.concat dest_path short_name in
     let _ = File.copy_rec ~force:true path dest_name = 0 in
     ()
