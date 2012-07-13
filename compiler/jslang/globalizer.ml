@@ -30,24 +30,31 @@ module List = BaseList
 type path = string
 
 let read_cmd_line_args (args : path list) =
-  let rec aux files output args =
+  let rec aux files output package_version args =
     match args with
     | [] when List.is_empty files ->
       `ko "No input files"
     | [] -> (
+      let package_version = Option.default "0.1.0" package_version in
       match output with
-      | Some output -> `ok (files, output)
+      | Some output -> `ok (files, output, package_version)
       | None -> `ko "No output file given"
     )
-    | ["-o"] -> `ko "Missing output"
+    | ["--package-version"] -> `ko "Missing package version argument"
+    | "--package-version" :: arg :: args -> (
+      match package_version with
+      | Some _ -> `ko "Multiple package versions given"
+      | None -> aux files output (Some arg) args
+    )
+    | ["-o"] -> `ko "Missing output argument"
     | "-o" :: arg :: args -> (
       match output with
-      | Some _ -> `ko "Multiple outputs"
-      | None -> aux files (Some arg) args
+      | Some _ -> `ko "Multiple outputs given"
+      | None -> aux files (Some arg) package_version args
     )
-    | arg :: args -> aux (arg :: files) output args
+    | arg :: args -> aux (arg :: files) output package_version args
   in
-  aux [] None args
+  aux [] None None args
 
 let process formatter (files : (path * JsAst.code) list) =
   List.iter (fun (filename, content) ->
@@ -62,7 +69,7 @@ let _ =
   let args = List.tl (Array.to_list Sys.argv) in
   match read_cmd_line_args args with
   | `ko error -> die error
-  | `ok (files, output) ->
+  | `ok (files, output, package_version) ->
 
     (* Read files and reexport their identifiers *)
     let files = List.map (fun filename ->
@@ -83,7 +90,8 @@ let _ =
       die "Couldn't create output path";
     let main_path = Filename.concat output "main.js" in
     let package_json_path = Filename.concat output "package.json" in
-    let package_desc = JsUtils.basic_package_json output "main.js" in
+    let package_desc = JsUtils.basic_package_json
+      ~version:package_version output "main.js" in
     let output_result = File.pp_output package_json_path
       Format.pp_print_string package_desc
     in

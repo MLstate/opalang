@@ -312,6 +312,7 @@ let mlopt_flags = MutableList.create ()
 
 (* p *)
 
+let package_version = ref "0.1.0"
 let pprocess = ref None
 let spec_process = Hashtbl.create 5
 
@@ -328,6 +329,8 @@ let rename_mlruntime   = rename_pair ( "ml"  ,  "mli" ) mlruntime  mlruntime_mli
 let unsafe_js = ref false
 let unsafe_opa = ref false
 
+let set_package_version version =
+  package_version := version
 
 let plugin_inclusion file =
   let inclusion = BslConvention.inclusion ~cwd file in
@@ -458,6 +461,10 @@ let spec = [
 
   (* p *)
 
+  "--package-version",
+  Arg.String set_package_version,
+  !>
+    "version to be added to the package.json file (default 0.1.0)" ;
 
   "--plugin",
   Arg.String plugin_inclusion,
@@ -870,7 +877,8 @@ let output_package_json () =
   let path = Filename.dirname !nodejspackage in
   let dest = Filename.concat path "package.json" in
   let main = Filename.basename !nodejspackage in
-  let package_desc = JsUtils.basic_package_json !opp_dir main in
+  let package_desc = JsUtils.basic_package_json ~version:!package_version
+    !opp_dir main in
   match File.pp_output dest Format.pp_print_string package_desc with
   | None -> ()
   | Some error ->

@@ -204,7 +204,8 @@ struct
     let filename = Filename.concat env_opt.compilation_directory "package.json" in
     OManager.verbose "writing file @{<bright>%s@}" filename ;
     let package_name = Filename.basename env_opt.compilation_directory in
-    let package_desc = JsUtils.basic_package_json package_name "a.js" in
+    let package_desc = JsUtils.basic_package_json
+      ~version:env_opt.package_version package_name "a.js" in
     match File.pp_output filename Format.pp_print_string package_desc with
     | None -> ()
     | Some error ->

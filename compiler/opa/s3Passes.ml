@@ -2169,6 +2169,7 @@ let pass_ServerJavascriptCompilation =
              target = options.OpaEnv.target;
              compilation_directory;
              static_link = options.OpaEnv.static_link;
+             package_version = options.OpaEnv.package_version;
              lang = `node;
          } in
        let jsoptions =

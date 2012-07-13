@@ -191,6 +191,8 @@ type opa_options = {
   parser_ : OpaSyntax.Args.options;
 
   static_link : bool; (* Whether or not to link object files statically *)
+  package_version: string; (* The version to be used when outputting
+                              the package.json file *)
 }
 
 let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
@@ -282,6 +284,10 @@ struct
     let publish_src_code = ref false
 
     let static_link = ref false
+
+    let package_version = ref "0.1.0"
+    let set_package_version version =
+      package_version := version
 
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
@@ -560,6 +566,7 @@ struct
 
           ("-o",                  Arg.String change_target,  "<file> Set output file name to <file>");
           ("--opack",             Arg.String (fun s -> (!opack_file_function) s), "<opack-file> Use an options-packaging file");
+          ("--package-version", Arg.String set_package_version, " Version to be included in the package.json file (default 0.1.0, qmljs only)");
           ("--project-root", Arg.String set_project_root, " Specify the root directory of the project");
           ("--publish-src-code", Arg.Set publish_src_code, " Publish application src code at [_internal_/src_code]");
           ("--root-inclusions", Arg.String set_root_inclusions, "<root> Specify the root directory of static inclusions");
@@ -861,6 +868,7 @@ struct
     parser_ = !OpaSyntax.Args.r;
 
     static_link = !ArgParser.static_link;
+    package_version = !ArgParser.package_version;
 
   }
 
