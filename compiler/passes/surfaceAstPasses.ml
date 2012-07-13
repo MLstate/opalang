@@ -47,6 +47,7 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
     let imports =  List.map (fun s -> Package(`import, s), label s) i18n_to_import in
     (name,content,imports @ code)
   in
+  let main_file (nodejs_module, _) = Filename.concat nodejs_module "main.js" in
   ObjectFiles.set_relative_stdlib
     (Printf.sprintf "stdlib.%s" (OpaEnv.string_of_available_back_end options.OpaEnv.back_end));
   ObjectFiles.set_extrapaths ~no_stdlib:(not options.OpaEnv.stdlib) options.OpaEnv.extrapath;
@@ -55,7 +56,7 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
       (*
         TODO(if needed): we can patch ObjectFiles for passing the conf as well
       *)
-      List.map fst options.OpaEnv.extrajs
+      List.map main_file options.OpaEnv.extrajs
     )
     ~no_stdlib:(not options.OpaEnv.stdlib)
     extract_package_decl

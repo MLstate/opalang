@@ -41,16 +41,15 @@ let wclass =
   let doc = "Javascript compiler warnings" in
   WarningClass.create ~name:"jscompiler" ~doc ~err:false ~enable:true ()
 
-type filename = string (* e.g. qmlCpsClientLib.js *)
-type pluginname = string (* e.g. "opabsl", without the .opp extension *)
+type nodejs_module = string
 
 type linked_file =
-| ExtraLib of filename
-| Plugin of pluginname
+| ExtraLib of nodejs_module
+| Plugin of nodejs_module (* without the .opp extension *)
 
-let string_of_linked_file = function
-  | ExtraLib s -> s
-  | Plugin s -> s
+let nodejs_module_of_linked_file = function
+  | ExtraLib m -> m
+  | Plugin m -> m
 
 let system_path =
   try Sys.getenv InstallDir.name
@@ -110,8 +109,7 @@ struct
      using the package; [`copy path] if path should be installed
      locally before requiring *)
   let require_of_linked_file = function
-    | ExtraLib file ->
-      `require (Filename.concat static_path file)
+    | ExtraLib name -> `require name
     | Plugin name ->
       match BslPluginTable.get name with
       | Some plugin ->
@@ -143,10 +141,10 @@ struct
           ignore conf
         in
         let get t =
-          let contents = File.content t in
+          let contents = File.content (Filename.concat t "main.js") in
           (ExtraLib (Filename.basename t), contents)::acc
         in
-        match File.get_locations env_opt.extra_path extra_lib with
+        match File.get_locations ~dir:true env_opt.extra_path extra_lib with
         | [] ->
             OManager.error (
               "Cannot find extra-lib @{<bright>%s@} in search path@\n"^^
@@ -173,20 +171,20 @@ struct
       in
       List.fold_left fold generated_files env_bsl.BslLib.plugins
     in
-    let ast = List.flatten (List.rev_map (
-                              fun (file, content) ->
-                                (*
-                                  TODO: we must take care about conf,
-                                  and not parse file tagged as Verbatim
-                                *)
-                                try
-                                  JsParse.String.code ~throw_exn:true content
-                                with JsParse.Exception error -> (
-                                  let _ = File.output "jserror.js" content in
-                                  OManager.error "JavaScript parser error on file '%s'\n%a\n"
-                                    (string_of_linked_file file) JsParse.pp error;
-                                )
-                            ) generated_files) in
+    let ast = List.flatten (List.rev_map (fun (file, content) ->
+      (*
+        TODO: we must take care about conf,
+        and not parse file tagged as Verbatim
+      *)
+      try
+        JsParse.String.code ~throw_exn:true content
+      with JsParse.Exception error -> (
+        let _ = File.output "jserror.js" content in
+        OManager.error "JavaScript parser error on file '%s'\n%a\n"
+          (nodejs_module_of_linked_file file) JsParse.pp error;
+      )
+    ) generated_files)
+    in
     List.rev generated_files, ast
 
   let write_main env_opt filename contents =
@@ -216,7 +214,7 @@ struct
     let pp fmt {generated_files} =
       let pp_file fmt (file, content) =
         Format.fprintf fmt "// FILE : %s@\n%s"
-          (string_of_linked_file file) content
+          (nodejs_module_of_linked_file file) content
       in
       Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files
   end
@@ -287,7 +285,7 @@ struct
                   let c = List.assoc file generated_files in
                   if content <> c then
                     OManager.warning ~wclass "Two files named %s has not the same content\n%!"
-                      (string_of_linked_file file);
+                      (nodejs_module_of_linked_file file);
                   generated_files
                 with Not_found -> opxgenfile::generated_files
              ) generated_files opxgenfiles
@@ -302,7 +300,7 @@ struct
         #<End>
         if env_opt.static_link then (
           Printf.fprintf oc "///////////////////////\n";
-          Printf.fprintf oc "// From %s\n" (string_of_linked_file file);
+          Printf.fprintf oc "// From %s\n" (nodejs_module_of_linked_file file);
           Printf.fprintf oc "///////////////////////\n";
           Printf.fprintf oc "%s" content;
           Printf.fprintf oc "\n";

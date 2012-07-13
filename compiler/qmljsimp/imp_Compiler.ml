@@ -236,9 +236,7 @@ struct
          localrenaming = true;
          cleanup = true;
       } in [
-      "clientLibLib.js", conf ;
-      "qmlCpsClientLib.js", conf ;
-      "qmlJsImpClientLib.js", conf ;
+      "opa-js-runtime-cps", conf
     ]
 end
 

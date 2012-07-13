@@ -243,11 +243,12 @@ let full_serialize
 
   (* 1) extra libs *)
   (*
-    Each extra lib is traduced as a [JsSerializer.code_elt]
+    Each extra lib is translated as a [JsSerializer.code_elt]
   *)
   let rev_ast =
     List.fold_left
       (fun rev_ast (extra_lib, conf) ->
+         let extra_lib = Filename.concat extra_lib "main.js" in
          (*
            Avoid to register several time the same extra lib with different packages:
            1. detected at compile time if we have already compiled the same elt
