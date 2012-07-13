@@ -110,7 +110,7 @@ if [ ${INSTALLDIR:0:1} != "/" ] || [ ${PREFIX:0:1} != "/" ]; then
     exit 1
 fi
 
-if [ "" != "$(diff $0 $OPALANG/$(basename $0))" ]; then
+if [ "" != "$(diff $0 $OPALANG/tools/utils/$(basename $0))" ]; then
     echo "[31mWARNING[0m: current version of $(basename $0) different from the one in the repo you're making the distribution from."
 fi
 
