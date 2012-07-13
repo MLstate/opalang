@@ -493,6 +493,7 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
   (opp_build "%.opa_plugin" "%" "%.oppf")
 ;
 
+dep ["use_database"] ["ocamllib"/"database.cmxa"];
 dep ["plugin_opabsl"] [plugins_dir/"opabsl"/"opabsl.oppf"];
 
 let opabsl_files =
