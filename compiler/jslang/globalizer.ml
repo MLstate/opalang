@@ -78,6 +78,7 @@ let _ =
     in
 
     (* Output nodejs package *)
+    File.remove_rec output;
     if not (File.check_create_path output) then
       die "Couldn't create output path";
     let main_path = Filename.concat output "main.js" in
