@@ -1,5 +1,2 @@
-# -*- conf -*- (for emacs)
-
 <*.ml>: with_mlstate_debug
-<badop.oppf>: use_database
-<badop.opa_plugin>: use_libbase, use_qmlcps, use_qmlflat, use_database, use_libruntime, use_appruntime, use_opabsl
+<badop.opa_plugin>: use_libbase, use_qmlcpsserver, use_qmlflat, use_database, use_libruntime, use_appruntime, use_opabsl
