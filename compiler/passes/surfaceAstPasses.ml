@@ -47,7 +47,11 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
     let imports =  List.map (fun s -> Package(`import, s), label s) i18n_to_import in
     (name,content,imports @ code)
   in
-  let main_file (nodejs_module, _) = Filename.concat nodejs_module "main.js" in
+  let main_file (entry : Qml2jsOptions.extra_lib) =
+    match entry with
+    | `client (file, _) -> file
+    | `server (nodejs_module, _) -> Filename.concat nodejs_module "main.js"
+  in
   ObjectFiles.set_relative_stdlib
     (Printf.sprintf "stdlib.%s" (OpaEnv.string_of_available_back_end options.OpaEnv.back_end));
   ObjectFiles.set_extrapaths ~no_stdlib:(not options.OpaEnv.stdlib) options.OpaEnv.extrapath;

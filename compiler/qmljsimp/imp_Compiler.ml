@@ -236,7 +236,15 @@ struct
          localrenaming = true;
          cleanup = true;
       } in [
-      "opa-js-runtime-cps", conf
+      (* No extension means that the file is a nodejs package and should
+         be used by the server. An extension means a standalone js file,
+         used in the client. Both of these right now contain the same code,
+         but the server code is preprocessed to globalize all identifiers
+         a hack to circumvent the nodejs module system *)
+      `server ("opa-js-runtime-cps", conf);
+      `client ("clientLibLib.js", conf);
+      `client ("qmlCpsClientLib.js", conf);
+      `client ("qmlJsImpClientLib.js", conf)
     ]
 end
 

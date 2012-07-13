@@ -43,6 +43,9 @@ struct
   ]
 end
 
+type extra_lib = [ `client of (string * BslJsConf.conf)
+                 | `server of (string * BslJsConf.conf) ]
+
 type t =
     {
       bypass_plugin : string list ;
@@ -57,7 +60,7 @@ type t =
       cps_toplevel_concurrency : bool ;
       exe_run : bool ;
       exe_argv : string list ;
-      extra_lib : (string * BslJsConf.conf) list ;
+      extra_lib : extra_lib list ;
       extra_path : string list ;
       input_files : Qml2ocamlOptions.input_file list ;
       backend : string;
@@ -98,7 +101,7 @@ module type JsBackend = sig
                 bsl_lang:BslLanguage.t ->
                 t -> BslLib.env_bsl -> QmlTyper.env -> QmlAst.code -> env_js_input
   val name : string
-  val runtime_libs : cps:bool -> (string * BslJsConf.conf) list
+  val runtime_libs : cps:bool -> extra_lib list
   val dummy_compile : unit -> unit (* if the back end is not called because the input code is empty
                                     * then this fake compilation function will be called instead
                                     * The backend should use it to save dummy object files

@@ -59,7 +59,7 @@ end
 module R = ObjectFiles.Make(S)
 
 (*
-  Traduction of options.
+  Translating options.
 *)
 let pass_OpaOptionsToJsOptions _backend options =
   let argv_options = Qml2jsOptions.Argv.default () in
@@ -245,10 +245,14 @@ let full_serialize
   (*
     Each extra lib is translated as a [JsSerializer.code_elt]
   *)
+  let extra_lib = List.filter_map (function
+    | `client (filename, conf) -> Some (filename, conf)
+    | _ -> None
+  ) jsoptions.Qml2jsOptions.extra_lib
+  in
   let rev_ast =
     List.fold_left
       (fun rev_ast (extra_lib, conf) ->
-         let extra_lib = Filename.concat extra_lib "main.js" in
          (*
            Avoid to register several time the same extra lib with different packages:
            1. detected at compile time if we have already compiled the same elt
@@ -267,7 +271,7 @@ let full_serialize
            | BslJsConf.Optimized optimized_conf ->
                (`parsed (parse_js_content ~optimized_conf ~key_prefix ~filename ~content), key_prefix) :: rev_ast
          )
-      ) rev_ast jsoptions.Qml2jsOptions.extra_lib in
+      ) rev_ast extra_lib in
 
 
   (* 2) plugins *)

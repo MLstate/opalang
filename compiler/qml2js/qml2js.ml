@@ -131,6 +131,11 @@ struct
 
   let js_bslfilesloading env_opt env_bsl =
     (* 1) extra libraries *)
+    let extra_lib = List.filter_map (function
+      | `server (lib, conf) -> Some (lib, conf)
+      | _ -> None
+    ) env_opt.extra_lib
+    in
     let generated_files =
       let fold acc (extra_lib, conf) =
         let () =
@@ -156,7 +161,7 @@ struct
               "I will use this one : @{<bright>%s@}" ) extra_lib (String.concat " " all) t ;
             get t
       in
-      List.fold_left fold [] env_opt.extra_lib
+      List.fold_left fold [] extra_lib
     in
 
     (* 2) loaded bsl containing js files

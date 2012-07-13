@@ -154,7 +154,7 @@ type opa_options = {
   cps_toplevel_concurrency : bool ;
   closure : bool ;
   extralibs : string list ;
-  extrajs : (string * BslJsConf.conf) list ;
+  extrajs : Qml2jsOptions.extra_lib list ;
   extrapath : string list ;
   resname : string ;
   target : string ;
