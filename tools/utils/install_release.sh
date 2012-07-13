@@ -25,7 +25,7 @@ msg () {
 
 MYDIR=$PWD
 
-OPAGENERAL=$MYDIR
+OPALANG=$MYDIR
 
 CLEAN="true"
 KEEP_INSTALL_SYS="false"
@@ -72,8 +72,8 @@ while [ $# -gt 0 ]; do
                 fi
                 cd "$MYDIR/git-masters/$d"; git fetch; git checkout $BRANCH
             done
-            OPAGENERAL="$MYDIR/git-masters/opageneral"
-            cd $OPAGENERAL && ./init.sh --link >/dev/null
+            OPALANG="$MYDIR/git-masters/opageneral"
+            cd $OPALANG && ./init.sh --link >/dev/null
             CMDLINE="$CMDLINE -srcdir $MYDIR/git-masters/opageneral"
             cd $MYDIR;;
         -keep-build)
@@ -91,7 +91,7 @@ while [ $# -gt 0 ]; do
         -srcdir)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
-            OPAGENERAL="$1";;
+            OPALANG="$1";;
 	-no-ocaml)
             NOOCAML="true";;
         -help|--help|-h)
@@ -110,7 +110,7 @@ if [ ${INSTALLDIR:0:1} != "/" ] || [ ${PREFIX:0:1} != "/" ]; then
     exit 1
 fi
 
-if [ "" != "$(diff $0 $OPAGENERAL/$(basename $0))" ]; then
+if [ "" != "$(diff $0 $OPALANG/$(basename $0))" ]; then
     echo "[31mWARNING[0m: current version of $(basename $0) different from the one in the repo you're making the distribution from."
 fi
 
@@ -137,7 +137,7 @@ if ! [ $(ls $INSTALLDIR 2>/dev/null |wc -l) -eq 0 ]; then # checks if dir empty
 fi
 fi
 
-MLSTATEVARS=$(set | grep -a '^MLSTATE\|^DBGEN\|^OPA' | grep -v "^MLSTATELIBS=\|^OPAGENERAL=\|^OPA_SOURCE_DIR=\|^OPAPRIVATE=" || true )
+MLSTATEVARS=$(set | grep -a '^MLSTATE\|^DBGEN\|^OPA' | grep -v "^MLSTATELIBS=\|^OPALANG=\|^OPA_SOURCE_DIR=\|^OPAPRIVATE=" || true )
 
 if [ -n "$MLSTATEVARS" ]; then
     msg "Warning: mlstate env vars detected. Please make sure the following won't"
@@ -170,12 +170,12 @@ if [ -n "$IS_WINDOWS" ]; then
 else
     msg Installing ocaml and other dependencies
     if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
-        rm -rf $OPAGENERAL/ocaml/build
+        rm -rf $OPALANG/ocaml/build
         . platform_helper.sh
         if [ -n "$IS_MAC" ] ; then
-            $OPAGENERAL/dependencies/installation_helper.sh --prefix $INSTALLDIR
+            $OPALANG/dependencies/installation_helper.sh --prefix $INSTALLDIR
         else
-            $OPAGENERAL/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml \
+            $OPALANG/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml \
 		--installdir $INSTALLDIR --libdir $INSTALLDIR_LIBOPA
         fi
 	if [ -n "$IS_MAC" ] ; then
@@ -205,9 +205,9 @@ if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
 	export OCAMLOPT=$INSTALLDIR_LIBOPA/ocaml/bin/ocamlopt.opt
     fi
 fi
-cd $OPAGENERAL
-SRCDIR=$OPAGENERAL
-OPABOOK=$OPAGENERAL/doc/book # the tutorial and book
+cd $OPALANG
+SRCDIR=$OPALANG
+OPABOOK=$OPALANG/doc/book # the tutorial and book
 
 # This is absolutely correct that the 2 variables are inversed, we should fix the value inside
 ./configure -prefix $INSTALLDIR -libdir $PREFIX -release -no-dbm

@@ -27,7 +27,7 @@ msg () {
 
 MYDIR=$PWD
 
-OPAGENERAL=`pwd` #$(dirname $0)
+OPALANG=`pwd` #$(dirname $0)
 
 TBZ2=""
 AUTOINSTALL=""
@@ -71,14 +71,14 @@ while [ $# -gt 0 ]; do
         -make-deb)
             DEB=true;;
         -make-pkg)
-            if [ -z "$OPAGENERAL" ]; then
-                echo "Error: you need to define \$OPAGENERAL to build a mac package"
+            if [ -z "$OPALANG" ]; then
+                echo "Error: you need to define \$OPALANG to build a mac package"
                 exit 1
             fi
             PKG=true;;
         -make-winpkg)
-            if [ -z "$OPAGENERAL" ]; then
-                echo "Error: you need to define \$OPAGENERAL to build a windows package"
+            if [ -z "$OPALANG" ]; then
+                echo "Error: you need to define \$OPALANG to build a windows package"
                 exit 1
             fi
             WINPKG=true;;
@@ -260,7 +260,7 @@ if [ "$PKG" = "true" ]; then
     # if [ $NOOCAML = "true" ]; then
     # 	 MOREOPTS="--filter lib/opa/static/*"
     # fi
-    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPAGENERAL/tools/installer/Mac/Resources/ --scripts $OPAGENERAL/tools/installer/Mac/Scripts --info $OPAGENERAL/tools/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
+    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPALANG/tools/installer/Mac/Resources/ --scripts $OPALANG/tools/installer/Mac/Scripts --info $OPALANG/tools/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
     echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
     if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
 	rm "$MYDIR/$PKG_NAME.dmg"
@@ -280,9 +280,9 @@ if [ "$WINPKG" = "true" ]; then
    # -everyting
    cp -a $INSTALLDIR/* pkg_ms_windows/
    # -nsis script
-   cp $OPAGENERAL/ms_windows/opa_pkg/install.nsi pkg_ms_windows
+   cp $OPALANG/ms_windows/opa_pkg/install.nsi pkg_ms_windows
    # -opa.bat install
-   cat $OPAGENERAL/ms_windows/opa_pkg/opa.bat | grep -v "^REM" | grep -v "^$" > pkg_ms_windows/bin/opa.bat
+   cat $OPALANG/ms_windows/opa_pkg/opa.bat | grep -v "^REM" | grep -v "^$" > pkg_ms_windows/bin/opa.bat
    # Some tidying
    mkdir -p pkg_ms_windows/bin/ocaml
    mkdir -p pkg_ms_windows/bin/uninstall
@@ -290,7 +290,7 @@ if [ "$WINPKG" = "true" ]; then
    mv pkg_ms_windows/bin/opa-bin  pkg_ms_windows/bin/runopa.exe
    # hidding ocaml executable to be oustide of PATH
    mv pkg_ms_windows/bin/ocamlopt.opt.exe  pkg_ms_windows/bin/ocaml/ocamlopt.opt.exe
-   cp $OPAGENERAL/ms_windows/opa_pkg/opa_logo*.ico pkg_ms_windows/bin/uninstall
+   cp $OPALANG/ms_windows/opa_pkg/opa_logo*.ico pkg_ms_windows/bin/uninstall
    /cygdrive/c/Program\ Files/NSIS/makensis.exe pkg_ms_windows/install.nsi
    echo The package is in pkg_ms_windows/installer.exe
 fi

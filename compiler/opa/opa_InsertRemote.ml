@@ -1327,7 +1327,7 @@ let error_stdlib _gamma annotmap code1 code2 e =
       "  - you cannot define client only bypasses@\n"^^
       "  - you cannot do side effects at toplevel, except in a declaration that is @@server_private@\n"^^
       "    Note that the slicer cannot guess when bypasses do side effects when applied.@\n"^^
-      "    You can update $OPAGENERAL/libqmlcompil/qmlEffects.ml so that the slicer knows when a bypass@\n"^^
+      "    You can update $OPALANG/libqmlcompil/qmlEffects.ml so that the slicer knows when a bypass@\n"^^
       "    application can be computed safely and independently on both sides@."
   ) (Printexc.to_string e) package_name
 
