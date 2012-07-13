@@ -235,7 +235,7 @@ struct
     let save = {S.generated_files} in
     R.save save;
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
-    let code = env_js_input.js_code @ js_init in
+    let code = js_init @ env_js_input.js_code in
     let content = Format.to_string JsPrint.scoped_pp_min#code code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
