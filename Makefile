@@ -5,7 +5,7 @@
 # we rely on ocamlbuild which already handles them ; every rule should
 # call it only once (no recursion)
 #
-# More info in tools/build/Makefile.bld
+# More info in tools/build/Makefile.bld and tools/build/README
 
 .PHONY: default
 default: all

@@ -9,7 +9,6 @@ Opa is an advanced framework for JavaScript, made of two parts:
 
 This repository contains all the sources of both the Opa compiler and the Opa library.
 
-
 ## Quick build instructions ##
 
     $ ./configure
@@ -71,9 +70,6 @@ Other files usage:
 * `tools/utils/install_release.sh`: builds a full Opa runtime in order to make a binary package
 * `tools/utils/make_package.sh`: builds various kinds of binary packages from the file
   hierarchy created by `tools/utils/install_release.sh`
-  
-You can find more information about the build system in tools/build/README.
-
 
 ## The build system ##
 
@@ -82,6 +78,8 @@ dynamically builds an ocamlbuild plugin and generates targets based on files
 `tools/build/build_libs`, `tools/build/build_tools` and `tools/build/build_rules.ml`.
 
 See `tools/build/Makefile.bld` and `tools/build/build_rules.ml` for more information. All generated files are put in `_build`, following the same hierarchy as the source directory.
+
+You can find more information about the build system in tools/build/README.
 
 Contact
 -------
