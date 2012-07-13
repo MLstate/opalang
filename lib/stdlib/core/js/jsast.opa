@@ -18,7 +18,7 @@
  * @author Quentin Bourgerie
 **/
 import-plugin server
-import stdlib.core.{map, set, args, parser}
+import stdlib.core.{map, set, args, parser, date}
 
 
 /**
@@ -139,6 +139,19 @@ JsOptions =
     lexems = List.rev(lexems)
     String.concat("", lexems)
 
+
+  @expand
+  profile(m:string, x) =
+    #<Ifstatic:JSAST_PROFILE>
+      a = Date.now()
+      r = x
+      d = Date.between(a, Date.now())
+      do jlog("[JSAST] {m} : {Duration.to_formatted_string(Duration.long_time_with_ms_printer, d)}")
+      r
+    #<Else>
+      x
+    #<End>
+
   /**
    * Generate a stringified version of JsAst.code with some processing (alpha-renaming and cleaning)
    * Use by [Client_code] to obtain the js code to send to the client.
@@ -148,25 +161,38 @@ JsOptions =
     // first, preventing the renaming from renaming any of the closure serialized by opa2js at toplevel
     // because even if we rename the client identifier and the string in the server closure
     // it is too late, the old string was already read from the server closure
-    do JsCleaning.Closure.iter_on_all_deps(ident -> ignore(JsIdent.rename(ident))) // this prevents renaming on ident
+    // this prevents renaming on ident
+    do profile(
+      "First renaming",
+      JsCleaning.Closure.iter_on_all_deps(ident -> ignore(JsIdent.rename(ident)))
+    )
     lexems = lexems // empty
     lexems =
       if JsOptions.cleaning
       then
-        JsCleaning.perform(fold_elt_lexems, js_codes, server_ast, lexems)
+        profile(
+          "Cleaning",
+          JsCleaning.perform(fold_elt_lexems, js_codes, server_ast, lexems)
+        )
       else
-        // define identifier for the renaming
-        iter(elt : JsAst.code_elt) =
-          match elt.ident with
-          | { ~ident ; ... } ->
-            JsIdent.define(ident)
-          | _ -> void
-        iter(code) = iter_code(iter, code)
-        do List.iter(iter, js_codes)
-        infos = JsCleaning.empty_infos
-        List.fold(fold_code_lexems(infos), js_codes, lexems)
+        profile(
+          "Fake Cleaning",
+          // define identifier for the renaming
+          iter(elt : JsAst.code_elt) =
+            match elt.ident with
+            | { ~ident ; ... } ->
+              JsIdent.define(ident)
+            | _ -> void
+          iter(code) = iter_code(iter, code)
+          do List.iter(iter, js_codes)
+          infos = JsCleaning.empty_infos
+          List.fold(fold_code_lexems(infos), js_codes, lexems)
+        )
     do JsIdent.clear() // relax the global map, for the GC
-    lexems_to_string(lexems)
+    profile(
+      "Serialize",
+      lexems_to_string(lexems)
+    )
 }}
 
 JsMinifier = {{
