@@ -67,7 +67,7 @@ type Server.private.generate_resource = {
 /**
  * {1 Interface}
  */
-
+@server_private
 Server_private = {{
 
     @private _internal_ = "_internal_"
