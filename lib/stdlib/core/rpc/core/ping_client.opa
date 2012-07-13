@@ -20,26 +20,21 @@ PingClient = {{
   @private registers = Reference.create([]): reference(list(RPC.Json.json))
 
   register_actor(id) =
-    do @atomic(
+    @atomic(
       x = Reference.get(registers)
       Reference.set(registers, [{String = id} | x])
     )
-    Log.debug("RA", Reference.get(registers))
 
   @private
   wrap_request(url, body, f) =
    match @atomic(
      x = Reference.get(registers)
-     do Log.debug("WR0", x)
      do Reference.set(registers, [])
-     do Log.debug("WR1", x)
      x)
    with
    | [] ->
-     do Log.debug("WR2", "No register")
      f(url, body)
    | registers ->
-     do Log.debug("WR2", registers)
      msg = {Record = [
        ("to_register", {List = registers}),
        ("url", {String = "{%%Session.PingRegister.internal_prefix%%}{url}"}),
