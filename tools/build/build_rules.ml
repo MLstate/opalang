@@ -243,6 +243,10 @@ rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
      ]
   );
 
+(* Warning: make sure to call this after producing the file *)
+let get_version_buildinfos () =
+  List.hd (string_list_of_file (opa_prefix/version_buildinfos)) in
+
 let parser_files =
   let dir = ["compiler/opalang/classic_syntax";"compiler/opalang/js_syntax"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
@@ -466,9 +470,10 @@ let opp_build opa_plugin opp oppf env build =
     Seq([Cmd(S[A"rm"; A"-rf"; A save_path]);
          mv origin_path save_path])
   in
-  let options = [A"-o" ; P((Pathname.basename (env opp)))] @ preprocess_js @
-    preprocess_ml @ include_dirs @ include_libs @ js_validation @ files_lib @
-    options
+  let version = get_version_buildinfos () in
+  let options = [A"--package-version"; A version; A"-o" ;
+    P((Pathname.basename (env opp)))] @ preprocess_js @ preprocess_ml @
+    include_dirs @ include_libs @ js_validation @ files_lib @ options
   in
   Seq[
     Cmd(S(
@@ -637,10 +642,12 @@ let opa_js_runtime_no_cps = "opa-js-runtime-no-cps" in
 (* Convert the JS runtime to a global-prefixed nodejs package *)
 let js_runtime_rule (files, dest) =
   rule ("opa js runtime " ^ dest)
-    ~deps:(tool_deps "globalizer" @ files)
+    ~deps:(version_buildinfos :: tool_deps "globalizer" @ files)
     ~prods:(globalizer_prods dest)
     (fun env build ->
+      let version = get_version_buildinfos () in
       Cmd(S(get_tool "globalizer" :: A"-o" :: A dest ::
+            A "--package-version" :: A version ::
             List.map (fun file -> P file) files))
     )
 in
@@ -876,7 +883,8 @@ rule "opa application creator"
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
   rule name
-    ~deps:[opacapi_validation;all_plugins_file;all_packages_file nodebackend;"opacomp.stamp"]
+    ~deps:[opacapi_validation;all_plugins_file;version_buildinfos;
+           all_packages_file nodebackend;"opacomp.stamp"]
     ~stamp
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
   (fun env build ->
@@ -932,9 +940,11 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
          [A"--conf-opa-files"]
        in
        let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
+       let version = get_version_buildinfos () in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
        let extra_opt =
          [A"--opx-dir";A opx_dir;
+          A"--package-version"; A version;
 	  A"-I";A opa_prefix;
 	  A"--no-warn";A"load-import";
 	  A"--no-warn";A"bsl.loading";
