@@ -34,7 +34,8 @@ module J = Qml2jsOptions
 
 type env_js_output =
     {
-      generated_files : (string * string) list ; (** path/name without build directory * contents *)
+      (** path/name without build directory * contents *)
+      generated_files : (string * string) list ;
     }
 
 let wclass =
@@ -49,7 +50,7 @@ type linked_file =
 
 let nodejs_module_of_linked_file = function
   | ExtraLib m -> m
-  | Plugin m -> m
+  | Plugin m -> m ^ ".opp"
 
 let system_path =
   try Sys.getenv InstallDir.name
@@ -164,12 +165,11 @@ struct
       List.fold_left fold [] extra_lib
     in
 
-    (* 2) loaded bsl containing js files
-       order : since the generated code contains call to bypass of bsl, it is too dangerous to
-       put the extra-libs between bsl and the generated code *)
+    (* 2) loaded bsl containing js files order : since the generated
+       code contains call to bypass of bsl, it is too dangerous to put
+       the extra-libs between bsl and the generated code *)
     let generated_files =
       let fold acc loader =
-        (* TODO figure out what filter_bsl was being used for *)
         let filename = filename_of_plugin loader in
         let content = File.content filename in
         (Plugin loader.BslPluginInterface.basename, content) :: acc
@@ -214,15 +214,21 @@ struct
   module S =
   struct
     type t = {
-      generated_files : (linked_file * string) list;
+      (* name * contents *)
+      native_requires : (linked_file * string) list;
+      (* Packages required by file *)
+      opx_requires : string list;
+      generated_code : JsAst.code;
     }
     let pass = "ServerJavascriptCompilation"
-    let pp fmt {generated_files} =
+    let pp fmt {native_requires; opx_requires} =
       let pp_file fmt (file, content) =
         Format.fprintf fmt "// FILE : %s@\n%s"
           (nodejs_module_of_linked_file file) content
       in
-      Format.fprintf fmt "%a" (Format.pp_list "@\n@\n" pp_file) generated_files
+      Format.fprintf fmt "native: %a opx: %a"
+        (Format.pp_list "@\n@\n" pp_file) native_requires
+        (Format.pp_list "@\n@\n" Format.pp_print_string) opx_requires
   end
 
   module R = ObjectFiles.Make(S)
@@ -236,35 +242,37 @@ struct
       )
       env_js_input.Qml2jsOptions.js_init_contents)
 
-  let compilation_generation env_opt generated_files env_js_input =
+  let compilation_generation env_opt native_requires env_js_input =
     let js_init = get_js_init env_js_input in
-    let save = {S.generated_files} in
+
+    let opx_requires = ObjectFiles.fold_dir ~packages:true
+      (fun requires opx -> opx :: requires) [] in
+
+    let save = {S.
+                native_requires;
+                opx_requires;
+                generated_code = env_js_input.js_code;
+               } in
     R.save save;
 
     (* Require all needed plugins *)
-    let plugin_require (linked_file, _content) =
-      (* As everybody needs the basic runtime, we'll require it
-         when linking *)
-      match linked_file with
-      | Plugin m ->
-        (* TODO: copy require when not in stdlib *)
-        let call = JsCons.Expr.call ~pure:false
-          (JsCons.Expr.native "require")
-          [(JsCons.Expr.string (m ^ ".opp"))] in
-        Some (JsCons.Statement.expr call)
-      | _ -> None in
-    let plugin_requires = List.filter_map plugin_require generated_files in
+    let require_native (linked_file, _content) =
+      (* TODO: copy require when not in stdlib *)
+      let call = JsCons.Expr.call ~pure:false
+        (JsCons.Expr.native "require")
+        [(JsCons.Expr.string (nodejs_module_of_linked_file linked_file))] in
+      JsCons.Statement.expr call in
+    let native_requires = List.map require_native native_requires in
 
     (* Add required packages *)
-    let opx_require requires opx =
+    let require_opx opx =
       let call = JsCons.Expr.call ~pure:false
         (JsCons.Expr.native "require")
         [(JsCons.Expr.string (Filename.basename opx))] in
-      JsCons.Statement.expr call :: requires in
-    let opx_requires = ObjectFiles.fold_dir ~packages:true
-      opx_require [] in
+      JsCons.Statement.expr call in
+    let opx_requires = List.map require_opx opx_requires in
 
-    let requires = plugin_requires @ opx_requires in
+    let requires = native_requires @ opx_requires in
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
     let code = requires @ js_init @ env_js_input.js_code in
     let content = Format.to_string JsPrint.scoped_pp_min#code code in
@@ -313,8 +321,9 @@ struct
          Otherwise, we know that those files will have the appropriate
          requires already and don't need that *)
       if env_opt.static_link then
-        R.fold_with_name ~packages:true ~deep:false
-          (fun _package generated_files {S. generated_files = opxgenfiles} ->
+        R.fold_with_name ~packages:true ~deep:true
+          (fun _package generated_files saved ->
+            let opxgenfiles = saved.S.native_requires in
             let generated_files = List.fold_left
               (fun generated_files ((file, content) as opxgenfile) ->
                 try
@@ -332,35 +341,37 @@ struct
       else
         generated_files
     in
-    List.iter
-      (fun (file, content) ->
-        #<Ifstatic:JS_IMP_DEBUG 1>
-        Printf.fprintf load_oc "console.log('Load file %s')" filename;
-        #<End>
-        if env_opt.static_link then (
-          Printf.fprintf oc "///////////////////////\n";
-          Printf.fprintf oc "// From %s\n" (nodejs_module_of_linked_file file);
-          Printf.fprintf oc "///////////////////////\n";
-          Printf.fprintf oc "%s" content;
-          Printf.fprintf oc "\n";
-        ) else
-          let name = match require_of_linked_file file with
-            | `require name -> name
-            | `copy path ->
-              install_node_module env_opt path;
-              Filename.basename path
-          in
-          Printf.fprintf load_oc "require('%s');\n" name;
-      ) (List.rev generated_files);
+    if env_opt.static_link then
+      List.iter
+        (fun (file, content) ->
+          #<Ifstatic:JS_IMP_DEBUG 1>
+            Printf.fprintf load_oc "console.log('Load file %s')" filename;
+          #<End>
+            if env_opt.static_link then (
+              let name = nodejs_module_of_linked_file file in
+              Printf.fprintf oc "///////////////////////\n";
+              Printf.fprintf oc "// From %s\n" name;
+              Printf.fprintf oc "///////////////////////\n";
+              Printf.fprintf oc "%s" content;
+              Printf.fprintf oc "\n";
+            ) else
+              let name = match require_of_linked_file file with
+                | `require name -> name
+                | `copy path ->
+                  install_node_module env_opt path;
+                  Filename.basename path
+              in
+              Printf.fprintf load_oc "require('%s');\n" name;
+        ) (List.rev generated_files);
     load_oc
 
   let get_target env_opt = env_opt.target
 
-  let linking_generation env_opt generated_files env_js_input =
-    compilation_generation env_opt generated_files env_js_input;
+  (* Write shell script incantation to check dependencies,
+     set load path, etc *)
+  let write_shell_header oc =
     let min_node_version = "v0.6.0"
     and max_node_version = "v0.8.0" in
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
     Printf.fprintf oc "#!/usr/bin/env bash
 
 /*usr/bin/env true
@@ -378,10 +389,15 @@ if (process.version < '%s') {
 
 " stdlib_qmljs_path stdlib_path static_path LaunchHelper.script min_node_version
       min_node_version max_node_version;
+
+  let linking_generation env_opt native_requires env_js_input =
+    compilation_generation env_opt native_requires env_js_input;
+    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
+    write_shell_header oc;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
-    let load_oc = linking_generation_js_init env_opt generated_files oc in
+    let load_oc = linking_generation_js_init env_opt native_requires oc in
     let js_file opx = Filename.concat opx "a.js" in
-    let read_append opx =
+    let read_append oc opx =
       Printf.fprintf oc "///////////////////////\n";
       Printf.fprintf oc "// From package %s \n" opx;
       Printf.fprintf oc "///////////////////////\n";
@@ -398,26 +414,22 @@ if (process.version < '%s') {
       in aux(); close_in ic
     in
     let link opx =
-      let short_name = Filename.basename opx in
       if env_opt.static_link then
-        read_append opx
-      else if is_from_stdlib opx then
-        Printf.fprintf load_oc "require('%s');\n" short_name
-      else (
-        install_node_module env_opt opx;
-        Printf.fprintf load_oc "require('%s');\n" short_name
-      )
+        read_append oc opx
+      else if not (is_from_stdlib opx) then
+        install_node_module env_opt opx
     in
-    ObjectFiles.iter_dir ~deep:false ~packages:true link;
-    read_append env_opt.compilation_directory;
+    let is_deep = env_opt.static_link in
+    ObjectFiles.iter_dir ~deep:is_deep ~packages:true link;
+    read_append load_oc env_opt.compilation_directory;
     close_out oc;
     if env_opt.static_link then () else close_out load_oc
 
-  let js_generation env_opt generated_files env_js_input =
+  let js_generation env_opt native_requires env_js_input =
     begin match ObjectFiles.compilation_mode () with
-    | `compilation -> compilation_generation env_opt generated_files env_js_input
+    | `compilation -> compilation_generation env_opt native_requires env_js_input
     | `init -> ()
-    | `linking -> linking_generation env_opt generated_files env_js_input
+    | `linking -> linking_generation env_opt native_requires env_js_input
     | `prelude -> assert false
     end;
     { generated_files = [get_target env_opt, ""] }
