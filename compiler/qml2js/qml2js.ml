@@ -295,21 +295,29 @@ struct
     in
     let generated_files = List.rev generated_files in
     let generated_files =
-      R.fold_with_name ~packages:true ~deep:false
-        (fun _package generated_files {S. generated_files = opxgenfiles} ->
-           let generated_files = List.fold_left
-             (fun generated_files ((file, content) as opxgenfile) ->
+      (* If we link everything statically, then we need to fetch
+         the plugin dependencies of all packages and add them here.
+         Otherwise, we know that those files will have the appropriate
+         requires already and don't need that *)
+      if env_opt.static_link then
+        R.fold_with_name ~packages:true ~deep:false
+          (fun _package generated_files {S. generated_files = opxgenfiles} ->
+            let generated_files = List.fold_left
+              (fun generated_files ((file, content) as opxgenfile) ->
                 try
                   let c = List.assoc file generated_files in
                   if content <> c then
-                    OManager.warning ~wclass "Two files named %s has not the same content\n%!"
+                    OManager.warning ~wclass
+                      "Two files named %s has not the same content\n%!"
                       (nodejs_module_of_linked_file file);
                   generated_files
                 with Not_found -> opxgenfile::generated_files
-             ) generated_files opxgenfiles
-           in
-           generated_files
-        ) generated_files
+              ) generated_files opxgenfiles
+            in
+            generated_files
+          ) generated_files
+      else
+        generated_files
     in
     List.iter
       (fun (file, content) ->

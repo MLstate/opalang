@@ -237,7 +237,7 @@ struct
 end
 let declare_visibility = BypassVisibility.declare_visibility
 
-(* BSL is a fonctor : see the manual *)
+(* BSL is a functor : see the manual *)
 module MakeLibBSL
   (ML_ITrans : BI.ML_ITRANS)
   (ML_CTrans : BI.ML_CTRANS)
