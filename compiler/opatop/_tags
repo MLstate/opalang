@@ -16,3 +16,6 @@
 # this is not due to a dirty code, and there is no way to
 # tell ocamlopt to disable these locally for the function only.
 <opaTopEval.ml> : warn_x
+
+# ppdebug
+<opabslMLRuntime.ml>: with_mlstate_debug
