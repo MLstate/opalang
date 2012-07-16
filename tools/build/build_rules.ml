@@ -482,9 +482,9 @@ let opp_build opa_plugin opp oppf env build =
     else
       [], plugins_dir/origin_path
   in
-  let mv_cmd =
+  let cp_cmd =
     Seq([Cmd(S[A"rm"; A"-rf"; A save_path]);
-         mv origin_path save_path])
+         Cmd(S[A"cp"; A"-R"; A origin_path; A save_path])])
   in
   let version = get_version_buildinfos () in
   let options = [A"--package-version"; A version; A"-o" ;
@@ -497,7 +497,7 @@ let opp_build opa_plugin opp oppf env build =
 	  opa_plugin_builder::options
 	));
     Cmd(S[A"touch"; P(env oppf) ] );
-    mv_cmd
+    cp_cmd
   ]
 in
 rule "opa_plugin_deps: opa_plugin -> opa_plugin.depends"
@@ -537,7 +537,9 @@ rule "opabsl files"
   ~prods:opabsl_files
   (fun _ _ ->
     Seq[
-      mv (plugins_dir/"opabsl.save") (plugins_dir/"opabsl.opp");
+      Cmd(S[A "rm"; A "-rf"; A (plugins_dir/"opabsl.opp")]);
+      Cmd(S[A "cp"; A "-R";
+            A (plugins_dir/"opabsl.save"); A (plugins_dir/"opabsl.opp")]);
       cp (plugins_dir/"opabsl"/"serverLib.mli") (plugins_dir/"opabsl.opp"/"serverLib.mli");
       (* The .mli file is meant to be linked with actual opa
          applications.  Thus, it doesn't expose all the symbols
