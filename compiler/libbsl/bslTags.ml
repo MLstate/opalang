@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -33,6 +33,7 @@ type t = {
   restricted                  : string list option option ;
   second_order                : bool ;
   cps_bypass                  : bool ;
+  pure                        : bool ;
   opacapi                     : bool ;
 }
 
@@ -46,6 +47,7 @@ let default = {
   restricted = None ;
   second_order = false ;
   cps_bypass = false ;
+  pure = false ;
   opacapi = false ;
 }
 
@@ -169,6 +171,9 @@ let parse_aux =
     | "opacapi", _ ->
         { t with opacapi = true }
 
+    | "pure", _ ->
+        { t with pure = true }
+
     | tag ->
         error_unknown_tag tag
 
@@ -254,6 +259,12 @@ let parsed_t_opacapi t acc =
   then (opacapi, None) :: acc
   else acc
 
+let parsed_t_pure t acc =
+  let pure = "pure" in
+  if t.pure
+  then (pure, None) :: acc
+  else acc
+
 let parsed_t t =
   let (||>) acc f = f t acc in
   []
@@ -265,6 +276,7 @@ let parsed_t t =
   ||> parsed_t_second_order
   ||> parsed_t_cps_bypass
   ||> parsed_t_opacapi
+  ||> parsed_t_pure
   |> List.sort Pervasives.compare
 
 

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -53,6 +53,7 @@ type parsed_t = ( string * string option ) list
    + [second_order] is a tag for bypass which contains an arrow type in one of their argument, or the returned type.
    + [cps_bypass] is a tag for bypass that take explicitly the cps continuation.
    + [opacapi] says that this bypass is part of the compiler interface (inserted by some pass)
+   + [pure] says that this bypass is pure (i.e. no side effects)
 
    This tag is added by the bslregister process, so that the type should not be inspected each time we may need to
    get this information.
@@ -66,6 +67,7 @@ type t =
       restricted : string list option option ;
       second_order : bool ;
       cps_bypass : bool ;
+      pure : bool ;
       opacapi : bool ;
     }
 
