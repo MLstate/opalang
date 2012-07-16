@@ -240,8 +240,20 @@ struct
     let js_init = get_js_init env_js_input in
     let save = {S.generated_files} in
     R.save save;
+    let require (linked_file, _content) =
+      (* As everybody needs the basic runtime, we'll require it
+         when linking *)
+      match linked_file with
+      | Plugin m ->
+        (* TODO: copy require when not in stdlib *)
+        let call = JsCons.Expr.call ~pure:false
+          (JsCons.Expr.native "require")
+          [(JsCons.Expr.string m)] in
+        Some (JsCons.Statement.expr call)
+      | _ -> None in
+    let requires = List.filter_map require generated_files in
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
-    let code = js_init @ env_js_input.js_code in
+    let code = requires @ js_init @ env_js_input.js_code in
     let content = Format.to_string JsPrint.scoped_pp_min#code code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
@@ -283,7 +295,7 @@ struct
     in
     let generated_files = List.rev generated_files in
     let generated_files =
-      R.fold_with_name ~packages:true ~deep:true
+      R.fold_with_name ~packages:true ~deep:false
         (fun _package generated_files {S. generated_files = opxgenfiles} ->
            let generated_files = List.fold_left
              (fun generated_files ((file, content) as opxgenfile) ->
@@ -375,7 +387,7 @@ if (process.version < '%s') {
         Printf.fprintf load_oc "require('%s');\n" short_name
       )
     in
-    ObjectFiles.iter_dir ~deep:true ~packages:true link;
+    ObjectFiles.iter_dir ~deep:false ~packages:true link;
     read_append env_opt.compilation_directory;
     close_out oc;
     if env_opt.static_link then () else close_out load_oc
