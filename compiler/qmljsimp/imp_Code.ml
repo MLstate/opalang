@@ -75,6 +75,11 @@ let is_it_void _env expr =
   aux expr
 
 let compile_bypass env key =
+  let is_pure key =
+    match Imp_Bsl.JsImpBSL.ByPassMap.bsl_bypass_tags env.E.private_bymap ~lang:env.E.bsl_lang key with
+    | None -> false
+    | Some tag -> tag.BslTags.pure
+  in
   match Imp_Bsl.JsImpBSL.ByPassMap.find_opt_implementation env.E.private_bymap ~lang:env.E.bsl_lang key with
   | None ->
       OManager.error
@@ -86,7 +91,10 @@ let compile_bypass env key =
       | Imp_Bsl.JsImpBSL.Implementation.Ident ident ->
           JsCons.Expr.exprident ident
       | Imp_Bsl.JsImpBSL.Implementation.String s ->
-          JsParse.String.expr ~globalize:true s
+          match JsParse.String.expr ~globalize:true s with
+          | J.Je_ident (p, J.Native (`global _, s)) when is_pure key ->
+              J.Je_ident (p, J.Native (`global true, s))
+          | x -> x
             (*
               No parse error should happen
               This is verified at the moment we build the bypass plugin
