@@ -101,8 +101,12 @@ let magic_import_from_opabsl dest f =
     (fun env build ->
        Seq[Cmd(S[Sh"mkdir";A"-p";P dest]);
            if Pathname.exists (plugins_dir/opabsl_opp)
-           then (build_list build [plugins_dir/opabsl_opp/f]; cp (plugins_dir/opabsl_opp/f) dest)
-           else cp (mlstatelibs/plugins_dir/opabsl_opp/f) dest
+           then (
+	     build_list build [plugins_dir/opabsl_opp/f];
+	     cp (plugins_dir/opabsl_opp/f) dest
+	   ) else (
+	     cp (mlstatelibs/plugins_dir/opabsl_opp/f) dest
+	   )
           ])
 in
 List.iter
@@ -412,13 +416,12 @@ let opp_build opa_plugin opp oppf env build =
   let files_validation, files_lib = List.partition jschecker_file files in
   let files_lib = List.map (fun s -> P s) files_lib in
   let plugin_name = Pathname.basename (env "%") in
-  if Tags.mem "use_opabsl" (tags_of_pathname (env oppf)) then
+  if Tags.mem "use_opabsl_for_server" (tags_of_pathname (env oppf)) then
     (* HACK:
        For some reason, I couldn't get the dep ocamlbuild function
        to pull this dependency... *)
     build_list build [plugins_dir/"opabsl.opp"/"opabslMLRuntime.cmx"]
-  else
-    ();
+  else ();
   let files_js = List.filter (fun f-> Pathname.check_extension f "js") files in
   let preprocess_js =
     List.fold_left
