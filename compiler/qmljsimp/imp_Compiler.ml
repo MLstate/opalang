@@ -40,11 +40,7 @@ let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_ty
         (fun used_bypasses expr ->
            QmlAstWalk.Expr.fold
              (fun used_bypasses -> function
-              | QmlAst.Bypass (_, bkey) ->
-                  #<If:JS_IMP>
-                    Format.eprintf "Found bypass : %a\n%!" BslKey.pp bkey;
-                  #<End>;
-                  BslKeySet.add bkey used_bypasses
+              | QmlAst.Bypass (_, bkey) -> BslKeySet.add bkey used_bypasses
               | _ -> used_bypasses
              ) used_bypasses expr
         ) used_bypasses code
