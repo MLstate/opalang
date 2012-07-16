@@ -396,32 +396,26 @@ if (process.version < '%s') {
     write_shell_header oc;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
     let load_oc = linking_generation_js_init env_opt native_requires oc in
-    let js_file opx = Filename.concat opx "a.js" in
-    let read_append oc opx =
+    let read_append oc package_dir saved =
       Printf.fprintf oc "///////////////////////\n";
-      Printf.fprintf oc "// From package %s \n" opx;
+      Printf.fprintf oc "// From package %s \n" package_dir;
       Printf.fprintf oc "///////////////////////\n";
       #<Ifstatic:JS_IMP_DEBUG 1>
       Printf.fprintf oc "console.log('Load package %s')" opx;
       #<End>
-      let ic = open_in (js_file opx) in
-      let chunk = 10000 in
-      let str = String.create chunk in
-      let rec aux () =
-        match input ic str 0 chunk with
-        | 0 -> ()
-        | len -> output oc str 0 len; aux ()
-      in aux(); close_in ic
+      let fmt = Format.formatter_of_out_channel oc in
+      Format.fprintf fmt "%a\n" JsPrint.pp_min#code saved.S.generated_code
     in
-    let link opx =
+    let link package_dir saved =
       if env_opt.static_link then
-        read_append oc opx
-      else if not (is_from_stdlib opx) then
-        install_node_module env_opt opx
+        read_append oc package_dir saved
+      else if not (is_from_stdlib package_dir) then
+        install_node_module env_opt package_dir
     in
     let is_deep = env_opt.static_link in
-    ObjectFiles.iter_dir ~deep:is_deep ~packages:true link;
-    read_append load_oc env_opt.compilation_directory;
+    R.iter_with_dir ~deep:is_deep ~packages:true link;
+    let fmt = Format.formatter_of_out_channel load_oc in
+    Format.fprintf fmt "%a\n" JsPrint.pp_min#code env_js_input.js_code;
     close_out oc;
     if env_opt.static_link then () else close_out load_oc
 
