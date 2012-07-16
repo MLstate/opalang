@@ -149,7 +149,7 @@ lastresort_hint() {
 
 If you have trouble meeting the required dependencies with your distribution,
 you may want to have a look at the script installation_helper.sh in the
-dependencies/ directory to build them from source.
+tools/dependencies/ directory to build them from source.
 
 EOF
 }

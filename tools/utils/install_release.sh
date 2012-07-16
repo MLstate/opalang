@@ -173,9 +173,9 @@ else
         rm -rf $OPALANG/ocaml/build
         . platform_helper.sh
         if [ -n "$IS_MAC" ] ; then
-            $OPALANG/dependencies/installation_helper.sh --prefix $INSTALLDIR
+            $OPALANG/tools/dependencies/installation_helper.sh --prefix $INSTALLDIR
         else
-            $OPALANG/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml \
+            $OPALANG/tools/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml \
 		--installdir $INSTALLDIR --libdir $INSTALLDIR_LIBOPA
         fi
 	if [ -n "$IS_MAC" ] ; then

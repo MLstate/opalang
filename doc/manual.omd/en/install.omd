@@ -156,7 +156,7 @@ In this case, the only dependencies should be (tested on clean Ubuntu 11.10) :
 - libssl 0.9.8 or later (dev version)
 - zlib 1.2.3.4 or later (dev version)
 
-In your opalang diectory, run: `dependencies/installation_helper.sh --prefix SOME_DIRECTORY`.
+In your opalang diectory, run: `tools/dependencies/installation_helper.sh --prefix SOME_DIRECTORY`.
 
 You will need to update your PATH variable after that.
 

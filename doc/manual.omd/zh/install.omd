@@ -126,7 +126,7 @@ make all install
 - libssl 0.9.8 or later (dev version)
 - zlib 1.2.3.4 or later (dev version)
 
-这个脚本位于opalang目录下的dependencies里面。运行：`dependencies/installation_helper.sh --prefix SOME_DIRECTORY`.
+这个脚本位于opalang目录下的dependencies里面。运行：`tools/dependencies/installation_helper.sh --prefix SOME_DIRECTORY`.
 
 在完成之后你注意去更新环境变量PATH。
 
