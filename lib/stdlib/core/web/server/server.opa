@@ -93,6 +93,8 @@ type Server.registrable_resource =
 
 type Server.handler =
 
+  / {text: string}
+
   /** The most simple request handler. It replies to all incoming
       request. With a title page [title] and given body by the [page]
       function. Then add a set of [resources] typically with the
@@ -202,6 +204,10 @@ Server = {{
   @private handler_to_parser(handler:Server.handler) =
     rec simple_to_parser(handler) =
       match handler with
+      | ~{text} ->
+        parser
+        | .* -> Resource.source(text, "text/plain")
+        end
       | ~{custom} -> custom
       | ~{title page} ->
         parser
@@ -257,6 +263,7 @@ Server = {{
       match e
       | {nil}{register=_} -> Rule.fail
       | {custom=_} as e
+      | {text=_} as e
       | {title=_; page=_} as e
       | {dispatch=_} as e
       | {filter=_ dispatch=_} as e
