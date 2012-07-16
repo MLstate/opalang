@@ -119,7 +119,6 @@ Barrier.prototype = {
      */
     wait: function(k)
     {
-        cps_assert(k instanceof Continuation, "[Barrier.wait] expects a [Continuation]")
         if(this._is_computed)
         {
             k._payload(this._result);
@@ -135,73 +134,6 @@ Barrier.prototype = {
  */
 
 /**
- * The interface of tasks.
- *
- * @interface
- */
-function Task() {}
-Task.prototype = {
-    debug_is_a_task: true,
-    go: function() {cps_assert(false, "Attempting to call a purely virtual method")}
-}
-
-
-/**
- * Construct a new task from a 0-argument function
- *
- * @param thunk a 0 argument function to be executed once the scheduler wakes up the task
- *
- * Note: Some browsers may actually pass arguments to [thunk]. Ignore them.
- *
- * @constructor
- * @implements {Task}
- */
-function Task_from_thunk(thunk) {
-    this._thunk   = thunk;
-    this._barrier = new Barrier();
-}
-
-Task_from_thunk.prototype = {
-    debug_is_a_task: true,//Used for assertion checks
-    go: function()
-    {
-        var result = this._thunk();
-        this._barrier.release(result);
-    }
-}
-
-/**
- * Create a [Task] for an expression executed with a [spawn].
- *
- * By opposition to [Task_from_thunk] or [Task_from_application], this brand of [Task] does not
- * release its barrier automatically.
- *
- *
- * @param {!Function} f
- * @constructor
- * @implements {Task}
- */
-function Task_from_spawn(f) {
-    this._barrier = new Barrier("Task_from_spawn "+Math.random());
-    this._thunk   = f;
-}
-Task_from_spawn.prototype = {
-    _thunk:          null,
-    debug_is_a_task: true,//Used for assertion checks
-    go: function()
-    {
-        cps_debug("[Task_from_spawn.go]: "+this._thunk);
-        if(this._note != null)
-            cps_debug(this._note)
-        else
-            cps_debug("[spawn] regular task");
-        var barrier= this._barrier;
-        var k      = new Continuation(barrier.release, barrier, null);
-        var result = this._thunk(js_void, k);
-    }
-}
-
-/**
  * Construct a new task from an application, i.e. a function and its arguments
  *
  * @param fun a function to be executed once the scheduler wakes up the task
@@ -211,20 +143,8 @@ Task_from_spawn.prototype = {
  * @constructor
  * @implements {Task}
  */
-function Task_from_application(fun, args) {
-    this._fun     = fun;
-    this._args    = args;
-    this._barrier = new Barrier();
-}
-
-Task_from_application.prototype = {
-    debug_is_a_task: true,//Used for assertion checks
-    go: function()
-    {
-        var result = this._fun(this._args);
-        this._barrier.release(result);
-        return result;
-    }
+function task_from_application(fun, args) {
+    return function () {return fun(args)};
 }
 
 /**
@@ -233,18 +153,8 @@ Task_from_application.prototype = {
  * @constructor
  * @implements Task
  */
-function Task_from_return(k, args)
-{
-    cps_assert(k instanceof Continuation, "[Task_from_return] attempting to pass non-continuation "+k);
-    this._cont    = k;
-    this._args    = args;
-}
-Task_from_return.prototype = {
-    debug_is_a_task: true,//Used for assertion checks
-    go: function()
-    {
-        return this._cont.execute(this._args);
-    }
+function task_from_return(k, args) {
+    return function() {return k.execute(args)};
 }
 
 /**
@@ -259,7 +169,6 @@ Task_from_return.prototype = {
  * @constructor
  *///TODO reintroduce options
 function Continuation(payload, context, options) {
-    cps_assert(payload instanceof Function, "[Continuation] can only be constructed from functions");
     this._payload = payload;
     this._context = context;
     this._options = options;
@@ -293,7 +202,6 @@ Continuation.prototype = {
      * Do not call directly.
      */
     _execute1: function(arg) {
-        cps_assert(this._context == null, "[Continuation._execute1] called with non-null context");
         return this._payload(arg);
     },
     /**
@@ -388,9 +296,9 @@ function loop_schedule()
                 break;
             } else {
                 task = tasks.shift();
-                var r = task.go();
+                var r = task();
                 for(var i=0; i<100 && r; i++) r = r[0].execute1(r[1]);
-                if (r) push(new Task_from_return(r[0], [r[1]]))
+                if (r) push(task_from_return(r[0], [r[1]]))
             }
         }
     } catch(e) {
@@ -420,12 +328,12 @@ function return_tc(k, x){
  * BEWARE: The compiler manipulates the return_ ident as a "pure" function.
  */
 function return_(k, x){
-    push (new Task_from_return(k, [x]));
+    push(task_from_return(k, [x]));
 }
 
 function execute(k, x){
     var r;
-    if (r = k.execute1(x, true)) push(new Task_from_return(r[0], [r[1]]));
+    if (r = k.execute1(x, true)) push(task_from_return(r[0], [r[1]]));
 }
 
 /**
@@ -437,7 +345,7 @@ function execute(k, x){
  */
 function cps_apply(f, v, k){
     // TODO: decide whether we always [push]
-    push(new Task_from_application(f, [v, k] ));
+    push(task_from_application(f, [v, k] ));
 }
 
 /**
@@ -448,7 +356,6 @@ function cps_apply(f, v, k){
  */
 function blocking_wait(barrier){
     var i;
-    var task;
     while(!barrier._is_computed){
         loop_schedule();
         if(!barrier._is_computed && ready.length == 0)
@@ -458,10 +365,13 @@ function blocking_wait(barrier){
 }
 
 function spawn(f) {
-    var task = new Task_from_spawn(f);
-    task._note = "[spawn] This task has been spawned"
+    var barrier = new Barrier();
+    var task = function(){
+        var k = new Continuation(barrier.release, barrier, null);
+        f(js_void, k);
+    }
     push(task);
-    return task._barrier;
+    return barrier;
 }
 
 /**
@@ -474,7 +384,7 @@ function uncps(pk, f, name) {
         var k = pk.ccont(function(x){b.release(x)});
         var a = Array.prototype.slice.call(arguments);
         a.push(k);
-        push(new Task_from_application(function(){return f.apply(this, a);}));
+        push(function(){return f.apply(this, a);});
         return blocking_wait(b);
     }
 }
@@ -504,6 +414,6 @@ function opa_cps_callback_to_js_callback0(k, f){
 function wrap_tc(opa){
     return function(){
         var r = opa.apply(this, arguments);
-        if (r) push(new Task_from_return(r[0], [r[1]]));
+        if (r) push(task_from_return(r[0], [r[1]]));
     };
 }
