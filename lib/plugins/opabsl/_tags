@@ -16,7 +16,8 @@
 <serverLib.{ml,mli,byte,native}>: use_libbase
 
 # external libs dependencies
-<opabslMLRuntime.{ml,mli,byte,native}>: use_str, use_ssl, use_ssl_threads, use_cryptokit
+<opabslMLRuntime.{ml,mli,byte,native}>: use_str
+#, use_ssl, use_ssl_threads, use_cryptokit
 
 # mlstate libs dependencies
 <opabslMLRuntime.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libsession, use_libirc
