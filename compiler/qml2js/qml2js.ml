@@ -244,6 +244,8 @@ struct
 
   let compilation_generation env_opt native_requires env_js_input =
     let js_init = get_js_init env_js_input in
+    let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
+    let js_code = js_init @ env_js_input.js_code in
 
     let opx_requires = ObjectFiles.fold_dir ~packages:true
       (fun requires opx -> opx :: requires) [] in
@@ -251,7 +253,7 @@ struct
     let save = {S.
                 native_requires;
                 opx_requires;
-                generated_code = env_js_input.js_code;
+                generated_code = js_code;
                } in
     R.save save;
 
@@ -273,14 +275,15 @@ struct
     let opx_requires = List.map require_opx opx_requires in
 
     let requires = native_requires @ opx_requires in
-    let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
-    let code = requires @ js_init @ env_js_input.js_code in
-    let content = Format.to_string JsPrint.scoped_pp_min#code code in
+    let linked_code = requires @ js_code in
+    let content = Format.to_string JsPrint.scoped_pp_min#code linked_code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
     let success = File.check_create_path build_dir in
-    let _ = if not success then OManager.error "cannot create or enter in directory @{<bright>%s@}" build_dir in
+    if not success then
+     OManager.error "cannot create or enter in directory @{<bright>%s@}"
+       build_dir;
     write_main env_opt filename content;
     match ObjectFiles.compilation_mode () with
     | `compilation -> write_package_json env_opt
