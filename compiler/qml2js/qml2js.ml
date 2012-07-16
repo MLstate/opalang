@@ -240,7 +240,9 @@ struct
     let js_init = get_js_init env_js_input in
     let save = {S.generated_files} in
     R.save save;
-    let require (linked_file, _content) =
+
+    (* Require all needed plugins *)
+    let plugin_require (linked_file, _content) =
       (* As everybody needs the basic runtime, we'll require it
          when linking *)
       match linked_file with
@@ -248,10 +250,21 @@ struct
         (* TODO: copy require when not in stdlib *)
         let call = JsCons.Expr.call ~pure:false
           (JsCons.Expr.native "require")
-          [(JsCons.Expr.string m)] in
+          [(JsCons.Expr.string (m ^ ".opp"))] in
         Some (JsCons.Statement.expr call)
       | _ -> None in
-    let requires = List.filter_map require generated_files in
+    let plugin_requires = List.filter_map plugin_require generated_files in
+
+    (* Add required packages *)
+    let opx_require requires opx =
+      let call = JsCons.Expr.call ~pure:false
+        (JsCons.Expr.native "require")
+        [(JsCons.Expr.string (Filename.basename opx))] in
+      JsCons.Statement.expr call :: requires in
+    let opx_requires = ObjectFiles.fold_dir ~packages:true
+      opx_require [] in
+
+    let requires = plugin_requires @ opx_requires in
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
     let code = requires @ js_init @ env_js_input.js_code in
     let content = Format.to_string JsPrint.scoped_pp_min#code code in
