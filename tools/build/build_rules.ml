@@ -865,8 +865,7 @@ rule "opa application creator"
         A"-o"; P opa_create_dst; P opa_create_src;
 	A"--opx-dir";A "stdlib.qmlflat";
 	A"--back-end";A "qmlflat";
-	A"-I"; A plugins_dir;
-        A"-I"; A opa_prefix
+	A"-I"; A plugins_dir
       ]));
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
