@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -49,7 +49,7 @@ sig
      Global native ident should rather not be created directly, but produced with an analysis, except for identifer known statically to be global.
   *)
   val native : ?label:Annot.label -> string -> JsAst.expr
-  val native_global : ?label:Annot.label -> string -> JsAst.expr
+  val native_global : ?pure:bool -> ?label:Annot.label -> string -> JsAst.expr
 
 
 
@@ -158,7 +158,7 @@ sig
      Global native ident should rather not be created directly, but produced with an analysis.
   *)
   val native : string -> JsAst.ident
-  val native_global : string -> JsAst.ident
+  val native_global : ?pure:bool -> string -> JsAst.ident
 
 
 

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -534,7 +534,7 @@ let global_expr ?(globalize=false) expr =
     JsWalk.Expr.map (
       function
       | J.Je_ident (loc, J.Native (`local, id)) ->
-          J.Je_ident (loc, J.Native (`global, id))
+          J.Je_ident (loc, J.Native (`global false, id))
       | e -> e
     ) expr
   else

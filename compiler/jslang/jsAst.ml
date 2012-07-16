@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -42,8 +42,10 @@ type label = string
    There is a pass for transforming [Local] native to [Global] native,
    so that these identifiers can be serialized, and renamed
    since we clean the jsbsl.
+   The boolean associated to `global ident indicates if the corresponding value
+   is pure or not.
 *)
-type native_ident = [ `global | `local ]
+type native_ident = [ `global of bool | `local ]
 
 (**
    Javascript Identifiers.

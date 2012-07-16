@@ -21,9 +21,9 @@ let arguments_ident = JsCons.Ident.native "arguments"
 
 let maybe_globalize_ident local_vars = function
   | J.ExprIdent _ as i -> i
-  | J.Native (`global,_) as i -> i
+  | J.Native (`global _,_) as i -> i
   | J.Native (`local,j) as i ->
-      if JsIdentSet.mem i local_vars then i else J.Native (`global,j)
+      if JsIdentSet.mem i local_vars then i else J.Native (`global true,j)
 
 let collect_local_var local_vars stm =
   (* not going inside the functions that are inside expressions on purpose.
@@ -112,14 +112,14 @@ let export_to_global_namespace_aux stm =
   JsWalk.TStatement.map
     (fun stm ->
       match stm with
-      | J.Js_function (_, J.Native (`global, name), params, body) ->
+      | J.Js_function (_, J.Native (`global _, name), params, body) ->
         JsCons.Statement.assign (prefix_global name)
           (JsCons.Expr.function_ None params body)
       | J.Js_function (_, ((J.ExprIdent _) as i), params, body) ->
         let name = JsPrint.string_of_ident i in
         JsCons.Statement.assign (prefix_global name)
           (JsCons.Expr.function_ None params body)
-      | J.Js_var (_, J.Native (`global, name), o) ->
+      | J.Js_var (_, J.Native (`global _, name), o) ->
         let rhs =
           match o with
           | Some e -> e
@@ -129,12 +129,12 @@ let export_to_global_namespace_aux stm =
     )
     (fun e ->
       match e with
-      | J.Je_ident (_, J.Native (`global, "exports")) ->
+      | J.Je_ident (_, J.Native (`global _, "exports")) ->
         (* Since exports is not defined in the global scope
            when commonjs modules are loaded, we need to replace
            it *)
         JsCons.Expr.native_global "global"
-      | J.Je_ident (_, J.Native (`global, name)) when
+      | J.Je_ident (_, J.Native (`global _, name)) when
           name <> "global" &&
           name <> "require" (* Hack to avoid require scope problem *) ->
         prefix_global name

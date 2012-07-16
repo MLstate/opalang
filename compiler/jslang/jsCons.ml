@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -112,8 +112,8 @@ struct
   let native ?(label=def_label()) ident =
     J.Je_ident (label, J.Native (`local, ident))
 
-  let native_global ?(label=def_label()) ident =
-    J.Je_ident (label, J.Native (`global, ident))
+  let native_global ?(pure=false) ?(label=def_label()) ident =
+    J.Je_ident (label, J.Native (`global pure, ident))
 
   let field = dot
 
@@ -271,5 +271,5 @@ struct
   let fresh ident =
     J.ExprIdent (Ident.next ("js_internal_" ^ (JsPrint.string_of_ident ident)))
   let native id = J.Native (`local, id)
-  let native_global id = J.Native (`global, id)
+  let native_global ?(pure=false) id = J.Native (`global pure, id)
 end

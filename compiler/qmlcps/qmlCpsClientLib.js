@@ -408,6 +408,7 @@ function launch_schedule(){
 
 /**
  * Returns value [x] to Continuation [k].
+ * BEWARE: The compiler manipulates the return_ ident as a "pure" function.
  */
 function return_(k, x){
     push (new Task_from_return(k, [x]));

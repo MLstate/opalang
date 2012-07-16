@@ -481,7 +481,7 @@ let global_inlining_policy_for_function name params body =
     | J.Je_undefined _ -> true
     | _ -> false in
   match name with
-  | J.Native (_, _s) -> None
+  | J.Native (`global pure, _s) when not(pure) ->  None
       (* We can't inline native function because of the JavaScript
          specification. As a simple example you can change dynamically the
          implementation of a function... *)

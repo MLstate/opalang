@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -20,7 +20,7 @@ module String = BaseString
 
 (* -- *)
 
-type native_ident = [ `global | `local ]
+type native_ident = [ `global of bool | `local ]
 
 type t =
   | ExprIdent of Ident.t
@@ -31,11 +31,11 @@ let compare_native n1 n2 =
   then
     match n2 with
     | `local -> 0
-    | `global -> -1
+    | `global _ -> -1
   else
     match n2 with
     | `local -> 1
-    | `global -> 0
+    | `global _ -> 0
 
 let compare i1 i2 =
   match i1, i2 with

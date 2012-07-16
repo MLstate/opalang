@@ -949,7 +949,7 @@ struct
 
       | J.Native (n, ident) -> (
           match n with
-          | `global ->
+          | `global _ ->
               ss_push_ident acc ident
           | `local ->
               Format.pp_print_string f ident

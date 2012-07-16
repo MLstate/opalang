@@ -128,7 +128,7 @@ struct
         match cps with
         | `to_ -> (* cps return : return_(k, output) *)
             JsCons.Expr.call ~pure:true
-              (JsCons.Expr.ident (JsAst.Native (`global, "return_")))
+              (JsCons.Expr.ident (JsAst.Native (`global true, "return_")))
               [(JsCons.Expr.ident (JsAst.Native (`local, "k")));
                proj_output]
         | _ -> proj_output
@@ -145,7 +145,7 @@ struct
             | `to_ -> function_
             | `from ->
                 JsCons.Expr.call ~pure:true
-                  (JsCons.Expr.ident (JsAst.Native (`global, "uncps")))
+                  (JsCons.Expr.ident (JsAst.Native (`global true, "uncps")))
                   [(JsCons.Expr.ident (JsAst.Native (`local, "k")));
                    function_;
                    JsCons.Expr.string (BslKey.to_string key)
@@ -378,7 +378,7 @@ struct
     else
       let open JsAst in
       Je_call (label,
-               Je_ident (label, (Native (`global, "return_"))),
+               Je_ident (label, (Native (`global true, "return_"))),
                [Je_ident (label, (Native (`local, "k"))); expr],
                false)
 

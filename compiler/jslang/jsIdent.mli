@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -23,7 +23,7 @@
    The documentation of these type is in JsAst
 *)
 
-type native_ident = [ `global | `local ]
+type native_ident = [ `global of bool | `local ]
 
 type t =
   | ExprIdent of Ident.t
