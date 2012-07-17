@@ -169,12 +169,18 @@ struct
        code contains call to bypass of bsl, it is too dangerous to put
        the extra-libs between bsl and the generated code *)
     let generated_files =
+      let plugins =
+        if env_opt.static_link then
+          env_bsl.BslLib.all_plugins
+        else
+          env_bsl.BslLib.direct_plugins
+      in
       let fold acc loader =
         let filename = filename_of_plugin loader in
         let content = File.content filename in
         (Plugin loader.BslPluginInterface.basename, content) :: acc
       in
-      List.fold_left fold generated_files env_bsl.BslLib.plugins
+      List.fold_left fold generated_files plugins
     in
     let ast = List.flatten (List.rev_map (fun (file, content) ->
       (*

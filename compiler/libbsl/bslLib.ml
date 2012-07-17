@@ -1541,7 +1541,8 @@ module BSL : BI.BSLINTROSPECTION =
   MakeLibBSL (Dummy_ML_ITrans) (Dummy_ML_CTrans) (Dummy_JS_CTrans)
 type env_bsl = {
   bymap : BSL.ByPassMap.t ;
-  plugins : BslPluginInterface.plugin list ;
+  all_plugins : BslPluginInterface.plugin list ;
+  direct_plugins : BslPluginInterface.plugin list ;
 }
 (* ========================================= *)
 

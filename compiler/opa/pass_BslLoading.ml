@@ -406,7 +406,13 @@ let process
   ) plugins ;
 
   (* Resolve dependencies. *)
-  let plugins = BslPluginTable.finalize () in
+  let all_plugins = BslPluginTable.finalize () in
+
+  (* Only plugins that are directly used by the current unit *)
+  let direct_plugins = List.filter (fun plugin ->
+    List.exists (fun (name, _) -> name = (plugin.BPI.basename ^ ".opp"))
+      plugins
+  ) all_plugins in
 
   (* upgrade options *)
   let () =
@@ -414,7 +420,7 @@ let process
       debug "@[<2>options before upgrade: @\n%a@]@\n" pp_options options
     #<End>
   in
-  let options = upgrade_options plugins options in
+  let options = upgrade_options all_plugins options in
   let () =
     #<If:BSL_LOADING $contains "options">
       debug "@[<2>options after upgrade: @\n%a@]@\n" pp_options options
@@ -423,7 +429,8 @@ let process
 
   (* Link with ObjectFiles *)
   let () =
-    let t = List.rev_map (fun p -> p.BPI.self_module_name, p.BPI.uniq_id) plugins in
+    let t = List.rev_map (fun p -> p.BPI.self_module_name, p.BPI.uniq_id)
+      all_plugins in
     ObjectFiles.set_bsl_plugins t
   in
 
@@ -431,7 +438,8 @@ let process
     Actually load plugins.
     There is already a mecanism for avoiding multiple loading in the RegisterInterface.
   *)
-  List.iter (fun loader -> BslLib.BSL.RegisterInterface.dynload loader.BPI.dynloader) plugins;
+  List.iter (fun loader -> BslLib.BSL.RegisterInterface.dynload
+    loader.BPI.dynloader) all_plugins;
 
   (*
     TODO(Mathieu) : if needed only.
@@ -453,7 +461,7 @@ let process
        server_back_end_dynload plugin ;
        (* js back-end *)
        client_back_end_dynload plugin ;
-    ) plugins;
+    ) all_plugins;
   (* Build bypass map *)
   let bymap =
     let lang = [client_bsl_lang; server_bsl_lang] in
@@ -461,7 +469,10 @@ let process
       ~filter:(fun bp -> BslLib.BSL.ByPass.implemented_in_any bp ~lang)
       ()
   in
-  let bsl = { BslLib.bymap = bymap ; plugins = plugins } in
+  let bsl = { BslLib.bymap = bymap ;
+              all_plugins = all_plugins ;
+              direct_plugins = direct_plugins ;
+            } in
 
   (* Separated compilation: saving *)
   let () = R.save (Separation.get separation) in

@@ -156,7 +156,8 @@ module BSL : BSLINTROSPECTION
 type env_bsl =
     {
       bymap : BSL.ByPassMap.t ;
-      plugins : BslPluginInterface.plugin list
+      all_plugins : BslPluginInterface.plugin list ;
+      direct_plugins : BslPluginInterface.plugin list ;
     }
 
 (** {6 Extra common tools for projection} *)
