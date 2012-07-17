@@ -299,7 +299,7 @@ struct
     let _ = File.copy_rec ~force:true path dest_name = 0 in
     ()
 
-  let linking_generation_js_init env_opt generated_files oc =
+  let linking_generation_js_init env_opt native_requires oc =
     let load_oc =
       (* Channel to output libraries *)
       if env_opt.static_link then
@@ -317,55 +317,54 @@ struct
         load_oc
       )
     in
-    let generated_files = List.rev generated_files in
-    let generated_files =
+    let native_requires = List.rev native_requires in
+    let native_requires =
       (* If we link everything statically, then we need to fetch
          the plugin dependencies of all packages and add them here.
          Otherwise, we know that those files will have the appropriate
          requires already and don't need that *)
       if env_opt.static_link then
         R.fold_with_name ~packages:true ~deep:true
-          (fun _package generated_files saved ->
+          (fun _package native_requires saved ->
             let opxgenfiles = saved.S.native_requires in
-            let generated_files = List.fold_left
-              (fun generated_files ((file, content) as opxgenfile) ->
+            let native_requires = List.fold_left
+              (fun native_requires ((file, content) as opxgenfile) ->
                 try
-                  let c = List.assoc file generated_files in
+                  let c = List.assoc file native_requires in
                   if content <> c then
                     OManager.warning ~wclass
                       "Two files named %s has not the same content\n%!"
                       (nodejs_module_of_linked_file file);
-                  generated_files
-                with Not_found -> opxgenfile::generated_files
-              ) generated_files opxgenfiles
+                  native_requires
+                with Not_found -> opxgenfile::native_requires
+              ) native_requires opxgenfiles
             in
-            generated_files
-          ) generated_files
+            native_requires
+          ) native_requires
       else
-        generated_files
+        native_requires
     in
-    if env_opt.static_link then
-      List.iter
-        (fun (file, content) ->
-          #<Ifstatic:JS_IMP_DEBUG 1>
-            Printf.fprintf load_oc "console.log('Load file %s')" filename;
-          #<End>
-            if env_opt.static_link then (
-              let name = nodejs_module_of_linked_file file in
-              Printf.fprintf oc "///////////////////////\n";
-              Printf.fprintf oc "// From %s\n" name;
-              Printf.fprintf oc "///////////////////////\n";
-              Printf.fprintf oc "%s" content;
-              Printf.fprintf oc "\n";
-            ) else
-              let name = match require_of_linked_file file with
-                | `require name -> name
-                | `copy path ->
-                  install_node_module env_opt path;
-                  Filename.basename path
-              in
-              Printf.fprintf load_oc "require('%s');\n" name;
-        ) (List.rev generated_files);
+    List.iter
+      (fun (file, content) ->
+        #<Ifstatic:JS_IMP_DEBUG 1>
+          Printf.fprintf load_oc "console.log('Load file %s')" filename;
+        #<End>
+          if env_opt.static_link then (
+            let name = nodejs_module_of_linked_file file in
+            Printf.fprintf oc "///////////////////////\n";
+            Printf.fprintf oc "// From %s\n" name;
+            Printf.fprintf oc "///////////////////////\n";
+            Printf.fprintf oc "%s" content;
+            Printf.fprintf oc "\n";
+          ) else
+            let name = match require_of_linked_file file with
+              | `require name -> name
+              | `copy path ->
+                install_node_module env_opt path;
+                Filename.basename path
+            in
+            Printf.fprintf load_oc "require('%s');\n" name;
+      ) (List.rev native_requires);
     load_oc
 
   let get_target env_opt = env_opt.target
@@ -412,8 +411,12 @@ if (process.version < '%s') {
     let link package_dir saved =
       if env_opt.static_link then
         read_append oc package_dir saved
-      else if not (is_from_stdlib package_dir) then
-        install_node_module env_opt package_dir
+      else (
+        if not (is_from_stdlib package_dir) then
+          install_node_module env_opt package_dir;
+        Printf.fprintf load_oc "require('%s');\n"
+          (Filename.basename package_dir)
+      )
     in
     let is_deep = env_opt.static_link in
     R.iter_with_dir ~deep:is_deep ~packages:true link;
