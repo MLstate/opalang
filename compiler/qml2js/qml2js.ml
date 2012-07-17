@@ -334,14 +334,14 @@ struct
 
 export NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s:%s\"
 %s
+*/
 
 if (process.version < '%s') {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= %s)');
     process.exit(1);
 } else if (process.version > '%s') {
-    console.warning('This version of node ('+process.version+') has not been tested with Opa. Use it at your own risks.');
+    console.warn('This version of node ('+process.version+') has not been tested with Opa. Use it at your own risks.');
 }
-*/
 
 " stdlib_qmljs_path stdlib_path static_path LaunchHelper.script min_node_version
       min_node_version max_node_version;
