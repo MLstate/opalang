@@ -257,6 +257,32 @@ let resolve_entry search_path entry =
             extrapath ;
           aux extrapath
 
+(* Return plugins listed in [plugins] that are directly mentioned by
+   [code]. *)
+let find_used_plugins bypass_map code plugins =
+  let collect_bypasses used_bypasses (expr, _) =
+    match expr with
+    | SA.Bypass key -> BslKeySet.add key used_bypasses
+    | _ -> used_bypasses in
+  let used_bypasses = List.fold_left (fun used_bypasses (_, _, code) ->
+    OpaWalk.Code.fold collect_bypasses used_bypasses code
+  ) BslKeySet.empty code in
+  let used_plugins_names =
+    BslLib.BSL.ByPassMap.fold (fun key bypass used_plugins_names ->
+      if BslKeySet.mem key used_bypasses then
+        StringSet.add (BslLib.BSL.ByPass.plugin_name bypass) used_plugins_names
+      else
+        used_plugins_names
+    ) bypass_map StringSet.empty in
+  let used_plugins =
+    StringSet.fold (fun used_plugin_name used_plugins ->
+      let used_plugin = List.find (fun plugin ->
+        plugin.BPI.basename = used_plugin_name
+      ) plugins in
+      used_plugin :: used_plugins
+    ) used_plugins_names [] in
+  used_plugins
+
 let process
     ~options
     ~code
@@ -408,12 +434,6 @@ let process
   (* Resolve dependencies. *)
   let all_plugins = BslPluginTable.finalize () in
 
-  (* Only plugins that are directly used by the current unit *)
-  let direct_plugins = List.filter (fun plugin ->
-    List.exists (fun (name, _) -> name = (plugin.BPI.basename ^ ".opp"))
-      plugins
-  ) all_plugins in
-
   (* upgrade options *)
   let () =
     #<If:BSL_LOADING $contains "options">
@@ -469,6 +489,10 @@ let process
       ~filter:(fun bp -> BslLib.BSL.ByPass.implemented_in_any bp ~lang)
       ()
   in
+
+  (* Only plugins that are directly used by the current unit *)
+  let direct_plugins = find_used_plugins bymap code all_plugins in
+
   let bsl = { BslLib.bymap = bymap ;
               all_plugins = all_plugins ;
               direct_plugins = direct_plugins ;

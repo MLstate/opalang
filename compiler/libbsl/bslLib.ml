@@ -393,6 +393,8 @@ struct
       in (mk List.exists), (mk List.for_all)
 
     let definition_type t = t.def_type
+
+    let plugin_name t = t.plugin_name
   end
 
   module ByPassMap =

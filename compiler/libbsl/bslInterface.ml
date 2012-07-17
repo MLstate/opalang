@@ -414,6 +414,9 @@ sig
         the type of the projected bypass may change
         @see "Implementation.trans_type" to get the type of the projected bypass *)
     val definition_type : t -> BslTypes.t
+
+    (** Get the name of the plugin where the bypass was defined *)
+    val plugin_name : t -> BslPluginInterface.plugin_basename
   end
 
   (** Functionnal structure to manipulate a collection of [ByPass.t] *)
