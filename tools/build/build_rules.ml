@@ -283,8 +283,8 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
        Cmd(S([
 	     Sh"cat"; P launch_helper_script;
+	     Sh"|"; Sh"sed -e 's/\\\\/\\\\\\\\/g'";
 	     Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
-	     Sh"|"; Sh"sed -e 's/\\\\\\//\\\\\\\\\\//g'";
 	     Sh">>"; P launchHelper
 	   ]));
        Cmd(S([Sh"echo \\\" >>"; P launchHelper]))

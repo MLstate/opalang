@@ -330,10 +330,8 @@ struct
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
     Printf.fprintf oc "#!/usr/bin/env bash
 
-/*usr/bin/env bash <<'EOF'
+/*usr/bin/env true
 %s
-EOF
-
 if [ $? -ne 0 ]; then exit $?; fi;
 NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s:%s\" node \"$0\" \"$@\"; exit $?;
 
