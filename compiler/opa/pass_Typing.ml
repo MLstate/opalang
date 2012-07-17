@@ -63,6 +63,7 @@ let process_code ?(save = true) env =
      schemes renamed by different separate compilation-purpose refreshes. *)
   Typer_w.reset_toplevel_tydefs_schemes_env_memo () ;
   Typer_w.reset_toplevel_valdefs_schemes_env_memo () ;
+  Typer_w.clean_info () ;
   (* Also reset the type of exceptions, to drop cases coming from usages of
      other packages we don't depend on. *)
   Typer_w.reset_type_exception () ;

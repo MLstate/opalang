@@ -301,3 +301,5 @@ struct
              gamma: QmlTypes.gamma ->
                QmlAst.expr -> ((QmlTypes.gamma * QmlTypes.gamma) * QmlAst.annotmap * QmlAst.ty))
 end
+
+let clean_info _ = W_TypeInfo.clean_type_info ()
