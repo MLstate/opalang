@@ -333,7 +333,7 @@ struct
 /*usr/bin/env true
 %s
 if [ $? -ne 0 ]; then exit $?; fi;
-NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s:%s\" node \"$0\" \"$@\"; exit $?;
+NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\" node \"$0\" \"$@\"; exit $?;
 
 if (process.version < '%s') {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= %s)');
