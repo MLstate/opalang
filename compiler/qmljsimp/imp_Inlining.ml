@@ -444,6 +444,7 @@ let global_inlining_policy_for_var e =
    * FIXME: actually, we could when the variable is not exported of the compilation unit
    * but this information is lost (for now) very early in the compilation *)
   match e with
+  | J.Je_ident (_, J.Native (`global pure, _s)) -> pure
   | J.Je_ident _
   | J.Je_num _
   | J.Je_bool _
@@ -481,7 +482,7 @@ let global_inlining_policy_for_function name params body =
     | J.Je_undefined _ -> true
     | _ -> false in
   match name with
-  | J.Native (`global pure, _s) when not(pure) ->  None
+  | J.Native (`global pure, _s) when not(pure) -> None
       (* We can't inline native function because of the JavaScript
          specification. As a simple example you can change dynamically the
          implementation of a function... *)
@@ -627,6 +628,11 @@ let global_inline_analyse_code env code =
 
 (* rewriting of a toplevel statement, given an inlining environment *)
 let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement =
+  let find_function i =
+    match i with
+    | J.Native (`global pure, _s) when not(pure) -> raise Not_found
+    | _ -> JsIdentMap.find i env.functions
+  in
   let make_var_decl local_vars =
     List.map (fun i -> JsCons.Statement.var i ?expr:None) local_vars in
   let rewrite_expr_aux =
@@ -634,7 +640,7 @@ let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement 
        match e with
        | J.Je_ident (_,i) -> (
            try
-             match JsIdentMap.find i env.functions with
+             match find_function i with
              | `var e -> self toplevel local_vars e
              | `fun_ _ -> tra toplevel local_vars e
            with Not_found -> tra toplevel local_vars e
@@ -648,7 +654,7 @@ let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement 
        | J.Je_call (_,J.Je_ident (_,i), args,_) -> (
            try
              let rec aux i =
-               match JsIdentMap.find i env.functions with
+               match find_function i with
                | `var (J.Je_ident (_,j)) -> aux j
                | `fun_ (params,body) when List.length params = List.length args ->
                    (* not inlining when there are arity problems, but it could be done

@@ -92,8 +92,10 @@ let compile_bypass env key =
           JsCons.Expr.exprident ident
       | Imp_Bsl.JsImpBSL.Implementation.String s ->
           match JsParse.String.expr ~globalize:true s with
-          | J.Je_ident (p, J.Native (`global _, s)) when is_pure key ->
-              J.Je_ident (p, J.Native (`global true, s))
+          | J.Je_ident (p, J.Native (`global _, s)) ->
+              J.Je_ident (p, J.Native (`global (is_pure key), s))
+          | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
+              assert false
           | x -> x
             (*
               No parse error should happen
