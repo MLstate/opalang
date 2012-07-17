@@ -331,9 +331,11 @@ struct
     Printf.fprintf oc "#!/usr/bin/env bash
 
 /*usr/bin/env true
+
+export NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s:%s\"
 %s
 if [ $? -ne 0 ]; then exit $?; fi;
-NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\" node \"$0\" \"$@\"; exit $?;
+node \"$0\" \"$@\"; exit $?;
 
 if (process.version < '%s') {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= %s)');
@@ -343,7 +345,7 @@ if (process.version < '%s') {
 }
 */
 
-" LaunchHelper.script stdlib_qmljs_path stdlib_path static_path min_node_version
+" stdlib_qmljs_path stdlib_path static_path LaunchHelper.script min_node_version
       min_node_version max_node_version;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
     let load_oc = linking_generation_js_init env_opt generated_files oc in
