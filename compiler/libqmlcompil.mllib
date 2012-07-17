@@ -52,6 +52,9 @@ compiler/libqmlcompil/typer_w/W_TypingEnv
 compiler/libqmlcompil/typer_w/W_SchemeGenAndInst
 compiler/libqmlcompil/typer_w/W_ReportErrors
 compiler/libqmlcompil/typer_w/W_TypeAbbrevs
+compiler/libqmlcompil/typer_w/W_TypeInfo
+compiler/libqmlcompil/typer_w/W_SubTerms
+compiler/libqmlcompil/typer_w/W_Misc
 compiler/libqmlcompil/typer_w/W_InferErrors
 compiler/libqmlcompil/typer_w/W_Exceptions
 compiler/libqmlcompil/Typer_w
