@@ -253,7 +253,7 @@ struct
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
     let js_code = js_init @ env_js_input.js_code in
 
-    let opx_requires = ObjectFiles.fold_dir ~packages:true
+    let opx_requires = ObjectFiles.fold_dir
       (fun requires opx -> opx :: requires) [] in
 
     let save = {S.
@@ -425,7 +425,7 @@ if (process.version < '%s') {
       )
     in
     let is_deep = env_opt.static_link in
-    R.iter_with_dir ~deep:is_deep ~packages:true link;
+    R.iter_with_dir ~deep:is_deep ~packages:is_deep link;
     let fmt = Format.formatter_of_out_channel load_oc in
     Format.fprintf fmt "%a\n" JsPrint.pp_min#code env_js_input.js_code;
     close_out oc;
