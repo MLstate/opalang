@@ -33,7 +33,7 @@ type contents = string
    Bsl Preprocessing for Javascript files.
 
    This function is called at the end, once we have parsed all javascript files,
-   the fonction implements a fold on decorated_files, for building
+   the function implements a fold on decorated_files, for building
    the runtime and the wanted interface (for checking).
 
    The function should also perform calls to the Register API,
@@ -41,7 +41,7 @@ type contents = string
    which contains support for registering types and primitives.
 
    The preprocess should respect the module hiearchy and keys names,
-   for beeing coherent with Ocaml, but the actual implementation is free,
+   for being coherent with Ocaml, but the actual implementation is free,
    as long as the generated javascript is coherent
    with the impl used as argument for calling the dynload interface.
 
@@ -49,8 +49,8 @@ type contents = string
 
    The [depends] is the js code of previous built plugins.
    If the js writen for a plugin depends on a previous plugin,
-   its javascript code may depends on the javascirpt code of
-   one of the previous plugins, so it is passes to the function
+   its javascript code may depend on the javascirpt code of
+   one of the previous plugins, so it is passed to the function
    preprocess to be used e.g. during checking to avoid unbound values.
 
    The returned js_code must be inserted into the plugin and escaped,

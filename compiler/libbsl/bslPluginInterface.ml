@@ -197,7 +197,7 @@ let meta_register_type buf ~ks ~ty =
   b
 
 (**
-   When the plugin ask for regestering things, it could get such a record,
+   When the plugin asks for registering things, it could get such a record,
    so that it can perform its registering.
 *)
 type dynloader_interface = {
@@ -366,7 +366,7 @@ let _ = Self.self_store ()
    Each field correspond to a value of the interface [PLUGIN].
    The documentation is in the documentation of this interface.
 
-   This is an unmodularization of the plugin, used to access dynamicly
+   This is an unmodularization of the plugin, used to access dynamically
    the value of a plugin Module.
 *)
 type plugin = {

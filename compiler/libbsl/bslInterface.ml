@@ -238,7 +238,7 @@ type unicity_index = string
 (** The interface of BSL like modules. This is the core of {b libbsl} *)
 module type BSLINTROSPECTION =
 sig
-  (** {6 Functionnal API} *)
+  (** {6 Functional API} *)
 
   (** the type of the env of the ml_ctrans used to build this module *)
   type ml_ctrans_env
@@ -250,7 +250,7 @@ sig
   module Implementation :
   sig
     (**
-       Implementation expressed as concrete syntaxe.
+       Implementation expressed as concrete syntax.
        e.g.:
        {[
        "my_bsl_function"
@@ -424,7 +424,7 @@ sig
     type t
 
     (** The empty val is used just for typing purposes,
-        if you need to defined a default value (e.g. in a record) before building any map *)
+        if you need to define a default value (e.g. in a record) before building any map *)
     val empty : unit -> t
 
     (** At end of generation, the final ctrans_env are contained in the bymap. *)
@@ -434,7 +434,7 @@ sig
     val js_ctrans_env : t -> js_ctrans_env
 
     (** {6 Type definitions} *)
-    (** The types of the bymap are every types used in all interfaces of loaded bypass.
+    (** The types of the bymap are all types used in all interfaces of loaded bypass.
         + record types
         + abstract types
 
@@ -479,7 +479,7 @@ sig
 
     (** find_opt *)
     val find_opt : t -> ?lang:BslLanguage.t -> BslKey.t -> ByPass.t option
-    (** suggar of interface : *)
+    (** sugar of interface : *)
     val find_opt_implementation : t -> lang:BslLanguage.t -> BslKey.t -> Implementation.compiled option
     val find_opt_interpreted_implementation : t -> lang:BslLanguage.t -> BslKey.t -> Implementation.interpreted option
     val iter : (BslKey.t -> ByPass.t -> unit) -> t -> unit
@@ -594,13 +594,13 @@ sig
   (** {6 Imperative interfaces for registering bypasses and building bymaps} *)
 
   (**
-     The 2 following modules work together. They share common imperatives tables.
+     The 2 following modules work together. They share common imperative tables.
 
-     Using them can be resumed so :
+     Using them can be resumed as so :
 
       + use the [RegisterInterface] to register some primitives and types,
      leading to a side effect on private tables
-      + use the [RegisterTable] when you're finished to build a fonctionnal
+      + use the [RegisterTable] when you're finished to build a functional
      structure [ByPassMap.t]
      from the current state of the private imperative tables
 
@@ -611,7 +611,7 @@ sig
 
   module RegisterTable :
   sig
-    (** We build a functionnal structure with all loaded bypass *)
+    (** We build a functional structure with all loaded bypass *)
     (** If you want to repeat it, you can load other libs, and recompute *)
     (** optimisation : you can build a restricted map directly here
         (better than restrict it after) *)

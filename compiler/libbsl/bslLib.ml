@@ -405,7 +405,7 @@ struct
           elt_root : unit option;
           types : (string * string list * BslTypes.t) list;
           typesmap : BI.typesmap ; (** with module access *)
-          map : ByPass.t BslKeyMap.t; (** link with completes key-names *)
+          map : ByPass.t BslKeyMap.t; (** link with complete key-names *)
           js_init : (BI.unicity_index * JsAst.code_elt) list;
           ocaml_init : string;
           root_node : _module_table;
