@@ -536,6 +536,7 @@ let (__specialize, specialize_with_given_variables_mapping) =
                  W_Algebra.sty_mark = W_Algebra.TM_not_seen }) in
         (* And now add the famous link. *)
         tmp_ty.W_Algebra.sty_link <- Some copied_ty ;
+        W_TypeInfo.add_linked_object copied_ty.W_Algebra.sty_desc ty.W_Algebra.sty_desc ;
         (* Return our copy. *)
         copied_ty
       )

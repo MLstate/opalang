@@ -363,6 +363,7 @@ let rec infer_record_pattern_type typing_env fields row_ending =
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 and infer_pattern_type typing_env pattern =
+  let loc = QmlAst.Label.pat pattern in
   match pattern with
   | QmlAst.PatAny _ ->
      (* Pattern is unconstrained, to has a type variable. Since no variable
@@ -425,6 +426,7 @@ and infer_pattern_type typing_env pattern =
       let ty = infer_constant_type const_expr in
       let annotmap =
         QmlAnnotMap.add_ty (QmlAst.QAnnot.pat pattern) ty QmlAnnotMap.empty in
+      W_TypeInfo.add_loc_object ty.W_Algebra.sty_desc loc ;
       (* Since no variable is bound, we return an empty environment
          extension. *)
       (([(* Not a catchall. *)], ty, []), annotmap)
@@ -433,6 +435,7 @@ and infer_pattern_type typing_env pattern =
         infer_record_pattern_type typing_env fields row_ending in
       let annotmap' =
         QmlAnnotMap.add_ty (QmlAst.QAnnot.pat pattern) ty annotmap in
+      W_TypeInfo.add_loc_object ty.W_Algebra.sty_desc loc ;
       ((found_catchall, ty, found_bindings), annotmap')
   | QmlAst.PatCoerce (_, pat, coercing_ty_expr) ->
       (* First, typecheck the sub-pattern. *)
@@ -476,6 +479,7 @@ and infer_pattern_type typing_env pattern =
                (err_loc,
                 QmlTyperException.InvalidType
                   (coercing_ty_expr, `abstract_in_ty_annotation)))) in
+      W_TypeInfo.addrec_loc_object coercing_ty.W_Algebra.sty_desc loc ;
       (* Force unification between the type inferred for the pattern and the
          coercing type. *)
       (try W_Unify.unify_simple_type typing_env pat_ty coercing_ty
@@ -502,9 +506,11 @@ and infer_pattern_type typing_env pattern =
     {b Visibility}: Exported outside this module.                             *)
 (* ************************************************************************** *)
 let rec infer_expr_type ~bypass_typer typing_env original_expr =
+  let loc = QmlAst.Label.expr original_expr in
   match original_expr with
   | QmlAst.Const (_, c) ->
       let cst_ty = infer_constant_type c in
+      W_TypeInfo.add_loc_object cst_ty.W_Algebra.sty_desc loc ;
       perform_infer_expr_type_postlude
         original_expr W_AnnotMap.empty_annotmap cst_ty
   | QmlAst.Ident (_, id) -> (
@@ -514,6 +520,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       try
         let (ident_ty, ident_annotmap_scheme) =
           W_TypingEnv.get_ident_type_and_annotmap_scheme id typing_env in
+        W_TypeInfo.addrec_env_object ident_ty.W_Algebra.sty_desc (id, loc) ;
         (* Since this inference case implies a scheme instantiation, we must
            register it in the annotation map. *)
         let annotmap =
@@ -594,6 +601,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       let (body_ty, body_annotmap) =
         infer_expr_type ~bypass_typer extended_typing_env body in
       let fun_ty = W_CoreTypes.type_arrow params_tys body_ty in
+      W_TypeInfo.addrec_loc_object fun_ty.W_Algebra.sty_desc loc ;
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "Lambda nearly stop@." ;
       #<End> ; (* <---------- END DEBUG *)
@@ -633,6 +641,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
          type as the result of the application) and the types inferred for the
          arguments in negative part. *)
       let tmp_arrow_type = W_CoreTypes.type_arrow args_tys ty_app_result in
+      W_TypeInfo.add_loc_object tmp_arrow_type.W_Algebra.sty_desc loc ;
       (try W_Unify.unify_simple_type typing_env fun_part_ty tmp_arrow_type
        with W_Unify.Unification_simple_type_conflict (err_t1, err_t2, detail) ->
          raise
@@ -702,6 +711,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
          that will serve to accumulate by side effects of the unification the
          constraints induced by all the right-parts. *)
       let right_parts_ty = W_CoreTypes.type_variable () in
+      W_TypeInfo.add_loc_object right_parts_ty.W_Algebra.sty_desc loc ;
       let final_annot_map =
         List.fold_left2
           (fun annotmap_accu (_, branch_expr) env_extens ->
@@ -781,6 +791,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       (* Put back the list of typed_fields in the right order. *)
       let typed_fields = List.rev reved_typed_fields in
       let record_ty = W_CoreTypes.type_closed_record typed_fields in
+      W_TypeInfo.add_loc_object record_ty.W_Algebra.sty_desc loc ;
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "Record nearly stop@." ;
       #<End> ; (* <---------- END DEBUG *)
@@ -801,6 +812,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
          (possibly opened), i.e. something (a sum) having a closed column.  *)
       let expected_min_record_ty =
         W_CoreTypes.type_opened_record [(field_name, field_type)] in
+      W_TypeInfo.add_loc_object expected_min_record_ty.W_Algebra.sty_desc loc ;
       (* Now, unify the temporary record type (that contains our fresh type
          variable that we kept under the hand to finally recover the field's
          type) and the type inferred for the hosting expression.
@@ -817,7 +829,11 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "Dot nearly stop@." ;
       #<End> ; (* <---------- END DEBUG *)
-      perform_infer_expr_type_postlude original_expr record_annotmap field_type
+      let (final_ty, final_map) =
+        perform_infer_expr_type_postlude original_expr record_annotmap field_type in
+      W_TypeInfo.add_linked_object final_ty.W_Algebra.sty_desc
+         record_ty.W_Algebra.sty_desc ;
+      (final_ty, final_map)
   | QmlAst.ExtendRecord (_, field_name, field_expr, record_expr) -> (
       (* Extending a closed record gives a closed record, extending an opened
          record gives an opened record.
@@ -852,6 +868,8 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       let (record_expected_min_ty, extended_record_ty) =
         W_CoreTypes.record_extention_min_expected_ty_and_result_ty
           field_name field_ty in
+      W_TypeInfo.add_loc_object record_expected_min_ty.W_Algebra.sty_desc loc ;
+      W_TypeInfo.add_loc_object extended_record_ty.W_Algebra.sty_desc loc ;
       (* We unify the type inferred for the expression we want to extend with
          the minimal record type we expect for it, i.e. with the record type
          containing at least the field bound to a type variable.
@@ -948,6 +966,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
                (err_loc,
                 QmlTyperException.InvalidType
                   (coercing_ty_expr, `abstract_in_ty_annotation)))) in
+      W_TypeInfo.addrec_loc_object coercing_ty.W_Algebra.sty_desc loc ;
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "Coerce end converted ty constraint@." ;
       OManager.printf "@[<1>Must unify@\n%a@\nand@\n%a@]@."
@@ -1197,12 +1216,21 @@ and infer_rec_let_definition_type ~lifted_module_field ~bypass_typer typing_env
           W_CoreTypes.begin_definition () ;
           let tmp = W_CoreTypes.type_variable () in
           W_CoreTypes.end_definition () ;
+          W_TypeInfo.add_loc_object
+            tmp.W_Algebra.sty_desc
+            (QmlAst.Label.expr binding_expr) ; (*This loc should not be used*)
           (* We keep the bound expression to be able to issue a more accurate
              error message in case of unification error later. *)
           (binding_name, binding_expr, tmp, expansive)
          )
-        else
-          (binding_name, binding_expr, W_CoreTypes.type_variable (), expansive))
+        else (
+          let tmp = W_CoreTypes.type_variable () in
+          W_TypeInfo.add_loc_object
+            tmp.W_Algebra.sty_desc
+            (Annot.Magic.label binding_expr) ; (*This loc should not be used*)
+          (binding_name, binding_expr, tmp, expansive)
+        )
+      )
       def_bindings in
 
   (* Now, create the environment with ourselves *non* generalized. This
@@ -1373,6 +1401,7 @@ and infer_rec_let_definition_type ~lifted_module_field ~bypass_typer typing_env
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 and infer_directive_type ~bypass_typer typing_env original_expr core_directive dir_exprs dir_tys =
+  let loc = QmlAst.Label.expr original_expr in
   match (core_directive, dir_exprs) with
   | (`module_field_lifting,
      [ (QmlAst.LetIn (_, def_bindings, in_expr)
@@ -1421,6 +1450,8 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
       let (final_ty_for_whole_def, final_annotmap_for_whole_def) =
         perform_infer_expr_type_postlude
           field_def annotmap_for_whole_def in_expr_ty in
+      W_TypeInfo.addrec_dir_object
+        final_ty_for_whole_def.W_Algebra.sty_desc (core_directive, loc) ;
       (* Just annotate the whole original expression before returning. In
          effect, annotation was done just before by
          [perform_infer_expr_type_postlude] but for the inner
@@ -1567,8 +1598,12 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
       (* Finally, build the module type as a closed record plugged into an
          closed sum type. *)
       let module_ty = W_CoreTypes.type_module_record typed_fields in
+      W_TypeInfo.addrec_dir_object
+        module_ty.W_Algebra.sty_desc (core_directive, loc) ;
       let (module_ty', annotmap') =
         perform_infer_expr_type_postlude record_expr annotmap module_ty in
+      W_TypeInfo.add_loc_object
+        (module_ty').W_Algebra.sty_desc loc ;
       (* Just annotate the whole original expression before returning. In
          effect, annotation was done just before by
          [perform_infer_expr_type_postlude] but for the inner record
@@ -1679,7 +1714,11 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
       (* Since exception raising is a failure, it has a type being a fresh
          type variable. *)
       let quote_beta = W_CoreTypes.type_variable () in
-      perform_infer_expr_type_postlude original_expr annotmap quote_beta
+      let (final_ty, final_map) =
+        perform_infer_expr_type_postlude original_expr annotmap quote_beta in
+      W_TypeInfo.add_loc_object
+        final_ty.W_Algebra.sty_desc loc ;
+    (final_ty, final_map)
     )
   | (`catch, [handler_expr ; tried_expr]) -> (
       let (tried_ty, tried_annotmap) =
@@ -1692,6 +1731,8 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
          [tried_ty]. *)
       let tmp_arrow_type =
         W_CoreTypes.type_arrow [W_Exceptions.type_exception ()] tried_ty in
+      W_TypeInfo.add_loc_object
+        tmp_arrow_type.W_Algebra.sty_desc loc ;
       (try W_Unify.unify_simple_type typing_env tmp_arrow_type handler_ty
        with W_Unify.Unification_simple_type_conflict (err_t1, err_t2, detail) ->
          raise
@@ -1699,7 +1740,11 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
               (W_InferErrors.UCC_catch
                  (original_expr, tmp_arrow_type, handler_ty),
                err_t1, err_t2, detail))) ;
-      perform_infer_expr_type_postlude original_expr annotmap tried_ty
+       let (final_ty, final_map) =
+        perform_infer_expr_type_postlude original_expr annotmap tried_ty in
+      W_TypeInfo.add_loc_object
+        final_ty.W_Algebra.sty_desc loc ;
+     (final_ty, final_map)
     )
   | _ -> (
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
@@ -1718,6 +1763,8 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
       let dir_ty =
         W_TypingEnv.qml_type_to_simple_type
           typing_env dir_qml_ty ~is_type_annotation: false in
+      W_TypeInfo.addrec_dir_object
+       dir_ty.W_Algebra.sty_desc (core_directive, loc) ;
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "@[Other directive func ty: %a@]@."
         W_PrintTypes.pp_simple_type dir_ty
@@ -1748,6 +1795,8 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
          type as the result of the application) and the types inferred for the
          arguments in negative part. *)
       let tmp_arrow_type = W_CoreTypes.type_arrow dir_args_tys ty_app_result in
+      W_TypeInfo.add_loc_object tmp_arrow_type.W_Algebra.sty_desc loc ;
+      W_TypeInfo.add_loc_object ty_app_result.W_Algebra.sty_desc loc ;
       (try W_Unify.unify_simple_type typing_env dir_ty tmp_arrow_type
        with W_Unify.Unification_simple_type_conflict (err_t1, err_t2, detail) ->
          raise
@@ -1759,6 +1808,9 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
       OManager.printf "@[Other directive result ty: %a@]@."
         W_PrintTypes.pp_simple_type ty_app_result
       #<End> ; (* <---------- END DEBUG *)
-      perform_infer_expr_type_postlude
-        original_expr dir_args_annotmap ty_app_result
+      let (final_ty, final_map) =
+        perform_infer_expr_type_postlude
+          original_expr dir_args_annotmap ty_app_result in
+      W_TypeInfo.add_loc_object final_ty.W_Algebra.sty_desc loc ;
+      (final_ty, final_map)
     )

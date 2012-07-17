@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -66,7 +66,7 @@ let compare_expansions ex1 ex2 =
 (* [TODO-REFACTOR] Documentation ! Works by side effect on the type.
    Relies on the fact that simple_type_repr was already called.
    Relies on the fact that [ty] is a [W_Algebra.SType_named]. *)
-let incrementally_expand_abbrev env seen_expansions ty =
+let _incrementally_expand_abbrev env seen_expansions ty =
   match ty.W_Algebra.sty_desc with
   | W_Algebra.SType_named nty_desc -> (
       match nty_desc.W_Algebra.nst_unwinded with
@@ -124,13 +124,13 @@ let incrementally_expand_abbrev env seen_expansions ty =
 
 
 
-let rec expand_abbrev_n_times nb_expansion env seen_expansions ty =
+let rec _expand_abbrev_n_times nb_expansion env seen_expansions ty =
   if nb_expansion = 0 then (ty, seen_expansions)
   else (
     let (ty', seen_expansions') =
-      incrementally_expand_abbrev env seen_expansions ty in
+      _incrementally_expand_abbrev env seen_expansions ty in
     if ty == ty' then (ty, seen_expansions')
-    else expand_abbrev_n_times (nb_expansion - 1) env seen_expansions' ty'
+    else _expand_abbrev_n_times (nb_expansion - 1) env seen_expansions' ty'
    )
 
 
@@ -146,7 +146,7 @@ let rec fully_expand_abbrev env seen_expansions ty =
         (match nty_desc.W_Algebra.nst_unwinded with
         | None ->
             (* The named type was not yet unwinded. Try to unwind it. *)
-            snd (incrementally_expand_abbrev env seen_expansions ty)
+            snd (_incrementally_expand_abbrev env seen_expansions ty)
         | Some _ -> seen_expansions) in
       (* Ok, at this point, [ty] was unwinded if possible. So if it manifest
          representation remained [None] then it means that it was no more
@@ -257,3 +257,14 @@ let deep_exact_occur_expand_abbrev env initial_seen_expansions ~ty_var ~in_ty =
 
   (* Effective body of the function [deep_exact_occur_expand_abbrev]. *)
   rec_check initial_seen_expansions in_ty
+
+
+let expand_abbrev_n_times nb_expansion env seen_expansions ty =
+  let (t, m) = _expand_abbrev_n_times nb_expansion env seen_expansions ty in
+  W_TypeInfo.addrec_linked_object t.W_Algebra.sty_desc ty.W_Algebra.sty_desc ;
+  (t, m)
+
+let incrementally_expand_abbrev env seen_expansions ty =
+  let (t, m) = _incrementally_expand_abbrev env seen_expansions ty in
+  W_TypeInfo.addrec_linked_object t.W_Algebra.sty_desc ty.W_Algebra.sty_desc ;
+  (t, m)

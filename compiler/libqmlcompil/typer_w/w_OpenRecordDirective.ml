@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -114,12 +114,18 @@ let open_record_simple_type env initial_ty =
                     } in
                     (* Finally, rebuild a column replacing its row and forcing
                        it ending to be closed. *)
+                    let final_ty =
                       { W_Algebra.sty_desc =
                           W_Algebra.SType_sum_of_records
                             { W_Algebra. ct_value =
                                 ([opened_row], W_Algebra.Closed_column) };
                         W_Algebra.sty_link = None ;
                         W_Algebra.sty_mark = W_Algebra.TM_not_seen }
+                    in
+                    W_TypeInfo.add_linked_object
+                      final_ty.W_Algebra.sty_desc
+                      ty.W_Algebra.sty_desc ;
+                    final_ty
                 | W_Algebra.Var_row _ ->
                     (* The row is already opened, hence nothing to do an
                        directly return the type itself. *)

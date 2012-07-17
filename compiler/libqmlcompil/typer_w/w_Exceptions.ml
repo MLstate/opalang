@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -36,10 +36,12 @@ let (reset_type_exception, enrich_type_exception, type_exception) =
        let opened_column =
          { W_Algebra.ct_value =
              ([], (W_CoreTypes.column_ending_variable ())) } in
+       let ty_desc = W_Algebra.SType_sum_of_records opened_column in
        let ty =
-         { W_Algebra.sty_desc = W_Algebra.SType_sum_of_records opened_column ;
+         { W_Algebra.sty_desc = ty_desc ;
            W_Algebra.sty_link = None ;
            W_Algebra.sty_mark = W_Algebra.TM_not_seen } in
+       W_TypeInfo.add_expn_object ty_desc;
        seed_type := Some ty),
 
 
@@ -52,7 +54,10 @@ let (reset_type_exception, enrich_type_exception, type_exception) =
     (fun env ty ->
        match !seed_type with
        | None -> assert false
-       | Some exn_ty -> W_Unify.unify_simple_type env exn_ty ty),
+       | Some exn_ty ->
+          let exn_ty = W_CoreTypes.simple_type_repr exn_ty in
+          W_TypeInfo.addrec_expn_object exn_ty.W_Algebra.sty_desc ;
+          W_Unify.unify_simple_type env exn_ty ty),
 
 
 
@@ -67,5 +72,8 @@ let (reset_type_exception, enrich_type_exception, type_exception) =
           unique type. *)
        match !seed_type with
        | None -> assert false
-       | Some exn_ty -> exn_ty)
+       | Some exn_ty ->
+          let exn_ty = W_CoreTypes.simple_type_repr exn_ty in
+          W_TypeInfo.addrec_expn_object exn_ty.W_Algebra.sty_desc ;
+          exn_ty)
   )
