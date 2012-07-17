@@ -14,6 +14,7 @@
  * Runtime client dead code elimination.
  *
  * @author Mathieu Barbin
+ * @author Quentin Bourgerie (speedup, partial imperative version)
 **/
 
 
@@ -41,7 +42,7 @@
 /**
  * Accessing [code_elt] by their names.
 **/
-type JsCleaning.elements = JsIdentMap.t(JsAst.code_elt)
+type JsCleaning.elements = JsIdentHash.t(JsAst.code_elt)
 
 /**
  * The stack of [code_elt] to inspect. The fact that this is a stack is not required,
@@ -61,14 +62,14 @@ type JsCleaning.unicity = stringset
 **/
 type JsCleaning.infos = {
   elements : JsCleaning.elements
-  server_elements : JsIdentMap.t(ServerAst.code_elt)
-  types_server : stringmap(ServerAst.ident)
-  types_client : stringmap(JsAst.ident)
-  rpc : stringmap(JsAst.ident) // or ServerAst.ident actually
+  server_elements : JsIdentHash.t(ServerAst.code_elt)
+  types_server : Hashtbl.t(string, ServerAst.ident)
+  types_client : Hashtbl.t(string, JsAst.ident)
+  rpc : Hashtbl.t(string, JsAst.ident) // or ServerAst.ident actually
   client_roots : list(JsAst.code_elt);
   server_roots : list(ServerAst.code_elt);
   unicity : JsCleaning.unicity
-  correspondence : JsIdentMap.t(ServerAst.ident)
+  correspondence : JsIdentHash.t(ServerAst.ident)
     // maps client ident to the same ident in the server
     // (if any)
 }
@@ -131,29 +132,17 @@ type JsCleaning.marked = JsIdentSet.t
   /**
    * The empty infos
   **/
-  empty_infos = infos
-  @private infos =
-    elements = JsIdentMap.empty
-    server_elements = JsIdentMap.empty
-    types_server = StringMap.empty
-    types_client = StringMap.empty
-    rpc = StringMap.empty
+  empty_infos() = {
+    elements = Hashtbl.create(111)
+    server_elements = Hashtbl.create(111)
+    types_server = Hashtbl.create(111)
+    types_client = Hashtbl.create(111)
+    rpc = Hashtbl.create(111)
     server_roots = []
     client_roots = []
     unicity = StringSet.empty
-    correspondence = JsIdentMap.empty
-    cleaning = ~{
-      elements
-      server_elements
-      server_roots
-      client_roots
-      unicity
-      types_server
-      types_client
-      rpc
-      correspondence
-    }
-    cleaning : JsCleaning.infos
+    correspondence = Hashtbl.create(111)
+  } : JsCleaning.infos
 
   /**
    * Identifiers declared as root.
@@ -162,23 +151,23 @@ type JsCleaning.marked = JsIdentSet.t
     // do jlog("is_root_ident : {ident}")
     JsIdent.is_root(ident)
 
-  @private add_type_to_stack(infos, stack, type_use) =
+  @private add_type_to_stack(infos:JsCleaning.infos, stack, type_use) =
     stack =
-      match StringMap.get(type_use,infos.types_client) with
+      match Hashtbl.try_find(infos.types_client, type_use) with
       | {none} ->
-        //do Log.warning("JsAst", "Cannot find the client identifier defining type {type_use}")
+        //do jlog("JsAst Cannot find the client identifier defining type {type_use}")
         stack
       | {some = ident} -> [ident|stack]
       end
-    match StringMap.get(type_use,infos.types_server) with
+    match Hashtbl.try_find(infos.types_server, type_use) with
     | {none} ->
-      //do Log.warning("JsAst", "Cannot find the server identifier defining type {type_use}")
+      //do jlog("JsAst Cannot find the server identifier defining type {type_use}")
       stack
     | {some = ident} -> [ident|stack]
     end
 
   @private add_rpc_to_stack(infos, stack, rpc_use) =
-    match StringMap.get(rpc_use,infos.rpc) with
+    match Hashtbl.try_find(infos.rpc, rpc_use) with
     | {none} -> error("Cannot find the identifier defining rpc {rpc_use}")
     | {some = ident} -> [ident|stack]
     end
@@ -186,7 +175,7 @@ type JsCleaning.marked = JsIdentSet.t
   /**
    * Add in the stack all ident contained in the [code_elt]
   **/
-  @private add_stack(infos, code_elt:JsAst.code_elt, stack : JsCleaning.stack) =
+  @private add_stack(infos:JsCleaning.infos, code_elt:JsAst.code_elt, stack : JsCleaning.stack) =
     fold(me, stack) =
       match me : JsAst.mini_expr with
       | { ~ident } ->
@@ -246,18 +235,18 @@ type JsCleaning.marked = JsIdentSet.t
     do if is_root then ServerReference.set(code_elt.root, true)
     is_root
 
-  check_if_kept(infos,ident) : {no_cleaning} / {kept} / {server_cleaned} / {client_cleaned} =
-    match JsIdentMap.get(ident,infos.elements) with
+  check_if_kept(infos:JsCleaning.infos,ident) : {no_cleaning} / {kept} / {server_cleaned} / {client_cleaned} =
+    match Hashtbl.try_find(infos.elements, ident) with
     | {none} -> {no_cleaning} /* cleaning is not activated */
     | {some=elt} ->
        if ServerReference.get(elt.root) then
-         match JsIdentMap.get(ident,infos.correspondence) with
+         match Hashtbl.try_find(infos.correspondence, ident) with
          | {none} ->
            // useful code but no server counterpart
            {kept}
          | {some=server_ident} ->
            // code on both sides
-           match ServerIdentMap.get(server_ident,infos.server_elements) with
+           match Hashtbl.try_find(infos.server_elements, server_ident) with
            | {none} -> @fail(ident)
            | {some = ~{root ...}} ->
              if ServerReference.get(root) then
@@ -311,32 +300,32 @@ type JsCleaning.marked = JsIdentSet.t
         elements = infos.elements
         types_client = infos.types_client
         rpcs = infos.rpc
-        (rpc, types_client) =
+        do
           match code_elt.definition with
-          | {nothing} -> (rpcs, types_client)
+          | {nothing} -> void
           | ~{`type`} ->
             //do jlog("Found the definition of the type {`type`} in the client")
-            (rpcs, StringMap.add(`type`,unsafe_get_ident(code_elt.ident),types_client))
+            Hashtbl.add(types_client, `type`, unsafe_get_ident(code_elt.ident))
           | ~{rpc} ->
             //do jlog("Found the definition of the rpc {rpc} in the client")
-            (StringMap.add(rpc,unsafe_get_ident(code_elt.ident),rpcs), types_client)
+            Hashtbl.add(rpcs, rpc, unsafe_get_ident(code_elt.ident))
           end
         infos =
           match code_elt.ident with
           | { ~ident } ->
             do JsIdent.define(ident)
-            elements = JsIdentMap.add(ident, code_elt, elements)
-            ~{ infos with elements client_roots types_client rpc }
+            do Hashtbl.add(elements, ident, code_elt)
+            ~{ infos with client_roots }
 
           | { ~key } ->
             unicity = StringSet.add(key, unicity)
-            ~{ infos with client_roots unicity types_client rpc }
+            ~{ infos with client_roots unicity }
 
           | ~{ key ident } ->
             do JsIdent.define(ident)
-            elements = JsIdentMap.add(ident, code_elt, elements)
+            elements = Hashtbl.add(elements, ident, code_elt)
             unicity = StringSet.add(key, unicity)
-            ~{ infos with elements unicity client_roots types_client rpc }
+            ~{ infos with unicity client_roots }
         infos
     JsAst.fold_code(fold, code, infos)
 
@@ -371,31 +360,29 @@ type JsCleaning.marked = JsIdentSet.t
        server_roots = if is_root_server(code_elt) then [code_elt|server_roots] else server_roots
        server_elements = infos.server_elements
        correspondence = infos.correspondence
-       (server_elements,correspondence) =
+       do
          match code_elt.ident with
-         | {none} -> (server_elements,correspondence)
+         | {none} -> void
          | {some=ident} ->
-           server_elements = StringMap.add(ident,code_elt,server_elements)
-           correspondence =
-             match code_elt.client_equivalent with
-             | {none} -> correspondence
-             | {some=client_ident} -> JsIdentMap.add(client_ident,ident,correspondence)
-             end
-           (server_elements,correspondence)
+           do Hashtbl.add(server_elements, ident,code_elt)
+           match code_elt.client_equivalent with
+           | {none} -> void
+           | {some=client_ident} -> Hashtbl.add(correspondence, client_ident,ident)
+           end
          end
        types_server = infos.types_server
        rpcs = infos.rpc
-       (rpc, types_server) =
+       do
          match code_elt.defines with
-         | {nothing} -> (rpcs, types_server)
+         | {nothing} -> void
          | ~{`type`} ->
            //do jlog("Found the definition of the type {`type`} in the server")
-           (rpcs, StringMap.add(`type`,Option.get(code_elt.ident),types_server))
+           Hashtbl.add(types_server, `type`,Option.get(code_elt.ident))
          | ~{rpc} ->
            //do jlog("Found the definition of the rpc {rpc} in the server")
-           (StringMap.add(rpc,Option.get(code_elt.ident),rpcs), types_server)
+           Hashtbl.add(rpcs, rpc,Option.get(code_elt.ident))
          end
-       ~{ infos with server_roots server_elements types_server rpc correspondence }
+       ~{ infos with server_roots }
      ServerAst.fold_code(fold, server_code, infos)
 
   /**
@@ -411,9 +398,9 @@ type JsCleaning.marked = JsIdentSet.t
       | [] -> void
       | [ ident | stack ] ->
         stack =
-          match JsIdentMap.get(ident, elements) with
+          match Hashtbl.try_find(elements, ident) with
           | { none } ->
-            match JsIdentMap.get(ident, server_elements) with
+            match Hashtbl.try_find(server_elements, ident) with
             | {none} -> stack
             | {some = code_elt} ->
               if ServerReference.get(code_elt.root)
@@ -461,6 +448,7 @@ type JsCleaning.marked = JsIdentSet.t
   **/
   perform(fold : JsCleaning.infos -> (JsAst.code_elt, 'acc -> 'acc), code : list(JsAst.code), server_code : list(ServerAst.code), acc : 'acc) : 'acc =
     //do Log.debug("JsAst","Cleaning up javascript")
+    infos = empty_infos()
     infos = List.fold(fold_infos, code, infos)
     infos = List.fold(fold_infos_server, server_code, infos)
     do mark(infos)

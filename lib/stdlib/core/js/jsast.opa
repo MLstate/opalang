@@ -185,7 +185,7 @@ JsOptions =
             | _ -> void
           iter(code) = iter_code(iter, code)
           do List.iter(iter, js_codes)
-          infos = JsCleaning.empty_infos
+          infos = JsCleaning.empty_infos()
           List.fold(fold_code_lexems(infos), js_codes, lexems)
         )
     do JsIdent.clear() // relax the global map, for the GC
@@ -284,14 +284,8 @@ JsIdent = {{
 /**
  * The type of map indexed by [JsAst.ident]
 **/
-type JsIdentMap.t('a) = ordered_map(JsAst.ident, 'a, String.order)
-type ServerIdentMap.t('a) = ordered_map(ServerAst.ident, 'a, String.order)
-
-/**
- * A map indexed by {!JsAst.ident}
-**/
-JsIdentMap = StringMap
-ServerIdentMap = StringMap
+type JsIdentHash.t('a) = Hashtbl.t(JsAst.ident, 'a)
+type ServerIdentHash.t('a) = Hashtbl.t(ServerAst.ident, 'a)
 
 /**
  * The type of sets indexed by [JsAst.ident]
