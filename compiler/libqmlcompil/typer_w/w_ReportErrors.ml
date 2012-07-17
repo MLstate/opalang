@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -132,22 +132,28 @@ let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
           let fields_of_2_not_in_1 =
             List.substract_eq ~eq: eq_fields fields2 fields1 in
           if fields_of_1_not_in_2 <> [] then (
+            let is_one_elem =  (List.length fields_of_1_not_in_2) == 1 in
             Format.fprintf ppf
-              ("@\n@[<2>@{<bright>Hint@}:@\nField(s)@ ") ;
+              ("@\n@[<2>@{<bright>Hint@}:@\nField%s@ ")
+                (if is_one_elem then "" else "s");
             List.iter
               (fun (n, _) -> Format.fprintf ppf "@{<red>%s@}@ " n)
               fields_of_1_not_in_2 ;
             Format.fprintf ppf
-              "only@ appear(s)@ in@ the@ first@ type.@]@\n"
+              "only@ appear%s@ in@ the@ first@ type.@]@\n"
+                (if is_one_elem then "s" else "")
           ) ;
           if fields_of_2_not_in_1 <> [] then (
+            let is_one_elem =  (List.length fields_of_2_not_in_1) == 1 in
             Format.fprintf ppf
-              ("@\n@[<2>@{<bright>Hint@}:@\nField(s)@ ") ;
+              ("@\n@[<2>@{<bright>Hint@}:@\nField%s@ ")
+                (if is_one_elem then "" else "s");
             List.iter
               (fun (n, _) -> Format.fprintf ppf "@{<red>%s@}@ " n)
               fields_of_2_not_in_1 ;
             Format.fprintf ppf
-              "only@ appear(s)@ in@ the@ second@ type.@]@\n"
+              "only@ appear%s@ in@ the@ second@ type.@]@\n"
+                (if is_one_elem then "s" else "")
           ) ;
       | (_, _) -> (
           (* Other cases of 2 column types. In this case, not both sums have
