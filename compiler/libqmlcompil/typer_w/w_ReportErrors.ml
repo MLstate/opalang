@@ -203,7 +203,28 @@ let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
          moment. *)
       ()
 
-
+let pp_location_hints ppf
+  ( err_ty1, _, err_ty2, _
+  , ty1 , _, ty2, _) =
+  match ( W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc ty1.W_Algebra.sty_desc
+        , W_SubTerms.locate_subterms err_ty2.W_Algebra.sty_desc ty1.W_Algebra.sty_desc) with
+   |(Some (_, s1), Some (_, s2)) -> (
+       Format.fprintf ppf
+         ("@\n@[<2>@{<bright>Hint@}:@\nIn type @{<red>%a@} " ^^
+          "the %s and the %s should be the same.@]@]")
+         W_PrintTypes.pp_simple_type ty1 s1 s2
+   )
+   | _ ->(
+    match ( W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc ty2.W_Algebra.sty_desc
+          , W_SubTerms.locate_subterms err_ty2.W_Algebra.sty_desc ty2.W_Algebra.sty_desc) with
+      |(Some (_, s1), Some (_, s2)) -> (
+       Format.fprintf ppf
+         ("@\n@[<2>@{<bright>Hint@}:@\nIn@ type@ @{<red>%a@} " ^^
+          "%s and@ %s@ should@ be@ the@ same.@]@]")
+         W_PrintTypes.pp_simple_type ty2 s1 s2
+     )
+     | _ -> ()
+  )
 
 let (set_annotmap_for_error_report, get_annotmap_for_error_report) =
   let recorded_annotmap_opt = ref None in
@@ -290,8 +311,9 @@ let pp_unification_conflict_detail ppf detail =
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 let pp_incompatible_types_if_more_precise
-    ppf (glob_ty1, glob_ty2, accur_ty1, accur_ty2) =
-  if glob_ty1 != accur_ty1 || glob_ty2 != accur_ty2 then (
+    ppf (_, _, accur_ty1, accur_ty2) =
+  if false then (
+(*  if glob_ty1 != accur_ty1 || glob_ty2 != accur_ty2 then ( *)
     Format.fprintf ppf
       "@\n@[Types@ @{<red>%a@}@ and@ @{<red>%a@}@ are@ not@ compatible@]"
       W_PrintTypes.pp_simple_type_continue_sequence accur_ty1
@@ -345,7 +367,181 @@ let create_fake_shorten_record_ty ~original_fields ~interresting_fields_names =
      directions) from these fields. *)
   W_CoreTypes.type_module_record sorted_fields
 
+(** TEST FUNCTION **)
+let test_fun_error err_ty1 err_ty2 =
+  let err_ty1 = err_ty1.W_Algebra.sty_desc in
+  let err_ty2 = err_ty2.W_Algebra.sty_desc in
+  let aux t1 t2 =
+     match (t1, t2) with
+       | (W_Algebra.SType_arrow (_, _), W_Algebra.SType_arrow(_, _)) -> false
+       | (W_Algebra.SType_arrow (_, _), _) -> true
+       | (_, W_Algebra.SType_arrow(_, _)) -> true
+(*          t1.W_Algebra.sty_desc = result_type.W_Algebra.sty_desc *)
+       | _ -> false
+  in aux err_ty1 err_ty2
 
+(**  NEW PRINING **)
+
+let pp_info ppf = function
+  | W_TypeInfo.NoInfo   s -> (*turn this to blank before sub*)
+     Format.fprintf ppf "%s" (s ^ String.make (20 - String.length s) ' ')
+  | W_TypeInfo.Location l ->
+      Format.fprintf ppf "%a" W_Misc.pp_pos_short (Annot.pos l)
+  | W_TypeInfo.FromEnv (_, l) ->
+(*     let package_name = Ident.get_package_name id in
+     let of_package_name =
+       if package_name = "" then "" else (" of " ^ package_name) in
+     let name = Ident.original_name id ^ of_package_name in
+     let length = String.length name in
+     let tab  = if length < 20 then String.make (20 - length) ' ' else "" in
+     Format.fprintf ppf "%s"  (name ^ tab)
+*)
+      Format.fprintf ppf "%a" W_Misc.pp_pos_short (Annot.pos l)
+  | W_TypeInfo.Directive (_, l) ->
+     Format.fprintf ppf "%a" W_Misc.pp_pos_short (Annot.pos l)
+  | W_TypeInfo.Link  _    ->
+     Format.fprintf ppf "(link)              "
+  | W_TypeInfo.Exception    ->
+     Format.fprintf ppf "(exception)         "
+
+(*  compare  conflicting types  *)
+
+let compare_types t1 t2 =
+  match (t1.W_Algebra.sty_desc, t2.W_Algebra.sty_desc) with
+   | (W_Algebra.SType_arrow(args1, _), W_Algebra.SType_arrow(args2, _)) -> (
+      if (List.length args1 = List.length args2)
+       then W_PrintTypes.set_print_level 2
+       else W_PrintTypes.set_print_level 1
+   )
+   | (_, W_Algebra.SType_arrow(_, _)) | (W_Algebra.SType_arrow(_, _), _)
+       -> W_PrintTypes.set_print_level 0
+   | (_, _) -> W_PrintTypes.set_print_level 2
+
+
+
+let pp_precise_error ppf (res, t1, i1, t2, i2) =
+  let cmp = W_TypeInfo.cmp_info i1 i2 in
+  let res' =
+    match res with
+     | None ->
+         if cmp = 0
+           then "incoherent instantiation"
+           else  "conflict"
+     | Some s -> s in
+  compare_types t1 t2;
+  W_PrintTypes.set_error_type1 t1;
+  W_PrintTypes.set_error_type2 t2;
+  let (t1, i1, t2, i2) =
+    if cmp <= 0 then (t1, i1, t2, i2) else (t2, i2, t1, i1) in
+  Format.fprintf ppf
+    "@[<2>Type error: %s @\n@[%a%a@]@\n@[%a%a@]@\n"
+        res'
+        pp_info i1
+        W_PrintTypes.pp_simple_type_start_sequence t1
+        pp_info i2
+        W_PrintTypes.pp_simple_type_continue_sequence t2
+(*  W_PrintTypes.set_print_level 2 *)
+
+(*At least one of the error_types is function type*)
+let report_fun_conflict
+    _ (context, err_ty1, err_ty2, _) =
+  let err_loc1 = W_TypeInfo.retrieve err_ty1.W_Algebra.sty_desc in
+  let err_loc2 = W_TypeInfo.retrieve err_ty2.W_Algebra.sty_desc in
+  let (fun_error_ty, err_ty, args_number, err_loc) =
+    match (err_ty1.W_Algebra.sty_desc, err_ty2.W_Algebra.sty_desc) with
+      | (W_Algebra.SType_arrow (args, _), _) ->
+          (err_ty1, err_ty2, List.length args, err_loc1)
+      | (_, W_Algebra.SType_arrow (args, _)) ->
+          (err_ty2, err_ty1, List.length args, err_loc2)
+      | (_, _) -> (err_ty1, err_ty2, -1, err_loc1) in
+  let hint ppf _ =
+   if args_number = 0
+    then
+     Format.fprintf ppf "Unit argument is missing at %a" pp_info err_loc
+    else if args_number = 1
+    then
+     Format.fprintf ppf "1 argument is missing at %a" pp_info err_loc
+    else
+     Format.fprintf ppf "%d arguments are missing at %a"
+       args_number pp_info err_loc in
+  let reason = Some "Missing Application" in
+  let public_annotmap_with_locs = get_annotmap_for_error_report () in
+  match context with
+  | W_InferErrors.UCC_apply (expr, fun_pat_ty, _ (*tmp_fun_ty*)) ->(
+     W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+     let fun_name =
+       match expr with
+         | QmlAst.Apply(_, (QmlAst.Ident(_, id)), _) ->
+           let package_name = Ident.get_package_name id in
+           let of_package_name =
+             if package_name = "" then "" else (" of " ^ package_name) in
+           (Ident.original_name id ^ of_package_name )
+         | _ -> "" in
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+    match fun_pat_ty.W_Algebra.sty_desc with
+     | W_Algebra.SType_arrow (fun_args_ty, _)
+        when List.exists
+             (fun t -> t.W_Algebra.sty_desc == fun_error_ty.W_Algebra.sty_desc)
+             fun_args_ty -> (
+        let err_ctxt =
+          QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+        QmlError.error err_ctxt
+           ("%a@\n@[<2>Can not match function type with %a.@]" ^^
+           "@\n@[<2>@{<bright>Hint@}:The  of expression  should have" ^^
+           " function type@\n%a@]@.")
+            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+            W_PrintTypes.pp_simple_type err_ty
+     )
+
+     | W_Algebra.SType_arrow (_, _) -> (
+        let err_ctxt =
+          QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+        QmlError.error err_ctxt
+           ("%a@\n@[<2>Can not match function type with %a.@]" ^^
+           "@\n@[<2>@{<bright>Hint@}:@\n%a@]@.")
+            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+            W_PrintTypes.pp_simple_type err_ty
+            hint ()
+     )
+     | _ -> (
+      let err_ctxt =
+        QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      QmlError.error err_ctxt
+        "%a@\n@[<2>Expression %s is not a function, it can not be applied.@."
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        fun_name
+     )
+   )
+   | W_InferErrors.UCC_pattern_coerce(pat, _, _) -> (
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label pat));
+      let err_ctxt =
+        QmlError.Context.annoted_pat public_annotmap_with_locs pat in
+      QmlError.error err_ctxt
+           ("%a@\n@[<2>Can not match function type with %a.@]" ^^
+           "@\n@[<2>@{<bright>Hint@}:@\n%a@]@.")
+            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+            W_PrintTypes.pp_simple_type err_ty
+            hint ()
+   )
+   | W_InferErrors.UCC_match_left_part_ty_previous_vs_ty_current(expr, _, _)
+   | W_InferErrors.UCC_match_ty_right_parts_vs_ty_branch(expr, _, _)
+   | W_InferErrors.UCC_dot (expr, _, _, _)
+   | W_InferErrors.UCC_record_extend (expr, _, _)
+   | W_InferErrors.UCC_coerce (expr, _, _)
+   | W_InferErrors.UCC_let_rec_body (_, expr, _, _)
+   | W_InferErrors.UCC_unknown_directive (expr, _, _)
+   | W_InferErrors.UCC_catch (expr, _, _)
+   | W_InferErrors.UCC_throw (expr, _, _) -> ( (*default error msg*)
+     W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+     let err_ctxt =
+       QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+     QmlError.error err_ctxt
+        ("%a@\n@[<2>Can not match function type with %a.@]" ^^
+         "@\n@[<2>@{<bright>Hint@}:@\n%a@]@.")
+           pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+           W_PrintTypes.pp_simple_type err_ty
+           hint ()
+   )
 
 (** [err_ty1] : First deeper type causing the unification error.
     [err_ty2] : Second deeper type causing the unification error.
@@ -353,75 +549,239 @@ let create_fake_shorten_record_ty ~original_fields ~interresting_fields_names =
     {b Visibility}: Exported outside this module.                     *)
 let report_unification_conflict_with_context
     env (context, err_ty1, err_ty2, detail) =
+  let err_loc1 = W_TypeInfo.retrieve err_ty1.W_Algebra.sty_desc in
+  let err_loc2 = W_TypeInfo.retrieve err_ty2.W_Algebra.sty_desc in
+  let reason = None in
   (* Recover by side effect the annotation map that really contains source
      locations. *)
   let public_annotmap_with_locs = get_annotmap_for_error_report () in
-  (* Issue a dedicated error message and get the error context used to pinpoint
+
+  (
+ (* Issue a dedicated error message and get the error context used to pinpoint
      the location of the error in the source code for the coming general failure
      notification. *)
   match context with
   | W_InferErrors.UCC_pattern_coerce (pat, pat_ty, coercing_ty) ->
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label pat));
       let err_ctxt =
         QmlError.Context.annoted_pat public_annotmap_with_locs pat in
+      let ty_loc1 = W_TypeInfo.retrieve pat_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve coercing_ty.W_Algebra.sty_desc in
       W_PrintTypes.pp_simple_type_prepare_sequence [pat_ty; coercing_ty; err_ty1; err_ty2];
       QmlError.error err_ctxt
-        ("@[Pattern@ has@ type@ @{<red>%a@}@ but@ is@ coerced@ into@ " ^^
-         "@{<red>%a@}.@]%a%a@.")
+        ("%a@\n@[<2>Pattern has type@\n@{<red>%a@}@\nbut is coerced into " ^^
+         "@\n@{<red>%a@}@\n@]%a%a%a@.")
+        pp_precise_error (reason, err_ty1, err_loc1, err_ty2, err_loc2)
         W_PrintTypes.pp_simple_type_start_sequence pat_ty
         W_PrintTypes.pp_simple_type_continue_sequence coercing_ty
         pp_incompatible_types_if_more_precise
         (pat_ty, coercing_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-  | W_InferErrors.UCC_apply (expr, fun_pat_ty, tmp_fun_ty) ->
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , pat_ty , ty_loc1
+                          , coercing_ty, ty_loc2)
+  | W_InferErrors.UCC_apply (expr, fun_pat_ty, tmp_fun_ty) ->(
+     let fun_name =
+       match expr with
+         | QmlAst.Apply(_, (QmlAst.Ident(_, id)), _) ->
+           let package_name = Ident.get_package_name id in
+           let of_package_name =
+             if package_name = "" then "" else (" of " ^ package_name) in
+           (Ident.original_name id ^ of_package_name )
+         | _ -> "" in
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+    match fun_pat_ty.W_Algebra.sty_desc with
+     | W_Algebra.SType_arrow (args1, _) -> (
+       match tmp_fun_ty.W_Algebra.sty_desc with
+        | W_Algebra.SType_arrow (args2, _) -> (
+           let arg_number1 = List.length args1 in
+           let arg_number2 = List.length args2 in
+           if arg_number1 != arg_number2 then (
+            let err_ctxt =
+              QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+            QmlError.error err_ctxt
+              ("%a@\n@[<2>Function %s expects %d argument%s,i" ^^
+               " but it is given %d.@]@.")
+                pp_precise_error( Some "Different Number of Arguments",
+                                  err_ty1, err_loc1, err_ty2, err_loc2)
+                fun_name arg_number1
+                  (if arg_number1 = 1 then "" else "s") arg_number2
+           ) else
+              let err_ty1_in_tmp =
+                    W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc
+                    tmp_fun_ty.W_Algebra.sty_desc in
+              let err_ty2_in_tmp =
+                    W_SubTerms.locate_subterms err_ty2.W_Algebra.sty_desc
+                    tmp_fun_ty.W_Algebra.sty_desc in
+              match err_ty1_in_tmp with
+               | Some (n, str1)
+                when W_SubTerms.check_arrow_subterm n
+                     err_ty2.W_Algebra.sty_desc fun_pat_ty.W_Algebra.sty_desc->(
+                    let err_ctxt =
+                      QmlError.Context.annoted_expr
+                        public_annotmap_with_locs expr in
+                    QmlError.error err_ctxt
+                     ("%a@\n@[<2>The @{<red>%s@} of function %s should be@ "^^
+                      "@{<red>%a@}@ " ^^
+                      "but here it is@ @{<red>%a@}@]@.")
+                        pp_precise_error(reason, err_ty1, err_loc1,
+                                                 err_ty2, err_loc2)
+                        str1 fun_name
+                        W_PrintTypes.pp_simple_type_start_sequence err_ty2
+                        W_PrintTypes.pp_simple_type_continue_sequence err_ty1
+               )
+               | _ -> (
+                 match err_ty2_in_tmp with
+                  | Some (n2, str2)
+                   when W_SubTerms.check_arrow_subterm n2
+                        err_ty1.W_Algebra.sty_desc
+                        fun_pat_ty.W_Algebra.sty_desc-> (
+                    let err_ctxt =
+                      QmlError.Context.annoted_expr
+                        public_annotmap_with_locs expr in
+                    QmlError.error err_ctxt
+                     ("%a@\n@[<2>The @{<red>%s@} of function %s should be@ " ^^
+                      "@{<red>%a@}@]@.")
+                        pp_precise_error(reason, err_ty1, err_loc1,
+                                                 err_ty2, err_loc2)
+                        str2 fun_name
+                        W_PrintTypes.pp_simple_type_start_sequence err_ty1
+                  )
+                  | _ -> (
+                   match (err_ty1_in_tmp, err_ty2_in_tmp) with
+                    | (Some (_, str1), Some (_, str2)) -> (
+                    let err_ctxt =
+                      QmlError.Context.annoted_expr
+                        public_annotmap_with_locs expr in
+                    QmlError.error err_ctxt
+                     ("%a@\n@[<2>The@ @{<red>%s@}@ and the@ @{<red>%s@}@ " ^^
+                      "of function %s " ^^
+                      "should be the same@]@.")
+                        pp_precise_error(reason, err_ty1, err_loc1,
+                                                 err_ty2, err_loc2)
+                        str1 str2
+                        fun_name
+                    )
+                    | _ -> (
+                    let err_ctxt =
+                      QmlError.Context.annoted_expr public_annotmap_with_locs
+                        expr in
+                    let ty_loc1 = W_TypeInfo.retrieve
+                                    fun_pat_ty.W_Algebra.sty_desc in
+                    let ty_loc2 = W_TypeInfo.retrieve
+                                    tmp_fun_ty.W_Algebra.sty_desc in
+                    W_PrintTypes.pp_simple_type_prepare_sequence
+                      [fun_pat_ty; tmp_fun_ty; err_ty1; err_ty2];
+                    QmlError.error err_ctxt
+                     ("%a@\n@[<2>Function %s was found of type" ^^
+                      "@\n@{<red>%a@}@\nbut application expects it to be " ^^
+                      " of type@\n@{<red>%a@}@]%a%a@.")
+                        pp_precise_error(reason, err_ty1, err_loc1,
+                                                 err_ty2, err_loc2)
+                        fun_name
+                        W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
+                        W_PrintTypes.pp_simple_type_continue_sequence tmp_fun_ty
+                        pp_unification_conflict_detail detail
+                        pp_location_hints ( err_ty1, err_loc1
+                                          , err_ty2, err_loc2
+                                          , fun_pat_ty , ty_loc1
+                                          , tmp_fun_ty, ty_loc2)
+                  ))
+               )
+         )
+         | _ -> ( (* THIS CASE CAN NOT BE TRIGGERED*)
+           let err_ctxt =
+             QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+           let ty_loc1 = W_TypeInfo.retrieve fun_pat_ty.W_Algebra.sty_desc in
+           let ty_loc2 = W_TypeInfo.retrieve tmp_fun_ty.W_Algebra.sty_desc in
+           W_PrintTypes.pp_simple_type_prepare_sequence
+             [fun_pat_ty; tmp_fun_ty; err_ty1; err_ty2];
+           QmlError.error err_ctxt
+             ("%a@\n@[<2>Function %s was found of type@\n@{<red>%a@}@\n" ^^
+              "but application expects it to be of type@\n@{<red>%a@}@]%a%a@.")
+               pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+              fun_name
+              W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
+              W_PrintTypes.pp_simple_type_continue_sequence tmp_fun_ty
+              pp_unification_conflict_detail detail
+              pp_location_hints ( err_ty1, err_loc1
+                                , err_ty2, err_loc2
+                                , fun_pat_ty , ty_loc1
+                                , tmp_fun_ty, ty_loc2)
+        )
+     )
+     | _ -> (
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
-      W_PrintTypes.pp_simple_type_prepare_sequence [fun_pat_ty; tmp_fun_ty; err_ty1; err_ty2];
       QmlError.error err_ctxt
-        ("@[Function@ was@ found@ of@ type@ @{<red>%a@}@ but@ " ^^
-         "application@ expects@ it@ to@ be@ of@ type@ @{<red>%a@}.@]%a%a@.")
-        W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
-        W_PrintTypes.pp_simple_type_continue_sequence tmp_fun_ty
-        pp_incompatible_types_if_more_precise
-        (fun_pat_ty, tmp_fun_ty, err_ty1, err_ty2)
-        pp_unification_conflict_detail detail
+        "%a@\n@[<2>Expression %s is not a function, it can not be applied.@."
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        fun_name
+     )
+   )
   | W_InferErrors.UCC_match_left_part_ty_previous_vs_ty_current
       (expr, previous_left_ty, current_left_ty) ->
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      let ty_loc1 = W_TypeInfo.retrieve previous_left_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve current_left_ty.W_Algebra.sty_desc in
       W_PrintTypes.pp_simple_type_prepare_sequence [previous_left_ty; current_left_ty; err_ty1; err_ty2];
       QmlError.error err_ctxt
-        ("@[Matched@ expression@ or@ previous@ patterns@ have@ type@ " ^^
-         "@{<red>%a@}@ but@ new@ pattern@ is@ found@ of@ type@ " ^^
-         "@{<red>%a@}.@]%a%a@.")
+        ("%a@\n@[<2>Matched expression or patterns have type" ^^
+         "@\n@{<red>%a%a@}@\nbut a new pattern is found of type@\n" ^^
+         "@{<red>%a%a@}.@]%a%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        pp_info ty_loc1
         W_PrintTypes.pp_simple_type_start_sequence previous_left_ty
+        pp_info (W_TypeInfo.NoInfo "")
         W_PrintTypes.pp_simple_type_continue_sequence current_left_ty
         pp_incompatible_types_if_more_precise
         (previous_left_ty, current_left_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , previous_left_ty , ty_loc1
+                          , current_left_ty, ty_loc2)
+
   | W_InferErrors.UCC_match_ty_right_parts_vs_ty_branch
         (expr, ty_right_parts, ty_branch) ->
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      let ty_loc1 = W_TypeInfo.retrieve
+          (W_CoreTypes.simple_type_repr ty_right_parts).W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve ty_branch.W_Algebra.sty_desc in
       W_PrintTypes.pp_simple_type_prepare_sequence [ty_right_parts; ty_branch; err_ty1; err_ty2];
       QmlError.error err_ctxt
-        ("@[Previous@ right-side@ parts@ of@ the@ pattern@ matching@ " ^^
-           "return@ type@ @{<red>%a@}@ but@ current@ one@ returns@ " ^^
-           "type@ @{<red>%a@}.@]%a%a@.")
+        ("%a@\n@[<2>Right-side parts of the pattern matching " ^^
+           "have type@\n@{<red>%a%a@}@\nbut this right-side expression has " ^^
+           "type@\n@{<red>%a%a@}@]%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        pp_info ty_loc1
         W_PrintTypes.pp_simple_type_start_sequence ty_right_parts
+        pp_info (W_TypeInfo.NoInfo "")
         W_PrintTypes.pp_simple_type_continue_sequence ty_branch
-        pp_incompatible_types_if_more_precise
-        (ty_right_parts, ty_branch, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-  | W_InferErrors.UCC_dot
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , ty_right_parts , ty_loc1
+                          , ty_branch, ty_loc2)
+ | W_InferErrors.UCC_dot
       (expr, rec_expr_ty, accessed_field_rec_ty, accessed_label) -> (
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       (* First, expand possible sequence of type abbrevs in order to try
          to discover the real structure of the type. *)
+      let ty_loc1 = W_TypeInfo.retrieve rec_expr_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve
+                     accessed_field_rec_ty.W_Algebra.sty_desc in
       let rec_expr_ty_unwinded =
         W_TypeAbbrevs.fully_expand_abbrev
           env W_TypeAbbrevs.empty_memory rec_expr_ty in
-      (* Try to see, if the expression in which we dot it a record, which
+      (* Try to see, if the expression in which we dot is a record, which
          field is the closest from the one we tried to use. *)
       match
         (W_CoreTypes.simple_type_repr rec_expr_ty_unwinded).W_Algebra.sty_desc
@@ -436,15 +796,22 @@ let report_unification_conflict_with_context
           match cases with
           | [] ->
               QmlError.error err_ctxt
-                ("@[Record@ has@ type@ @{<red>%a@}@ but@ field@ access@ " ^^
-                 "expected@ it@ to@ have@ type@ @{<red>%a@}@]@." ^^
-                 "@[<2>@{<bright>Hint@}:@\nYou@ tried@ to@ access@ an@ " ^^
-                 "empty@ sum@ type@ as@ a@ record.@]@\n%a@.")
+                ("%a@\n@[<2>Record has type@\n@{<red>%a%a}@\nbut field " ^^
+                 "access expects it to have type@\n@{<red>%a%a@}@]@." ^^
+                 "@[<2>@{<bright>Hint@}:@\nYou@ tried to access an " ^^
+                 "empty sum type as a record.@]@\n%a%a@.")
+                pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+                pp_info ty_loc1
                 W_PrintTypes.pp_simple_type_start_sequence rec_expr_ty_unwinded
+                pp_info ty_loc2
                 W_PrintTypes.pp_simple_type_continue_sequence
-                accessed_field_rec_ty
+                  accessed_field_rec_ty
                 pp_unification_conflict_detail detail
-          | [unique_case] -> (
+                pp_location_hints ( err_ty1, err_loc1
+                                  , err_ty2, err_loc2
+                                  , rec_expr_ty , ty_loc1
+                                  , accessed_field_rec_ty, ty_loc2)
+        | [unique_case] -> (
               let (fields, _) =
                 (W_CoreTypes.row_type_repr unique_case).
                   W_Algebra.rt_value in
@@ -476,126 +843,289 @@ let report_unification_conflict_with_context
                     ~original_fields: fields
                     ~interresting_fields_names: few_close_labels in
                 QmlError.error err_ctxt
-                  ("@[Expression@ has@ a@ record@ type@ incompatible@ for@ " ^^
-                     "access@ to@ field@ @{<red>%s@}. Its@ type,@ limited@ " ^^
-                     "to@ the@ most@ probable@ fields@ you@ want@ to@ " ^^
-                     "access,@ is@ @{<red>%a@}.@]@\n%a%a@.")
+                  ("%a@\n@[<2>This record does not have field @{<red>%s@}.@ " ^^
+                   " Here is a summary of fields you may want to access:" ^^
+                     "@\n@{<red>%a@}.@]@\n%a%a@.")
+                  pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
                   accessed_label
-                  W_PrintTypes.pp_simple_type shortened_record_ty
+                  W_PrintTypes.pp_fake_simple_type shortened_record_ty
                   (HintUtils.pp_suggestion labels) accessed_label
                   pp_unification_conflict_detail detail
-              )
+             )
               else (
                 (* The search of suggestion for fields close to the one used
                    to make the access gave nothing. So, in this case, fall-back
                    on printing directly the 2 guilty types. *)
                 QmlError.error err_ctxt
-                  ("@[Record@ expression@ has@ type@ @{<red>%a@}@ but@ " ^^
-                   "field@ access@ expected@ it@ to@ have@ type@ " ^^
-                   "@{<red>%a@}.@]@\n%a%a@.")
-                  W_PrintTypes.pp_simple_type_start_sequence
-                    rec_expr_ty_unwinded
-                  W_PrintTypes.pp_simple_type_continue_sequence
-                  accessed_field_rec_ty
+                  ("%a@\n@[<2>This record does not have field @{<red>%s@}." ^^
+                   "@ Here are the fields you may want to access" ^^
+                   "@\n@{<red>%a@}@]@\n%a%a%a@.")
+                pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+                  accessed_label
+                  W_PrintTypes.pp_fake_simple_type rec_expr_ty_unwinded
                   (HintUtils.pp_suggestion labels) accessed_label
                   pp_unification_conflict_detail detail
-              )
+                 pp_location_hints ( err_ty1, err_loc1
+                                  , err_ty2, err_loc2
+                                  , rec_expr_ty , ty_loc1
+                                  , accessed_field_rec_ty, ty_loc2)
+             )
             )
           | _ ->
               QmlError.error err_ctxt
-                ("@[Record@ has@ type@ @{<red>%a@}@ but@ field@ access@ " ^^
-                 "expected@ it@ to@ have@ type@ @{<red>%a@}@]@." ^^
-                 "@[<2>@{<bright>Hint@}:@\nYou@ tried@ to@ access@ a@ " ^^
-                 "sum@ type@ with@ several@ cases@ as@ a@ " ^^
-                 "record.@]@\n%a")
+                ("%a@\n@[<2>Record has type@\n@{<red>%a%a@}@\nbut field " ^^
+                 "access expected it to have type @\n@{<red>%a%a@}@@\n]@." ^^
+                 "@[<2>@{<bright>Hint@}:@\nYou tried to access a " ^^
+                 "sum type with several cases as a " ^^
+                 "record.@]@\n%a%a")
+                pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
                 W_PrintTypes.pp_simple_type_start_sequence rec_expr_ty_unwinded
+                pp_info ty_loc1
                 W_PrintTypes.pp_simple_type_continue_sequence
-                accessed_field_rec_ty
+                  accessed_field_rec_ty
+                pp_info ty_loc2
                 pp_unification_conflict_detail detail
-        )
-      | _ ->
+                pp_location_hints ( err_ty1, err_loc1
+                                  , err_ty2, err_loc2
+                                  , rec_expr_ty , ty_loc1
+                                  , accessed_field_rec_ty, ty_loc2)
+      )
+      | _ ->(*NOT RECORD*)
           (* Other cases than a type sum. *)
           QmlError.error err_ctxt
-            ("@[Record@ expression@ has@ type@ @{<red>%a@}@ but@ field@ " ^^
-             "access@ expected@ it@ to@ have@ type@ @{<red>%a@}.@]%a@.")
+            ("%a@\n@[<2>This expression is not a record.@ " ^^
+             "You can not access its fields.")
+            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
             W_PrintTypes.pp_simple_type_start_sequence
             rec_expr_ty  (* Since unwinding didn't give a sum, use the
                             non-unwinded type for the error message. *)
+            pp_info ty_loc1
             W_PrintTypes.pp_simple_type_continue_sequence
             accessed_field_rec_ty
+            pp_info ty_loc2
             pp_unification_conflict_detail detail
-      )
-  | W_InferErrors.UCC_record_extend (expr, extended_expr_ty, extension_ty) ->
+                 pp_location_hints ( err_ty1, err_loc1
+                                  , err_ty2, err_loc2
+                                  , rec_expr_ty , ty_loc1
+                                  , accessed_field_rec_ty, ty_loc2)
+     )
+  | W_InferErrors.UCC_record_extend (expr, extended_expr_ty, extension_ty) -> (
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      let ty_loc1 = W_TypeInfo.retrieve extended_expr_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve extension_ty.W_Algebra.sty_desc in
+      match extended_expr_ty.W_Algebra.sty_desc with
+       | W_Algebra.SType_sum_of_records _ -> (
       QmlError.error err_ctxt
-        ("@[Record@ to@ update@ has@ type@ @{<red>%a@}@ but@ extension@ " ^^
-         "requires@ it@ to@ have@ type@ @{<red>%a@}.@]%a%a@.")
+        ("%a@\n@[<2>Record to update has type@\n@{<red>%a%a@}@\nbut " ^^
+         "extension requires it to have type@\n@{<red>%a%a@}@\n@]%a%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        pp_info ty_loc1
         W_PrintTypes.pp_simple_type_start_sequence extended_expr_ty
+        pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence extension_ty
         pp_incompatible_types_if_more_precise
         (extended_expr_ty, extension_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-  | W_InferErrors.UCC_coerce (expr, expr_ty, coercing_ty) ->
+                 pp_location_hints ( err_ty1, err_loc1
+                                  , err_ty2, err_loc2
+                                  , extended_expr_ty , ty_loc1
+                                  , extension_ty, ty_loc2)
+      )
+      | _ -> (
+      QmlError.error err_ctxt
+        ("%a@\n@[<2>The expression is not a record, " ^^
+         "it can not be extended.@\n@]@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+      )
+     )
+ | W_InferErrors.UCC_coerce (expr, expr_ty, coercing_ty) -> (
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
-      QmlError.error err_ctxt
-        ("@[Expression@ has@ type@ @{<red>%a@}@ but@ is@ coerced@ " ^^
-         "into@ @{<red>%a@}.@]%a%a@.")
+      let ty_loc1 = W_TypeInfo.retrieve expr_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve coercing_ty.W_Algebra.sty_desc in
+      let err_ty1_in_coercing_ty =
+        W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc
+                            coercing_ty.W_Algebra.sty_desc in
+      let err_ty2_in_coercing_ty =
+        W_SubTerms.locate_subterms err_ty2.W_Algebra.sty_desc
+                            coercing_ty.W_Algebra.sty_desc in
+      match (err_ty1_in_coercing_ty, err_ty2_in_coercing_ty) with
+       | (Some(_, str1), Some(_, str2)) -> (
+       QmlError.error err_ctxt
+        ("%a@\n@[<2>The@ @{<red>%s@}@ and the@ @{<red>%s@}@ " ^^
+         "of the coercing type should be the same.@]@.")
+          pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+          str1 str2
+       )
+       | (Some(n, str1), _) when W_SubTerms.check_arrow_subterm n
+           err_ty2.W_Algebra.sty_desc expr_ty.W_Algebra.sty_desc-> (
+        QmlError.error err_ctxt
+        ("%a@\n@[<2>Expression's @{<red>%s@} is@\n@{<red>%a@}@\n" ^^
+         "but it is coerced into@\n@{<red>%a@}@]@.")
+          pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+          str1
+          W_PrintTypes.pp_simple_type_start_sequence err_ty1
+          W_PrintTypes.pp_simple_type_continue_sequence err_ty2
+        )
+       | (_, Some(n, str2)) when W_SubTerms.check_arrow_subterm n
+           err_ty1.W_Algebra.sty_desc expr_ty.W_Algebra.sty_desc-> (
+        QmlError.error err_ctxt
+        ("%a@\n@[<2>Expression's @{<red>%s@} is@\n@{<red>%a@}@\n" ^^
+         "but it is coerced into@\n@{<red>%a@}@]@.")
+          pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+          str2
+          W_PrintTypes.pp_simple_type_start_sequence err_ty2
+          W_PrintTypes.pp_simple_type_continue_sequence err_ty1
+        )
+        | _ ->
+       QmlError.error err_ctxt
+        ("%a@\n@[<2>Expression has type@\n@{<red>%a@}@\nbut is coerced " ^^
+         "into@\n@{<red>%a@}@\n@]%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
         W_PrintTypes.pp_simple_type_start_sequence expr_ty
         W_PrintTypes.pp_simple_type_continue_sequence coercing_ty
-        pp_incompatible_types_if_more_precise
-        (expr_ty, coercing_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , expr_ty , ty_loc1
+                          , coercing_ty, ty_loc2)
+  )
   | W_InferErrors.UCC_let_rec_body (binding_name, expr, body_ty,
                                     expected_ty) ->
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      let ty_loc1 = W_TypeInfo.retrieve body_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve expected_ty.W_Algebra.sty_desc in
       QmlError.error err_ctxt
-        ("@[Recursive@ identifier@ @{<red>%s@}@ was@ found@ of@ type@ " ^^
-         "@{<red>%a@}@ but@ expected@ to@ be@ of@ type@ @{<red>%a@}.@]%a%a@.")
+        ("%a@\n@[<2>Value @{<red>%s@} is defined with type@\n@{<red>%a%a@}@\n"^^
+         "but is used as having type @\n@{<red>%a%a@}@\n@]%a%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
         (Ident.original_name binding_name)
+        pp_info ty_loc1
         W_PrintTypes.pp_simple_type_start_sequence body_ty
+        pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence expected_ty
         pp_incompatible_types_if_more_precise
         (body_ty, expected_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-  | W_InferErrors.UCC_unknown_directive (expr, expected_ty, inferred_ty) ->
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , body_ty , ty_loc1
+                          , expected_ty, ty_loc2)
+  | W_InferErrors.UCC_unknown_directive (expr, expected_ty, inferred_ty) -> (
+      let directive_name =
+        match expr with
+         | QmlAst.Directive(_, i, _, _) -> QmlDirectives.to_string i
+         | _ -> "" in
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
-      QmlError.error err_ctxt
-        ("@[Directive@ was@ expected@ to@ be@ of@ type@ @{<red>%a@}@ " ^^
-         "but@ was@ found@ of@ type@ @{<red>%a@}.@]%a%a@.")
+      let ty_loc1 = W_TypeInfo.retrieve expected_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve inferred_ty.W_Algebra.sty_desc in
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+      match ( expected_ty.W_Algebra.sty_desc
+            , inferred_ty.W_Algebra.sty_desc) with
+       | (W_Algebra.SType_arrow (args1, _), W_Algebra.SType_arrow (args2, _))->(
+         let args_num1 = List.length args1 in
+         let args_num2 = List.length args2 in
+         if (args_num1 != args_num2) then (
+          QmlError.error err_ctxt
+            ("%a@\n@[<2>Directive %s is expecting %d argument%s, " ^^
+            "but it is given %d.@]@.")
+            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+            directive_name
+            args_num1 (if args_num1 = 1 then "" else "s") args_num2
+         )
+         else (
+       QmlError.error err_ctxt
+        ("%a@\n@[<2>Directive %s was expected to be of type@\n@{<red>%a@}@\n" ^^
+         "but was found of type@\n@{<red>%a%a@}@\n@]%a%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        directive_name
         W_PrintTypes.pp_simple_type_start_sequence expected_ty
+        pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence inferred_ty
         pp_incompatible_types_if_more_precise
         (expected_ty, inferred_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-  | W_InferErrors.UCC_catch (expr, expected_handler_ty, handler_ty) ->
+         pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , expected_ty , ty_loc1
+                          , inferred_ty, ty_loc2)
+        )
+       )
+       | (W_Algebra.SType_arrow (args1, _), _)-> (
+         let args_num1 = List.length args1 in
+          QmlError.error err_ctxt
+            ("%a@\n@[<2>Directive %s is expecting %d argument%s, " ^^
+             "but none is given.@]@.")
+            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+            directive_name
+            args_num1 (if args_num1 = 1 then "" else "s")
+      )
+      | _ -> (
+       QmlError.error err_ctxt
+        ("%a@\n@[<2>Directive %s was expected to be of type@\n@{<red>%a@}@\n" ^^
+         "but was found of type@\n@{<red>%a%a@}@\n@]%a%a%a@.")
+        pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+        directive_name
+        W_PrintTypes.pp_simple_type_start_sequence expected_ty
+        pp_info ty_loc2
+        W_PrintTypes.pp_simple_type_continue_sequence inferred_ty
+        pp_incompatible_types_if_more_precise
+        (expected_ty, inferred_ty, err_ty1, err_ty2)
+        pp_unification_conflict_detail detail
+         pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , expected_ty , ty_loc1
+                          , inferred_ty, ty_loc2)
+        )
+      )
+ | W_InferErrors.UCC_catch (expr, expected_handler_ty, handler_ty) ->
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+      let ty_loc1 =
+        W_TypeInfo.retrieve expected_handler_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve handler_ty.W_Algebra.sty_desc in
       QmlError.error err_ctxt
-        ("@[Exception@ catching@ expected@ handler@ to@ be@ of@ type@ " ^^
-         "@{<red>%a@}@ but@ was@ found@ of@ type@ @{<red>%a@}.@]%a%a@.")
-        W_PrintTypes.pp_simple_type_start_sequence expected_handler_ty
-        W_PrintTypes.pp_simple_type_continue_sequence handler_ty
+        ("%a@\n@[<2>@{<red>%a@}@\n is not a valid exception handler.@\n" ^^
+         "Exception handlers should have type @\n@{<red>%a@}@\n@]%a%a%a@.")
+        pp_precise_error(Some "Invalid Excepion Handler", err_ty1, err_loc1,
+                                                          err_ty2, err_loc2)
+        W_PrintTypes.pp_simple_type_start_sequence handler_ty
+        W_PrintTypes.pp_simple_type_continue_sequence expected_handler_ty
         pp_incompatible_types_if_more_precise
         (expected_handler_ty, handler_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-  | W_InferErrors.UCC_throw (expr, curr_exn_ty, thrown_ty) ->
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , expected_handler_ty , ty_loc1
+                          , handler_ty, ty_loc2)
+ | W_InferErrors.UCC_throw (expr, curr_exn_ty, thrown_ty) ->
+      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      let ty_loc1 = W_TypeInfo.retrieve curr_exn_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve thrown_ty.W_Algebra.sty_desc in
       QmlError.error err_ctxt
-        ("@[Exception@ raising@ expected@ a@ type@ compatible@ with@ the@ " ^^
-         "current@ exceptions@ type's@ structure @{<red>%a@}@ but@ found@ " ^^
-         "type@ @{<red>%a@}.@]%a%a@.")
-        W_PrintTypes.pp_simple_type_start_sequence curr_exn_ty
-        W_PrintTypes.pp_simple_type_continue_sequence thrown_ty
+        ("%a@\n@[<2>@{<red>%a@}@\n is not an exception, you cannot throw it." ^^
+         "Exceptions should have the form: @\n@{<red>%a@}@\n@]%a%a%a@.")
+        pp_precise_error(Some "Invalid Exception", err_ty1, err_loc1
+                        , err_ty2, err_loc2)
+        W_PrintTypes.pp_simple_type_start_sequence thrown_ty
+        W_PrintTypes.pp_simple_type_continue_sequence curr_exn_ty
         pp_incompatible_types_if_more_precise
-        (curr_exn_ty, thrown_ty, err_ty1, err_ty2)
+         (curr_exn_ty, thrown_ty, err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-
-
+        pp_location_hints ( err_ty1, err_loc1
+                          , err_ty2, err_loc2
+                          , curr_exn_ty, ty_loc1
+                          , thrown_ty, ty_loc2)
+)
 
 (* ************************************************************************** *)
 (** {b Descr}: This function implements detection of cyclic or ill-formed
