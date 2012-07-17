@@ -273,6 +273,6 @@ let or_eof rule = rule {{ true }}
 let careful_deco rule = rule
 {{ decorate _filename __1 _pos_beg _pos_end }}
 
-;let deco rule = spacing (rule {{ decorate _filename __1 _pos_beg _pos_end}}) {{ __2 }}
+;let deco rule = spacing (rule {{ decorate _filename __1 (_pos_beg+1) _pos_end}}) {{ __2 }}
 
 ;offset <- "" {{ _pos_beg }}
