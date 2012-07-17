@@ -29,6 +29,7 @@ module Format = BaseFormat
 
 (* alias *)
 module J = Qml2jsOptions
+module BPI = BslPluginInterface
 
 (** some type are shared with qml2ocaml, some not *)
 
@@ -71,8 +72,8 @@ let plugin_object name =
 
 let path_of_plugin plugin =
   (* plugin_path/plugin.opp *)
-  let name = plugin.BslPluginInterface.basename in
-  let plugin_path = match plugin.BslPluginInterface.path with
+  let name = plugin.BPI.basename in
+  let plugin_path = match plugin.BPI.path with
     | Some path -> path
     | None -> Filename.concat stdlib_path (name ^ ".opp") (* guess *)
   in
@@ -81,7 +82,7 @@ let path_of_plugin plugin =
 let filename_of_plugin plugin =
   (* plugin_path/plugin.opp/pluginNodeJsPackage.js *)
   let plugin_path = path_of_plugin plugin in
-  let name = plugin.BslPluginInterface.basename in
+  let name = plugin.BPI.basename in
   Filename.concat plugin_path (plugin_object name)
 
 (**
@@ -137,7 +138,7 @@ struct
       | _ -> None
     ) env_opt.extra_lib
     in
-    let generated_files =
+    let loaded_files =
       let fold acc (extra_lib, conf) =
         let () =
           (*
@@ -168,19 +169,14 @@ struct
     (* 2) loaded bsl containing js files order : since the generated
        code contains call to bypass of bsl, it is too dangerous to put
        the extra-libs between bsl and the generated code *)
-    let generated_files =
-      let plugins =
-        if env_opt.static_link then
-          env_bsl.BslLib.all_plugins
-        else
-          env_bsl.BslLib.direct_plugins
-      in
+    let loaded_files =
+      let plugins = env_bsl.BslLib.all_plugins in
       let fold acc loader =
         let filename = filename_of_plugin loader in
         let content = File.content filename in
-        (Plugin loader.BslPluginInterface.basename, content) :: acc
+        (Plugin loader.BPI.basename, content) :: acc
       in
-      List.fold_left fold generated_files plugins
+      List.fold_left fold loaded_files plugins
     in
     let ast = List.flatten (List.rev_map (fun (file, content) ->
       (*
@@ -194,9 +190,9 @@ struct
         OManager.error "JavaScript parser error on file '%s'\n%a\n"
           (nodejs_module_of_linked_file file) JsParse.pp error;
       )
-    ) generated_files)
+    ) loaded_files)
     in
-    List.rev generated_files, ast
+    List.rev loaded_files, ast
 
   let write_main env_opt filename contents =
     let filename = Filename.concat env_opt.compilation_directory filename in
@@ -396,7 +392,7 @@ if (process.version < '%s') {
 }
 
 " stdlib_qmljs_path stdlib_path static_path LaunchHelper.script min_node_version
-      min_node_version max_node_version;
+      min_node_version max_node_version
 
   let linking_generation env_opt native_requires env_js_input =
     compilation_generation env_opt native_requires env_js_input;
