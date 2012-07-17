@@ -334,8 +334,6 @@ struct
 
 export NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s:%s\"
 %s
-if [ $? -ne 0 ]; then exit $?; fi;
-node \"$0\" \"$@\"; exit $?;
 
 if (process.version < '%s') {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= %s)');

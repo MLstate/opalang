@@ -25,3 +25,6 @@ function check-node-dependencies() (
 )
 
 check-node-dependencies "mongodb formidable nodemailer simplesmtp imap" || exit $?
+
+if [ $? -ne 0 ]; then exit $?; fi;
+node "$0" "$@"; exit $?;
