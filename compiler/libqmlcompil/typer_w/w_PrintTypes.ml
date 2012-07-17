@@ -24,11 +24,31 @@
 (* depends *)
 module Format = Base.Format
 
-
+let fake_flag = ref false
+let set_fake_flag _ = fake_flag := true
+let unset_fake_flag _ = fake_flag := false
 let type_variables_counter = ref 0
 let row_variables_counter = ref 0
 let column_variables_counter = ref 0
 
+(*print level: how detailed are the function types printed
+  on error reporting:
+  print level = 0 -> function
+  print level = 1 -> function with n arguments
+  print level = 2 -> function with t on [ith arg| result]
+  print level = 3 -> complete function type                 *)
+
+let print_level = ref 3
+let error_type1 = ref (W_CoreTypes.type_int ())
+let error_type2 = ref (W_CoreTypes.type_int ())
+
+let set_print_level n =
+  print_level := n
+
+let set_error_type1 t =
+  error_type1 := t
+let set_error_type2 t =
+  error_type2 := t
 
 
 (* ************************************************************************** *)
@@ -530,7 +550,44 @@ let rec __pp_simple_type prio ppf ty =
         (* Descend on the type's structure. *)
         match ty.W_Algebra.sty_desc with
         | W_Algebra.SType_var _ -> ()                       (* Done above. *)
-        | W_Algebra.SType_arrow (args_tys, res_ty) ->
+        | W_Algebra.SType_arrow (args_tys, res_ty) ->(
+            (*print depending on print level*)
+            if (  ty.W_Algebra.sty_desc == (!error_type1).W_Algebra.sty_desc
+               || ty.W_Algebra.sty_desc == (!error_type2).W_Algebra.sty_desc
+               )
+             then (
+               if !print_level = 0
+                then Format.fprintf ppf "function"
+               else if !print_level = 1
+                then
+                  Format.fprintf ppf "function with %d arguments"
+                   (List.length args_tys)
+             )
+           else if !print_level <= 2
+             then (
+               let err_ty1 = (!error_type1).W_Algebra.sty_desc in
+               let err_ty2 = (!error_type2).W_Algebra.sty_desc in
+               match ( W_SubTerms.locate_subterms err_ty1
+                         ty.W_Algebra.sty_desc
+                     , W_SubTerms.locate_subterms err_ty2
+                         ty.W_Algebra.sty_desc) with
+                | (Some (_, str), None) ->
+                   Format.fprintf ppf "function with %s %a"
+                    str (__pp_simple_type 1) !error_type1
+                | (None,  Some (_, str)) ->
+                   Format.fprintf ppf "function with %s %a"
+                    str (__pp_simple_type 1) !error_type2
+               | (Some (_, str1), Some (_, str2)) ->
+                   Format.fprintf ppf "function with %s %a and %s %a"
+                    str1 (__pp_simple_type 1) !error_type1
+                    str2 (__pp_simple_type 1) !error_type2
+              | _ ->
+                    let tmp = !print_level in
+                    print_level := 3;
+                    Format.fprintf ppf "%a" (__pp_simple_type 2) ty;
+                    print_level := tmp
+            )
+           else (
             if prio >= 2 then Format.fprintf ppf "@[<1>("
             else Format.fprintf ppf "@[" ;
             Format.fprintf ppf "%a@ ->@ %a"
@@ -538,6 +595,8 @@ let rec __pp_simple_type prio ppf ty =
               (__pp_simple_type 1) res_ty ;
             if prio >= 2 then Format.fprintf ppf ")@]"
             else Format.fprintf ppf "@]"
+          )
+        )
         | W_Algebra.SType_named { W_Algebra.nst_name = name ;
                                   W_Algebra.nst_args = args ;
                                   W_Algebra.nst_unwinded = _manifest } ->
@@ -641,7 +700,8 @@ and __pp_fields_of_row ppf = function
   | [(last_field_label, last_field_ty)] ->
       Format.fprintf ppf "@[%s" last_field_label ;
       if not (is_void last_field_ty) then
-        Format.fprintf ppf ":@ %a" (__pp_simple_type 0) last_field_ty ;
+        Format.fprintf ppf ":@ %a%s" (__pp_simple_type 0) last_field_ty
+         (if !fake_flag then "; ..." else "");
       Format.fprintf ppf "@]"
   | (field_label, field_ty) :: q ->
       Format.fprintf ppf "@[%s" field_label  ;
@@ -877,6 +937,11 @@ let pp_simple_type ppf ty =
   row_vars_to_reprint_if_sequence := [] ;
   col_vars_to_reprint_if_sequence := []
 
+
+let pp_fake_simple_type ppf t =
+  fake_flag := true ;
+  pp_simple_type ppf t ;
+  fake_flag := false
 
 let (pp_simple_type_start_sequence, pp_simple_type_continue_sequence,
      pp_simple_type_end_sequence, pp_nothing_end_sequence) =
