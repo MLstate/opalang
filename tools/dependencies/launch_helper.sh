@@ -13,7 +13,8 @@ fi;
 function check-node-dependencies() (
     MISSING=""
     for i in $1; do
-        if ! npm list -parseable | sed -e '#\/.*\/node_modules\/.*\/node_modules\/.*#d' | grep -q "$i" && ! npm list -g -parseable | sed -e '#\/.*\/node_modules\/.*\/node_modules\/.*#d' | grep -q "$i"; then
+	# only keep first level modules
+        if ! npm list -parseable | sed -e sed -e '\#\(.*\)\/node_modules\/\(.*\)\/node_modules\/\(.*\)#{d}' | grep -q "$i" && ! npm list -g -parseable | sed -e sed -e '\#\(.*\)\/node_modules\/\(.*\)\/node_modules\/\(.*\)#{d}' | grep -q "$i"; then
             MISSING="$MISSING $i"
         fi
     done
