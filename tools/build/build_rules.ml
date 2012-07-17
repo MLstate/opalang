@@ -230,7 +230,7 @@ let pre_buildinfos = "compiler/buildinfos/buildInfos.ml.pre" in
 let post_buildinfos = "compiler/buildinfos/buildInfos.ml.post" in
 let buildinfos = "compiler/buildinfos/buildInfos.ml" in
 rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
-  ~deps:[version_buildinfos ; pre_buildinfos ; generate_buildinfos ; post_buildinfos]
+  ~deps:[version_buildinfos; pre_buildinfos; generate_buildinfos; post_buildinfos]
   ~prods:(buildinfos :: (if Config.is_release then ["always_rebuild"] else []))
   (fun env build ->
      let version = env version_buildinfos in
@@ -256,9 +256,8 @@ let parser_files =
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
   files
 in
-let opaParserVersion = "compiler"/"opalang"/"classic_syntax"/"opaParserVersion.ml"
-in
-rule "opa parser version: opalang/*_syntax/* stdlib -> opalang/classic_syntax/opaParserVersion.ml"
+let opaParserVersion = "compiler"/"opalang"/"classic_syntax"/"opaParserVersion.ml" in
+rule "opa parser version: compiler/opalang/*_syntax/* stdlib -> compiler/opalang/classic_syntax/opaParserVersion.ml"
   ~deps:parser_files
   ~prod:opaParserVersion
   (fun build env ->
@@ -266,9 +265,32 @@ rule "opa parser version: opalang/*_syntax/* stdlib -> opalang/classic_syntax/op
     Seq[
       Cmd(S ( [Sh"echo let hash = \\\" > "; P (opaParserVersion)]));
       Cmd(S ( [Sh"cat"] @ files @ [Sh"|"; md5; Sh">>"; P opaParserVersion]));
-      Cmd(S ( [Sh"echo \\\" >>"; P opaParserVersion ] ))
+      Cmd(S ( [Sh"echo \\\" >>"; P opaParserVersion ] ));
     ]
   );
+
+let dependencies_path = "tools"/"dependencies" in
+let launch_helper_script = dependencies_path/"launch_helper.sh" in
+let qml2js_path = "compiler"/"qml2js" in
+let qml2js_file = qml2js_path/"qml2js.ml" in
+let launchHelper = qml2js_path/"launchHelper.ml" in
+
+rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launchHelper.ml"
+  ~prod:launchHelper
+  (fun env build ->
+     Seq[
+       Cmd(S[Sh"mkdir"; A"-p";P qml2js_path]);
+       Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
+       Cmd(S([
+	     Sh"cat"; P launch_helper_script;
+	     Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
+	     Sh"|"; Sh"sed -e 's/\\\\\\//\\\\\\\\\\//g'";
+	     Sh">>"; P launchHelper
+	   ]));
+       Cmd(S([Sh"echo \\\" >>"; P launchHelper]))
+     ]
+  );
+
 
 (* -- Internal use of built tools -- *)
 

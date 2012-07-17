@@ -121,6 +121,13 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
     cat $BLDDIR/myocamlbuild_suffix.ml
 } > $MYOCAMLBUILD
 
+# Copy launch_helper.sh
+
+DEPENDENCIES_PATH=tools/dependencies
+LAUNCH_HELPER="$DEPENDENCIES_PATH/launch_helper.sh"
+mkdir -p $BUILD_DIR/$DEPENDENCIES_PATH
+cp $LAUNCH_HELPER $BUILD_DIR/$LAUNCH_HELPER
+
 # Compile the myocamlbuild
 
 OCAMLBUILD_LIB=$($OCAMLBUILD -where)

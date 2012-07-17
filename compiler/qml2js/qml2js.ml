@@ -331,32 +331,7 @@ struct
     Printf.fprintf oc "#!/usr/bin/env bash
 
 /*usr/bin/env bash <<'EOF'
-
-if ! which node &>/dev/null; then
-    echo \"--> node.js missing, please install nodejs from: http://nodejs.org\"
-    exit 1
-fi;
-
-if ! which npm &>/dev/null; then
-    echo \"--> npm missing, please install npm from: http://npmjs.org/\"
-    exit 1
-fi
-
-function check-node-dependencies() (
-    MISSING=\"\"
-    for i in $1; do
-        if ! npm list | grep -q \"$i\" && ! npm list -g | grep -q \"$i\"; then
-            MISSING=\"$MISSING $i\"
-        fi
-    done
-    if [ \"$MISSING\" != \"\" ]; then
-        echo \"--> some node modules are missing, please run: npm install -g$MISSING\"
-        exit 1;
-    fi
-)
-
-check-node-dependencies \"mongodb formidable nodemailer simplesmtp imap\" || exit $?
-
+%s
 EOF
 
 if [ $? -ne 0 ]; then exit $?; fi;
@@ -370,7 +345,7 @@ if (process.version < '%s') {
 }
 */
 
-" stdlib_qmljs_path stdlib_path static_path min_node_version
+" LaunchHelper.script stdlib_qmljs_path stdlib_path static_path min_node_version
       min_node_version max_node_version;
     let is_from_stdlib opx = String.is_prefix stdlib_path opx in
     let load_oc = linking_generation_js_init env_opt generated_files oc in

@@ -1,3 +1,5 @@
+compiler/qml2js/LaunchHelper
+
 compiler/qml2js/Qml2jsOptions
 compiler/qml2js/Qml2js
 compiler/qml2js/Qml2jsBackendOptions
