@@ -8,7 +8,7 @@
 # More info in tools/build/Makefile.bld and tools/build/README
 
 .PHONY: default
-default: all
+default: node
 
 CONFIG_PATH = tools/build
 
@@ -33,6 +33,13 @@ include tools/build/Makefile.bld
 ## STANDARD TARGETS
 ##
 
+.PHONY: node
+node: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
+	@$(call copy-tools,$(ALL_TOOLS))
+	$(MAKE) manpages
+	$(MAKE) $(OPA_TOOLS)
+
 .PHONY: all
 all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-both-packages.stamp
@@ -49,7 +56,7 @@ runtime-libs: $(MYOCAMLBUILD)
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-both-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) opa-node-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
 	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
 
@@ -75,6 +82,13 @@ OPA_TOOLS = opa-create
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
+	@$(call copy-tools,$(DISTRIB_TOOLS))
+	$(MAKE) manpages
+	$(MAKE) $(OPA_TOOLS)
+
+.PHONY: distrib-all
+distrib-all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	$(MAKE) manpages
