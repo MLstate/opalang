@@ -256,8 +256,10 @@ struct
       require_stm (plugin_name ^ ".opp")
     ) plugin_requires in
 
-    (* Add package dependencies *)
-    let opx_requires = List.map (fun opx ->
+    (* Add package dependencies
+       NB by not reverting this we were getting bugs in the order of
+       the requires *)
+    let opx_requires = List.rev_map (fun opx ->
       require_stm (Filename.basename opx)
     ) opx_requires in
 
