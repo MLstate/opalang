@@ -305,7 +305,7 @@ struct
 
 /*usr/bin/env true
 
-export NODE_PATH=\"$NODE_PATH:/usr/local/lib/node_modules:%s:%s:%s\"
+export NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\"
 %s
 */
 
