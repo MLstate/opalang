@@ -278,12 +278,15 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
   ~prod:launchHelper
   (fun env build ->
      Seq[
-       Cmd(S[Sh"mkdir"; A"-p";P qml2js_path]);
+       Cmd(S[Sh"mkdir"; A"-p"; P dependencies_path]);
+       cp (Pathname.pwd/launch_helper_script) (opa_prefix/launch_helper_script);
+       Cmd(S[Sh"mkdir"; A"-p"; P qml2js_path]);
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
        Cmd(S([
 	     Sh"cat"; P launch_helper_script;
 	     Sh"|"; Sh"sed -e 's/\\\\/\\\\\\\\/g'";
 	     Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
+	     Sh"|"; Sh"sed -e '\\%^#\\(.*\\)%{d}'";
 	     Sh">>"; P launchHelper
 	   ]));
        Cmd(S([Sh"echo \\\" >>"; P launchHelper]))
