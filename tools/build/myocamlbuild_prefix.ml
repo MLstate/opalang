@@ -22,18 +22,21 @@ open Command
 let mlstate_platform = "mlstate_platform"
 let is_mac = Config.os = Config.Mac
 let is_fbsd = Config.os = Config.FreeBSD
+let is_linux = Config.os = Config.Linux
+let is_win32 = Config.os = Config.Win32
+let is_cygwin = Config.os = Config.Cygwin
+let is_win = is_win32 || is_cygwin
 
-let sed = if is_mac  then P"gsed" else P"sed"
+let sed = if is_mac then P"gsed" else P"sed"
 let md5 = if is_fbsd then P"md5"  else P"md5sum"
+let link_cmd = if is_win32 then S[Sh"cp";A"-r"] else S[Sh"ln";A"-s";A"-f"]
 
 (**
- tools for which we call the windows version (and that need some call translation)
+   tools for which we call the windows version (and that need some call translation)
 *)
 
-let windows_mode = (os = Win32)
-
 let c_wall,c_werror =
-  if windows_mode (*&& compiler=microsoft*) then "/Wall","/Wall"
+  if is_win32 (*&& compiler=microsoft*) then "/Wall","/Wall"
     (* -Wdeprecated-declarations added for OpenSSL deprecation on 10.8 *)
   else if is_mac then "-Wall","-Wall"
   else "-Wall","-Werror"
@@ -50,14 +53,14 @@ let winocamldoc   = winocamldir / "windows_ocamldoc"
 
 let as_wintools = [ ("trx", "") ; ("bslregister", "") ; ("opa.exe", windows_opa) ]
 
-let _ = if windows_mode then Printf.printf "MYOCAMLBUILD WINDOWS MODE\n" else ()
+let _ = if is_win32 then Printf.printf "MYOCAMLBUILD WINDOWS MODE\n" else ()
 
 let _ =
   Options.ext_lib := Config.ext_lib;
   Options.ext_obj := Config.ext_obj;
   Options.ext_dll := Config.ext_shared
 
-let _ = if windows_mode then (
+let _ = if is_win32 then (
   Options.ocamlmklib := P winocamlmklib;
   Options.ocamlmktop := P winocamlmktop;
   Options.ocamldoc := P winocamldoc
@@ -116,7 +119,7 @@ let get_tool ?local:(local=false) name =
           true, (if c <> "" then c else (wingate f))
           with Not_found -> false, ""
         in
-        if windows_mode && wintools_b then (Sh winf) else (P f)
+        if is_win32 && wintools_b then (Sh winf) else (P f)
       | External f -> P f)
   with Not_found -> failwith ("Build tool not found: "^name)
 
@@ -347,7 +350,7 @@ let _ = dispatch begin function
          we cheat using prods from non windows rule and making copies to generate
          the (ocamlbuild) wanted targets
       *)
-      if windows_mode then
+      if is_win32 then
       begin
       (* since we are in cygwin in the end, we need to select extensions by hand *)
       let ext_lib = "a" in
@@ -513,7 +516,7 @@ let _ = dispatch begin function
 
 
       (* PB WITH libcrypto.obj MISSING ??? *)
-      if windows_mode then (
+      if is_win32 then (
         (* openssl *)
           let flags = S[A"-I";A "/windows_libs/openssl/include";
                       A"-I";A "/windows_libs/openssl/lib"] in

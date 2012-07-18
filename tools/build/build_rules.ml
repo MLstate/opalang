@@ -36,8 +36,6 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 let plugins_dir = "lib" / "plugins" in
 let opa_prefix = Pathname.pwd / !Options.build_dir in
 
-let link_cmd = if windows_mode then S[Sh"cp";A"-r"] else S[Sh"ln";A"-s";A"-f"] in
-
 let extralib_opt = function
   | Some (lib,ldir,idir) ->
       flag ["link"; "use_"^lib] (S [A "-ccopt"; P ("-L" ^ ldir); A"-cclib"; A ("-l" ^ lib)]);
@@ -55,10 +53,10 @@ in
 
 let filter_system_libs l =
   let system_libs =
-    match Config.os with
-    | Config.Linux | Config.FreeBSD -> linux_system_libs
-    | Config.Mac -> mac_system_libs
-    | Config.Win32 | Config.Cygwin -> windows_system_libs
+    if is_linux || is_fbsd then linux_system_libs
+    else if is_mac then mac_system_libs
+    else if is_win then windows_system_libs
+    else []
   in List.filter (fun x -> not (List.mem x system_libs)) l
 in
 
@@ -171,7 +169,7 @@ rule "mlstate_platform: () -> ocamllib/libbase/mlstate_platform.h"
   (fun env build ->
      Seq[
        Cmd(S[Sh"chmod +x"; P "ocamllib/libbase/gen_platform"]);
-       Cmd(S[get_tool "mlstate_platform"; A (if windows_mode then "WIN" else "")]);
+       Cmd(S[get_tool "mlstate_platform"; A (if is_win32 then "WIN" else "")]);
        Cmd(S[Sh"mv mlstate_platform.h ocamllib/libbase/mlstate_platform.h"])
      ]
   );
@@ -376,7 +374,7 @@ let google_closure_compiler_options =
 in
 
 let js_checker =
-  let local = windows_mode in
+  let local = is_win32 in
   A"java" :: A"-jar"  :: (get_tool ~local "jschecker.jar") ::
     google_closure_compiler_options
 in
@@ -567,7 +565,7 @@ rule "Client lib JS validation"
   ]
  (fun env build ->
     let run_check clientlib output_file =
-      let local = windows_mode in
+      let local = is_win32 in
       [
         Cmd(S [Sh"mkdir"; A"-p";P "lib/plugins/opabsl/js_validation"]);
         Cmd(S(

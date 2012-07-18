@@ -9,13 +9,14 @@
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
+
       (* -- Preprocessing -- *)
       let extern_on_windows = false in
 
       (* pp_script *)
 
       let mlstate_debug, mlstate_nodebug, pa_ulex =
-        if windows_mode then
+        if is_win32 then
           let pp_script s=
             let win_exists s = try ignore(Unix.stat s);true with _ -> false in (* under cygwin, Unix.*link* does not work *)
             let location = (Sys.getenv "LIBQML")^"/preprocessing/" in
