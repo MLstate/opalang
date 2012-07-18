@@ -234,7 +234,7 @@ struct
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
     let js_code = js_init @ env_js_input.js_code in
 
-    let opx_requires = ObjectFiles.fold_dir
+    let opx_requires = ObjectFiles.fold_dir ~packages:true
       (fun requires opx -> opx :: requires) [] in
 
     let save = {S.
