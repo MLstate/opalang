@@ -275,7 +275,7 @@ let qml2js_file = qml2js_path/"qml2js.ml" in
 let launchHelper = qml2js_path/"launchHelper.ml" in
 
 rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launchHelper.ml"
-  ~prod:launchHelper
+  ~prods:[launchHelper;"always_rebuild"]
   (fun env build ->
      Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P dependencies_path]);
