@@ -300,7 +300,7 @@ struct
      set load path, etc *)
   let write_launcher_header oc =
     let min_node_version = "v0.6.0"
-    and max_node_version = "v0.8.0" in
+    and max_node_version = "v0.8.2" in
     Printf.fprintf oc "#!/usr/bin/env bash
 
 /*usr/bin/env true
