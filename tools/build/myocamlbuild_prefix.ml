@@ -30,6 +30,8 @@ let is_win = is_win32 || is_cygwin
 let sed = if is_mac then P"gsed" else P"sed"
 let md5 = if is_fbsd then P"md5"  else P"md5sum"
 let link_cmd = if is_win32 then S[Sh"cp";A"-r"] else S[Sh"ln";A"-s";A"-f"]
+let touch file = Cmd(S[A"touch"; P file])
+
 
 (**
    tools for which we call the windows version (and that need some call translation)
@@ -576,8 +578,6 @@ let _ = dispatch begin function
         flag ["iconv"; "compile"] (S[A"-I";A "/usr/local/include"]);
         flag ["iconv"; "link"] (S[A"-ccopt";A "-L/usr/local/lib";A "-cclib";A "-liconv"]);
       );
-
-      let touch file = Cmd(S[A"touch"; P file]) in
 
 (* -- Don't forget that the rest of the "mlstate build stdlib" is in --
    -- myocamlbuild_suffix.ml. The rest comes from the build_rules*.ml in each repo -- *)

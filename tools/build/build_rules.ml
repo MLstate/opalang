@@ -498,7 +498,7 @@ let opp_build opa_plugin opp oppf env build =
 	  Sh("MLSTATELIBS=\""^ opa_prefix ^"\"") ::
 	  opa_plugin_builder::options
 	));
-    Cmd(S[A"touch"; P(env oppf) ] );
+    touch (env oppf);
     cp_cmd
   ]
 in
