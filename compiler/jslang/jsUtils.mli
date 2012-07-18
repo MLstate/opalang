@@ -41,6 +41,34 @@ val globalize_native_ident : JsAst.code_elt -> JsAst.code_elt
 val export_to_global_namespace : JsAst.code -> JsAst.code
 
 (**
+   Collect all variable declarations in code and export them,
+   e.g.
+
+      var foo = { bar: 1 };
+
+      function hello(name) {
+          console.log("Hello", name);
+      }
+
+   becomes
+
+      var foo = { bar: 1 };
+
+      function hello(name) {
+          console.log("Hello", name);
+      }
+
+      exports.foo = foo;
+      exports.hello = hello;
+
+   Note that this currently doesn't work for exporting variables
+   that can change, e.g. a variable that holds a number whose value
+   changes during program execution. However, it does work with objects,
+   like in the above example
+*)
+val export_global_declarations : JsAst.code -> JsAst.code
+
+(**
    Generate a json value that can be used in a package.json file
 *)
 val basic_package_json : ?version:string -> string -> string -> string

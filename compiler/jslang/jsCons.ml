@@ -109,6 +109,9 @@ struct
   let hashref ?label expr1 expr2 =
     binop ?label J.Jb_hashref expr1 expr2
 
+  let ident ?(label=def_label()) i =
+    J.Je_ident (label, i)
+
   let native ?(label=def_label()) ident =
     J.Je_ident (label, J.Native (`local, ident))
 

@@ -105,26 +105,26 @@ let globalize_native_ident stm =
   in
   aux_stm JsIdentSet.empty stm
 
-let prefix_global (name : string) : J.expr =
-  JsCons.Expr.dot (JsCons.Expr.native_global "global") name
+let prefix_with (prefix : string) (name : string) : J.expr =
+  JsCons.Expr.dot (JsCons.Expr.native_global prefix) name
 
 let export_to_global_namespace_aux stm =
   JsWalk.TStatement.map
     (fun stm ->
       match stm with
       | J.Js_function (_, J.Native (`global _, name), params, body) ->
-        JsCons.Statement.assign (prefix_global name)
+        JsCons.Statement.assign (prefix_with "global" name)
           (JsCons.Expr.function_ None params body)
       | J.Js_function (_, ((J.ExprIdent _) as i), params, body) ->
         let name = JsPrint.string_of_ident i in
-        JsCons.Statement.assign (prefix_global name)
+        JsCons.Statement.assign (prefix_with "global" name)
           (JsCons.Expr.function_ None params body)
       | J.Js_var (_, J.Native (`global _, name), o) ->
         let rhs =
           match o with
           | Some e -> e
           | None -> JsCons.Expr.undefined () in
-        JsCons.Statement.assign (prefix_global name) rhs
+        JsCons.Statement.assign (prefix_with "global" name) rhs
       | _ -> stm
     )
     (fun e ->
@@ -137,7 +137,7 @@ let export_to_global_namespace_aux stm =
       | J.Je_ident (_, J.Native (`global _, name)) when
           name <> "global" &&
           name <> "require" (* Hack to avoid require scope problem *) ->
-        prefix_global name
+        prefix_with "global" name
       | _ -> e
     ) stm
 
@@ -145,6 +145,36 @@ let export_to_global_namespace code =
   List.map (fun stm ->
     export_to_global_namespace_aux (globalize_native_ident stm)
   ) code
+
+let export_global_declarations_aux exports stm =
+  let maybe_export_ident exports ident =
+    match ident with
+    | J.Native (`global _, _)
+    | J.ExprIdent _ ->
+      JsIdentSet.add ident exports
+    | _ -> exports in
+  JsWalk.OnlyStatement.fold (fun exports stm ->
+    match stm with
+    | J.Js_function (_, ident, _, _) ->
+      maybe_export_ident exports ident
+    | J.Js_var (_, ident, _) ->
+      maybe_export_ident exports ident
+    | _ -> exports
+  ) exports stm
+
+let export_global_declarations code =
+  let code = List.map globalize_native_ident code in
+  let exports = List.fold_left (fun exports stm ->
+    export_global_declarations_aux exports stm
+  ) JsIdentSet.empty code in
+  let exports = JsIdentSet.fold (fun ident exports ->
+    let export =
+      JsCons.Statement.assign
+        (prefix_with "exports" (JsPrint.string_of_ident ident))
+        (JsCons.Expr.ident ident) in
+    export :: exports
+  ) exports [] in
+  code @ exports
 
 let basic_package_json ?(version="0.1.0") name main =
   Printf.sprintf (

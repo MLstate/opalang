@@ -43,6 +43,7 @@ sig
   val dot : ?label:Annot.label -> JsAst.expr -> string -> JsAst.expr
   val equality : ?label:Annot.label -> JsAst.expr -> JsAst.expr -> JsAst.expr
   val exprident : ?label:Annot.label -> Ident.t -> JsAst.expr
+  val ident : ?label:Annot.label -> JsIdent.t -> JsAst.expr
 
   (**
      Build a local native ident.
