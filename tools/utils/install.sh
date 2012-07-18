@@ -112,11 +112,10 @@ create_wrapper() {
 case "$1" in
     create)
         shift
-        if [ -n "$1" ]
-        then
-          OPT="--name $1"
-        fi
-         opa-create $OPT
+        if [ -n "$1" ] && ! [ "$1" = "--help" ] && ! [ "$1" = "--name" ]
+        then OPT="--name $1"
+        else OPT="$1"
+        opa-create $OPT
         ;;
     *)
         exec '$source' "$@"
