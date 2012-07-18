@@ -18,7 +18,7 @@ MAKE ?= $_
 OCAMLBUILD_OPT ?= -j 6
 
 ifndef NO_REBUILD_OPA_PACKAGES
-OPAOPT += "--rebuild"
+OPAOPT += --rebuild
 endif
 
 ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
@@ -315,4 +315,4 @@ doc.odocl:
 
 .PHONY: packages-api
 packages-api: $(MYOCAMLBUILD)
-	OPAOPT="$(OPAOPT) --rebuild --api --parser classic" $(OCAMLBUILD) opa-packages.stamp
+	OPAOPT="$(OPAOPT) --api --parser classic" $(OCAMLBUILD) opa-node-packages.stamp
