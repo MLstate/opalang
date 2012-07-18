@@ -744,13 +744,14 @@ struct
              let renaming_client = QmlRenamingMap.empty in
              let renaming_server = QmlRenamingMap.empty in
              let env_js_input = B.compile options ~renaming_server ~renaming_client ~bsl:generated_ast env_bsl env_typer code ~bsl_lang:BslLanguage.js in
-             PassHandler.make_env options (generated_files, env_js_input)
+             PassHandler.make_env options (generated_files, env_bsl, env_js_input)
          ))
       |> PassHandler.handler "JavascriptGeneration" (PassHandler.make_pass (
            fun env ->
              let options = env.PH.options in
-             let generated_files, env_js_input = env.PH.env in
-             let env_js_output = Qml2js.JsTreat.js_generation options generated_files env_js_input in
+             let generated_files, env_bsl, env_js_input = env.PH.env in
+             let env_js_output = Qml2js.JsTreat.js_generation options
+               env_bsl [] generated_files env_js_input in
              PassHandler.make_env options env_js_output
          ))
       |> PassHandler.handler "JavascriptTreat" (PassHandler.make_pass (
