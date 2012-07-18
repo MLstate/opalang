@@ -190,6 +190,7 @@ SearchUtils = {{
    * Write the index on db
    */
   finalize_index(index: index) : void =
+  start_time = Date.now() |> Date.in_milliseconds(_)
     (batch, to_remove) = UserContext.execute(
       state ->
          set = StringMap.fold(
@@ -214,6 +215,8 @@ SearchUtils = {{
      _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
      _ = SearchDbUtils.insert_batch(index, batch)
      _ = UserContext.change(_ -> StringMap.empty, index_context)
+     delta = (Date.now() |> Date.in_milliseconds(_)) - start_time
+     do Log.notice("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
      void
 
 
@@ -289,6 +292,8 @@ SearchUtils = {{
 
 Search = {{
 
+  notice(s) = Log.notice("SEARCH: ", s)
+
   /**
    * Index the given value
    * Exemple: [add_to_index index value key]
@@ -298,6 +303,7 @@ Search = {{
    */
   @server_private
   add_to_index(index: (index, count), value: 'a, key: key) =
+    do notice("add value {value} at key {key}")
     (index, count) = index
     _ = match SearchDbUtils.find_one(count, {_id = "count"}) with
       | {some = _} -> SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
@@ -336,6 +342,7 @@ Search = {{
    */
   @server_private
   remove_from_index(index: (index, count), value: 'a, key: key) =
+    do notice("remove value {value} from key {key}")
     (index, count) = index
     _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = -1}})
     value_type = OpaValue.typeof(value)
@@ -384,6 +391,7 @@ Search = {{
    */
   @server_private
   search(index: (index, count), query:string) : list(key) =
+    do notice("search for query {query}")
     (index, _) = index
     res = List.fold(
       lexem_list, acc ->
