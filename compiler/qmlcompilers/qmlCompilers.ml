@@ -186,7 +186,8 @@ struct
         loaders ;
       (* building a first version the map (not compiler specific) *)
       let bymap = BslLib.BSL.RegisterTable.build_bypass_map () in
-      let env = { BslLib. bymap = bymap ; plugins = loaders } in
+      let env = { BslLib. bymap = bymap ; all_plugins = loaders ;
+                  direct_plugins = loaders } in
       let empty _ = [] in
       { pass_env with PassHandler.
           env = env ;
