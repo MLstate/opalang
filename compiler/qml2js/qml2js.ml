@@ -222,6 +222,13 @@ struct
       )
       env_js_input.Qml2jsOptions.js_init_contents)
 
+  (* JS statement to require library [lib] *)
+  let require_stm lib =
+    let call = JsCons.Expr.call ~pure:false
+      (JsCons.Expr.native "require")
+      [(JsCons.Expr.string lib)] in
+    JsCons.Statement.expr call
+
   let compilation_generation env_opt plugin_requires env_js_input =
     let js_init = get_js_init env_js_input in
     let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
@@ -237,24 +244,24 @@ struct
                } in
     R.save save;
 
-    (* Require all needed plugins *)
-    let require_plugin plugin_name =
-      (* TODO: copy require when not in stdlib *)
-      let call = JsCons.Expr.call ~pure:false
-        (JsCons.Expr.native "require")
-        [(JsCons.Expr.string (plugin_name ^ ".opp"))] in
-      JsCons.Statement.expr call in
-    let plugin_requires = List.map require_plugin plugin_requires in
+    let runtime_requires =
+      List.filter_map (fun extra_lib ->
+        match extra_lib with
+        | `server (name, _) -> Some (require_stm name)
+        | _ -> None
+      ) env_opt.extra_lib in
 
-    (* Add required packages *)
-    let require_opx opx =
-      let call = JsCons.Expr.call ~pure:false
-        (JsCons.Expr.native "require")
-        [(JsCons.Expr.string (Filename.basename opx))] in
-      JsCons.Statement.expr call in
-    let opx_requires = List.map require_opx opx_requires in
+    (* Add needed plugins *)
+    let plugin_requires = List.map (fun plugin_name ->
+      require_stm (plugin_name ^ ".opp")
+    ) plugin_requires in
 
-    let requires = plugin_requires @ opx_requires in
+    (* Add package dependencies *)
+    let opx_requires = List.map (fun opx ->
+      require_stm (Filename.basename opx)
+    ) opx_requires in
+
+    let requires = runtime_requires @ plugin_requires @ opx_requires in
     let linked_code = requires @ js_code in
     let content = Format.to_string JsPrint.scoped_pp_min#code linked_code in
     let filename = "a.js" in
