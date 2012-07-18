@@ -1218,7 +1218,7 @@ and infer_rec_let_definition_type ~lifted_module_field ~bypass_typer typing_env
           W_CoreTypes.end_definition () ;
           W_TypeInfo.add_loc_object
             tmp.W_Algebra.sty_desc
-            (QmlAst.Label.expr binding_expr) ; (*This loc should not be used*)
+            (QmlAst.Label.expr binding_expr) ;
           (* We keep the bound expression to be able to issue a more accurate
              error message in case of unification error later. *)
           (binding_name, binding_expr, tmp, expansive)
@@ -1227,7 +1227,7 @@ and infer_rec_let_definition_type ~lifted_module_field ~bypass_typer typing_env
           let tmp = W_CoreTypes.type_variable () in
           W_TypeInfo.add_loc_object
             tmp.W_Algebra.sty_desc
-            (Annot.Magic.label binding_expr) ; (*This loc should not be used*)
+            (Annot.Magic.label binding_expr) ;
           (binding_name, binding_expr, tmp, expansive)
         )
       )
