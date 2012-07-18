@@ -265,7 +265,9 @@ let pos_only filename start stop =
   let pos = FilePos.make_pos filename start stop in
   annot pos
 let decorate filename result start stop =
-  (result, pos_only filename start stop)
+  if start < stop
+    then (result, pos_only filename (start+1) stop)
+    else (result, pos_only filename start stop)
 
 (**Remove annotation from a node.
 
