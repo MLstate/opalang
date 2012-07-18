@@ -892,8 +892,8 @@ rule "opa application creator"
 	Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
         get_tool "opa-bin";
         A"-o"; P opa_create_dst; P opa_create_src;
-	A"--opx-dir";A "stdlib.qmlflat";
-	A"--back-end";A "qmlflat";
+	A"--opx-dir";A "stdlib.qmljs";
+	A"--static-link";
 	A"-I"; A plugins_dir
       ]));
 

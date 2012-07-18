@@ -50,6 +50,7 @@ function write(file, content) {
     %%BslFile.of_string%%("./{file}", binary_of_string(content))
 }
 
+Scheduler.push(function () { // hack for node.js toplevel instruction
 match (options.name) {
   case {none}: System.exit(0);
   case {some:name}:
@@ -67,3 +68,4 @@ match (options.name) {
   StringMap.iter(iter, resources)
   jlog("\nNow you can type:\n$ cd {name}\n$ make run")
 }
+})
