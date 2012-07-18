@@ -20,36 +20,46 @@
 *)
 
 
+type print_level = 
+ | Function
+ | Function_With_N_Arguments
+ | Function_With_Some_SubType
+ | Complete_Type 
 
+type context = {
+  mutable print_level : print_level ;
+  mutable print_fake_record : bool ;
+  mutable error_type1 : W_Algebra.simple_type ;
+  mutable error_type2 : W_Algebra.simple_type ;
+}
 (* depends *)
 module Format = Base.Format
 
-let fake_flag = ref false
-let set_fake_flag _ = fake_flag := true
-let unset_fake_flag _ = fake_flag := false
+let context = 
+  { print_level = Complete_Type;
+    print_fake_record = false ;
+    error_type1 = W_CoreTypes.type_int () ;
+    error_type2 = W_CoreTypes.type_int () ;
+  }
+
+
 let type_variables_counter = ref 0
 let row_variables_counter = ref 0
 let column_variables_counter = ref 0
 
-(*print level: how detailed are the function types printed
-  on error reporting:
-  print level = 0 -> function
-  print level = 1 -> function with n arguments
-  print level = 2 -> function with t on [ith arg| result]
-  print level = 3 -> complete function type                 *)
+let print_only_function _ =
+  context.print_level <- Function
 
-let print_level = ref 3
-let error_type1 = ref (W_CoreTypes.type_int ())
-let error_type2 = ref (W_CoreTypes.type_int ())
+let print_function_with_n_args _ =
+  context.print_level <- Function_With_N_Arguments
 
-let set_print_level n =
-  print_level := n
+let print_subtype_of_function _ =
+  context.print_level <- Function_With_Some_SubType
 
 let set_error_type1 t =
-  error_type1 := t
+  context.error_type1 <- t
 let set_error_type2 t =
-  error_type2 := t
-
+  context.error_type2 <- t
 
 (* ************************************************************************** *)
 (** {b Descr}: List of abbreviations assigned to type during pretty-print of
@@ -552,40 +562,40 @@ let rec __pp_simple_type prio ppf ty =
         | W_Algebra.SType_var _ -> ()                       (* Done above. *)
         | W_Algebra.SType_arrow (args_tys, res_ty) ->(
             (*print depending on print level*)
-            if (  ty.W_Algebra.sty_desc == (!error_type1).W_Algebra.sty_desc
-               || ty.W_Algebra.sty_desc == (!error_type2).W_Algebra.sty_desc
+            if (  ty.W_Algebra.sty_desc == (context.error_type1).W_Algebra.sty_desc
+               || ty.W_Algebra.sty_desc == (context.error_type2).W_Algebra.sty_desc
                )
              then (
-               if !print_level = 0
+               if context.print_level = Function
                 then Format.fprintf ppf "function"
-               else if !print_level = 1
+               else if context.print_level = Function_With_N_Arguments
                 then
                   Format.fprintf ppf "function with %d arguments"
                    (List.length args_tys)
              )
-           else if !print_level <= 2
+           else if not (context.print_level == Complete_Type)
              then (
-               let err_ty1 = (!error_type1).W_Algebra.sty_desc in
-               let err_ty2 = (!error_type2).W_Algebra.sty_desc in
+               let err_ty1 = (context.error_type1).W_Algebra.sty_desc in
+               let err_ty2 = (context.error_type2).W_Algebra.sty_desc in
                match ( W_SubTerms.locate_subterms err_ty1
                          ty.W_Algebra.sty_desc
                      , W_SubTerms.locate_subterms err_ty2
                          ty.W_Algebra.sty_desc) with
                 | (Some (_, str), None) ->
                    Format.fprintf ppf "function with %s %a"
-                    str (__pp_simple_type 1) !error_type1
+                    str (__pp_simple_type 1) context.error_type1
                 | (None,  Some (_, str)) ->
                    Format.fprintf ppf "function with %s %a"
-                    str (__pp_simple_type 1) !error_type2
+                    str (__pp_simple_type 1) context.error_type2
                | (Some (_, str1), Some (_, str2)) ->
                    Format.fprintf ppf "function with %s %a and %s %a"
-                    str1 (__pp_simple_type 1) !error_type1
-                    str2 (__pp_simple_type 1) !error_type2
+                    str1 (__pp_simple_type 1) context.error_type1
+                    str2 (__pp_simple_type 1) context.error_type2
               | _ ->
-                    let tmp = !print_level in
-                    print_level := 3;
+                    let tmp = context.print_level in
+                    context.print_level <- Complete_Type;
                     Format.fprintf ppf "%a" (__pp_simple_type 2) ty;
-                    print_level := tmp
+                    context.print_level <- tmp
             )
            else (
             if prio >= 2 then Format.fprintf ppf "@[<1>("
@@ -701,7 +711,7 @@ and __pp_fields_of_row ppf = function
       Format.fprintf ppf "@[%s" last_field_label ;
       if not (is_void last_field_ty) then
         Format.fprintf ppf ":@ %a%s" (__pp_simple_type 0) last_field_ty
-         (if !fake_flag then "; ..." else "");
+         (if context.print_fake_record then "; ..." else "");
       Format.fprintf ppf "@]"
   | (field_label, field_ty) :: q ->
       Format.fprintf ppf "@[%s" field_label  ;
@@ -939,9 +949,9 @@ let pp_simple_type ppf ty =
 
 
 let pp_fake_simple_type ppf t =
-  fake_flag := true ;
+  context.print_fake_record <- true ;
   pp_simple_type ppf t ;
-  fake_flag := false
+  context.print_fake_record <- false
 
 let (pp_simple_type_start_sequence, pp_simple_type_continue_sequence,
      pp_simple_type_end_sequence, pp_nothing_end_sequence) =

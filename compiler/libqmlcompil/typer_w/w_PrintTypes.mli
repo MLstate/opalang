@@ -19,7 +19,9 @@
    @author François Pessaux
 *)
 
-val set_print_level : int -> unit
+val print_only_function : unit -> unit
+val print_function_with_n_args : unit -> unit
+val print_subtype_of_function : unit -> unit
 val set_error_type1 : W_Algebra.simple_type -> unit
 val set_error_type2 : W_Algebra.simple_type -> unit
 val pp_simple_type: Format.formatter -> W_Algebra.simple_type -> unit
