@@ -286,7 +286,7 @@ let full_serialize
                  (`parsed (parse_js_content ~optimized_conf ~key_prefix ~filename ~content), key_prefix) :: rev_ast in
            List.fold_left fold rev_ast plugin.BPI.js_code
          )
-      ) rev_ast bsl_client.BslLib.plugins in
+      ) rev_ast bsl_client.BslLib.all_plugins in
 
   let bsl_and_plugin_ast =
     List.flatten (

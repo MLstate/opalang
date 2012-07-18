@@ -262,7 +262,7 @@ struct
         Some (List.concat_map
                 (fun loader -> List.concat_map input_string
                    loader.BslPluginInterface.opa_code)
-                bsl.BslLib.plugins) in
+                bsl.BslLib.all_plugins) in
 
       let user_code =
         List.concat_map input_file options.input_files in
