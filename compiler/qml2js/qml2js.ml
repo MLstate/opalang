@@ -49,6 +49,8 @@ type linked_file =
 | ExtraLib of nodejs_module
 | Plugin of nodejs_module (* without the .opp extension *)
 
+type loaded_file = linked_file * string
+
 let nodejs_module_of_linked_file = function
   | ExtraLib m -> m
   | Plugin m -> m ^ ".opp"
@@ -100,36 +102,15 @@ let filename_of_plugin plugin =
 
 module JsTreat :
 sig
-  val js_bslfilesloading : Qml2jsOptions.t -> BslLib.env_bsl -> (linked_file * string) list * JsAst.code
-  val js_generation : Qml2jsOptions.t -> BPI.plugin_basename list -> J.env_js_input -> env_js_output
+  val js_bslfilesloading : Qml2jsOptions.t -> BslLib.env_bsl ->
+    loaded_file list * JsAst.code
+  val js_generation : Qml2jsOptions.t -> BslLib.env_bsl ->
+    BPI.plugin_basename list ->
+    loaded_file list -> J.env_js_input -> env_js_output
   val js_treat : Qml2jsOptions.t -> env_js_output -> int
 end =
 struct
   open Qml2jsOptions
-
-  (* Return [`require name] if [name] should be required whe
-     using the package; [`copy path] if path should be installed
-     locally before requiring *)
-  let require_of_linked_file = function
-    | ExtraLib name -> `require name
-    | Plugin name ->
-      match BslPluginTable.get name with
-      | Some plugin ->
-        let path = path_of_plugin plugin in
-        if String.is_prefix stdlib_path path then
-          `require (name ^ ".opp")
-        else
-          `copy path
-      | None ->
-        `require (name ^ ".opp")
-
-  let take_n n =
-    let rec aux acc i rest =
-      if i >= n then List.rev acc, rest else
-        match rest with
-        | [] -> List.rev acc, []
-        | t::q -> aux (t::acc) (succ i) q
-    in aux [] 0
 
   let js_bslfilesloading env_opt env_bsl =
     (* TODO: Replace file content by checksum? *)
@@ -291,61 +272,24 @@ struct
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
 
-  let install_node_module env_opt path =
-    let short_name = Filename.basename path in
-    let dest_path = Filename.concat (depends_dir env_opt) "node_modules" in
-    let dest_name = Filename.concat dest_path short_name in
-    let _ = File.copy_rec ~force:true path dest_name = 0 in
-    ()
+  let modules_dir env_opt =
+    Filename.concat (depends_dir env_opt) "node_modules"
 
-  let linking_generation_js_init env_opt plugin_requires oc =
-    let load_oc =
-      (* Channel to output libraries *)
-      if env_opt.static_link then
-        oc
-      else (
-        let _ = File.check_create_path ~rights:0o700 (depends_dir env_opt) in
-        let load_file_name = "load.js" in
-        let load_path = Filename.concat (depends_dir env_opt) load_file_name in
-        let relative_load_path = Filename.concat
-          (Filename.basename (depends_dir env_opt)) load_file_name in
-        let load_oc =
-          open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o600 load_path
-        in
-        Printf.fprintf oc "require('./%s');\n" relative_load_path;
-        load_oc
-      )
-    in
-    let plugin_requires = List.rev plugin_requires in
-    let plugin_requires =
-      (* If we link everything statically, then we need to fetch
-         the plugin dependencies of all packages and add them here.
-         Otherwise, we know that those files will have the appropriate
-         requires already and don't need that *)
-      if env_opt.static_link then
-        (* TODO: get all dependencies here *)
-        plugin_requires
-      else
-        plugin_requires
-    in
-    List.iter
-      (fun file ->
-        (* TODO: handle static case *)
-        let name = match require_of_linked_file (Plugin file) with
-          | `require name -> name
-          | `copy path ->
-            install_node_module env_opt path;
-            Filename.basename path
-        in
-        Printf.fprintf load_oc "require('%s');\n" name;
-      ) (List.rev plugin_requires);
-    load_oc
+  let is_standard file = String.is_prefix stdlib_path file
+
+  let maybe_install_node_module env_opt path =
+    if not (is_standard path) then
+      let short_name = Filename.basename path in
+      let dest_name = Filename.concat (modules_dir env_opt) short_name in
+      let success = File.copy_rec ~force:true path dest_name = 0 in
+      if not success then
+        OManager.error "Couldn't copy module %s to %s" short_name dest_name
 
   let get_target env_opt = env_opt.target
 
   (* Write shell script incantation to check dependencies,
      set load path, etc *)
-  let write_shell_header oc =
+  let write_launcher_header oc =
     let min_node_version = "v0.6.0"
     and max_node_version = "v0.8.0" in
     Printf.fprintf oc "#!/usr/bin/env bash
@@ -366,46 +310,117 @@ if (process.version < '%s') {
 " stdlib_qmljs_path stdlib_path static_path LaunchHelper.script min_node_version
       min_node_version max_node_version
 
-  let linking_generation env_opt plugin_requires env_js_input =
-    compilation_generation env_opt plugin_requires env_js_input;
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc] 0o700 (get_target env_opt) in
-    write_shell_header oc;
-    let is_from_stdlib opx = String.is_prefix stdlib_path opx in
-    let load_oc = linking_generation_js_init env_opt plugin_requires oc in
-    let read_append oc package_dir saved =
-      Printf.fprintf oc "///////////////////////\n";
-      Printf.fprintf oc "// From package %s \n" package_dir;
-      Printf.fprintf oc "///////////////////////\n";
-      #<Ifstatic:JS_IMP_DEBUG 1>
-      Printf.fprintf oc "console.log('Load package %s')" opx;
-      #<End>
-      let fmt = Format.formatter_of_out_channel oc in
-      Format.fprintf fmt "%a\n" JsPrint.pp_min#code saved.S.generated_code
-    in
-    let link package_dir saved =
-      if env_opt.static_link then
-        read_append oc package_dir saved
-      else (
-        if not (is_from_stdlib package_dir) then
-          install_node_module env_opt package_dir;
-        Printf.fprintf load_oc "require('%s');\n"
-          (Filename.basename package_dir)
-      )
-    in
-    let is_deep = env_opt.static_link in
-    R.iter_with_dir ~deep:is_deep ~packages:is_deep link;
-    let fmt = Format.formatter_of_out_channel load_oc in
-    Format.fprintf fmt "%a\n" JsPrint.pp_min#code env_js_input.js_code;
-    close_out oc;
-    if env_opt.static_link then () else close_out load_oc
+  let linking_generation_static env_opt loaded_files env_js_input =
+    (* When linking statically, we just produce a big file
+       concatenating all JS files. First we add the runtime and
+       plugins, then packages, then BSL projections and finally the
+       current code *)
+    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
+      0o700 (get_target env_opt) in
+    let fmt = Format.formatter_of_out_channel oc in
 
-  let js_generation env_opt plugin_requires env_js_input =
+    write_launcher_header oc;
+
+    List.iter (fun (file, content) ->
+      Format.fprintf fmt "// From %s\n"
+        (nodejs_module_of_linked_file file);
+      Format.fprintf fmt "%s\n" content
+    ) loaded_files;
+
+    R.iter_with_dir ~deep:true ~packages:true
+      (fun package_dir saved ->
+        Format.fprintf fmt "// From %s\n"
+          (Filename.basename package_dir);
+        Format.fprintf fmt "%a\n" JsPrint.pp_min#code
+          saved.S.generated_code);
+
+    let projections = get_js_init env_js_input in
+    List.iter (fun (_, code) ->
+      Format.fprintf fmt "%a\n" JsPrint.pp_min#statement code
+    ) projections;
+
+    Format.fprintf fmt "// Main program\n";
+    Format.fprintf fmt "%a\n" JsPrint.pp_min#code
+      env_js_input.js_code;
+
+    close_out oc
+
+  (* Output the application launcher and the main object for
+     "dynamic" linking *)
+  let create_main_files env_opt =
+    let launcher_oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
+      0o700 (get_target env_opt) in
+    write_launcher_header launcher_oc;
+
+    let success = File.check_create_path ~rights:0o700 (modules_dir env_opt) in
+    if not success then
+      OManager.error "Couldn't create directory %s" (modules_dir env_opt);
+    let main_file_name = "main.js" in
+    let relative_main_path = Filename.concat
+      (Filename.basename (depends_dir env_opt)) main_file_name in
+
+    Printf.fprintf launcher_oc "require('./%s');\n" relative_main_path;
+    close_out launcher_oc;
+
+    let status = File.copy ~force:true
+      (Filename.concat env_opt.compilation_directory "a.js")
+      relative_main_path in
+
+    if status = 1 then
+      OManager.error "Couldn't copy object to %s" relative_main_path
+
+  (* Install required dependencies in the application
+     node_modules directory *)
+  let install_dependencies env_opt env_bsl =
+    List.iter (fun plugin ->
+      match plugin.BPI.path with
+      | Some path -> maybe_install_node_module env_opt path
+      | None -> ()
+    ) env_bsl.BslLib.all_plugins;
+
+    R.iter_with_dir ~packages:true ~deep:true
+      (fun path _saved ->
+        maybe_install_node_module env_opt path
+      )
+
+  let linking_generation_dynamic env_opt env_bsl =
+    (* "Dynamic" here is somewhat of a misnomer. Compared to "static"
+       mode, where we produce just a single file, what we actually do
+       is the following:
+
+       - The "main" file (i.e. the one given as -o) will be just the
+       launcher script, which will load the rest of the program.
+
+       - The rest of the program will reside in directory
+       [app]_depends, where app is the name of the launcher w/o the
+       extension. app_depends/main.js will contain the application
+       code. Standard dependencies (i.e. the stdlib, runtime and
+       normal bsl) will be required from their installed
+       locations. Other dependencies, such as additional plugins and
+       packages, will be copied to app_depends/node_modules, following
+       NodeJs conventions.
+
+    *)
+
+    create_main_files env_opt;
+    install_dependencies env_opt env_bsl
+
+
+  let linking_generation env_opt env_bsl plugin_requires loaded_files env_js_input =
+    compilation_generation env_opt plugin_requires env_js_input;
+    if env_opt.static_link then
+      linking_generation_static env_opt loaded_files env_js_input
+    else
+      linking_generation_dynamic env_opt env_bsl
+
+  let js_generation env_opt env_bsl plugin_requires loaded_files env_js_input =
     begin match ObjectFiles.compilation_mode () with
     | `compilation ->
       compilation_generation env_opt plugin_requires env_js_input
     | `init -> ()
     | `linking ->
-      linking_generation env_opt plugin_requires env_js_input
+      linking_generation env_opt env_bsl plugin_requires
+        loaded_files env_js_input
     | `prelude -> assert false
     end;
     { generated_files = [get_target env_opt, ""] }

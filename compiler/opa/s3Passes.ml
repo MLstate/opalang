@@ -2182,7 +2182,7 @@ let pass_ServerJavascriptCompilation =
        let direct_plugins = List.map (fun plugin ->
          plugin.BslPluginInterface.basename
        ) env_bsl.BslLib.direct_plugins in
-       let _, generated_ast = (* ([] : JsAst.code) in *)
+       let loaded_files, generated_ast = (* ([] : JsAst.code) in *)
          Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
        let env_js_input = JsBackend.compile
          ~bsl: generated_ast
@@ -2197,7 +2197,8 @@ let pass_ServerJavascriptCompilation =
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
        in
        let env_js_output =
-         Qml2js.JsTreat.js_generation jsoptions direct_plugins env_js_input
+         Qml2js.JsTreat.js_generation jsoptions env_bsl direct_plugins
+           loaded_files env_js_input
        in
        let code = Qml2js.JsTreat.js_treat jsoptions env_js_output in
        PH.make_env options code
