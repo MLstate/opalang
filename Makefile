@@ -269,7 +269,7 @@ install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocam
 	@echo "set -e" >> $(INSTALL_DIR)/bin/qmlflat
 	@echo "set -u" >> $(INSTALL_DIR)/bin/qmlflat
 	@chmod 755 $(INSTALL_DIR)/bin/qmlflat
-	@echo 'exec opa --parser classic --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $(STDLIB_DIR)/opabsl.opp "$$@"' \
+	@echo 'exec opa --parser classic --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $(STDLIB_DIR)/opabsl.opp $$(if ! grep -qE "(^| )--no-stdlib( |$$)" <<<"$$*"; then echo $(INSTALL_DIR)/share/opa/mlstatebsl/*.opa; fi) "$$@"' \
 	>> $(INSTALL_DIR)/bin/qmlflat
 
 # installs some dev tools on top of the normal install; these should not change often
