@@ -722,7 +722,7 @@ object(self)
             | Some _ ->
                 pp f "global.%a = %a"
                   self#ident ident
-                  (self#expr ~leading:false) (J.Je_function (l, None, params, body))
+                  (self#expr ~leading:false) (J.Je_function (l, Some ident, params, body))
       )
     | _ -> self#statement f s
 
