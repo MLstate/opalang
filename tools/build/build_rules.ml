@@ -34,6 +34,7 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 (* PATHS *)
 
 let plugins_dir = "lib" / "plugins" in
+let libbase_dir = "ocamllib" / "libbase" in
 let opa_prefix = Pathname.pwd / !Options.build_dir in
 
 let extralib_opt = function
@@ -164,13 +165,13 @@ generate_ocamldep_rule "mli";
 (* TODO BUG 2 : droits du script invalides *)
 (* TODO BUG 3 : path du fichier généré foireux *)
 rule "mlstate_platform: () -> ocamllib/libbase/mlstate_platform.h"
-  ~deps:(tool_deps "mlstate_platform")
-  ~prods:["ocamllib/libbase/mlstate_platform.h"]
+  ~deps:(tool_deps mlstate_platform)
+  ~prods:[libbase_dir/"mlstate_platform.h"]
   (fun env build ->
      Seq[
-       Cmd(S[Sh"chmod +x"; P "ocamllib/libbase/gen_platform"]);
-       Cmd(S[get_tool "mlstate_platform"; A (if is_win32 then "WIN" else "")]);
-       Cmd(S[Sh"mv mlstate_platform.h ocamllib/libbase/mlstate_platform.h"])
+       Cmd(S[Sh"chmod +x"; P (libbase_dir/"gen_platform")]);
+       Cmd(S[get_tool mlstate_platform; A (if is_win32 then "WIN" else "")]);
+       Cmd(S[Sh"mv"; A"mlstate_platform.h"; P(libbase_dir/"mlstate_platform.h")])
      ]
   );
 
@@ -669,7 +670,7 @@ List.iter js_runtime_rule [opacomp_deps_js_cps, opa_js_runtime_cps;
 
 
 rule "opa run-time libraries"
-  ~deps:("ocamllib"/"libbase"/"mimetype_database.xml" ::
+  ~deps:(libbase_dir/"mimetype_database.xml" ::
             globalizer_prods opa_js_runtime_cps @
             globalizer_prods opa_js_runtime_no_cps @
             opacomp_deps_native
@@ -688,7 +689,7 @@ rule "opa run-time libraries"
              @ [ P (opa_prefix / opa_libs_dir) ]));
        Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f -.- !Options.ext_lib)) mllibs
              @ [ P (opa_prefix / opa_libs_dir) ]));
-       Cmd(S(link_cmd :: P (opa_prefix / "ocamllib" / "libbase" / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
+       Cmd(S(link_cmd :: P (opa_prefix / libbase_dir / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
        Cmd(S[link_cmd;
              P (opa_prefix / opa_js_runtime_cps);
              P (opa_prefix / opa_libs_dir)]);
