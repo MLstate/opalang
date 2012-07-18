@@ -104,7 +104,7 @@ let get_missing_or_different_cases col_ty1 col_ty2 =
      - [accur_ty2] : Second type involved in the incompatibility error.
     {b Visibility} : Not exported outside this module.                        *)
 (* ************************************************************************** *)
-let try_explain_ty_incompatibility ppf accur_ty1 accur_ty2 =
+let try_explain_ty_incompatibility ppf (accur_ty1, accur_ty2) =
   let accur_ty1 = W_CoreTypes.simple_type_repr accur_ty1 in
   let accur_ty2 = W_CoreTypes.simple_type_repr accur_ty2 in
   match (accur_ty1.W_Algebra.sty_desc, accur_ty2.W_Algebra.sty_desc) with
@@ -281,53 +281,6 @@ let pp_unification_conflict_detail ppf detail =
 
 
 
-(* ************************************************************************** *)
-(** {b Descr}: Prints the message "[accur_ty1] and [accur_ty2] are
-    incompatible" if these 2 types are smaller than [glob_ty1] and [glob_ty2],
-    i.e. more precise, i.e. are sub-term of [glob_ty1] (resp. [glob_ty2]).
-    This is used to print the 2 types that finally, in the deep of unification
-    caused this unification to fail. In effect, globally saying that
-    int -> char and int -> bool are incompatible is cool. But, the real deep
-    reason is that char and bool are incompatible. Since char and bool are
-    smaller, more precise than the 2 surrounding type, we want to print the
-    message. If [glob_ty1] and [accur_ty1] (resp. [glob_ty2] and [accur_ty2])
-    are the same, it is useless to print this message since error reporting
-    routine that uses the present function will have already reported these
-    types.
-    This way, we do not have doubles and we don't lose accuracy in error
-    reporting.
-    Prints a leading \n but no trailing \n.
-
-    {b Args}:
-     - [glob_ty1] : First global (entire) type causing unification to fail.
-     - [glob_ty2] : Second global (entire) type causing unification to fail.
-     - [accur_ty1] : First deepest type causing unification to fail. For the
-       message to be consistent, it is expected that this type is a sub-term
-       of [glob_ty1].
-     - [accur_ty2] : Second deepest type causing unification to fail. For the
-       message to be consistent, it is expected that this type is a sub-term
-       of [glob_ty2].
-
-    {b Visibility}: Not exported outside this module.                         *)
-(* ************************************************************************** *)
-let pp_incompatible_types_if_more_precise
-    ppf (_, _, accur_ty1, accur_ty2) =
-  if false then (
-(*  if glob_ty1 != accur_ty1 || glob_ty2 != accur_ty2 then ( *)
-    Format.fprintf ppf
-      "@\n@[Types@ @{<red>%a@}@ and@ @{<red>%a@}@ are@ not@ compatible@]"
-      W_PrintTypes.pp_simple_type_continue_sequence accur_ty1
-      W_PrintTypes.pp_simple_type_end_sequence accur_ty2
-  )
-  else (
-    (* Nothing else to print, byt since we are currently in a started printing
-       sequence, we must close it to cleanup all the markers set on the types
-       already printed. Otherwise, we'll get assert failures. *)
-    W_PrintTypes.pp_nothing_end_sequence ()
-  ) ;
-  try_explain_ty_incompatibility ppf accur_ty1 accur_ty2
-
-
 
 (* ************************************************************************** *)
 (** {b Descr}: Creates a fake record type, closed row in a closed column
@@ -376,7 +329,6 @@ let test_fun_error err_ty1 err_ty2 =
        | (W_Algebra.SType_arrow (_, _), W_Algebra.SType_arrow(_, _)) -> false
        | (W_Algebra.SType_arrow (_, _), _) -> true
        | (_, W_Algebra.SType_arrow(_, _)) -> true
-(*          t1.W_Algebra.sty_desc = result_type.W_Algebra.sty_desc *)
        | _ -> false
   in aux err_ty1 err_ty2
 
@@ -410,12 +362,12 @@ let compare_types t1 t2 =
   match (t1.W_Algebra.sty_desc, t2.W_Algebra.sty_desc) with
    | (W_Algebra.SType_arrow(args1, _), W_Algebra.SType_arrow(args2, _)) -> (
       if (List.length args1 = List.length args2)
-       then W_PrintTypes.set_print_level 2
-       else W_PrintTypes.set_print_level 1
+       then W_PrintTypes.print_subtype_of_function ()
+       else W_PrintTypes.print_function_with_n_args ()
    )
    | (_, W_Algebra.SType_arrow(_, _)) | (W_Algebra.SType_arrow(_, _), _)
-       -> W_PrintTypes.set_print_level 0
-   | (_, _) -> W_PrintTypes.set_print_level 2
+       -> W_PrintTypes.print_only_function ()
+   | (_, _) -> W_PrintTypes.print_subtype_of_function ()
 
 
 
@@ -440,7 +392,6 @@ let pp_precise_error ppf (res, t1, i1, t2, i2) =
         W_PrintTypes.pp_simple_type_start_sequence t1
         pp_info i2
         W_PrintTypes.pp_simple_type_continue_sequence t2
-(*  W_PrintTypes.set_print_level 2 *)
 
 (*At least one of the error_types is function type*)
 let report_fun_conflict
@@ -454,6 +405,7 @@ let report_fun_conflict
       | (_, W_Algebra.SType_arrow (args, _)) ->
           (err_ty2, err_ty1, List.length args, err_loc2)
       | (_, _) -> (err_ty1, err_ty2, -1, err_loc1) in
+  let reason = Some "Missing Application" in
   let hint ppf _ =
    if args_number = 0
     then
@@ -464,8 +416,14 @@ let report_fun_conflict
     else
      Format.fprintf ppf "%d arguments are missing at %a"
        args_number pp_info err_loc in
-  let reason = Some "Missing Application" in
   let public_annotmap_with_locs = get_annotmap_for_error_report () in
+  let default_message err_ctxt =    
+     QmlError.error err_ctxt
+       ("%a@\n@[<2>Can not match function type with %a.@]" ^^
+        "@\n@[<2>@{<bright>Hint@}:@\n%a@]@.")
+           pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+           W_PrintTypes.pp_simple_type err_ty
+           hint () in
   match context with
   | W_InferErrors.UCC_apply (expr, fun_pat_ty, _ (*tmp_fun_ty*)) ->(
      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
@@ -492,7 +450,6 @@ let report_fun_conflict
             pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
             W_PrintTypes.pp_simple_type err_ty
      )
-
      | W_Algebra.SType_arrow (_, _) -> (
         let err_ctxt =
           QmlError.Context.annoted_expr public_annotmap_with_locs expr in
@@ -516,12 +473,7 @@ let report_fun_conflict
       W_Misc.set_error_position (Annot.pos (Annot.Magic.label pat));
       let err_ctxt =
         QmlError.Context.annoted_pat public_annotmap_with_locs pat in
-      QmlError.error err_ctxt
-           ("%a@\n@[<2>Can not match function type with %a.@]" ^^
-           "@\n@[<2>@{<bright>Hint@}:@\n%a@]@.")
-            pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
-            W_PrintTypes.pp_simple_type err_ty
-            hint ()
+      default_message err_ctxt 
    )
    | W_InferErrors.UCC_match_left_part_ty_previous_vs_ty_current(expr, _, _)
    | W_InferErrors.UCC_match_ty_right_parts_vs_ty_branch(expr, _, _)
@@ -534,13 +486,8 @@ let report_fun_conflict
    | W_InferErrors.UCC_throw (expr, _, _) -> ( (*default error msg*)
      W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
      let err_ctxt =
-       QmlError.Context.annoted_expr public_annotmap_with_locs expr in
-     QmlError.error err_ctxt
-        ("%a@\n@[<2>Can not match function type with %a.@]" ^^
-         "@\n@[<2>@{<bright>Hint@}:@\n%a@]@.")
-           pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
-           W_PrintTypes.pp_simple_type err_ty
-           hint ()
+		   QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+     default_message err_ctxt 
    )
 
 (** [err_ty1] : First deeper type causing the unification error.
@@ -574,8 +521,7 @@ let report_unification_conflict_with_context
         pp_precise_error (reason, err_ty1, err_loc1, err_ty2, err_loc2)
         W_PrintTypes.pp_simple_type_start_sequence pat_ty
         W_PrintTypes.pp_simple_type_continue_sequence coercing_ty
-        pp_incompatible_types_if_more_precise
-        (pat_ty, coercing_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
         pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
@@ -591,6 +537,34 @@ let report_unification_conflict_with_context
            (Ident.original_name id ^ of_package_name )
          | _ -> "" in
       W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
+      let err_ctxt =
+           QmlError.Context.annoted_expr public_annotmap_with_locs expr in
+      let replace_message str = 
+            QmlError.error err_ctxt
+              ("%a@\n@[<2>The @{<red>%s@} of function %s should be "^^
+               "of type@ @{<red>%a@}@ " ^^
+               "instead of@ @{<red>%a@}@]@.")
+                  pp_precise_error(reason, err_ty1, err_loc1,
+                                           err_ty2, err_loc2)
+                  str 
+                  fun_name
+                  W_PrintTypes.pp_simple_type_start_sequence err_ty1
+                  W_PrintTypes.pp_simple_type_continue_sequence err_ty2 in
+      let ty_loc1 = W_TypeInfo.retrieve fun_pat_ty.W_Algebra.sty_desc in
+      let ty_loc2 = W_TypeInfo.retrieve tmp_fun_ty.W_Algebra.sty_desc in
+      let default_message _ = 
+            QmlError.error err_ctxt
+             ("%a@\n@[<2>Function %s was found of type@\n@{<red>%a@}@\n" ^^
+              "but application expects it to be of type@\n@{<red>%a@}@]%a%a@.")
+               pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
+              fun_name
+              W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
+              W_PrintTypes.pp_simple_type_continue_sequence tmp_fun_ty
+              pp_unification_conflict_detail detail
+              pp_location_hints ( err_ty1, err_loc1
+                                , err_ty2, err_loc2
+                                , fun_pat_ty , ty_loc1
+                                , tmp_fun_ty, ty_loc2) in
     match fun_pat_ty.W_Algebra.sty_desc with
      | W_Algebra.SType_arrow (args1, _) -> (
        match tmp_fun_ty.W_Algebra.sty_desc with
@@ -598,10 +572,8 @@ let report_unification_conflict_with_context
            let arg_number1 = List.length args1 in
            let arg_number2 = List.length args2 in
            if arg_number1 != arg_number2 then (
-            let err_ctxt =
-              QmlError.Context.annoted_expr public_annotmap_with_locs expr in
             QmlError.error err_ctxt
-              ("%a@\n@[<2>Function %s expects %d argument%s,i" ^^
+              ("%a@\n@[<2>Function %s expects %d argument%s," ^^
                " but it is given %d.@]@.")
                 pp_precise_error( Some "Different Number of Arguments",
                                   err_ty1, err_loc1, err_ty2, err_loc2)
@@ -618,18 +590,7 @@ let report_unification_conflict_with_context
                | Some (n, str1)
                 when W_SubTerms.check_arrow_subterm n
                      err_ty2.W_Algebra.sty_desc fun_pat_ty.W_Algebra.sty_desc->(
-                    let err_ctxt =
-                      QmlError.Context.annoted_expr
-                        public_annotmap_with_locs expr in
-                    QmlError.error err_ctxt
-                     ("%a@\n@[<2>The @{<red>%s@} of function %s should be@ "^^
-                      "@{<red>%a@}@ " ^^
-                      "but here it is@ @{<red>%a@}@]@.")
-                        pp_precise_error(reason, err_ty1, err_loc1,
-                                                 err_ty2, err_loc2)
-                        str1 fun_name
-                        W_PrintTypes.pp_simple_type_start_sequence err_ty2
-                        W_PrintTypes.pp_simple_type_continue_sequence err_ty1
+                 replace_message str1
                )
                | _ -> (
                  match err_ty2_in_tmp with
@@ -637,23 +598,11 @@ let report_unification_conflict_with_context
                    when W_SubTerms.check_arrow_subterm n2
                         err_ty1.W_Algebra.sty_desc
                         fun_pat_ty.W_Algebra.sty_desc-> (
-                    let err_ctxt =
-                      QmlError.Context.annoted_expr
-                        public_annotmap_with_locs expr in
-                    QmlError.error err_ctxt
-                     ("%a@\n@[<2>The @{<red>%s@} of function %s should be@ " ^^
-                      "@{<red>%a@}@]@.")
-                        pp_precise_error(reason, err_ty1, err_loc1,
-                                                 err_ty2, err_loc2)
-                        str2 fun_name
-                        W_PrintTypes.pp_simple_type_start_sequence err_ty1
+                   replace_message str2 
                   )
                   | _ -> (
                    match (err_ty1_in_tmp, err_ty2_in_tmp) with
                     | (Some (_, str1), Some (_, str2)) -> (
-                    let err_ctxt =
-                      QmlError.Context.annoted_expr
-                        public_annotmap_with_locs expr in
                     QmlError.error err_ctxt
                      ("%a@\n@[<2>The@ @{<red>%s@}@ and the@ @{<red>%s@}@ " ^^
                       "of function %s " ^^
@@ -664,56 +613,19 @@ let report_unification_conflict_with_context
                         fun_name
                     )
                     | _ -> (
-                    let err_ctxt =
-                      QmlError.Context.annoted_expr public_annotmap_with_locs
-                        expr in
-                    let ty_loc1 = W_TypeInfo.retrieve
-                                    fun_pat_ty.W_Algebra.sty_desc in
-                    let ty_loc2 = W_TypeInfo.retrieve
-                                    tmp_fun_ty.W_Algebra.sty_desc in
                     W_PrintTypes.pp_simple_type_prepare_sequence
                       [fun_pat_ty; tmp_fun_ty; err_ty1; err_ty2];
-                    QmlError.error err_ctxt
-                     ("%a@\n@[<2>Function %s was found of type" ^^
-                      "@\n@{<red>%a@}@\nbut application expects it to be " ^^
-                      " of type@\n@{<red>%a@}@]%a%a@.")
-                        pp_precise_error(reason, err_ty1, err_loc1,
-                                                 err_ty2, err_loc2)
-                        fun_name
-                        W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
-                        W_PrintTypes.pp_simple_type_continue_sequence tmp_fun_ty
-                        pp_unification_conflict_detail detail
-                        pp_location_hints ( err_ty1, err_loc1
-                                          , err_ty2, err_loc2
-                                          , fun_pat_ty , ty_loc1
-                                          , tmp_fun_ty, ty_loc2)
+                    default_message err_ctxt
                   ))
                )
          )
          | _ -> ( (* THIS CASE CAN NOT BE TRIGGERED*)
-           let err_ctxt =
-             QmlError.Context.annoted_expr public_annotmap_with_locs expr in
-           let ty_loc1 = W_TypeInfo.retrieve fun_pat_ty.W_Algebra.sty_desc in
-           let ty_loc2 = W_TypeInfo.retrieve tmp_fun_ty.W_Algebra.sty_desc in
            W_PrintTypes.pp_simple_type_prepare_sequence
              [fun_pat_ty; tmp_fun_ty; err_ty1; err_ty2];
-           QmlError.error err_ctxt
-             ("%a@\n@[<2>Function %s was found of type@\n@{<red>%a@}@\n" ^^
-              "but application expects it to be of type@\n@{<red>%a@}@]%a%a@.")
-               pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
-              fun_name
-              W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
-              W_PrintTypes.pp_simple_type_continue_sequence tmp_fun_ty
-              pp_unification_conflict_detail detail
-              pp_location_hints ( err_ty1, err_loc1
-                                , err_ty2, err_loc2
-                                , fun_pat_ty , ty_loc1
-                                , tmp_fun_ty, ty_loc2)
+           default_message err_ctxt
         )
      )
      | _ -> (
-      let err_ctxt =
-        QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       QmlError.error err_ctxt
         "%a@\n@[<2>Expression %s is not a function, it can not be applied.@."
         pp_precise_error(reason, err_ty1, err_loc1, err_ty2, err_loc2)
@@ -737,8 +649,7 @@ let report_unification_conflict_with_context
         W_PrintTypes.pp_simple_type_start_sequence previous_left_ty
         pp_info (W_TypeInfo.NoInfo "")
         W_PrintTypes.pp_simple_type_continue_sequence current_left_ty
-        pp_incompatible_types_if_more_precise
-        (previous_left_ty, current_left_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
         pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
@@ -925,8 +836,7 @@ let report_unification_conflict_with_context
         W_PrintTypes.pp_simple_type_start_sequence extended_expr_ty
         pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence extension_ty
-        pp_incompatible_types_if_more_precise
-        (extended_expr_ty, extension_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
                  pp_location_hints ( err_ty1, err_loc1
                                   , err_ty2, err_loc2
@@ -1009,8 +919,7 @@ let report_unification_conflict_with_context
         W_PrintTypes.pp_simple_type_start_sequence body_ty
         pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence expected_ty
-        pp_incompatible_types_if_more_precise
-        (body_ty, expected_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
         pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
@@ -1048,8 +957,7 @@ let report_unification_conflict_with_context
         W_PrintTypes.pp_simple_type_start_sequence expected_ty
         pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence inferred_ty
-        pp_incompatible_types_if_more_precise
-        (expected_ty, inferred_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
          pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
@@ -1075,8 +983,7 @@ let report_unification_conflict_with_context
         W_PrintTypes.pp_simple_type_start_sequence expected_ty
         pp_info ty_loc2
         W_PrintTypes.pp_simple_type_continue_sequence inferred_ty
-        pp_incompatible_types_if_more_precise
-        (expected_ty, inferred_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
          pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
@@ -1098,8 +1005,7 @@ let report_unification_conflict_with_context
                                                           err_ty2, err_loc2)
         W_PrintTypes.pp_simple_type_start_sequence handler_ty
         W_PrintTypes.pp_simple_type_continue_sequence expected_handler_ty
-        pp_incompatible_types_if_more_precise
-        (expected_handler_ty, handler_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
         pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
@@ -1118,8 +1024,7 @@ let report_unification_conflict_with_context
                         , err_ty2, err_loc2)
         W_PrintTypes.pp_simple_type_start_sequence thrown_ty
         W_PrintTypes.pp_simple_type_continue_sequence curr_exn_ty
-        pp_incompatible_types_if_more_precise
-         (curr_exn_ty, thrown_ty, err_ty1, err_ty2)
+        try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
         pp_location_hints ( err_ty1, err_loc1
                           , err_ty2, err_loc2
