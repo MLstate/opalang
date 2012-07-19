@@ -9,7 +9,7 @@ if (process.version < min_node_version) {
 }
 
 dependencies = dependencies.filter(function(dependency, index, array) {
-    console.log('Checking', dependency, '...');
+    // console.log('Checking', dependency, '...');
     try {
         module.require(dependency);
 	return false;
