@@ -115,6 +115,7 @@ case "$1" in
         if [ -n "$1" ] && ! [ "$1" = "--help" ] && ! [ "$1" = "--name" ]
         then OPT="--name $1"
         else OPT="$1"
+        fi
         opa-create $OPT
         ;;
     *)
