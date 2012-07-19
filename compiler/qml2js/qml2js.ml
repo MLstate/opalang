@@ -263,7 +263,7 @@ struct
       | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
         JsCons.Expr.dot
           (JsCons.Expr.native ("__opa_" ^ plugin_name))
-          repr
+          index
       | _ -> expr
     ) code
 
