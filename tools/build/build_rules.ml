@@ -972,7 +972,6 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        let extra_opt =
          [A"--opx-dir";A opx_dir;
           A"--package-version"; A version;
-          A"-I";A opa_prefix;
           A"--no-warn";A"load-import";
 	  A"--no-warn";A"bsl.loading";
           A"--no-warn-error";A"unused";
