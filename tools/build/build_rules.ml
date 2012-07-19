@@ -286,7 +286,7 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
 	     Sh"cat"; P launch_helper_script;
 	     Sh"|"; Sh"sed -e 's/\\\\/\\\\\\\\/g'";
 	     Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
-	     Sh"|"; Sh"sed -e '\\%^#\\(.*\\)%{d}'";
+	     Sh"|"; Sh"sed -e '\\%^#\\(.*\\)%d'";
 	     Sh">>"; P launchHelper
 	   ]));
        Cmd(S([Sh"echo \\\" >>"; P launchHelper]))
