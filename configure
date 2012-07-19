@@ -812,6 +812,8 @@ if [ -n "${IS_MAC:-}" ]; then
     echo "INSTALL := gcp -u -L" >> $CONFIG_PATH/config.make
 elif [ -n "${IS_FREEBSD:-}" ]; then
     echo "INSTALL := cp" >> $CONFIG_PATH/config.make
+elif [ -n "${IS_LINUX:-}" ]; then
+    echo "INSTALL := cp -u -L" >> $CONFIG_PATH/config.make
 fi
 
 {
