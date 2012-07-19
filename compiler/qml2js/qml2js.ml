@@ -299,8 +299,6 @@ struct
   (* Write shell script incantation to check dependencies,
      set load path, etc *)
   let write_launcher_header oc =
-    let min_node_version = "v0.6.0"
-    and max_node_version = "v0.8.2" in
     Printf.fprintf oc "#!/usr/bin/env bash
 
 /*usr/bin/env true
@@ -309,15 +307,11 @@ export NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\
 %s
 */
 
-if (process.version < '%s') {
-    console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= %s)');
-    process.exit(1);
-} else if (process.version > '%s') {
-    console.warn('This version of node ('+process.version+') has not been tested with Opa. Use it at your own risks.');
-}
+var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap'];
 
-" stdlib_qmljs_path stdlib_path static_path LaunchHelper.script min_node_version
-      min_node_version max_node_version
+%s
+
+" stdlib_qmljs_path stdlib_path static_path LaunchHelper.script LaunchHelper.js
 
   let linking_generation_static env_opt loaded_files env_js_input =
     (* When linking statically, we just produce a big file

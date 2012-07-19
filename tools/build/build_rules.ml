@@ -270,9 +270,16 @@ rule "opa parser version: compiler/opalang/*_syntax/* stdlib -> compiler/opalang
 
 let dependencies_path = "tools"/"dependencies" in
 let launch_helper_script = dependencies_path/"launch_helper.sh" in
+let launch_helper_js = dependencies_path/"launch_helper.js" in
 let qml2js_path = "compiler"/"qml2js" in
 let qml2js_file = qml2js_path/"qml2js.ml" in
 let launchHelper = qml2js_path/"launchHelper.ml" in
+
+let escape_external_content = [
+  Sh"|"; Sh"sed -e 's/\\\\/\\\\\\\\/g'";
+  Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
+  Sh"|"; Sh"sed -e '\\%^#\\(.*\\)%d'";
+] in
 
 rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launchHelper.ml"
   ~prods:[launchHelper;"always_rebuild"]
@@ -280,16 +287,20 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
      Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P dependencies_path]);
        cp (Pathname.pwd/launch_helper_script) (opa_prefix/launch_helper_script);
+       cp (Pathname.pwd/launch_helper_js) (opa_prefix/launch_helper_js);
        Cmd(S[Sh"mkdir"; A"-p"; P qml2js_path]);
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
-       Cmd(S([
-	     Sh"cat"; P launch_helper_script;
-	     Sh"|"; Sh"sed -e 's/\\\\/\\\\\\\\/g'";
-	     Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
-	     Sh"|"; Sh"sed -e '\\%^#\\(.*\\)%d'";
-	     Sh">>"; P launchHelper
-	   ]));
-       Cmd(S([Sh"echo \\\" >>"; P launchHelper]))
+       Cmd(S([Sh"cat"; P launch_helper_script]
+	     @ escape_external_content
+	     @ [Sh">>"; P launchHelper]
+	    ));
+       Cmd(S([Sh"echo \\\" >>"; P launchHelper]));
+       Cmd(S([Sh"echo let js = \\\" >> "; P launchHelper]));
+       Cmd(S([Sh"cat"; P launch_helper_js]
+	     @ escape_external_content
+	     @ [Sh">>"; P launchHelper]
+	   ));
+       Cmd(S([Sh"echo \\\" >>"; P launchHelper]));
      ]
   );
 
