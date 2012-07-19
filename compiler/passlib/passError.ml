@@ -91,7 +91,7 @@ struct
 
   (** Public errors *)
   (** *)
-  let error c fmt = OManager.error ("%a"^^fmt) C.console c
+  let error ?(msg="") c fmt = OManager.error ("%s@\n%a"^^fmt) msg C.console c
   let serror c fmt = OManager.serror ("%a"^^fmt) C.console c
   let warning ~wclass c fmt = OManager.warning ~wclass ("%a"^^fmt) C.console c
 end

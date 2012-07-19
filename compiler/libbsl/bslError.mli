@@ -73,6 +73,6 @@ val i_serror : PassHandler.cond_id option -> context -> ('a, unit) OManager.ofor
 
 (** Public Errors *)
 (** *)
-val error : context -> ('params, 'exit) OManager.oformat -> 'params
+val error : ?msg:string -> context -> ('params, 'exit) OManager.oformat -> 'params
 val serror : context -> ('params, unit) OManager.oformat -> 'params
 val warning : wclass:WarningClass.wclass -> context -> ('params, unit) OManager.oformat -> 'params

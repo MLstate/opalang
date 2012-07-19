@@ -416,7 +416,7 @@ let make_error error label fmt =
   let context = OpaError.Context.pos (pos_of_label label) in
   error context ("@[<2>  "^^fmt^^"@]")
 let serror label = make_error OpaError.serror label
-let error label = make_error OpaError.error label
+let error label = make_error (OpaError.error ~msg:"") label
 let unbound kind name all_env label =
   let string, names_in_scope =
     match kind with
