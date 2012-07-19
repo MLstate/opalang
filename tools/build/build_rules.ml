@@ -972,12 +972,13 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        let extra_opt =
          [A"--opx-dir";A opx_dir;
           A"--package-version"; A version;
-          A"--no-warn";A"load-import";
-	  A"--no-warn";A"bsl.loading";
-          A"--no-warn-error";A"unused";
+          A"--warn-error";A"root";
+          A"--no-warn-error";A"coding.deprecated";
+          A"--no-warn-error";A"load-opx";
+          A"--no-warn-error";A"load-import";
+	  A"--no-warn-error";A"bsl.loading";
 	  A"--no-warn-error";A"bsl.projection";
-	  A"--no-warn-error";A"typer.warncoerce";
-          A "--warn-error";A "pattern"] @
+         ] @
            if nodebackend then
              A"--back-end"::A"qmljs"::extra_opt
            else A"--back-end"::A"qmlflat"::extra_opt
