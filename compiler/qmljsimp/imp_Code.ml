@@ -93,9 +93,15 @@ let compile_bypass env key =
         match BPM.find_opt env.E.private_bymap key with
         | Some bypass -> BP.plugin_name bypass
         | None -> assert false (* We know that some binding exists *) in
+
+      let impl = I.CompiledFunction.compiler_detailed_repr compiled in
+      let impl = match impl with
+        | I.Ident ident -> Ident.to_string ident
+        | I.String string -> string
+      in
       JsCons.Expr.dot
         (JsCons.Expr.native ("__opa_" ^ plugin_name))
-        (BslKey.to_string key)
+        impl
     else
       match
         I.CompiledFunction.compiler_detailed_repr compiled

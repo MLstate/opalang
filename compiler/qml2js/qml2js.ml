@@ -242,7 +242,8 @@ struct
        prefix the bypass identifier with the plugin module. This
        function fixes that when outputting the projections in the
        final code, but it makes lots of fragile assumptions and should
-       be replaced later with something better *)
+       be replaced later with something better. Notice that we also add
+       the bypass to the exported object. *)
     let key = BslKey.of_string index in
     let bymap = env_bsl.BslLib.bymap in
     let bypass = Option.get (BslLib.BSL.ByPassMap.find_opt bymap key) in
@@ -258,14 +259,26 @@ struct
     let repr =
       BslLib.BSL.Implementation.CompiledFunction.compiler_repr compiled
     in
-    JsWalk.ExprInStatement.map (fun expr ->
-      match expr with
-      | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
-        JsCons.Expr.dot
-          (JsCons.Expr.native ("__opa_" ^ plugin_name))
-          index
-      | _ -> expr
-    ) code
+    JsWalk.TStatement.map
+      (fun stm ->
+        match stm with
+        | JA.Js_function (_, name, args, body) ->
+          let name_in_module =
+            JsCons.Expr.dot
+              (JsCons.Expr.native ("__opa_" ^ plugin_name))
+              (JsIdent.to_string name) in
+          JsCons.Statement.assign
+            name_in_module
+            (JsCons.Expr.function_ (Some name) args body)
+        | _ -> stm)
+      (fun expr ->
+        match expr with
+        | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
+          JsCons.Expr.dot
+            (JsCons.Expr.native ("__opa_" ^ plugin_name))
+            index
+        | _ -> expr)
+      code
 
   let compilation_generation env_opt env_bsl plugin_requires env_js_input =
     let js_init = List.map

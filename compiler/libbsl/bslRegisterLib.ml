@@ -949,7 +949,7 @@ let collect_exports bymap nodejs_code =
   let module I = BSL.Implementation in
   let module CF = I.CompiledFunction in
 
-  let exports = BPM.fold (fun key bypass exports ->
+  let exports = BPM.fold (fun _key bypass exports ->
     let nodejs_impl =
       BSL.ByPass.compiled_implementation bypass
         ~lang:BslLanguage.nodejs in
@@ -960,7 +960,7 @@ let collect_exports bymap nodejs_code =
         JsCons.Statement.assign
           (JsCons.Expr.dot
              (JsCons.Expr.native "exports")
-             (BslKey.to_string key))
+             (CF.compiler_repr compiled))
           rhs in
       export :: exports
     | None -> exports
