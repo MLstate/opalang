@@ -355,8 +355,10 @@ Channel = {{
                 ("id", serialize_cid(cid)),
                 ("msg", message),
               ]}
-            _ = __send_(client, msg)
-            void
+              _ = __send_(client, msg)
+              void
+            | _ -> error("Send to {cid} is not yet implemented")
+            end
           | _ -> error("Send to {entity} is not yet implemented")
 
       })
@@ -461,6 +463,7 @@ Channel = {{
     | ({entity = {remote}}, {entity = {remote}}) -> {eq}
     | ({local=_ ...}, {entity=_}) -> {gt}
     | ({entity=_}, {local=_ ...}) -> {lt}
+    | ({entity=e1}, {entity=e2}) -> Order.ordering(e1, e2, Order.default)
 
   order = @nonexpansive(Order.make(ordering))
 

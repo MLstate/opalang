@@ -253,13 +253,15 @@ Server = {{
     flat_handler = remove_register(flatten(handler))
     do check(flat_handler)
     match flat_handler with
-    | [e] -> match e
+    | [e] ->
+      match e
       | {nil}{register=_} -> Rule.fail
       | {custom=_} as e
       | {title=_; page=_} as e
       | {dispatch=_} as e
       | {filter=_ dispatch=_} as e
       | {resources=_} as e -> simple_to_parser(e)
+      | {hd=_ tl=_} -> @fail
       end
     | l -> Rule.of_parsers(List.map(handler_to_parser, l))
 
