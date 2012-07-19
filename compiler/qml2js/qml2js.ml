@@ -223,11 +223,17 @@ struct
       env_js_input.Qml2jsOptions.js_init_contents)
 
   (* JS statement to require library [lib] *)
-  let require_stm lib =
+  let require_stm name lib =
     let call = JsCons.Expr.call ~pure:false
       (JsCons.Expr.native "require")
       [(JsCons.Expr.string lib)] in
-    JsCons.Statement.expr call
+    match name with
+    | Some name ->
+      JsCons.Statement.var
+        (JsCons.Ident.native name)
+        ~expr:call
+    | None ->
+      JsCons.Statement.expr call
 
   let compilation_generation env_opt plugin_requires env_js_input =
     let js_init = get_js_init env_js_input in
@@ -247,20 +253,20 @@ struct
     let runtime_requires =
       List.filter_map (fun extra_lib ->
         match extra_lib with
-        | `server (name, _) -> Some (require_stm name)
+        | `server (name, _) -> Some (require_stm None name)
         | _ -> None
       ) env_opt.extra_lib in
 
     (* Add needed plugins *)
     let plugin_requires = List.map (fun plugin_name ->
-      require_stm (plugin_name ^ ".opp")
+      require_stm (Some ("__opa_" ^ plugin_name)) (plugin_name ^ ".opp")
     ) plugin_requires in
 
     (* Add package dependencies
        NB by not reverting this we were getting bugs in the order of
        the requires *)
     let opx_requires = List.rev_map (fun opx ->
-      require_stm (Filename.basename opx)
+      require_stm None (Filename.basename opx)
     ) opx_requires in
 
     let requires = runtime_requires @ plugin_requires @ opx_requires in
