@@ -173,15 +173,29 @@ let file_content_of_annot annot =
   let filename = FilePos.get_file annot.QmlLoc.pos in
   let start = FilePos.get_first_char annot.QmlLoc.pos in
   start, filename
-type hint = [ `function_call of QmlLoc.annot | `declaration of QmlLoc.annot | `same_indent of (QmlLoc.annot * QmlLoc.annot) | `same_indents of QmlLoc.annot list ]
+type hint = [ `bad_case_code  of (string * QmlLoc.annot) | `function_call of QmlLoc.annot | `declaration of QmlLoc.annot | `same_indent of (QmlLoc.annot * QmlLoc.annot) | `same_indents of QmlLoc.annot list ]
 let hints = ref ([] : hint list)
 let hints2 = ref ([] : hint list)
 let push_hint v = hints := v :: !hints
 let clear_hints () = hints2 := !hints; hints := []
+let clear_1hint h =  hints := Base.List.remove_first h !hints
 
-let print_hints () =
-  List.iter_right
+let cmp_hint h1 h2 =
+  let hint_pos = function
+    | `bad_case_code (_,p) | `function_call p | `declaration p | `same_indent (p,_) | `same_indents (p::_) -> QmlLoc.pos p
+    | `same_indents [] -> Obj.magic 0
+  in
+  let c = Pervasives.compare (hint_pos h1) (hint_pos h2) in
+  if c = 0 then Pervasives.compare h1 h2 else c
+
+let already_printed = ref false (* trx can try fail more than one time the same rule, we only want one hint printing *)
+let print_hints () = if !already_printed then () else (
+  already_printed:=true;
+  let hints = List.sort cmp_hint (!hints @ !hints2) |> Base.List.uniq ~cmp:cmp_hint in
+  List.iter
     (function
+       | `bad_case_code (code_beg,pos) ->
+         warning1 (sprintf "a match case introduces code with '%s' but the code is missing or invalid\n" code_beg) pos
        | `function_call pos -> warning1 (sprintf "there is only one space between the callable expression and the left parenthesis. It you wanted to call the expression, remove the space.") pos
        | `declaration annot ->
            let offset, _filename = file_content_of_annot annot in
@@ -219,7 +233,8 @@ let print_hints () =
                          aux ~resynchronize:false (off1 :: t)
                        in
                  aux ~resynchronize:false offs
-    ) (!hints @ !hints2)
+    ) hints
+  )
 
 (*
  * Generation of fresh stuff

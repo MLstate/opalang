@@ -843,11 +843,15 @@ match <- Opa_lexer.MATCH expr:e Opa_lexer.WITH?
 match_sep <- !Opa_lexer.END Opa_lexer.BAR?
 match_end <- (Opa_lexer.END $ / (=exact_ident("|_")) $)?
 
-rule <- (=list1(pattern,Opa_lexer.BAR?)):l rarrow expr:e {{ match l with
-                                                             | [] -> assert false
-                                                                 (* avoid duplication in the usual case where there is only one pattern *)
-                                                             | h :: l -> (h,e) :: List.map (fun p -> (p,SurfaceAstCons.Refresh.expr e)) l
-                                                         }}
+match_code_arrow <- (=deco(colon $_ / rarrow $_)):p {{ let h = `bad_case_code p in push_hint h; h}}
+
+rule <- (=list1(pattern,Opa_lexer.BAR?)):l match_code_arrow:h expr:e
+        {{ clear_1hint h;
+           match l with
+           | [] -> assert false
+                 (* avoid duplication in the usual case where there is only one pattern *)
+           | h :: l -> (h,e) :: List.map (fun p -> (p,SurfaceAstCons.Refresh.expr e)) l
+        }}
 (**
   {7 Lambda}
   The syntax is either:

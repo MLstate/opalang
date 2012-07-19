@@ -102,9 +102,10 @@ val error_conflicting_type_def_visibility :
 
 (** Hints utils *)
 (* used to warn of possible mistakes *)
-type hint = [ `function_call of annot | `declaration of annot | `same_indent of (annot * annot) | `same_indents of annot list ]
+type hint = [ `bad_case_code  of (string * QmlLoc.annot) | `function_call of annot | `declaration of annot | `same_indent of (annot * annot) | `same_indents of annot list ]
 val push_hint : hint -> unit
 val clear_hints : unit -> unit
+val clear_1hint : hint -> unit
 val print_hints : unit -> unit
 
  (* a reference to the name of the file currently being parsed (needed as id for FilePos) *)

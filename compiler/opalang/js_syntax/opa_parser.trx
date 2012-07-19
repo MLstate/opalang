@@ -870,7 +870,7 @@ match_end_case <- (match_case $ / match_default_case $ / rbrace $)
 
 match_expr <- (((=deco(block_inner)):e &match_end_case {{e}}) / (expr:e &match_end_case {{e}}))
 
-match_prod <-  match_right_separator spacing match_expr:e {{e}}
+match_prod <-  match_right_separator:h spacing match_expr:e {{clear_1hint h; e}}
 
 match_rules <- (=list1_strict(match_case, pattern)):l match_prod:e
   {{
@@ -889,7 +889,7 @@ match_rule_default <- (=deco(match_default_case)):d match_prod:e
 
 match_sep  <- Opa_lexer.BAR
 
-match_right_separator <- (colon / rarrow)
+match_right_separator <- (=deco(colon $_/ rarrow $_)):p {{ let h = `bad_case_code p in push_hint h; h}}
 
 (* TODO REMOVE?*)
 match_end <- (Opa_lexer.END $ / (=exact_ident("|_")) $)? (* use by xml_parser *)
