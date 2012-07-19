@@ -263,7 +263,7 @@ struct
     ) plugin_requires in
 
     (* Add package dependencies
-       NB by not reverting this we were getting bugs in the order of
+       NB by not reversing this we were getting bugs in the order of
        the requires *)
     let opx_requires = List.rev_map (fun opx ->
       require_stm None (Filename.basename opx)
