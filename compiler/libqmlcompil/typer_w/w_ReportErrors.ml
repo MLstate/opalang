@@ -377,7 +377,7 @@ let pp_precise_error ppf (t1, i1, t2, i2) =
     if cmp <= 0 then (t1, i1, t2, i2) else (t2, i2, t1, i1) in
   compare_types t1 t2;
   Format.fprintf ppf
-    "@[<2>@\n@[%a%a@]@\n@[%a%a@]@\n"
+    "@\n   @[@[%a%a@]@\n@[%a%a@]@\n"
         pp_info i1
         W_PrintTypes.pp_simple_type_start_sequence t1
         pp_info i2
@@ -395,7 +395,7 @@ let report_fun_conflict
       | (_, W_Algebra.SType_arrow (args, _)) ->
           (err_ty2, err_ty1, List.length args, err_loc2)
       | (_, _) -> (err_ty1, err_ty2, -1, err_loc1) in
-  let reason = " Missing Application" in
+  let reason = "Missing Application" in
   let hint ppf _ =
    if args_number = 0
     then
@@ -488,7 +488,7 @@ let report_unification_conflict_with_context
     env (context, err_ty1, err_ty2, detail) =
   let err_loc1 = W_TypeInfo.retrieve err_ty1.W_Algebra.sty_desc in
   let err_loc2 = W_TypeInfo.retrieve err_ty2.W_Algebra.sty_desc in
-  let reason = " Type Conflict" in
+  let reason = "Type Conflict" in
   (* Recover by side effect the annotation map that really contains source
      locations. *)
   let public_annotmap_with_locs = get_annotmap_for_error_report () in
@@ -561,7 +561,7 @@ let report_unification_conflict_with_context
            let arg_number1 = List.length args1 in
            let arg_number2 = List.length args2 in
            if arg_number1 != arg_number2 then (
-            QmlError.error ~msg:" Different Number of Arguments" err_ctxt
+            QmlError.error ~msg:"@[<2>Different Number of Arguments" err_ctxt
               ("%a@\n@[<2>Function %s expects %d argument%s," ^^
                " but it is given %d.@]@.")
                 pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
@@ -971,7 +971,7 @@ let report_unification_conflict_with_context
       let ty_loc1 =
         W_TypeInfo.retrieve expected_handler_ty.W_Algebra.sty_desc in
       let ty_loc2 = W_TypeInfo.retrieve handler_ty.W_Algebra.sty_desc in
-      QmlError.error ~msg:" Invalid Exception Handler" err_ctxt
+      QmlError.error ~msg:"Invalid Exception Handler" err_ctxt
         ("%a@\n@[<2>@{<red>%a@}@\n is not a valid exception handler.@\n" ^^
          "Exception handlers should have type @\n@{<red>%a@}@\n@]%a%a%a@.")
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
@@ -989,7 +989,7 @@ let report_unification_conflict_with_context
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       let ty_loc1 = W_TypeInfo.retrieve curr_exn_ty.W_Algebra.sty_desc in
       let ty_loc2 = W_TypeInfo.retrieve thrown_ty.W_Algebra.sty_desc in
-      QmlError.error ~msg:" Invalid Exception" err_ctxt
+      QmlError.error ~msg:"Invalid Exception" err_ctxt
         ("%a@\n@[<2>@{<red>%a@}@\n is not an exception, you cannot throw it." ^^
          "Exceptions should have the form: @\n@{<red>%a@}@\n@]%a%a%a@.")
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)

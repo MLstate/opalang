@@ -235,7 +235,7 @@ module Error = struct
   let add_warn_error warn =
     warn_set := WarnSet.add warn !warn_set
 
-  let error_fmt fmt = ("@{<red>Error:@}"^^fmt^^"@.")
+  let error_fmt fmt = ("@{<red>Error: @}"^^fmt^^"@.")
 
   let print_public_error fmt =
     printf (error_fmt fmt)
