@@ -30,6 +30,7 @@ module Format = BaseFormat
 (* alias *)
 module J = Qml2jsOptions
 module BPI = BslPluginInterface
+module JA = JsAst
 
 (** some type are shared with qml2ocaml, some not *)
 
@@ -235,9 +236,40 @@ struct
     | None ->
       JsCons.Statement.expr call
 
-  let compilation_generation env_opt plugin_requires env_js_input =
-    let js_init = get_js_init env_js_input in
-    let js_init = JsUtils.export_to_global_namespace (List.map snd js_init) in
+  let fix_projection env_bsl (index, code) =
+    (* HACK: Projections do not take into account which plugins
+       produced their corresponding bypasses. Therefore, they can't
+       prefix the bypass identifier with the plugin module. This
+       function fixes that when outputting the projections in the
+       final code, but it makes lots of fragile assumptions and should
+       be replaced later with something better *)
+    let key = BslKey.of_string index in
+    let bymap = env_bsl.BslLib.bymap in
+    let bypass = Option.get (BslLib.BSL.ByPassMap.find_opt bymap key) in
+    let plugin_name = BslLib.BSL.ByPass.plugin_name bypass in
+    let compiled = BslLib.BSL.ByPass.compiled_implementation
+      ~lang:BslLanguage.nodejs bypass in
+    let compiled = match compiled with
+      | Some compiled -> compiled
+      | None ->
+        (* Shouldn't happen, since this bypass was correctly projected *)
+        OManager.error "Couldn't find bypass for index %s" index
+    in
+    let repr =
+      BslLib.BSL.Implementation.CompiledFunction.compiler_repr compiled
+    in
+    JsWalk.ExprInStatement.map (fun expr ->
+      match expr with
+      | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
+        JsCons.Expr.dot
+          (JsCons.Expr.native ("__opa_" ^ plugin_name))
+          repr
+      | _ -> expr
+    ) code
+
+  let compilation_generation env_opt env_bsl plugin_requires env_js_input =
+    let js_init = List.map
+      (fix_projection env_bsl) (get_js_init env_js_input) in
     let js_code = js_init @ env_js_input.js_code in
 
     let opx_requires = ObjectFiles.fold_dir ~packages:true
@@ -416,7 +448,7 @@ var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap']
 
 
   let linking_generation env_opt env_bsl plugin_requires loaded_files env_js_input =
-    compilation_generation env_opt plugin_requires env_js_input;
+    compilation_generation env_opt env_bsl plugin_requires env_js_input;
     if env_opt.static_link then
       linking_generation_static env_opt loaded_files env_js_input
     else
@@ -425,7 +457,7 @@ var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap']
   let js_generation env_opt env_bsl plugin_requires loaded_files env_js_input =
     begin match ObjectFiles.compilation_mode () with
     | `compilation ->
-      compilation_generation env_opt plugin_requires env_js_input
+      compilation_generation env_opt env_bsl plugin_requires env_js_input
     | `init -> ()
     | `linking ->
       linking_generation env_opt env_bsl plugin_requires

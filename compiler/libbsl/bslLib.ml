@@ -999,7 +999,7 @@ struct
           else { building with ml_ctrans = env }, None
 
     let re_compiled_generate_js building bslkey bsltags impl (inputs : _ list option) output : building_env * (Implementation.compiler_repr * BslTypes.t) option =
-      let impl = JsParse.String.expr ~globalize:true impl in
+      let impl = JsParse.String.expr impl in
       let env = building.js_ctrans in
       if BslTags.never_projected bsltags then building, None else
       let trans_type = ref false in
