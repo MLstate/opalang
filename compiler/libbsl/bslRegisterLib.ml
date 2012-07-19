@@ -79,7 +79,7 @@ type depends = {
   d_parents                    : BPI.plugin_basename list ;
 
   d_js_code                    : ( filename * contents ) list ;
-  d_nodejs_code                    : ( filename * contents ) list ;
+  d_nodejs_code                : ( filename * contents ) list ;
   d_opa_code                   : ( filename * contents ) list ;
 
 }
@@ -934,6 +934,40 @@ let finalizing_js_code_conf s_js_confs s_js_code =
   in
   List.map map s_js_code
 
+let collect_exports bymap nodejs_code =
+  (* HACK: In compiled NodeJs code, we have to refer to bypasses by
+     their keys, and not by their compiler representation. This
+     happens because when the bypass is an alias to an identifier we
+     don't know if that identifier is plugin-local (in which case
+     client modules cannot refer to it directly) or a global one (in
+     which case it cannot be found in the plugin exports). Thus, we
+     need to export all such bypasses to their compiled
+     representations using the bsl key as the identifier, since at
+     this point the compiler representation still makes sense *)
+
+  let module BPM = BSL.ByPassMap in
+  let module I = BSL.Implementation in
+  let module CF = I.CompiledFunction in
+
+  let exports = BPM.fold (fun key bypass exports ->
+    let nodejs_impl =
+      BSL.ByPass.compiled_implementation bypass
+        ~lang:BslLanguage.nodejs in
+    match nodejs_impl with
+    | Some compiled ->
+      let rhs = JsCons.Expr.native (CF.compiler_repr compiled) in
+      let export =
+        JsCons.Statement.assign
+          (JsCons.Expr.dot
+             (JsCons.Expr.native "exports")
+             (BslKey.to_string key))
+          rhs in
+      export :: exports
+    | None -> exports
+  ) bymap []
+  in
+  let exports = Format.to_string JsPrint.pp_min#code exports in
+  nodejs_code @ [("exports", exports, BslJsConf.default)]
 
 let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session session =
 
@@ -972,14 +1006,7 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
 let finalizing_nodejs_package nodejs_code =
   let fold buf (filename, contents, conf) =
     ignore conf;
-    let contents =
-      try
-        JsParse.String.code ~throw_exn:true contents
-      with
-        _ -> OManager.error "Couldn't parse file %s\n" filename
-    in
-    let contents = JsUtils.export_to_global_namespace contents in
-    FBuffer.printf buf "%a\n" JsPrint.pp#code contents
+    FBuffer.printf buf "// From: %s\n%s\n" filename contents
   in
   let buf = FBuffer.create 1024 in
   List.fold_left fold buf nodejs_code
@@ -988,8 +1015,8 @@ let finalizing_js_keys ~final_bymap =
   let fold key bypass buf =
     match BSL.ByPass.compiled_implementation bypass ~lang:BslLanguage.js with
     | Some compiled ->
-        let skey = BslKey.to_string key in
-        let resolution = BSL.Implementation.CompiledFunction.compiler_repr compiled in
+      let skey = BslKey.to_string key in
+      let resolution = BSL.Implementation.CompiledFunction.compiler_repr compiled in
         (* HACK: As long as we access global variables using the
            "global" accessor, we need to bypass this check. As soon
            as we fix this, we have to change this back. *)
@@ -1058,7 +1085,9 @@ let finalize s =
   let f_ml_dynloader_plugin = s.s_ml_dynloader_plugin  in
 
   let f_js_code             = s.s_js_code in
-  let f_nodejs_package      = finalizing_nodejs_package s.s_nodejs_code in
+
+  let nodejs_code           = collect_exports final_bymap s.s_nodejs_code in
+  let f_nodejs_package      = finalizing_nodejs_package nodejs_code in
   let f_js_keys             = finalizing_js_keys ~final_bymap in
   let f_nodejs_code         = s.s_nodejs_code          in
 

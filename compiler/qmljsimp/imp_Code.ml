@@ -75,35 +75,46 @@ let is_it_void _env expr =
   aux expr
 
 let compile_bypass env key =
+  let module BP  = Imp_Bsl.JsImpBSL.ByPass         in
+  let module BPM = Imp_Bsl.JsImpBSL.ByPassMap      in
+  let module I   = Imp_Bsl.JsImpBSL.Implementation in
   let is_pure key =
-    match Imp_Bsl.JsImpBSL.ByPassMap.bsl_bypass_tags env.E.private_bymap ~lang:env.E.bsl_lang key with
+    match BPM.bsl_bypass_tags env.E.private_bymap ~lang:env.E.bsl_lang key with
     | None -> false
     | Some tag -> tag.BslTags.pure
   in
-  match Imp_Bsl.JsImpBSL.ByPassMap.find_opt_implementation env.E.private_bymap ~lang:env.E.bsl_lang key with
+  match BPM.find_opt_implementation env.E.private_bymap ~lang:env.E.bsl_lang key with
   | None ->
       OManager.error
         "bsl-resolution failed for: key %a" BslKey.pp key
   | Some compiled -> (
+    if BslLanguage.is_nodejs env.E.bsl_lang then
+      let plugin_name =
+        match BPM.find_opt env.E.private_bymap key with
+        | Some bypass -> BP.plugin_name bypass
+        | None -> assert false (* We know that some binding exists *) in
+      JsCons.Expr.dot
+        (JsCons.Expr.native ("__opa_" ^ plugin_name))
+        (BslKey.to_string key)
+    else
       match
-        Imp_Bsl.JsImpBSL.Implementation.CompiledFunction.compiler_detailed_repr compiled
+        I.CompiledFunction.compiler_detailed_repr compiled
       with
-      | Imp_Bsl.JsImpBSL.Implementation.Ident ident ->
-          JsCons.Expr.exprident ident
-      | Imp_Bsl.JsImpBSL.Implementation.String s ->
-          match JsParse.String.expr ~globalize:true s with
-          | J.Je_ident (p, J.Native (`global _, s)) ->
-              J.Je_ident (p, J.Native (`global (is_pure key), s))
-          | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
-              assert false
-          | x -> x
-            (*
-              No parse error should happen
-              This is verified at the moment we build the bypass plugin
-              If an injected code does not reparse, this is notified to
-              the developper of the plugin.
-            *)
-    )
+      | I.Ident ident -> JsCons.Expr.exprident ident
+      | I.String s ->
+        match JsParse.String.expr ~globalize:true s with
+        | J.Je_ident (p, J.Native (`global _, s)) ->
+          J.Je_ident (p, J.Native (`global (is_pure key), s))
+        | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
+          assert false
+        | x -> x
+          (*
+            No parse error should happen
+            This is verified at the moment we build the bypass plugin
+            If an injected code does not reparse, this is notified to
+            the developper of the plugin.
+          *)
+  )
 
 let may_alias_matched_begin cons private_env matched =
   (*
