@@ -190,15 +190,6 @@ let show_parse_error file_name content error_summary error_details pos =
       let line_int, col_int = FilePos.get_pos file_name pos in
       string_of_int line_int, string_of_int col_int, string_of_int pos
   in
-  let syntax_old = "classical ('old') syntax " in
-  let syntax_new = "revised ('new') syntax" in
-  let option_old = "--parser classic" in
-  let option_new = "--parser js-like" in
-  let used, other, hint_option =
-    match !OA.r.OA.parser with
-    | OpaSyntax.Classic -> syntax_old, syntax_new, option_new
-    | OpaSyntax.Js -> syntax_new, syntax_old, option_old
-  in
   (* FIXME: use really format *)
   OManager.printf "%s" (
     (Printf.sprintf "In %s [%s:%s-%s:%s | global chars=%s-%s]\n%s at line %s, column %s\n"
@@ -210,9 +201,6 @@ let show_parse_error file_name content error_summary error_details pos =
          (green (String.sub content begin_citation    length_citation  ))
          (red   (parse_error_flag^(String.sub content begin_error_zone  length_error_zone))))
     ^ (Printf.sprintf "%s: %s\n" (red "Hint") error_details)
-    ^ (Printf.sprintf "%s: You are now using the parser for the %s; if the source uses %s syntax then you should compile with %s option\n"
-         (red "Another hint") (red used) (red other) (red hint_option)
-      )
   ) ;
   OManager.error "Syntax error"
 (* ====================================================================================== *)
