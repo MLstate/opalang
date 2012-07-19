@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -57,7 +57,7 @@ sig
   (**
      raised if one of the [t] is in a cyclic dependency loop.
   *)
-  exception CyclicDep of t
+  exception CyclicDep of t list
 
   (**
      raised if 2 [t] of the input list of [sort] have

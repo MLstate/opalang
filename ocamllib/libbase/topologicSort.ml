@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -30,7 +30,7 @@ end
 module type S =
 sig
   type t
-  exception CyclicDep of t
+  exception CyclicDep of t list
   exception IndexConflict of t * t
   exception Not_found_index of string
   val sort : t list -> t list * (string * t list) list
@@ -44,7 +44,7 @@ end
 module Make (Elemt: ItemType) : S with type t = Elemt.t =
 struct
   type t = Elemt.t
-  exception CyclicDep of t
+  exception CyclicDep of t list
   exception IndexConflict of t * t
   exception Not_found_index of string
   type infos_elt =
@@ -77,9 +77,9 @@ struct
     let rec visite s infos_elt =
       if Hashtbl.mem visited s
       then ()
-      else
+      else try
         if Hashtbl.mem detect_cycle s
-        then raise (CyclicDep infos_elt.tri_topo_elt)
+        then raise (CyclicDep [])
         else
           let tri_topo_elt = infos_elt.tri_topo_elt in
           begin
@@ -101,6 +101,7 @@ struct
             Hashtbl.add visited s ();
             Stack.push tri_topo_elt ordered
           end
+        with CyclicDep l -> raise (CyclicDep (infos_elt.tri_topo_elt::l))
     in
     (* Faire le parcours dans l'ordre donne : stabilite du tri topo *)
     List.iter (fun (a, b) -> visite a b) list_dep;

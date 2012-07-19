@@ -1,4 +1,4 @@
-(*
+ (*
     Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
@@ -1436,11 +1436,19 @@ let reorder :
 
   let get_cache all_packages =
     try S.compute all_packages
-    with S.CyclicDep t ->
-      match t with
-      | None -> assert false (* you shouldn't be able to have cycles with the linking part *)
-      | Some (name,pos) ->
-          OManager.error "%a@\n  Cyclic dependency on the package %s." FilePos.pp_pos pos name in
+    with S.CyclicDep l ->
+      let names = List.filter_map (fun v -> v) l in
+      assert (names <> []);  (* you shouldn't be able to have cycles with the linking part *)
+      let (guilty,pos) as g = Base.List.last names in
+      let cycle_path = fst (List.split (
+        match Base.List.memi g names with
+        | None -> names
+        | Some i -> List.drop i names
+      ))
+      in
+      OManager.error "%a@\nCyclic dependency on the package %s.\nThe cycle is: [ %a ].\n" FilePos.pp_pos pos guilty
+        (BaseFormat.pp_list "@? -> " BaseFormat.pp_print_string) cycle_path
+  in
   let cache = get_cache all_packages in
   let transitive_closure_one =
     let rmap = ref !TopologicMPackage.rmap in
