@@ -157,7 +157,7 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
        how:GenChannel.how_send('msg, 'ser)) =
     report = how_to_report(how)
     match channel with
-    | ~{local  unserialize id ...} ->
+    | ~{local  ...} ->
       do post(ctx, how_to_message(how), local)
       report.success()
     | {entity = cid} -> send_to_entity(cid, how_to_serialized(how), report)
@@ -349,7 +349,7 @@ Channel = {{
           | ~{client} ->
             match cid with
             | {remote} -> error("Can't send a message to a remote session to a client")
-            | ~{other} ->
+            | {other=_} ->
               msg = {Record = [
                 ("type", {String = "chan"}),
                 ("id", serialize_cid(cid)),
@@ -478,7 +478,8 @@ ChannelServer = {{
     | _ -> none
 }}
 
-do ClientEvent.register_event({none},
+@private
+_registered_event =  ClientEvent.register_event({none},
    {disconnect},
    (client -> Channel.remove_entity(~{client}))
 )

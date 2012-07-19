@@ -50,7 +50,7 @@ WebSession = {{
         | _ -> bad_formatted()
       )
     | "send"       -> jbody() ?|> (
-        | {Record = [("to", to),("message", message)|then_]} ->
+        | {Record = [("to", to),("message", message)|_then_]} ->
           ThreadContext.get_opt({current}) ?|> context ->
           Channel.unserialize(to) ?|> channel ->
           serialize(_) = error("Should not happends")

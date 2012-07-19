@@ -223,8 +223,8 @@ Server = {{
 
     rec check(l) =
     match l : list(Server.handler)
-      [{dispatch=_}| [_|_] as tl]
-      [{page=_ ...}| [_|_] as tl] ->
+      [{dispatch=_}| [_|_] ]
+      [{page=_ ...}| [_|_] ] ->
         error("Checking Server.handler: page or dispatch case are not in last position")
       [_|tl] -> check(tl)
       _ -> {success}

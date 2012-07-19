@@ -294,8 +294,6 @@ Server_private = {{
            // touch_lang(_bool,it) = do ServerI18n.touch_user_lang(winfo.http_request)
            //                        some((it,void))
 
-          max_int = %% BslNumber.Int.max_int %%
-
           /* 2.1 - Parser which set the thread context */
           full_handler =
             build_thread_context(page) = {

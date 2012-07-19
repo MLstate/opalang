@@ -147,13 +147,6 @@ ResourceTracker = {{
         void
       | {true}  ->
         /* No collection in progress start a new one */
-        nb = LowLevelArray.fold(
-          ({value=manager ...}, nb ->
-            match call_or_error(manager, {expire}) with
-            | {success = {stop}} -> nb+1
-            | _ -> nb
-          ), Hashtbl.bindings(managers), 0
-        )
         @atomic(Reference.set(collect, false))
 
     /**

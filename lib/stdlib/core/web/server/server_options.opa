@@ -129,13 +129,15 @@ Server_options = {{
 
   string_of_opt_time(t:Server.private.opt_time) : string = match t with | {infinity} -> "inf" | {~seconds} -> "{seconds}"
 
+  @private
+  ned(dflt) = "(default: {dflt})"
+
   spec_args(name, init) =
     optname(opt) = if name == "" then "--{opt}" else "--{name}-{opt}"
-    ned(dflt) = if dflt == "" then "" else "(default: {dflt})"
     raw_parsers = [
       (["caml","node.js"],
       CL.string(List.append([optname("addr")],if name == "http" then ["-a"] else []),
-                "Sets the IP address on which the server should run (default:{init.addr})",
+                "Sets the IP address on which the server should run ned(init.addr)}",
                 "<string>"
                )(addr, p ->
                  if false // TODO: inet_addr_of_string
@@ -145,7 +147,7 @@ Server_options = {{
 
       (["caml","node.js"],
        CL.int([optname("port"), "-p", "--port"],
-             "Sets the port on which the server should run (default:{init.port})",
+             "Sets the port on which the server should run {ned(init.port)}",
              "<int>"
             )(port, p ->
               if port > 0xffff
@@ -155,37 +157,37 @@ Server_options = {{
 
       (["caml"],
       CL.bool([optname("long-cookies")],
-                "Use long cookies (default: {init.long_cookies})",
+                "Use long cookies {ned(init.long_cookies)}",
                 "<bool>"
                )(long_cookies, p -> {p with ~long_cookies})),
 
       (["caml"],
       CL.int([optname("cookie-expire-short")],
-                "Cookie expire time (short) seconds (default:{init.cookie_expire_time_short})",
+                "Cookie expire time (short) seconds {ned(init.cookie_expire_time_short)}",
                 "<int>"
                )(i, p -> {p with cookie_expire_time_short=i})),
 
       (["caml"],
       CL.int([optname("cookie-expire-long")],
-                "Cookie expire time (long) seconds (default:{init.cookie_expire_time_long})",
+                "Cookie expire time (long) seconds {ned(init.cookie_expire_time_long)}",
                  "<int>"
                )(i, p -> {p with cookie_expire_time_long=i})),
 
       (["caml","node.js"],
       CL.string([optname("long-cookie-expire-variable")],
-                "Long cookie variable expire time seconds (default:{string_of_opt_time(init.dt1)})",
+                "Long cookie variable expire time seconds {ned(string_of_opt_time(init.dt1))}",
                 "<int>|\"inf\""
                )(s, p -> {p with dt1=opt_time(s)})),
 
       (["caml","node.js"],
       CL.string([optname("long-cookie-expire-fixed")],
-                "Long cookie fixed expire time seconds (default:{string_of_opt_time(init.dt2)})",
+                "Long cookie fixed expire time seconds {ned(string_of_opt_time(init.dt2))}",
                 "<int>|\"inf\""
                )(s, p -> {p with dt2=opt_time(s)})),
 
       (["caml"],
       CL.int([optname("max-external-cookies")],
-                "Maximum number of concurrent external cookies per internal cookie (default:{init.max_external_cookies})",
+                "Maximum number of concurrent external cookies per internal cookie {ned(init.max_external_cookies)}",
                 "<int>"
                )(i, p -> {p with max_external_cookies=i})),
 
@@ -196,90 +198,90 @@ Server_options = {{
 
       (["caml"],
       CL.int([optname("server-send-buffer-size")],
-                "Server send buffer size (default:{init.server_send_buffer_size})",
+                "Server send buffer size {ned(init.server_send_buffer_size)}",
                 "<int>"
                )(i, p -> {p with server_send_buffer_size=i})),
 
       (["caml","node.js"],
       CL.int([optname("cookie-gc-period")],
-                "Cookie GC period in requests (default:{init.cookie_gc_period})",
+                "Cookie GC period in requests {ned(init.cookie_gc_period)}",
                 "<int>"
                )(i, p -> {p with cookie_gc_period=i})),
 
       (["caml","node.js"],
       CL.switch([optname("cookie-accept-client-values")],
-                "WARNING: Only with long cookies. Accept cookie values provided by the client instead of generating new one when they aren't found on the server cookie table (default:{init.cookie_accept_client_values})"
+                "WARNING: Only with long cookies. Accept cookie values provided by the client instead of generating new one when they aren't found on the server cookie table {ned(init.cookie_accept_client_values)}"
                )(p -> {p with cookie_accept_client_values=true})),
 
       (["caml","node.js"],
       CL.int([optname("cookie-pool-size-min")],
-                "Cookie pool size minimum (default:{init.cookie_pool_size_min})",
+                "Cookie pool size minimum {ned(init.cookie_pool_size_min)}",
                 "<int>"
                )(i, p -> {p with cookie_pool_size_min=i})),
 
       (["caml","node.js"],
       CL.int([optname("cookie-pool-size-max")],
-                "Cookie pool size maximum (default: {init.cookie_pool_size_max})",
+                "Cookie pool size maximum {ned(init.cookie_pool_size_max)}",
                 "<int>"
                )(i, p -> {p with cookie_pool_size_max=i})),
 
       (["caml","node.js"],
       CL.int([optname("cookie-timer-interval")],
-                "Cookie timer interval (seconds) (default: {init.cookie_timer_interval})",
+                "Cookie timer interval (seconds) {ned(init.cookie_timer_interval)}",
                 "<int>"
                )(i, p -> {p with cookie_timer_interval=i})),
 
       (["caml","node.js"],
       CL.float([optname("cookie-rate-max")],
-                "Cookie connection rate max (default: {init.cookie_rate_max})",
+                "Cookie connection rate max {ned(init.cookie_rate_max)}",
                 "<float>"
                )(f, p -> {p with cookie_rate_max=f})),
 
       (["caml"],
       CL.int([optname("cookie-period-max")],
-                "Cookie rotation period above max rate (default: {init.cookie_period_max})",
+                "Cookie rotation period above max rate {ned(init.cookie_period_max)}",
                 "<int>"
                )(i, p -> {p with cookie_period_max=i})),
 
       (["caml"],
       CL.float([optname("cookie-rate-ultimate")],
-                "Cookie connection rate ultimate (default: {init.cookie_rate_ultimate})",
+                "Cookie connection rate ultimate {ned(init.cookie_rate_ultimate)}",
                 "<float>"
                )(f, p -> {p with cookie_rate_ultimate=f})),
 
       (["caml"],
       CL.int([optname("cookie-period-ultimate")],
-                "Cookie rotation period above ultimate rate (default: {init.cookie_period_ultimate})",
+                "Cookie rotation period above ultimate rate {ned(init.cookie_period_ultimate)}",
                 "<int>"
                )(i, p -> {p with cookie_period_ultimate=i})),
 
       (["caml","node.js"],
       CL.string([optname("cookies-filename")],
-                "Cookies filename (empty=disabled) (default: {init.cookies_filename})",
+                "Cookies filename (empty=disabled) {ned(init.cookies_filename)}",
                 "<filename>"
                )(s, p -> {p with cookies_filename=s})),
 
       (["caml"],
       CL.float([optname("wait-for-request-timeout")],
-                "Timeout while waiting for requests (default: {init.server_wait_for_request_timeout})",
+                "Timeout while waiting for requests {ned(init.server_wait_for_request_timeout)}",
                 "<float>"
                )(f, p -> {p with server_wait_for_request_timeout=f})),
 
       (["caml"],
       CL.float([optname("wait-for-request-initial-timeout")],
-                "Initial timeout while waiting for requests (default: {init.server_wait_for_request_initial_timeout})",
+                "Initial timeout while waiting for requests {ned(init.server_wait_for_request_initial_timeout)}",
                 "<float>"
                )(f, p -> {p with server_wait_for_request_initial_timeout=f})),
 
       (["caml"],
       CL.float([optname("write-timeout")],
-                "Timeout while writing data (default: {init.server_write_timeout})",
+                "Timeout while writing data {ned(init.server_write_timeout)}",
                 "<float>"
                )(f, p -> {p with server_write_timeout=f})),
 
       (["caml"],
       CL.string([optname("remote-logs")],
-                "Log access to a remote server (WARNING: this is experimental) (default: no log server)",
+                "Log access to a remote server (WARNING: this is experimental) {ned("none")}",
                 "<hostname:port/appkey>"
                )(s, p ->
                  match String.explode(":",s) with
@@ -297,13 +299,13 @@ Server_options = {{
 
       (["caml"],
       CL.int([optname("maximum-content-length")],
-                "Maximum request content length (default: {init.maximum_content_length})",
+                "Maximum request content length {ned(init.maximum_content_length)}",
                 "<int>"
                )(i, p -> {p with maximum_content_length=i})),
 
       (["caml"],
       CL.int([optname("maximum-number-of-headers")],
-                "Maximum number of request headers (default: {init.maximum_number_of_headers})",
+                "Maximum number of request headers {ned(init.maximum_number_of_headers)}",
                 "<int>"
                )(i, p -> {p with maximum_number_of_headers=i})),
 
@@ -329,31 +331,31 @@ Server_options = {{
 
       (["caml"],
       CL.bool([optname("all-methods")],
-                "Use all HTTP methods (default:{init.all_methods}) - Only GET, HEAD and POST if false.",
+                "Use all HTTP methods {ned(init.all_methods)} - Only GET, HEAD and POST if false.",
                 "<bool>"
                )(b, p -> {p with all_methods=b})),
 
       (["caml","node.js"],
       CL.string([optname("ssl-cert")],
-                "Location of your SSL certificate (requires ssl-key) (default: {init.ssl_cert})",
+                "Location of your SSL certificate (requires ssl-key) {ned(init.ssl_cert)}",
                 "<file>"
                )(s, p -> {p with ssl_cert=s})),
 
       (["caml","node.js"],
       CL.string([optname("ssl-key")],
-                "Location of your SSL key (requires ssl-cert) (default: {init.ssl_key})",
+                "Location of your SSL key (requires ssl-cert) {ned(init.ssl_key)}",
                 "<file>"
                )(s, p -> {p with ssl_key=s})),
 
       (["caml","node.js"],
       CL.string([optname("ssl-pass")],
-                "Password of your SSL certificate (requires ssl-cert and ssl-key options) (default: {init.ssl_pass})",
+                "Password of your SSL certificate (requires ssl-cert and ssl-key options) {ned(init.ssl_pass)}",
                 "<string>"
                )(s, p -> {p with ssl_pass=s})),
 
       (["caml"],
       CL.string([optname("dialog")],
-                "Name of the http dialog to use  (default: {init.dialog})",
+                "Name of the http dialog to use  {ned(init.dialog)}",
                 "<string>"
                )(s, p -> {p with dialog=s})),
 

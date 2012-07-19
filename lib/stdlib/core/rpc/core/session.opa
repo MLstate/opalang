@@ -333,6 +333,7 @@ Session = {{
     @publish @server make_shared(key : string, state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
 //      do accept_make_at()
     #<Ifstatic:OPA_CHANNEL>
+      _ = (key, state, on_message)
       error("Make_shared is NYI")
     #<Else>
       Session_private.make_shared(

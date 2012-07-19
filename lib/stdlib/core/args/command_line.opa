@@ -321,7 +321,7 @@ type CommandLine.family('state) = {
    */
   select_backend(l:list((list(string),'a))) : list('a) =
     be = %%BslLogger.backend%%()
-    List.map((e -> e.f2),List.filter(((bes, a) -> List.mem(be,bes)),l))
+    List.map((e -> e.f2),List.filter((v -> List.mem(be,v.f1)),l))
 
   /**
    * {1 Deprecated}

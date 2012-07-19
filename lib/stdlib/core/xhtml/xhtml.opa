@@ -287,7 +287,7 @@ Xmlns =
        {nstag=~{namespace tag} ~args} = v1
        ~{args xmlns} = List.fold_left(~{xmlns args}, arg ->
                                        match arg
-                                       | ~{default} as x | ~{name uri} as x -> {xmlns = [x | xmlns] ~args}
+                                       | {default=_} as x | {name=_ uri=_} as x -> {xmlns = [x | xmlns] ~args}
                                        | {namespace=_ name=_ value=_} as a -> {~xmlns args = [a | args]}
                                       , {xmlns=[] args=[]}, args)
        {~content nstag=_} = v2
@@ -399,7 +399,7 @@ Xmlns =
 
   serialize_to_string(xmlns: xmlns): string =
     xhtml = to_xhtml(xmlns)
-    ~{js_code html_code} = Xhtml.prepare_for_export(default_ns_uri,xhtml,false)
+    ~{js_code html_code} = Xhtml.prepare_for_export(xhtml,false)
     do @assert(js_code == "")
     html_code
 
@@ -850,6 +850,24 @@ Xhtml =
 
   @both_implem new_id = String.fresh(200)
 
+  @private
+  serialize_xmlns(buffer, xmlns) =
+    List.iter(
+      | ~{name uri} ->
+        do Buffer.append(buffer, " xmlns:")
+        do Buffer.append(buffer, name)
+        do Buffer.append(buffer, "=\"")
+        do Buffer.append(buffer, uri)
+        do Buffer.append(buffer, "\"")
+        void
+      | ~{default} ->
+        do Buffer.append(buffer, " xmlns=\"")
+        do Buffer.append(buffer, default)
+        do Buffer.append(buffer, "\"")
+        void
+      , xmlns
+    )
+
  /**
    * Convert a [xhtml] subtree to a pair of strings containing the html proper and the corresponding JS code.
    *
@@ -870,32 +888,7 @@ Xhtml =
    * (i.e. the tags) and [js_code] contains the event handlers and the style information as a JS
    * string.
    */
-  prepare_for_export(default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
-    prepare_for_export_(true, default_ns_uri, xhtml, style_inline)
-
-  prepare_for_non_utf8_export(default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
-    prepare_for_export_(false, default_ns_uri, xhtml, style_inline)
-
-  @private
-  serialize_xmlns(buffer, xmlns) =
-    List.iter(
-      | ~{name uri} ->
-        do Buffer.append(buffer, " xmlns:")
-        do Buffer.append(buffer, name)
-        do Buffer.append(buffer, "=\"")
-        do Buffer.append(buffer, uri)
-        do Buffer.append(buffer, "\"")
-        void
-      | ~{default} ->
-        do Buffer.append(buffer, " xmlns=\"")
-        do Buffer.append(buffer, default)
-        do Buffer.append(buffer, "\"")
-        void
-      , xmlns
-    )
-
-  @private
-  prepare_for_export_(utf8, _default_ns_uri, xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
+  prepare_for_export(xhtml: xhtml, style_inline : bool): {js_code: string; html_code:string} =
   (
     html_buffer = Buffer.create(1024)//A buffer for storing the HTML source code
     js_buffer   = Buffer.create(1024)//A buffer for storing the JS source code -- at the last step, it is inserted in [html_buffer]
@@ -1193,13 +1186,13 @@ Xhtml =
     * Same with xhtml fields instead of string
     */
   prepare_for_export_as_xml_blocks(xhtml: xhtml) =
-    ~{html_code js_code} =  prepare_for_export(ns_uri,xhtml,false)
+    ~{html_code js_code} =  prepare_for_export(xhtml,false)
     html = of_string_unsafe(html_code)
     js   = of_string_unsafe(js_code)
     ~{html js}
 
   prepare_for_export_as_xml_blocks_non_utf8(xhtml: xhtml) =
-    ~{html_code js_code} =  prepare_for_export_(false,ns_uri,xhtml,false)
+    ~{html_code js_code} =  prepare_for_export(xhtml,false)
     html = of_string_unsafe(html_code)
     js   = of_string_unsafe(js_code)
     ~{html js}
@@ -1207,7 +1200,7 @@ Xhtml =
   /** Same as to_string */
   serialize_to_string(xhtml: xhtml): string =
   (
-    ~{js_code html_code} = prepare_for_export(ns_uri,xhtml,false)
+    ~{js_code html_code} = prepare_for_export(xhtml,false)
     if String.is_empty(js_code) then html_code
     else
       String.flatten([html_code,_script_start,js_code,_script_end])
@@ -1215,7 +1208,7 @@ Xhtml =
 
   /** Same as to_string but without js_code */
   serialize_as_standalone_html(xhtml: xhtml): string =
-    {js_code=_ ~html_code} = prepare_for_export(ns_uri,xhtml,true)
+    {js_code=_ ~html_code} = prepare_for_export(xhtml,true)
     html_code
 
   /**
@@ -1224,7 +1217,7 @@ Xhtml =
    * @return a dialect of html designed for this purpose
    */
   precompile(xhtml: xhtml): xhtml =
-   {html_code=html_code_unsafe js_code=js_code_unsafe} = prepare_for_export(ns_uri,xhtml,false)
+   {html_code=html_code_unsafe js_code=js_code_unsafe} = prepare_for_export(xhtml,false)
    {xml_dialect = some(~{html_code_unsafe js_code_unsafe})}
 
 

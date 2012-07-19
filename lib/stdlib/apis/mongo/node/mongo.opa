@@ -262,7 +262,7 @@ MongoDriver = {{
 
   check_collection(db:Mongo.db, collection:string): outcome(Mongo.db,Mongo.failure) =
     match db.collection with
-    | {some=(cname, coll)} -> if cname == collection then {success=db} else redocollection(db, collection)
+    | {some=(cname, _coll)} -> if cname == collection then {success=db} else redocollection(db, collection)
     | {none} -> redocollection(db, collection)
 
   check_namespace(db:Mongo.db, dbname:string, collection:string): outcome(Mongo.db,Mongo.failure) =
@@ -279,7 +279,7 @@ MongoDriver = {{
 
   // Note: we don't actually get access to the raw reply with the node.js driver
   // Here, the reply is actually the cursor
-  query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
+  query(m:Mongo.db, _flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(Mongo.reply) =
     query = NodeBson.of_document(query)
     returnFieldSelector_opt = Option.map(NodeBson.of_document, returnFieldSelector_opt)
@@ -289,9 +289,9 @@ MongoDriver = {{
        | {some=(_,coll)} ->
          (match NodeMongo.query(coll, numberToSkip, numberToReturn, query, returnFieldSelector_opt) with
           | ("", cursor) -> {some=cursor}
-          | (err, _) -> {none})
+          | (_err, _) -> {none})
        | {none} -> {none})
-    | {~failure} -> {none}
+    | {failure=_} -> {none}
 
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
     documents = List.map(NodeBson.of_document, documents)
@@ -302,9 +302,9 @@ MongoDriver = {{
          keepGoing = Bitwise.land(flags,MongoCommon.ContinueOnErrorBit) != 0
          (match NodeMongo.insert(coll, documents, keepGoing, false/*safe*/) with
           | ("", _result) -> true // numberInserted???
-          | (err, _) -> false)
+          | (_err, _) -> false)
        | {none} -> false)
-    | {~failure} -> false
+    | {failure=_} -> false
 
   updatee(m:Mongo.db, flags:int, ns:string, _dbname:string, selector:Bson.document, update:Bson.document): bool =
     selector = NodeBson.of_document(selector)
@@ -317,11 +317,11 @@ MongoDriver = {{
          multi = Bitwise.land(flags,MongoCommon.MultiUpdateBit) != 0
          (match NodeMongo.update(coll, selector, update, upsert, multi, false/*safe*/) with
           | ("", _numberUpdated) -> true
-          | (err, _) -> false)
+          | (_err, _) -> false)
        | {none} -> false)
-    | {~failure} -> false
+    | {failure=_} -> false
 
-  delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
+  delete(m:Mongo.db, _flags:int, ns:string, selector:Bson.document): bool =
     selector = NodeBson.of_document(selector)
     match check_ns(m, ns) with
     | {success=db} ->
@@ -329,9 +329,9 @@ MongoDriver = {{
        | {some=(_,coll)} ->
          (match NodeMongo.remove(coll, selector, false/*safe*/) with
           | ("", _numberRemoved) -> true
-          | (err, _) -> false)
+          | (_err, _) -> false)
        | {none} -> false)
-    | {~failure} -> false
+    | {failure=_} -> false
 
   create_index(m:Mongo.db, ns:string, key:Bson.document, options:int): bool =
     key = NodeBson.of_document(key)
@@ -345,9 +345,9 @@ MongoDriver = {{
          dropDups = Bitwise.land(options,MongoCommon.DropDupsBit) != 0
          (match NodeMongo.createIndex(coll, key, unique, sparse, background, dropDups, false/*safe*/) with
           | ("", _indexName) -> true
-          | (err, _) -> false)
+          | (_err, _) -> false)
        | {none} -> false)
-    | {~failure} -> false
+    | {failure=_} -> false
 
   check(m:Mongo.db) = {success = m} //TODO
 
@@ -358,7 +358,7 @@ MongoDriver = {{
 
 MongoReplicaSet = {{
 
-    init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db =
+    init(name:string, _bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db =
     do if log then MongoLog.info("MongoReplicaSet.init","seeds={seeds}",void)
     servers = List.map((((host, port)) -> NodeMongo.server(host, port, true, pool_max)), seeds)
     replset = NodeMongo.replset(servers)

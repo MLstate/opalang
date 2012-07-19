@@ -1944,7 +1944,7 @@ Dom = {{
    *   take also the the dom node that own this specific attributes.
    */
   from_xml(xml : xml('attribute, 'extensions),
-           default_namespace:string,
+           _default_namespace:string,
            handle_dialect : 'extensions -> dom_element,
            handle_attribute : (XmlNsEnv.t, string/*tag*/, list(string_assoc(string)), dom_element, 'attribute -> void)) =
     rec aux(aux_xml : xml('attribute, 'extensions), nsenv) =
