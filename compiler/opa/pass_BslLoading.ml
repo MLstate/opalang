@@ -258,7 +258,9 @@ let resolve_entry search_path entry =
           aux extrapath
 
 (* Return plugins listed in [plugins] that are directly mentioned by
-   [code]. *)
+   [code]. The compiler currently outputs direct calls to opabsl, so
+   we must include that as well even if the code doesn't explicitely
+   mention it. *)
 let find_used_plugins bypass_map code plugins =
   let collect_bypasses used_bypasses (expr, _) =
     match expr with
@@ -273,7 +275,7 @@ let find_used_plugins bypass_map code plugins =
         StringSet.add (BslLib.BSL.ByPass.plugin_name bypass) used_plugins_names
       else
         used_plugins_names
-    ) bypass_map StringSet.empty in
+    ) bypass_map (StringSet.singleton "opabsl") in
   let used_plugins =
     StringSet.fold (fun used_plugin_name used_plugins ->
       let used_plugin = List.find (fun plugin ->
