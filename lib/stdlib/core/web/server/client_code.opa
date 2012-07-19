@@ -120,7 +120,7 @@ import stdlib.core.{js, rpc.core}
     match D.unser(unser_code, string, true) with
     | {success=code} -> /*do jlog("unser_adhoc: code ok")*/ code
     | {~failure} ->
-       do error("Client_code.unser_adhoc => {failure}")
+       do error("Client_code.unser_adhoc => {failure}"):void
        LowLevelArray.empty
 
   unser_string = D.unser_string(Pack.bigEndian, Pack.sizeLong, _)

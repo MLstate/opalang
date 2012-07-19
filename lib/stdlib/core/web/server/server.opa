@@ -227,7 +227,7 @@ Server = {{
       [{page=_ ...}| [_|_] ] ->
         error("Checking Server.handler: page or dispatch case are not in last position")
       [_|tl] -> check(tl)
-      _ -> {success}
+      _ -> void
 
     rec flatten(handler:Server.handler):list(Server.handler) =
       match handler

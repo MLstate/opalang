@@ -673,7 +673,7 @@ Bson = {{
     p : Parser.general_parser(void) = parser
       | [%] h=Rule.hexadecimal -> Buffer.append(b, Cactutf.cons(h))
       | c=. -> Buffer.append(b, Cactutf.cons(c))
-    do Parser.parse(parser p+, source)
+    do Parser.parse(parser p+ -> void, source)
     Buffer.contents(b)
 
   encode_field =
