@@ -354,8 +354,24 @@ let check_column_variables_are_in_bijection v_vars w_vars =
     true
   with Not_found -> false
 
+(* ************************************************************************** *)
+(** {b Descr}: Internal function catches the exception thrown by
+    [__unify_simple_type] and raises a new one that contains the initial type
+    and not its synonim (i.e. list(string) instead of 
+    {head:string; tl:list(string)} / nil)
+    @raise Unification_simple_type_conflict
+    {b Visibility}: Not exported outside this module.                         *)
+(* ************************************************************************** *)
 
+let rec __unify_and_return_higher_type env seen_expansions ty1' ty2' ty1 ty2 = 
+  try
+    __unify_simple_type env seen_expansions ty1' ty2'
+  with (Unification_simple_type_conflict (ty3, ty4, context)) ->
+    if ty1' == ty3 || ty1' == ty3 || ty2' == ty4 || ty2' == ty4
+     then raise (Unification_simple_type_conflict(ty1, ty2, context))
+     else raise (Unification_simple_type_conflict(ty3, ty4, context))
 
+    
 (* ************************************************************************** *)
 (** {b Descr}: Internal function performing unification of 2 simple types.
     In any case (error or success), this function keeps the trace of the
@@ -366,7 +382,7 @@ let check_column_variables_are_in_bijection v_vars w_vars =
     @raise Unification_binding_level_conflict
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-let rec __unify_simple_type env seen_expansions ty1 ty2 =
+and __unify_simple_type env seen_expansions ty1 ty2 =
   #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
   OManager.printf "__unify_simple_type: %a VERSUS %a@."
     W_PrintTypes.pp_simple_type_start_sequence ty1
@@ -599,7 +615,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-        __unify_simple_type env seen_expansions' ty2 ty1'
+        __unify_and_return_higher_type env seen_expansions' ty2 ty1' ty2 ty1
        )
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = None })) -> (
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
@@ -613,7 +629,7 @@ let rec __unify_simple_type env seen_expansions ty1 ty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-          __unify_simple_type env seen_expansions' ty1 ty2'
+          __unify_and_return_higher_type env seen_expansions' ty1 ty2' ty1 ty2
        )
     | ((W_Algebra.SType_sum_of_records col1),
        (W_Algebra.SType_sum_of_records col2)) -> (
@@ -789,7 +805,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
       raise
         (Unification_simple_type_conflict
            (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-    __unify_simple_type env seen_expansions'' ty1' ty2'
+    __unify_and_return_higher_type env seen_expansions'' ty1' ty2' ty1 ty2
   )
   else (  (* Else 0. *)
     (* Not ((h_nty1 < 0) && (h_nty2 < 0)). *)
@@ -808,7 +824,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
         raise
           (Unification_simple_type_conflict
              (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-      __unify_simple_type env seen_expansions' ty2 ty1'
+      __unify_and_return_higher_type env seen_expansions' ty2 ty1' ty2 ty1
     )
     else (  (* Else 1. *)
       (* (h_nty1 >= 0). *)
@@ -827,7 +843,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-        __unify_simple_type env seen_expansions' ty1 ty2'
+        __unify_and_return_higher_type env seen_expansions' ty1 ty2' ty1 ty2
       )
       else (   (* Else 2. *)
         (* None of heights are negative. *)
@@ -852,7 +868,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
               (Unification_simple_type_conflict
                  (ty1, ty2,
                   { ucd_kind = DK_none ; ucd_through_field = None })) ;
-          __unify_simple_type env seen_expansions'' ty1' ty2'
+          __unify_and_return_higher_type env seen_expansions'' ty1' ty2' ty1 ty2
         )
         else (   (* Else 3. *)
           (* None of heights are negative and they are not equal.
@@ -878,7 +894,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
                 (Unification_simple_type_conflict
                    (ty1, ty2,
                     { ucd_kind = DK_none ; ucd_through_field = None })) ;
-            __unify_simple_type env seen_expansions' ty1 ty2'
+            __unify_and_return_higher_type env seen_expansions' ty1 ty2' ty1 ty2
           )
           else (   (* Else 4. *)
             #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
@@ -899,7 +915,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
                 (Unification_simple_type_conflict
                    (ty1, ty2,
                     { ucd_kind = DK_none ; ucd_through_field = None })) ;
-            __unify_simple_type env seen_expansions' ty2 ty1'
+            __unify_and_return_higher_type env seen_expansions' ty2 ty1' ty2 ty1
           )     (* End of else 4. *)
         )       (* End of else 3. *)
       )         (* End of else 2. *)
