@@ -149,6 +149,7 @@ JsOptions =
       do jlog("[JSAST] {m} : {Duration.to_formatted_string(Duration.long_time_with_ms_printer, d)}")
       r
     #<Else>
+      _ = m
       x
     #<End>
 
