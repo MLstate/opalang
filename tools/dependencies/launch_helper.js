@@ -28,7 +28,7 @@ dependencies = dependencies.filter(function(dependency, index, array) {
     } catch(e) {
         return (e.code === 'MODULE_NOT_FOUND');
     }
-})
+});
 
 if (dependencies.length > 0) {
     console.error(
