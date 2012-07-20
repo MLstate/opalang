@@ -238,7 +238,7 @@ install-man:
 	@printf "Installing into $(INSTALL_DIR)/share/man[K\r"
 	@if [ -d $(BUILD_DIR)/man/man1 ]; then \
 	  mkdir -p $(INSTALL_DIR)/share/man/man1; \
-	  $(INSTALL) -r $(BUILD_DIR)/man/man1/*.1 $(INSTALL_DIR)/share/man/man1; \
+	  $(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1; \
 	fi
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 

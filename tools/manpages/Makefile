@@ -32,6 +32,7 @@ view: $(TARGETS)
 $(TARGETDIR)/%.1: %.man
 	@mkdir -p $(TARGETDIR)
 	cp $< $@
+	gzip -f $@
 
 # --
 # second run specific manpage generation programs
@@ -42,6 +43,7 @@ $(BLDDIR)/compiler/opa/gen_opa_manpage.native: ../../compiler/opa/gen_opa_manpag
 $(TARGETDIR)/opa.1: $(BLDDIR)/compiler/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
+	gzip -f $@
 
 $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_opatop_manpage.ml
 	cd ../..; $(OCAMLBUILD) compiler/opatop/gen_opatop_manpage.native
@@ -49,6 +51,7 @@ $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_o
 $(TARGETDIR)/opatop.1: $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
+	gzip -f $@
 
 # --
 # third run our hackish conversion tool help->manpage
@@ -69,3 +72,4 @@ $(TARGETDIR)/%.help: $(BLDDIR)/lib/opa/bin/%
 $(TARGETDIR)/%.1: $(TARGETDIR)/%.help $(GENMAN)
 	@mkdir -p $(TARGETDIR)
 	$(GENMAN) $* $(TARGETDIR)/$* > $@
+	gzip -f $@
