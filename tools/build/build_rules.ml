@@ -1015,6 +1015,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        Seq[
          Echo(conf, "conf");
          Cmd(S([Sh"mkdir";A"-p";P opx_dir;]));
+         Cmd(S([Sh"rm -rf";P (opx_dir/"*.opp")]));
          Cmd(S([Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
                 get_tool "opa-bin";
                 A"--autocompile";
@@ -1024,6 +1025,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
                 A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"--parser"; A"classic";
+                A"--opx-dir"; P opa_prefix;
                 A"-I"; A plugins_dir;
                 opaopt;
                 S all_files;

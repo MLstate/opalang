@@ -91,6 +91,8 @@ let get_missing_or_different_cases col_ty1 col_ty2 =
       flat_cases1 in
   MODCK_different (miss1_in2, miss2_in1)
 
+let plurial n = if n>1 then "s" else ""
+let are n = if n=1 then "is" else "are"
 
 (* ************************************************************************** *)
 (** {b Descr}: Tries to give hints, clues about why 2 types reported by an
@@ -243,12 +245,7 @@ let pp_unification_conflict_detail ppf detail =
   let something_printed =
     (match detail.W_Unify.ucd_kind with
      | W_Unify.DK_none -> false
-     | W_Unify.DK_fun_type_arity (n1, n2) ->
-         Format.fprintf ppf
-           ("@\n@[<2>@{<bright>Hint@}:@\nFunction@ types@ have@ different@ " ^^
-              "arguments@ arity@ (%d@ versus@ %d).@]@\n")
-           n1 n2 ;
-         true
+     | W_Unify.DK_fun_type_arity _ -> false
      | W_Unify.DK_named_type_arity (ty_name, n1, n2) ->
          Format.fprintf ppf
            ("@\n@[<2>@{<bright>Hint@}:@\nNamed@ type@ @{<red>%s@}@ is@ " ^^
@@ -377,7 +374,7 @@ let pp_precise_error ppf (t1, i1, t2, i2) =
     if cmp <= 0 then (t1, i1, t2, i2) else (t2, i2, t1, i1) in
   compare_types t1 t2;
   Format.fprintf ppf
-    "@\n   @[@[%a%a@]@\n@[%a%a@]@\n"
+    "@\n  @[@[%a%a@]@\n@[%a%a@]@\n"
         pp_info i1
         W_PrintTypes.pp_simple_type_start_sequence t1
         pp_info i2
@@ -435,7 +432,7 @@ let report_fun_conflict
           QmlError.Context.annoted_expr public_annotmap_with_locs expr in
         QmlError.error ~msg:reason err_ctxt
            ("%a@\n@[<2>Can not match function type with %a.@]" ^^
-           "@\n@[<2>@{<bright>Hint@}:The  of expression  should have" ^^
+           "@\n@[<2>@{<bright>Hint@}:The expression should have" ^^
            " function type@\n%a@]@.")
             pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
             W_PrintTypes.pp_simple_type err_ty
@@ -454,7 +451,7 @@ let report_fun_conflict
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       QmlError.error ~msg:reason  err_ctxt
-        "%a@\n@[<2>Expression %s is not a function, it can not be applied.@."
+        "%a@\n@[<2>Expression @{<red>%s@} is not a function, it can not be applied.@."
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
         fun_name
      )
@@ -531,11 +528,10 @@ let report_unification_conflict_with_context
            QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       let replace_message str = 
             QmlError.error ~msg:reason err_ctxt
-              ("%a@\n@[<2>The @{<red>%s@} of function %s should be "^^
-               "of type@ @{<red>%a@}@ " ^^
-               "instead of@ @{<red>%a@}@]@.")
+              ("%a@[@\nThe %s of function @{<red>%s@} should be of type@\n\t[@{<red>%a@}@]" ^^
+               "@\ninstead of @\n\t@[@{<red>%a@}@]@]@.")
                   pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
-                  str 
+                  str
                   fun_name
                   W_PrintTypes.pp_simple_type_start_sequence err_ty1
                   W_PrintTypes.pp_simple_type_continue_sequence err_ty2 in
@@ -543,8 +539,8 @@ let report_unification_conflict_with_context
       let ty_loc2 = W_TypeInfo.retrieve tmp_fun_ty.W_Algebra.sty_desc in
       let default_message _ = 
             QmlError.error ~msg:reason err_ctxt
-             ("%a@\n@[<2>Function %s was found of type@\n@{<red>%a@}@\n" ^^
-              "but application expects it to be of type@\n@{<red>%a@}@]%a%a@.")
+             ("%a@[@\nFunction @{<red>%s@} has type@\n\t[@{<red>%a@}@]" ^^
+              "@\nbut is applied as a@\n\t@[@{<red>%a@}@]@]%a%a@.")
                pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
               fun_name
               W_PrintTypes.pp_simple_type_start_sequence fun_pat_ty
@@ -561,12 +557,11 @@ let report_unification_conflict_with_context
            let arg_number1 = List.length args1 in
            let arg_number2 = List.length args2 in
            if arg_number1 != arg_number2 then (
-            QmlError.error ~msg:"@[<2>Different Number of Arguments" err_ctxt
-              ("%a@\n@[<2>Function %s expects %d argument%s," ^^
-               " but it is given %d.@]@.")
+            QmlError.error ~msg:"@[<2>Different number of Arguments" err_ctxt
+              ("%a@\n@[<2>Function @{<red>%s@} takes %d argument%s, but %d %s given.@]@.")
                 pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
-                fun_name arg_number1
-                  (if arg_number1 = 1 then "" else "s") arg_number2
+                fun_name arg_number1 (plurial arg_number1)
+                arg_number2 (are arg_number2)
            ) else
               let err_ty1_in_tmp =
                     W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc
@@ -592,9 +587,8 @@ let report_unification_conflict_with_context
                    match (err_ty1_in_tmp, err_ty2_in_tmp) with
                     | (Some (_, str1), Some (_, str2)) -> (
                     QmlError.error ~msg:reason err_ctxt
-                     ("%a@\n@[<2>The@ @{<red>%s@}@ and the@ @{<red>%s@}@ " ^^
-                      "of function %s " ^^
-                      "should be the same@]@.")
+                     ("%a@\n@[<2>The types of the@ @{<red>%s@}@ and the@ @{<red>%s@}@ " ^^
+                      "of function @{<red>%s@} should be the same@]@.")
                         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
                         str1 str2
                         fun_name
@@ -885,21 +879,16 @@ let report_unification_conflict_with_context
       W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
-      let ty_loc1 = W_TypeInfo.retrieve body_ty.W_Algebra.sty_desc in
-      let ty_loc2 = W_TypeInfo.retrieve expected_ty.W_Algebra.sty_desc in
+      (* assuming recursive value are function *)
       QmlError.error ~msg:reason err_ctxt
-        ("%a@\n@[<2>Value @{<red>%s@} is defined with type@\n@{<red>%a@}@\n"^^
-         "but is used as having type @\n@{<red>%a@}@\n@]%a%a%a@.")
+        ("%a@[@\nFunction @{<red>%s@} is defined as a@\n\t[@{<red>%a@}@]"^^
+         "@\nbut is applied as a@\n\t@[@{<red>%a@}@]@]%a%a@.")
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
         (Ident.original_name binding_name)
         W_PrintTypes.pp_simple_type_start_sequence body_ty
         W_PrintTypes.pp_simple_type_continue_sequence expected_ty
         try_explain_ty_incompatibility (err_ty1, err_ty2)
         pp_unification_conflict_detail detail
-        pp_location_hints ( err_ty1, err_loc1
-                          , err_ty2, err_loc2
-                          , body_ty , ty_loc1
-                          , expected_ty, ty_loc2)
   | W_InferErrors.UCC_unknown_directive (expr, expected_ty, inferred_ty) -> (
       let directive_name =
         match expr with

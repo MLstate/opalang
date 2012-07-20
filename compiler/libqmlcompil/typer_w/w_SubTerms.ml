@@ -3,7 +3,7 @@ let int_to_string = function
   | 1 -> "first"
   | 2 -> "second"
   | 3 -> "third"
-  | n -> string_of_int n ^ "rd"
+  | n -> string_of_int n ^ "-th"
 
 
 let rec locate_subterms s t =
