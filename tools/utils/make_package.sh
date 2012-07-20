@@ -303,7 +303,7 @@ fi
 #############################
 
 if [ "$DEB" = "true" ]; then
-    MAINTAINER="package.maintainer@opalang.org"
+    MAINTAINER="MLstate <package.maintainer@opalang.org>"
     PREFIX=/usr
     WORKDIR=$(mktemp -d /tmp/mkdeb.XXXXX)
     cd $WORKDIR
