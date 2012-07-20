@@ -563,6 +563,9 @@ rule "opabsl files"
   )
 ;
 
+let client_lib_output_js =
+  "lib"/"plugins"/"opabsl"/"js_validation"/"imp_client_lib.js" in
+
 rule "Client lib JS validation"
   ~deps: (
          "compiler/qmljsimp/qmlJsImpClientLib.js" ::
@@ -575,33 +578,26 @@ rule "Client lib JS validation"
          (tool_deps "jschecker_externals.js") @
          (tool_deps "jschecker_clientliblib.js") @
          (tool_deps "jschecker_jquery.js") )
-  ~prods:[
-    "lib/plugins/opabsl/js_validation/imp_client_lib.js";
-  ]
+  ~prods:[client_lib_output_js]
  (fun env build ->
-    let run_check clientlib output_file =
-      let local = is_win32 in
-      [
-        Cmd(S [Sh"mkdir"; A"-p";P "lib/plugins/opabsl/js_validation"]);
-        Cmd(S(
-          js_checker @
-            A"--externs"        :: (get_tool ~local "jschecker_externals.js") ::
-            A"--externs"        :: (get_tool ~local "jschecker_jquery.js") ::
-            A"--externs"        :: (get_tool ~local "jschecker_clientliblib.js") ::
-            A"--js_output_file" :: A output_file ::
-            A"--js"             :: A clientlib ::
-            A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ::
-            A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ::
-            A"--js"             :: A "lib/plugins/opabsl/jsbsl/selection_ext_bsldom.externs.js" ::
-            A"--js"             :: A "lib/plugins/opabsl/jsbsl/jquery_extra.externs.js" ::
-            A"--js"             :: A "compiler/qmlcps/qmlCpsClientLib.js" ::
-            []
-        ))
-      ]
-   in
-    Seq (
-      run_check "compiler/qmljsimp/qmlJsImpClientLib.js" "lib/plugins/opabsl/js_validation/imp_client_lib.js"
-    )
+   let local = is_win32 in
+   Seq[
+     Cmd(S [Sh"mkdir"; A"-p";P "lib/plugins/opabsl/js_validation"]);
+     Cmd(S(
+       js_checker @ [
+         A"--externs"        ; (get_tool ~local "jschecker_externals.js") ;
+         A"--externs"        ; (get_tool ~local "jschecker_jquery.js") ;
+         A"--externs"        ; A "lib/plugins/opabsl/jsbsl/jquery_ext_bslanchor.externs.js" ;
+         A"--externs"        ; A "lib/plugins/opabsl/jsbsl/jquery_ext_jQueryExtends.externs.js" ;
+         A"--externs"        ; A "lib/plugins/opabsl/jsbsl/selection_ext_bsldom.externs.js" ;
+         A"--externs"        ; A "lib/plugins/opabsl/jsbsl/jquery_extra.externs.js" ;
+         A"--js"             ; A ("compiler"/"qmljsimp"/"qmlJsImpClientLib.js") ;
+         A"--js"             ; A ("compiler"/"qmlcps"/"qmlCpsClientLib.js") ;
+         A"--js"             ; A ("compiler"/"qml2js"/"clientLibLib.js") ;
+         A"--js_output_file" ; A client_lib_output_js ;
+       ]
+     ))
+   ]
  );
 
 (*
@@ -621,6 +617,28 @@ let jsdocdir =
 in
 
 let jsdoc_target = "doc.jsbsl" in
+
+let alljs_dest_bsl = [client_lib_output_js] in
+
+rule "opa-bslgenMLRuntime JS documentation"
+  ~deps:alljs_dest_bsl
+  ~prods: (
+    [ jsdoc_target ^ "/index.html" ]
+  )
+  (fun env build ->
+     Cmd(S(
+           A"java" ::
+           A("-Djsdoc.dir="^jsdocdir) ::
+           A("-Djsdoc.template.dir="^jsdocdir^"/templates") ::
+           A"-jar" ::
+           A(jsdocdir^"/jsrun.jar") :: A(jsdocdir^"/app/run.js") ::
+           A("-t="^(jsdocdir^"/templates/jsdoc")) ::
+           A("--allfunctions") ::
+           (* Set the target directory *)
+           A("-d="^jsdoc_target) ::
+           (List.map (fun js -> A js) alljs_dest_bsl)
+         ))
+  );
 
 (* ------------------------------------------------------------------ *)
 (* Additional rules: final compilation (compiling using our backends) *)

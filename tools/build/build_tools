@@ -76,7 +76,7 @@ internal jschecker_cpsclientlib.js 	compiler/qmlcps/qmlCpsClientLib.externs.js 	
 internal jschecker_clientlib.js 	compiler/qml2js/clientLib.externs.js 		share/opa/jschecker
 internal jschecker_clientliblib.js 	compiler/qml2js/clientLibLib.externs.js 	share/opa/jschecker
 internal jschecker_externals.js 	tools/jschecker/externs.js 			share/opa/jschecker
-internal jschecker_jquery.js 		lib/plugins/opabsl/jsbsl/jquery-1.6.externs.js 	share/opa/jschecker
+internal jschecker_jquery.js 		lib/plugins/opabsl/jsbsl/jquery.externs.js 	share/opa/jschecker
 
 # for the linking of servers
 internal runtimeMain.cmx	ocamllib/libnet/runtimeMain.cmx			lib/opa/static
