@@ -82,7 +82,7 @@ cmi-in-lib = $(shell grep -si '^\(\([^\#].* \)\? *\|?[^: ]\+:\)$(1)\( \|$$\)' $(
 # arguments: lib name, directory
 lib-cmi = \
 $(foreach cmi,$(wildcard $(BUILD_DIR)/$(2)/*.cmi),\
-$(if $(call cmi-in-lib,$(2)/$(notdir $(basename $(cmi))),$(1)),\
+$(if $(call cmi-in-lib,$(2)/$(notdir $(basename $(cmi))),$(2)),\
 $(cmi:$(BUILD_DIR)/%=%)))
 
 # Generate a specialised Makefile from build_libs
@@ -188,9 +188,9 @@ install-tools:
 
 .PHONY: *.html
 %.html: $(MYOCAMLBUILD) %.odocl
-	$(OCAMLBUILD) $*.docdir/index.html
-	@rm -rf $(BUILD_DIR)/$@
-	@mv $(BUILD_DIR)/$*.docdir $(BUILD_DIR)/$@
+	 $(OCAMLBUILD) $*.docdir/index.html
+	 @rm -rf $(BUILD_DIR)/$@
+	 @mv $(BUILD_DIR)/$*.docdir $(BUILD_DIR)/$@
 
 .PHONY: *.man
 %.man: $(MYOCAMLBUILD) %.odocl
