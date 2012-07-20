@@ -530,7 +530,7 @@ rule "opa_plugin_dir: opa_plugin -> oppf"
 let opabsl_files =
   (List.map (fun file -> plugins_dir/"opabsl.opp"/file) [
     "opabslPlugin.ml"; "opabslMLRuntime.ml";
-    "opabslLoader.ml"; "serverLib.mli"
+    "opabslLoader.ml"; "serverLib.mli"; "opabslNodeJsPackage.js"
   ])
 in
 
@@ -621,8 +621,11 @@ in
 
 let jsdoc_target = "doc.jsbsl" in
 
+let js_doc_input =
+  (plugins_dir/"opabsl.opp"/"opabslNodeJsPackage.js") :: client_lib_files in
+
 rule "opa-bslgenMLRuntime JS documentation"
-  ~deps:(client_lib_validation_output :: client_lib_files)
+  ~deps:(client_lib_validation_output :: js_doc_input)
   ~prod:(jsdoc_target ^ "/index.html")
   (fun env build ->
      Cmd(S(
@@ -635,7 +638,7 @@ rule "opa-bslgenMLRuntime JS documentation"
            A("--allfunctions") ::
            (* Set the target directory *)
            A("-d="^jsdoc_target) ::
-           (List.map (fun js -> P js) client_lib_files)
+           (List.map (fun js -> P js) js_doc_input)
          ))
   );
 
