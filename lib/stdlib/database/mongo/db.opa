@@ -762,7 +762,7 @@ DbSet = {{
       List.iter(idx -> index(db, path, idx), idxs)
     )
 
-  @package genbuild(_db, _ns, id, default:'a, reply, limit):DbMongoSet.engine('a) =
+  @package genbuild(db, ns, id, default:'a, reply, limit):DbMongoSet.engine('a) =
     match reply with
     | {none} ->
       do Log.error("DbGen/Mongo", "(failure) Read from {id} set doesn't returns anything")
@@ -770,7 +770,7 @@ DbSet = {{
     | {some=reply} ->
       rec next(consummed, reply) =
         #<Ifstatic:OPA_BACKEND_QMLJS>
-        _ = consummed
+        _ = (consummed, db, ns)
         do MongoDriver.cclose(reply)
         {none}
         #<Else>
