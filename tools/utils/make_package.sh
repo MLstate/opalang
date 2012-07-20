@@ -334,12 +334,12 @@ Description: The unified language for web 2.0 development
  including AJAX features, database, etc. from single source files.
 EOF
 
-    cat > debian/DEBIAN/postinst <<EOF
-#!/usr/bin/env sh
+#     cat > debian/DEBIAN/postinst <<EOF
+# #!/bin/sh
 
-# npm install -g mongodb formidable nodemailer simplesmtp imap
-EOF
-    chmod 755 debian/DEBIAN/postinst
+# # npm install -g mongodb formidable nodemailer simplesmtp imap
+# EOF
+#     chmod 755 debian/DEBIAN/postinst
 
     # The wrapper scripts are always bound to $PREFIX, pre-generate them...
     $DEBROOT$PREFIX/share/opa/install.sh --quiet --dir "$DEBROOT$PREFIX" --prefix "$PREFIX"
