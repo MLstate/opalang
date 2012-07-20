@@ -483,6 +483,7 @@ let is_void ty =
   | _ -> false
 
 
+let plurial n = if n>1 then "s" else ""
 
 let rec __pp_simple_type prio ppf ty =
   (* Morally, no need to "repr" since this has already been done by
@@ -569,9 +570,9 @@ let rec __pp_simple_type prio ppf ty =
                if context.print_level = Function
                 then Format.fprintf ppf "function"
                else if context.print_level = Function_With_N_Arguments
-                then
-                  Format.fprintf ppf "function with %d arguments"
-                   (List.length args_tys)
+               then
+                 let n = List.length args_tys in
+                 Format.fprintf ppf "%d-argument%s function" n (plurial n)
              )
            else if not (context.print_level == Complete_Type)
              then (
