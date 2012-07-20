@@ -286,7 +286,7 @@ SearchUtils = {{
  * {1 Interface}
  */
 
-Search = {{
+MongoSearch = {{
 
   notice(s) = Log.notice("SEARCH: ", s)
 
