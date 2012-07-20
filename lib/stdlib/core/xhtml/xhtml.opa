@@ -11,7 +11,7 @@
 */
 
 import-plugin server
-import stdlib.core.{iter, web.core, rpc.core, parser, funaction, mutable.buffer, unification, js}
+import stdlib.core.{iter, web.core, rpc.core, parser, funaction, unification, js}
 
 /**
  * {1 About this module}
