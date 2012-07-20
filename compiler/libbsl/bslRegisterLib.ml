@@ -944,12 +944,11 @@ let collect_exports bymap nodejs_code =
      need to export all such bypasses to their compiled
      representations using the bsl key as the identifier, since at
      this point the compiler representation still makes sense *)
-
   let module BPM = BSL.ByPassMap in
   let module I = BSL.Implementation in
   let module CF = I.CompiledFunction in
 
-  let exports = BPM.fold (fun _key bypass exports ->
+  let exports = BPM.fold (fun key bypass exports ->
     let nodejs_impl =
       BSL.ByPass.compiled_implementation bypass
         ~lang:BslLanguage.nodejs in
@@ -960,7 +959,7 @@ let collect_exports bymap nodejs_code =
         JsCons.Statement.assign
           (JsCons.Expr.dot
              (JsCons.Expr.native "exports")
-             (CF.compiler_repr compiled))
+             (BslKey.to_string key))
           rhs in
       export :: exports
     | None -> exports

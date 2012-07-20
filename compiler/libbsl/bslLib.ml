@@ -865,7 +865,7 @@ struct
     let trans_name =
       let fresh = ref (-1) in
       (fun _name -> incr(fresh); Printf.sprintf "bslp%d" !fresh) (* todo voir pour le caractere compositionnel du truc...*)
-    let trans_ident key = Ident.source ("bsl_" ^ BslKey.to_string key)
+    let trans_ident key = Ident.next (BslKey.to_string key)
 
     let _meta_code_warning =
       let __t = Hashtbl.create 10 in

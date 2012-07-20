@@ -259,24 +259,14 @@ struct
     let repr =
       BslLib.BSL.Implementation.CompiledFunction.compiler_repr compiled
     in
-    JsWalk.TStatement.map
-      (fun stm ->
-        match stm with
-        | JA.Js_function (_, name, args, body) ->
-          let name_in_module =
-            JsCons.Expr.dot
-              (JsCons.Expr.native ("__opa_" ^ plugin_name))
-              (JsIdent.to_string name) in
-          JsCons.Statement.assign
-            name_in_module
-            (JsCons.Expr.function_ (Some name) args body)
-        | _ -> stm)
+    let field = BslKey.to_string key in
+    JsWalk.ExprInStatement.map
       (fun expr ->
         match expr with
         | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
           JsCons.Expr.dot
             (JsCons.Expr.native ("__opa_" ^ plugin_name))
-            repr
+            field
         | _ -> expr)
       code
 
