@@ -96,13 +96,15 @@ SearchValueTransform = {{
 
   @private
   string_of_record(record, row) =
-    OpaValue.Record.fold_with_fields(
-      field, field_type, field_value, acc ->
-        field_value = @unsafe_cast(field_value)
-        str = string_of_value(field_value, field_type)
-        field = OpaValue.Record.name_of_field(field) |> Option.default("", _)
-        "{acc}{str} {field} "
-    , record, row, "")
+    if List.is_empty(row) then ""
+    else
+      OpaValue.Record.fold_with_fields(
+        field, field_type, field_value, acc ->
+          field_value = @unsafe_cast(field_value)
+          str = string_of_value(field_value, field_type)
+          field = OpaValue.Record.name_of_field(field) |> Option.default("", _)
+          "{acc}{str} {field} "
+      , record, row, "")
 
   @private
   string_of_sum(records, rows) =
