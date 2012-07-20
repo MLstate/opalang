@@ -278,7 +278,14 @@ let launchHelper = qml2js_path/"launchHelper.ml" in
 let escape_external_content = [
   Sh"|"; Sh"sed -e 's/\\\\/\\\\\\\\/g'";
   Sh"|"; Sh"sed -e 's/\\\"/\\\\\\\"/g'";
+] in
+
+let escape_sh_comments = [
   Sh"|"; Sh"sed -e '\\%^#\\(.*\\)%d'";
+] in
+
+let escape_js_comments = [
+  Sh"|"; Sh"sed -e '\\%^//\\(.*\\)%d'";
 ] in
 
 rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launchHelper.ml"
@@ -292,12 +299,14 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
        Cmd(S([Sh"cat"; P launch_helper_script]
 	     @ escape_external_content
+	     @ escape_sh_comments
 	     @ [Sh">>"; P launchHelper]
 	    ));
        Cmd(S([Sh"echo \\\" >>"; P launchHelper]));
        Cmd(S([Sh"echo let js = \\\" >> "; P launchHelper]));
        Cmd(S([Sh"cat"; P launch_helper_js]
 	     @ escape_external_content
+	     @ escape_js_comments
 	     @ [Sh">>"; P launchHelper]
 	   ));
        Cmd(S([Sh"echo \\\" >>"; P launchHelper]));
