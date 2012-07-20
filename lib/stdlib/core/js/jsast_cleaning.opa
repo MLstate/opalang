@@ -323,7 +323,7 @@ type JsCleaning.marked = JsIdentSet.t
 
           | ~{ key ident } ->
             do JsIdent.define(ident)
-            elements = Hashtbl.add(elements, ident, code_elt)
+            do Hashtbl.add(elements, ident, code_elt)
             unicity = StringSet.add(key, unicity)
             ~{ infos with unicity client_roots }
         infos
