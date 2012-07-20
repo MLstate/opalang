@@ -549,6 +549,7 @@ Then use option --db-remote instead of --db-local.
 
    @private
    open_synchronisation(name, open_: -> DbMongo.t2 ) : DbMongo.t =
+      #<Ifstatic:OPA_BACKEND_QMLJS>
       log(s) = Log.info(name^" DbGen/Mongo/SynchroStart", s)
       ref = Reference.create({psyncops=false wsyncops=[]:list(DbMongo.t2->void) status={wait=[]:list(continuation(DbMongo.t2))} }:{...})
       // psyncops : processing sync ops, wsyncops: waiting sync ops
@@ -640,8 +641,15 @@ Then use option --db-remote instead of --db-local.
           {wsyncops=_ status={~db} ...} ->
             do try_process_one_syncops(db)
             sync_operation(f)
-
       }}
+      #<Else>
+      _ = name
+      dbp = open_()
+      {{
+        get() = dbp
+        sync_operation(f : (DbMongo.t2 -> void)) = f(get())
+      }}
+      #<End>
 
     @private seeds_parser(name, f) =
       auth_parser = parser user=((![:] .)+)[:] password=((![@] .)+) [@] ->
