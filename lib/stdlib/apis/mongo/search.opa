@@ -405,10 +405,13 @@ Search = {{
 
 
   /**
-   * Return an index as a MongoDb collection
+   * Create an index as a MongoDb collection
+   * Exemple: [create_index db_name]
+   * @param db_name: string the name of the main database
+   * @return an index as a MongoDb collection
    */
   @server_private
-  create_index(db_name: string) =
+  create_index(db_name) =
     index = SearchUtils.create_col(db_name, "index")
     count = SearchUtils.create_col(db_name, "count")
     (index, count)
