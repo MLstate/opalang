@@ -552,6 +552,13 @@ let pass_DbEngineImportation =
        e
     )
 
+let pass_PluginCompilation =
+  PassHandler.make_pass
+    (fun e ->
+      let _ = Pass_PluginCompilation.process () in
+      e
+    )
+
 let pass_BslLoading =
   PassHandler.make_pass
     (fun e ->

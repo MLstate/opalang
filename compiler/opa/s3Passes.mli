@@ -123,6 +123,12 @@ val pass_DbEngineImportation :
      , 'parsed_code)
   opa_pass
 
+val pass_PluginCompilation :
+  ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)
+    SurfaceAst.code_elt) ObjectFiles.parsed_code) as 'parsed_code
+     , 'parsed_code)
+  opa_pass
+
 val pass_BslLoading :
   ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)
     SurfaceAst.code_elt) ObjectFiles.parsed_code) as 'parsed_code

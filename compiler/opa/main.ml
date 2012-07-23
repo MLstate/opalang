@@ -73,6 +73,8 @@ let () =
 
     |+> ("DbEngineImportation", S3.pass_DbEngineImportation)
 
+    |+> ("PluginCompilation", S3.pass_PluginCompilation)
+
     |+> ("BslLoading", S3.pass_BslLoading)
 
     |+> ("ConvertStructure", S3.pass_ConvertStructure)
