@@ -122,6 +122,7 @@ opa-create: $(MYOCAMLBUILD)
 install-opa-create:
 	@mkdir -p $(PREFIX)/bin
 	$(INSTALL) $(BUILD_DIR)/bin/opa-create $(INSTALL_DIR)/bin/opa-create
+	@chmod 755 $(INSTALL_DIR)/bin/opa-create
 
 ##
 ## INSTALLATION
