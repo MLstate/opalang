@@ -44,6 +44,8 @@ type System.pid = int
 **/
 System = {{
 
+#<Ifstatic:OPA_BACKEND_QMLJS>
+#<Else>
   /**
    * {2 Wait Flags}
   **/
@@ -82,7 +84,7 @@ System = {{
    * Same as {!System.waitpid_flags} but with no flags
   **/
   waitpid = %%bslunix.waitpid%% : System.pid -> (System.pid, System.process_status)
-
+#<End>
 
   /**
    * Quit the server process immediately.
