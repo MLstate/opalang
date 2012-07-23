@@ -410,6 +410,7 @@ var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap']
     if not success then
       OManager.error "Couldn't create directory %s" (modules_dir env_opt);
     let main_file_name = "main.js" in
+    let main_path = Filename.concat (depends_dir env_opt) main_file_name in
     let relative_main_path = Filename.concat
       (Filename.basename (depends_dir env_opt)) main_file_name in
 
@@ -418,10 +419,10 @@ var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap']
 
     let status = File.copy ~force:true
       (Filename.concat env_opt.compilation_directory "a.js")
-      relative_main_path in
+      main_path in
 
     if status = 1 then
-      OManager.error "Couldn't copy object to %s" relative_main_path
+      OManager.error "Couldn't copy object to %s" main_path
 
   (* Install required dependencies in the application
      node_modules directory *)
