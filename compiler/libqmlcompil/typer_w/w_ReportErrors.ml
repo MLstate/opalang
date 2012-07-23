@@ -419,8 +419,8 @@ let report_fun_conflict
          | QmlAst.Apply(_, (QmlAst.Ident(_, id)), _) ->
            let package_name = Ident.get_package_name id in
            let of_package_name =
-             if package_name = "" then "" else (" of " ^ package_name) in
-           (Ident.original_name id ^ of_package_name )
+             if package_name = "" then " " else (" of " ^ package_name ^ " ") in
+           (Ident.original_name id ^ of_package_name)
          | _ -> "" in
       W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
     match fun_pat_ty.W_Algebra.sty_desc with
@@ -451,7 +451,7 @@ let report_fun_conflict
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       QmlError.error ~msg:reason  err_ctxt
-        "%a@\n@[<2>Expression @{<red>%s@} is not a function, it can not be applied.@."
+        "%a@\n@[<2>Expression @{<red>%s@}is not a function, it can not be applied.@."
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
         fun_name
      )
@@ -520,15 +520,15 @@ let report_unification_conflict_with_context
          | QmlAst.Apply(_, (QmlAst.Ident(_, id)), _) ->
            let package_name = Ident.get_package_name id in
            let of_package_name =
-             if package_name = "" then "" else (" of " ^ package_name) in
-           (Ident.original_name id ^ of_package_name )
+             if package_name = "" then " " else (" of " ^ package_name ^ " ") in
+           (Ident.original_name id ^ of_package_name)
          | _ -> "" in
       W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
            QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       let replace_message str = 
             QmlError.error ~msg:reason err_ctxt
-              ("%a@[@\nThe %s of function @{<red>%s@} should be of type@\n\t[@{<red>%a@}@]" ^^
+              ("%a@[@\nThe %s of function @{<red>%s@}should be of type@\n\t@[@{<red>%a@}@]" ^^
                "@\ninstead of @\n\t@[@{<red>%a@}@]@]@.")
                   pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
                   str
@@ -539,7 +539,7 @@ let report_unification_conflict_with_context
       let ty_loc2 = W_TypeInfo.retrieve tmp_fun_ty.W_Algebra.sty_desc in
       let default_message _ = 
             QmlError.error ~msg:reason err_ctxt
-             ("%a@[@\nFunction @{<red>%s@} has type@\n\t[@{<red>%a@}@]" ^^
+             ("%a@[@\nFunction @{<red>%s@}has type@\n\t[@{<red>%a@}@]" ^^
               "@\nbut is applied as a@\n\t@[@{<red>%a@}@]@]%a%a@.")
                pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
               fun_name
@@ -557,11 +557,12 @@ let report_unification_conflict_with_context
            let arg_number1 = List.length args1 in
            let arg_number2 = List.length args2 in
            if arg_number1 != arg_number2 then (
-            QmlError.error ~msg:"@[<2>Different number of Arguments" err_ctxt
-              ("%a@\n@[<2>Function @{<red>%s@} takes %d argument%s, but %d %s given.@]@.")
+            QmlError.error ~msg:"Different number of Arguments" err_ctxt
+              ("%a@\n@[<2>Function @{<red>%s@}takes %d argument%s, but %d %s given.@]%a@.")
                 pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
                 fun_name arg_number1 (plurial arg_number1)
                 arg_number2 (are arg_number2)
+                hint_compare_fun_arguments args1 args2
            ) else
               let err_ty1_in_tmp =
                     W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc
@@ -588,7 +589,7 @@ let report_unification_conflict_with_context
                     | (Some (_, str1), Some (_, str2)) -> (
                     QmlError.error ~msg:reason err_ctxt
                      ("%a@\n@[<2>The types of the@ @{<red>%s@}@ and the@ @{<red>%s@}@ " ^^
-                      "of function @{<red>%s@} should be the same@]@.")
+                      "of function @{<red>%s@}should be the same@]@.")
                         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
                         str1 str2
                         fun_name
@@ -608,7 +609,7 @@ let report_unification_conflict_with_context
      )
      | _ -> (
       QmlError.error ~msg:reason err_ctxt
-        "%a@\n@[<2>Expression %s is not a function, it can not be applied.@."
+        "%a@\n@[<2>Expression %sis not a function, it can not be applied.@."
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
         fun_name
      )
@@ -881,7 +882,7 @@ let report_unification_conflict_with_context
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
       (* assuming recursive value are function *)
       QmlError.error ~msg:reason err_ctxt
-        ("%a@[@\nFunction @{<red>%s@} is defined as a@\n\t[@{<red>%a@}@]"^^
+        ("%a@[@\nFunction @{<red>%s@} is defined as a@\n\t@[@{<red>%a@}@]"^^
          "@\nbut is applied as a@\n\t@[@{<red>%a@}@]@]%a%a@.")
         pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
         (Ident.original_name binding_name)
