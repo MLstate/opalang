@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -43,7 +43,7 @@ val export_to_global_namespace : JsAst.code -> JsAst.code
 (**
    Collect all variable declarations in code and export them,
    e.g.
-
+{[
       var foo = { bar: 1 };
 
       function hello(name) {
@@ -60,7 +60,7 @@ val export_to_global_namespace : JsAst.code -> JsAst.code
 
       exports.foo = foo;
       exports.hello = hello;
-
+]}
    Note that this currently doesn't work for exporting variables
    that can change, e.g. a variable that holds a number whose value
    changes during program execution. However, it does work with objects,
