@@ -340,7 +340,7 @@ struct
   (* Write shell script incantation to check dependencies,
      set load path, etc *)
   let write_launcher_header oc =
-    Printf.fprintf oc "#!/usr/bin/env bash
+    Printf.fprintf oc "#!/usr/bin/env sh
 
 /*usr/bin/env true
 
