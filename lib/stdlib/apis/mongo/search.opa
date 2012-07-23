@@ -193,6 +193,16 @@ SearchCache = {{
        cache.set(map)
     | {none} -> void
 
+  remove_key_from_index(key) =
+    current_cache = cache.get()
+    map = StringMap.fold(
+      lexem, values, acc ->
+        match List.find(value -> value.key == key, values) with
+        | {some=_} -> StringMap.remove(lexem, acc)
+        | _ -> acc
+    , current_cache, current_cache)
+    cache.set(map)
+
 }}
 
 
@@ -388,6 +398,20 @@ MongoSearch = {{
     | l ->
       _ = SearchDbUtils.delete(index, {_id = {`$in` = l}})
       void
+
+  @server_private
+  remove_key_from_index(index: (index, count), key: key) =
+    (index, _) = index
+    do debug("remove key {key}")
+    // clean the cache
+    do SearchCache.remove_key_from_index(key)
+    // create indexes
+   _ = MongoCollection.create_simple_index(index, "index", "values.key", 1)
+   // deleting
+   select = {key = key lexem = {`$ne` = ""}; _score = {`gt` = 0.0}}
+   _ = SearchDbUtils.delete(index, {values = {`$elemMatch` = select}})
+   void
+
 
   /**
    * Search all documents containing the query words
