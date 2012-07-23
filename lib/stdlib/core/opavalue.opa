@@ -105,7 +105,7 @@ type Closure.args = external
 /**
  * The identifier stored inside the closures
  */
-type Closure.identifier('a) =
+type Closure.info('a) =
   { closure_name : string }
 / { closure_name : string; stored : 'a }
 
@@ -603,7 +603,7 @@ OpaValue = {{
       match bslgi(closure) with
       | {~closure_name ...} -> bslsi(closure, {~closure_name ~stored})
       | _ -> // assert false
-        error("[OpaSerialize.Closure.set_identifier] Any identifier")
+        error("[OpaSerialize.Closure.set_info] Any info")
 
     /**
      * Get the string identifier of a closure.
@@ -660,20 +660,20 @@ OpaValue = {{
       Option.map(_ -> id, get_local(id))
 
     /**
-     * Get ll identifier of a closure (should contains a record with at
+     * Get ll info of a closure (should contains a record with at
      * least closure_name fields)
      */
-    @private bslgi(closure) : Closure.identifier =
-      bslgi : 'closure -> option(Closure.identifier) = %%BslClosure.get_identifier%%
+    @private bslgi(closure) : Closure.info =
+      bslgi : 'closure -> option(Closure.info) = %%BslClosure.get_info%%
       match bslgi(closure) with
       | {some = x} -> x
       | _ -> // Can ocurs on projection
         {closure_name = ""}
 
     /**
-     * Set ll identifier of a closure
+     * Set ll info of a closure
      */
-    @private bslsi = %%BslClosure.set_identifier%% : 'closure, Closure.identifier -> void
+    @private bslsi = %%BslClosure.set_info%% : 'closure, Closure.info -> void
 
     //show = %% BslClosure.show %%
 

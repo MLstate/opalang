@@ -11,7 +11,7 @@
 *)
 ##extern-type Closure.args = QmlClosureRuntime.AnyArray.t
 ##extern-type Closure.t = QmlClosureRuntime.t
-
+##opa-type Closure.info
 ##module Args
   ##register create \ `QmlClosureRuntime.AnyArray.create` : int -> Closure.args
   ##register length \ `QmlClosureRuntime.AnyArray.length` : Closure.args -> int
@@ -20,15 +20,15 @@
 ##endmodule
 
 ##register show \ `QmlClosureRuntime.show` : Closure.t -> string
-##register create \ `QmlClosureRuntime.create` : 'impl, int, 'ident -> Closure.t
-##register create_no_function \ `QmlClosureRuntime.create_no_function` : int, 'ident -> Closure.t
+##register create \ `QmlClosureRuntime.create` : 'impl, int, Closure.info -> Closure.t
+##register create_no_function \ `QmlClosureRuntime.create_no_function` : int, Closure.info -> Closure.t
 ##register [opacapi] define_function \ `QmlClosureRuntime.define_function` : Closure.t, 'impl -> void
 ##register apply \ `QmlClosureRuntime.args_apply` : Closure.t, Closure.args -> 'a
 ##register env_apply_with_ty \ `QmlClosureRuntime.env_apply_with_ty` : Closure.t, Closure.args,Closure.args -> Closure.t
 
-##register is_empty \ `QmlClosureRuntime.is_empty` : 'closure -> bool
-##register get_identifier \ `QmlClosureRuntime.get_identifier` : 'closure -> option('a)
-##register set_identifier \ `QmlClosureRuntime.set_identifier` : Closure.t, 'a -> void
+##register is_empty \ `QmlClosureRuntime.is_empty` : Closure.t -> bool
+##register get_info \ `QmlClosureRuntime.get_identifier` : 'closure -> option(Closure.info)
+##register set_info \ `QmlClosureRuntime.set_identifier` : Closure.t, Closure.info -> void
 ##register get_args \ `QmlClosureRuntime.get_args` : Closure.t -> Closure.args
 ##register get_ty_args \ `QmlClosureRuntime.get_tyargs` : Closure.t -> Closure.args
 ##register export \ `QmlClosureRuntime.export` : Closure.t -> 'a
@@ -39,14 +39,14 @@
     of size n rather than a function that take n arguments.
     see also [opavalue.opa (OpaValue.Closure)]
 *)
-##register create_anyarray \ `QmlClosureRuntime.create_anyarray` : 'impl, int, 'ident -> Closure.t
+##register create_anyarray \ `QmlClosureRuntime.create_anyarray` : 'impl, int, Closure.info -> Closure.t
 
 (** Create an "anyarray" closure with cps code transformation.
     i.e. We suppose that the given impl is a native function
     typed by [Closure.args -> 'a cont -> unit].
     see also [opavalue.opa (OpaValue.Closure)]
 *)
-##register [cps-bypass] create_anyarray_cps : 'impl, int, 'ident, continuation(Closure.t) -> void
+##register [cps-bypass] create_anyarray_cps : 'impl, int, Closure.info, continuation(Closure.t) -> void
 let create_anyarray_cps func arity ident k =
   let any_cps oargs =
     let args = QmlClosureRuntime.AnyArray.sub2 oargs 0 arity in
