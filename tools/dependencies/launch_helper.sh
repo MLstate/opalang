@@ -10,12 +10,14 @@
 #    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ###################################
 
-if ! which node &>/dev/null; then
+node=`which node 2>&1`
+if [ $? -ne 0 ] || [ ! -x "$node" ]; then
     echo "--> node.js missing, please install nodejs from: http://nodejs.org"
     exit 1
 fi;
 
-if ! which npm &>/dev/null; then
+npm=`which npm 2>&1`
+if [ $? -ne 0 ] || [ ! -x "$npm" ]; then
     echo "--> npm missing, please install npm from: http://npmjs.org/"
     exit 1
 fi;
