@@ -108,9 +108,12 @@ SearchValueTransform = {{
 
   @private
   string_of_sum(records, rows) =
-    List.fold2(
-      record, row, acc -> "{acc}{string_of_record(record, row)} "
-    , records, rows, "")
+    rows = List.fold(
+      list, acc -> List.append(list, acc)
+    , rows, [])
+    List.fold(
+      record, acc -> "{acc}{string_of_record(record, rows)} "
+    , records, "")
 
   /**
   * Return a string from a value of type alpha
