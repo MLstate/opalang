@@ -291,6 +291,16 @@ let process
     =
   (* Pass *)
   let plugins = "opabsl" :: options.O.bypass_plugin in
+  let plugins =
+    (* Check whether a custom plugin was built and update the plugin
+       list accordingly *)
+    if List.is_empty options.O.client_plugin_files &&
+      List.is_empty options.O.server_plugin_files then
+      plugins
+    else
+      let custom_plugin =
+        Filename.basename (File.chop_extension options.O.target) in
+      custom_plugin :: plugins in
   let server_back_end = options.O.back_end in
   let client_back_end = options.O.js_back_end in
   let cwd = Sys.getcwd () in
