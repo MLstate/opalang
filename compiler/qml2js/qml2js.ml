@@ -271,8 +271,11 @@ struct
       code
 
   let compilation_generation env_opt env_bsl plugin_requires env_js_input =
-    let js_init = List.map
-      (fix_projection env_bsl) (get_js_init env_js_input) in
+    let js_init =
+      if env_opt.modular_plugins then
+        List.map (fix_projection env_bsl) (get_js_init env_js_input)
+      else
+        List.map snd (get_js_init env_js_input) in
     let js_code = js_init @ env_js_input.js_code in
 
     let opx_requires = ObjectFiles.fold_dir ~packages:true
