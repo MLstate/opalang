@@ -37,3 +37,18 @@ if (dependencies.length > 0) {
     );
     process.exit(1);
 }
+
+opa_dependencies = opa_dependencies.filter(function(dependency, index, array) {
+    // console.log('Checking', dependency, '...');
+    try {
+        module.require(dependency);
+	return false;
+    } catch(e) {
+        return (e.code === 'MODULE_NOT_FOUND');
+    }
+});
+
+if (opa_dependencies.length > 0) {
+    console.error('Opa dependencies are missing, make sure your NODE_PATH is correctly set up. You can have a look at the head of this file for hints about where Opa modules might be installed.');
+    process.exit(1);
+}

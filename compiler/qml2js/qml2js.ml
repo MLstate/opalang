@@ -349,6 +349,7 @@ export NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\
 */
 
 var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap'];
+var opa_dependencies = ['opa-js-runtime-cps'];
 
 %s
 
