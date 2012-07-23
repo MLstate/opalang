@@ -93,7 +93,36 @@ let get_missing_or_different_cases col_ty1 col_ty2 =
 
 let plurial n = if n>1 then "s" else ""
 let are n = if n=1 then "is" else "are"
+let counting_ending n =
+  if n < 1 then  ""
+  else if n = 1 then "st"
+  else if n = 2 then "nd"
+  else if n = 3 then "rd"
+  else "th"
 
+let rec __hint_compare_fun_arguments ppf (real_args, tmp_args, n) =
+  match (real_args, tmp_args) with 
+   | ([], []) -> ()
+   | (real_ty::real_tys, applied_ty::applied_tys) ->
+      let real_ty = W_CoreTypes.simple_type_repr real_ty in
+      let applied_ty = W_CoreTypes.simple_type_repr applied_ty in
+      if (real_ty = applied_ty)
+         then __hint_compare_fun_arguments ppf (real_tys, applied_tys, n+1)
+         else Format.fprintf ppf 
+              ("@\n@[<2>@{<bright>Hint@}:@\nFunction expects a %d%s-argument " ^^
+               "of type @\n@{<bright>%a@}@\ninstead of @\n@{<bright>%a@}@]")
+               n (counting_ending n) W_PrintTypes.pp_simple_type real_ty
+               W_PrintTypes.pp_simple_type applied_ty
+    | (real_ty::_, []) ->
+      let real_ty = W_CoreTypes.simple_type_repr real_ty in
+      Format.fprintf ppf 
+        ("@\n@[<2>@{<bright>Hint@}:@\nFunction expects a %d%s-argument of type" ^^
+         "@\n@{<bright>%a@}.@]")
+           n (counting_ending n) W_PrintTypes.pp_simple_type real_ty
+    | _ -> ()
+
+let hint_compare_fun_arguments ppf (real_args, tmp_args) =
+   __hint_compare_fun_arguments ppf (real_args, tmp_args, 1) 
 (* ************************************************************************** *)
 (** {b Descr}: Tries to give hints, clues about why 2 types reported by an
     unification error are considered not compatible. This function dig the
@@ -562,7 +591,7 @@ let report_unification_conflict_with_context
                 pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
                 fun_name arg_number1 (plurial arg_number1)
                 arg_number2 (are arg_number2)
-                hint_compare_fun_arguments args1 args2
+                hint_compare_fun_arguments (args1,args2)
            ) else
               let err_ty1_in_tmp =
                     W_SubTerms.locate_subterms err_ty1.W_Algebra.sty_desc
