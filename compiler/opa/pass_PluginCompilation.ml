@@ -61,7 +61,7 @@ let process env =
     BslConvention.Suffix.nodejspackage ^ ".js" in
   if List.is_empty js_files && List.is_empty nodejs_files then env else
   let package_version = env.PH.options.O.package_version in
-  let opp_dir = File.from_pattern "%.opp" env.PH.options.O.target in
+  let opp_dir = File.from_pattern "%b.opp" env.PH.options.O.target in
   if not (File.check_create_path opp_dir) then
     OManager.error "cannot create plugin directory %s" opp_dir;
   let plugin_file =
@@ -107,7 +107,8 @@ let process env =
     | Some error -> OManager.error "Couldn't write package.json: %s\n" error
   end;
   output marshalplugin_file BR.out_ml_marshal_plugin finalized;
-  output nodejs_package BR.out_nodejs_package finalized;
+  output (Filename.concat opp_dir nodejs_package)
+    BR.out_nodejs_package finalized;
   let out_package_json oc _ =
     let package_desc = JsUtils.basic_package_json ~version:package_version
       (Filename.basename opp_dir) nodejs_package in
