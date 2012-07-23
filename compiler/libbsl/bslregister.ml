@@ -68,6 +68,13 @@ let static = ref false
 *)
 let no_opp             = ref false
 
+(** Flag that says whether identifiers in the nodejs plugin should be
+    exported into the global namespace or if they should be used as
+    regular module exports (i.e. "exports.foo = foo;")
+*)
+let modular_plugins = ref false
+
+
 (**
    These are the inclusion to give for compiling plugins.
    This text will be produced in the Makefile, which will interprate shell expension like $(MY_VAR)
@@ -428,6 +435,10 @@ let spec = [
   Arg.String (fun s -> List.iter (MutableList.add mlopt_flags) (Arg.split s)),
   !>
     "<flags> Add options for ocaml native compilation" ;
+
+  "--modular-plugins",
+  Arg.Set modular_plugins,
+  " Export module identifiers following common js conventions instead of globally" ;
 
   (* n *)
 
@@ -799,6 +810,8 @@ let bslregister_options ()=
   let ml_plugin_filename   = !plugin in
   let ml_runtime_filename  = !mlruntime in
 
+  let modular_plugins      = !modular_plugins in
+
   let unsafe_js            = !unsafe_js in
   let unsafe_opa           = !unsafe_opa in
 
@@ -817,6 +830,8 @@ let bslregister_options ()=
 
     ml_plugin_filename ;
     ml_runtime_filename ;
+
+    modular_plugins ;
 
     unsafe_js ;
     unsafe_opa ;

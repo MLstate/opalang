@@ -759,6 +759,12 @@ type options = {
      e.g. ["opabslMLRuntime.ml"]
   *)
 
+  modular_plugins : bool ;
+  (**
+     Export plugin identifiers following common js module
+     conventions instead of globally.
+  *)
+
   unsafe_js : bool ;
   (**
      Continue even if the js validation fails.

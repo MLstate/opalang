@@ -968,6 +968,20 @@ let collect_exports bymap nodejs_code =
   let exports = Format.to_string JsPrint.pp_min#code exports in
   nodejs_code @ [("exports", exports, BslJsConf.default)]
 
+let export_to_global_namespace nodejs_code =
+  (* When not exporting identifiers as modules, we need to export them
+     globally *)
+  List.map (fun (filename, contents, conf) ->
+    let contents =
+      try
+        JsParse.String.code ~throw_exn:true contents
+      with
+        _ -> OManager.error "Couldn't parse file %s\n" filename
+    in
+    let contents = JsUtils.export_to_global_namespace contents in
+    (filename, Format.to_string JsPrint.pp_min#code contents, conf)
+  ) nodejs_code
+
 let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session session =
 
   let options = session.s_options in
@@ -1085,7 +1099,11 @@ let finalize s =
 
   let f_js_code             = s.s_js_code in
 
-  let nodejs_code           = collect_exports final_bymap s.s_nodejs_code in
+  let nodejs_code           =
+    if s.s_options.BI.modular_plugins then
+      collect_exports final_bymap s.s_nodejs_code
+    else
+      export_to_global_namespace s.s_nodejs_code in
   let f_nodejs_package      = finalizing_nodejs_package nodejs_code in
   let f_js_keys             = finalizing_js_keys ~final_bymap in
   let f_nodejs_code         = s.s_nodejs_code          in

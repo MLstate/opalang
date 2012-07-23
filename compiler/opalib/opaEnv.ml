@@ -193,6 +193,7 @@ type opa_options = {
   static_link : bool; (* Whether or not to link object files statically *)
   package_version: string; (* The version to be used when outputting
                               the package.json file *)
+  modular_plugins: bool;
 }
 
 let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
@@ -288,6 +289,8 @@ struct
     let package_version = ref "0.1.0"
     let set_package_version version =
       package_version := version
+
+    let modular_plugins = ref false
 
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
@@ -553,6 +556,10 @@ struct
           "<opt> Give option to ocaml linking"
           ;
 
+          "--modular-plugins",
+          Arg.Set modular_plugins,
+          " Use plugins as node modules instead of exporting globally. (qmljs)"
+          ;
           (* n *)
 
           "--no-assert",
@@ -869,6 +876,7 @@ struct
 
     static_link = !ArgParser.static_link;
     package_version = !ArgParser.package_version;
+    modular_plugins = !ArgParser.modular_plugins;
 
   }
 

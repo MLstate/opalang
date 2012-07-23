@@ -100,16 +100,17 @@ let compile_bypass env key =
             field
       in
       let nodejs = BslLanguage.is_nodejs env.E.bsl_lang in
+      let modularize = nodejs && env.E.options.Qml2jsOptions.modular_plugins in
       match
         I.CompiledFunction.compiler_detailed_repr compiled
       with
-      | I.Ident ident when nodejs &&
+      | I.Ident ident when modularize &&
           not(I.CompiledFunction.is_transtype compiled) ->
           plugin_prefix (Ident.to_string ident)
 
       | I.Ident ident -> JsCons.Expr.exprident ident
       | I.String s ->
-          if nodejs then plugin_prefix (BslKey.to_string key)
+          if modularize then plugin_prefix (BslKey.to_string key)
           else
             match JsParse.String.expr ~globalize:true s with
             | J.Je_ident (p, J.Native (`global _, s)) ->

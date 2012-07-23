@@ -81,6 +81,7 @@ type t =
       lang : [`js | `node];
       static_link : bool;
       package_version : string;
+      modular_plugins : bool;
     }
 type env_js_input =
     {
@@ -180,6 +181,7 @@ struct
   let target = ref None
   let static_link = ref false
   let package_version = ref "0.1.0"
+  let modular_plugins = ref false
 
   let plugin_inclusion file =
     let cwd = Sys.getcwd () in
@@ -218,6 +220,7 @@ struct
     target := None ;
     static_link := false ;
     package_version := "0.1.0";
+    modular_plugins := false;
     ()
 
   let speclist_aux () =
@@ -315,6 +318,7 @@ struct
       lang = `js;
       static_link = !static_link;
       package_version = !package_version;
+      modular_plugins = !modular_plugins;
     }
 
   let usage_msg = Printf.sprintf "%s: command-line options for the Qml-to-JS compiler\nUsage: %s [options]\n" Sys.argv.(0) Sys.argv.(0)
