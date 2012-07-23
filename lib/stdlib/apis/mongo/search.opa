@@ -331,16 +331,12 @@ MongoSearch = {{
   add_to_index(index: (index, count), value: 'a, key: key) =
     do debug("add value {value} at key {key}")
     (index, count) = index
-
     // update count
     _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
-
     // compute a list of words from the given value
     words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
-
     // compute a set to avoid indexing more than one time the same word
     set = StringSet.From.list(words)
-
     Set.iter(
       lexem ->
         // fix a limit to avoid 'key too large to index' error message from mongoDB
@@ -363,22 +359,16 @@ MongoSearch = {{
   remove_from_index(index: (index, count), value: 'a, key: key) =
     do debug("remove value {value} from key {key}")
     (index, count) = index
-
     // update count
     _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = -1}})
-
     // compute a list of words from the given value
     words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
-
     // compute a set to avoid desindexing more than one time the same word
     set = StringSet.From.list(words)
-
     (to_update, to_remove) = Set.fold(
       lexem, (to_update, to_remove) ->
-
-      // clean the cache
+        // clean the cache
         do SearchCache.remove_from_index(lexem, key)
-
         match (SearchDbUtils.find_one(index, {_id = lexem})) with
         | {none} -> (to_update, to_remove) // lexem not found on db
         | {some=elt} ->
