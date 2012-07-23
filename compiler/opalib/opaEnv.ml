@@ -134,6 +134,8 @@ type opa_options = {
   hacker_mode : bool ;
 
   filenames : string list;
+  server_plugin_files : string list;
+  client_plugin_files : string list;
   show_types : bool ;
 
   (* n *)
@@ -333,6 +335,9 @@ struct
         "@[<2>@{<bright>Hint@}:@\n"^^
         "Use option @{<bright>-impl@} if that is really an opa source@]" )
         f
+
+    let client_plugin_files = MutableList.create ()
+    let server_plugin_files = MutableList.create ()
 
     let extra_split g =
       List.map String.trim (String.slice_chars "{} ,;'" g)
@@ -680,6 +685,8 @@ struct
         | "opack" -> !opack_file_function arg
         | "conf" -> ObjectFiles.load_conf arg
         | "opx" -> ObjectFiles.Arg.add_link_package (File.chop_extension arg)
+        | "js" -> MutableList.add client_plugin_files arg
+        | "nodejs" -> MutableList.add server_plugin_files arg
         | _ -> OManager.error "I don't know what to do with anonymous argument %S" arg in
 
       (** feature : opack files (used e.g. in spec.git) *)
@@ -818,6 +825,8 @@ struct
     hacker_mode = !ArgParser.hacker_mode ;
     makefile_rule = !ArgParser.makefile_rule ;
     filenames = !ArgParser.filenames;
+    client_plugin_files = MutableList.to_list ArgParser.client_plugin_files;
+    server_plugin_files = MutableList.to_list ArgParser.server_plugin_files;
     show_types = !ArgParser.show_types ;
 
     (* n *)
