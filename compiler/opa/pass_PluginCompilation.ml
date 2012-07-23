@@ -72,7 +72,7 @@ let process env =
       (plugin_name ^ BslConvention.Suffix.mlruntime ^ ".ml") in
   let package_json_file = Filename.concat opp_dir "package.json" in
   let marshalplugin_file = Filename.concat opp_dir
-    (BslConvention.Suffix.marshalplugin ^ "." ^
+    (plugin_name ^ BslConvention.Suffix.marshalplugin ^ "." ^
        BslConvention.Extension.bypass) in
 
   let options = {
