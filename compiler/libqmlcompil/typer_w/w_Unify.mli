@@ -43,13 +43,17 @@ exception Unification_column_conflict of
 val unify_simple_type:
   W_TypingEnv.t -> W_Algebra.simple_type -> W_Algebra.simple_type -> unit
 
+(** @raise Unification_simple_type_conflict *)
+val unify_simple_type_in_coercion:
+  W_TypingEnv.t -> W_Algebra.simple_type -> W_Algebra.simple_type -> unit
+
 (** @raise Unification_simple_type_conflict if rows had a same field having
     2 different types or return [false] in case of failure not due to fields
     having different types but because then rows can't unify due to the fact
     they have different fields and are not opened to each "absorb" the fields
     coming from the other row. *)
 val unify_row_type:
-  W_TypingEnv.t ->W_Algebra.row_type -> W_Algebra.row_type -> bool
+  W_TypingEnv.t -> W_Algebra.row_type -> W_Algebra.row_type -> bool
 
 (** @raise Unification_simple_type_conflict
     @raise Unification_column_conflict *)

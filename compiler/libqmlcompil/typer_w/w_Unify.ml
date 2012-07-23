@@ -82,6 +82,13 @@ exception Unification_column_conflict of
   (W_Algebra.column_type * W_Algebra.column_type)
 
 
+(* ************************************************************************** *)
+(** {b Descr}: If [unification_under_coercion] is set allows 
+    unification of forall a.t with s.
+    {b Visibility}: Not exported outside this module.                         *)
+(* ************************************************************************** *)
+let unification_under_coercion = ref false
+
 
 (* ************************************************************************** *)
 (** {b Descr}: Lowerize types level inside a [simple_type].
@@ -778,6 +785,14 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None }))
       )
+    | ((W_Algebra.SType_forall _), _)
+        when !unification_under_coercion -> (
+        __unify_simple_type_in_coercion env seen_expansions ty1 ty2
+      )
+    | (_, (W_Algebra.SType_forall _))
+        when !unification_under_coercion -> (
+        __unify_simple_type_in_coercion env seen_expansions ty1 ty2
+    )
     | (_, _) ->
         raise
           (Unification_simple_type_conflict
@@ -1185,6 +1200,26 @@ and __unify_field env seen_expansions  (field_name1, field_ty1) (field_name2, fi
   )
 
 
+(* ************************************************************************** *)
+(** {b Descr}: Internal function performing unification of 2 simple types
+    when unification was initally called from coercion. It unifies a schema s
+    with a type t, by generalizing the type and calling __unify_simple_type
+    @raise Unification_simple_type_conflict
+    @raise Unification_binding_level_conflict
+    {b Visibility}: Not exported outside this module.                         *)
+(* ************************************************************************** *)
+and __unify_simple_type_in_coercion env seen_expansions ty1 ty2 =
+  match (ty1.W_Algebra.sty_desc, ty2.W_Algebra.sty_desc) with
+   | (W_Algebra.SType_forall _, W_Algebra.SType_forall _) ->
+       __unify_simple_type env seen_expansions ty1 ty2
+   | (W_Algebra.SType_forall scheme1, _) -> 
+      __unify_simple_type env seen_expansions 
+        (W_SchemeGenAndInst.specialize scheme1) ty2
+   | (_, W_Algebra.SType_forall scheme2) ->
+       __unify_simple_type env seen_expansions
+       ty1 (W_SchemeGenAndInst.specialize scheme2)
+   | _ -> __unify_simple_type env seen_expansions ty1 ty2
+
 
 (* ************************************************************************** *)
 (** {b Descr}: Unification of 2 simple types. The unification is performed by
@@ -1215,6 +1250,26 @@ let unify_simple_type env ty1 ty2 =
     #<End> ;    (* <---------- END DEBUG *)
     raise any
 
+let unify_simple_type_in_coercion env ty1 ty2 =
+  #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+  OManager.printf "unify_simple_type_in_coercion@." ;
+  #<End> ;     (* <---------- END DEBUG *)
+  let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
+  try
+    let tmp_unification_under_coercion = !unification_under_coercion in
+    unification_under_coercion := true ;
+    __unify_simple_type_in_coercion env W_TypeAbbrevs.empty_memory ty1 ty2 ;
+    unification_under_coercion := tmp_unification_under_coercion ;
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Ended unify_simple_type_in_coercion@." ;
+    #<End> ;    (* <---------- END DEBUG *)
+    W_CoreTypes.reset_unification_changes_trace ()
+  with any ->
+    W_CoreTypes.rewind_unification_changes ~performed_after: checkpoint ;
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Ended unify_simple_type_in_coercion@." ;
+    #<End> ;    (* <---------- END DEBUG *)
+    raise any
 
 
 (* ************************************************************************** *)
@@ -1270,7 +1325,6 @@ let unify_column_type env column_ty1 column_ty2 =
     (* Unification failed, so revert the changes it did. *)
     W_CoreTypes.rewind_unification_changes ~performed_after: checkpoint ;
     raise any
-
 
 
 (* [TODO-REFACTOR] DOCUMENTATION. *)
