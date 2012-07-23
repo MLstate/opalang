@@ -238,8 +238,8 @@ install-man:
 	@printf "Installing into $(INSTALL_DIR)/share/man[K\r"
 	@if [ -d $(BUILD_DIR)/man/man1 ]; then \
 	  mkdir -p $(INSTALL_DIR)/share/man/man1; \
-	  $(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1; \
 	fi
+	@$(if $(wildcard $(BUILD_DIR)/man/man1/*.1.gz),$(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1)
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
 install: install-bin install-lib install-share install-plugins install-packages install-node-packages install-man
