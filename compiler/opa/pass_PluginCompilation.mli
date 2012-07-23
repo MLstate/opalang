@@ -16,4 +16,5 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-val process : unit -> unit
+val process : (OpaEnv.opa_options, 'a) PassHandler.one_env ->
+  (OpaEnv.opa_options, 'a) PassHandler.one_env
