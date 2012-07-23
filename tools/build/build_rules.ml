@@ -556,7 +556,7 @@ rule "opabsl files"
     plugins_dir/"opabsl"/"opabsl.oppf";
     plugins_dir/"opabsl"/"serverLib.mli"
   ]
-  ~prods:opabsl_files
+  ~prods:("always_rebuild"::opabsl_files)
   (fun _ _ ->
     Seq[
       Cmd(S[A "rm"; A "-rf"; A (plugins_dir/"opabsl.opp")]);
