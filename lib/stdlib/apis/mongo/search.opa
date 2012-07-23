@@ -27,7 +27,7 @@ package stdlib.apis.mongo
 /**
 * {1 Types defined in this module}
 */
-  
+
 type key = string
 
 type indexation =
@@ -133,15 +133,68 @@ SearchValueTransform = {{
 
 
 @private
-SearchUtils = {{
+SearchCache = {{
 
   /**
-  * context to store temporary index before writing it on db
-  * the index is store on db (and so the context is cleaned= every 500 words
-  * (this would need some bnechmarks to get to correct value)
+  * cache mechanisme to store temporary index before writing it on db
+  * user can choose the size of the cache
+  * more the cache is small, more we need to write on db
   */
-  default_index_context = StringMap.empty
-  index_context = UserContext.make(default_index_context) : UserContext.t(stringmap(list(indexation)))
+  cache = Mutable.make(StringMap.empty) : Mutable.t(stringmap(list(indexation)))
+  cache_limit = Mutable.make(500) : Mutable.t(int)
+
+  /**
+   * Write the index on db
+   */
+  finalize(index) =
+    current_cache = cache.get()
+    start_time = Date.now() |> Date.in_milliseconds(_)
+    set = StringMap.fold(
+      lexem, _, acc -> StringSet.add(lexem, acc)
+    , current_cache, StringSet.empty)
+    elements = SearchDbUtils.elements(index, set)
+    (to_remove, batch) = StringMap.fold(
+      lexem, values, (to_remove, acc) ->
+         (to_remove, values) = match StringMap.get(lexem, elements) with
+         | {some=l} -> (List.cons(lexem, to_remove), List.append(l, values))
+         | _ -> (to_remove, values)
+         element = {_id = lexem; values = values} : index_element
+        (to_remove, List.cons(element, acc))
+     , current_cache, ([], []))
+   match batch with
+   | [] -> void
+   | l ->
+     batch = SearchDbUtils.batch_from_list(l)
+     _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
+     _ = SearchDbUtils.insert_batch(index, batch)
+     do cache.set(StringMap.empty)
+     delta = (Date.now() |> Date.in_milliseconds(_)) - start_time
+     Log.notice("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
+
+  add_to_index(index, lexem, value) =
+    current_cache = cache.get()
+    limit = cache_limit.get()
+    values = match StringMap.get(lexem, current_cache) with
+    | {some = values} -> List.cons(value, values)
+    | _ -> [value]
+    do cache.set(StringMap.add(lexem, values, current_cache))
+    if StringMap.size(cache.get()) >= limit then finalize(index) else void
+
+  remove_from_index(lexem, key) =
+    current_cache = cache.get()
+    match StringMap.get(lexem, current_cache) with
+    | {some=values} ->
+      map = match List.remove_p(value -> value.key == key, values) with
+       | [] -> StringMap.remove(lexem, current_cache)
+       | l -> StringMap.add(lexem, l, current_cache)
+       cache.set(map)
+    | {none} -> void
+
+}}
+
+
+@private
+SearchUtils = {{
 
   /**
   * Return the number of time a given word appears in a given string
@@ -167,12 +220,9 @@ SearchUtils = {{
       | {some = count} -> int_to_float(count.count)
       | {none} -> 0.0
       context_count =
-        UserContext.execute(
-          state ->
-            match StringMap.get(lexem, state) with
-            | {some=l} -> 1 + List.length(l) |> int_to_float
-            | {none} -> 1.00
-        , index_context)
+        match StringMap.get(lexem, SearchCache.cache.get()) with
+        | {some=l} -> 1 + List.length(l) |> int_to_float
+        | {none} -> 1.00
       db_count =
         match SearchDbUtils.find_one(index, {_id = lexem}) with
         | {some=elt: index_element} -> 1 + List.length(elt.values) |> int_to_float
@@ -184,56 +234,21 @@ SearchUtils = {{
     tf * idf
 
 
-  /**
-   * Write the index on db
-   */
-  finalize_index(index: index) : void =
-  start_time = Date.now() |> Date.in_milliseconds(_)
-    (batch, to_remove) = UserContext.execute(
-      state ->
-         set = StringMap.fold(
-           lexem, _, acc -> StringSet.add(lexem, acc)
-         , state, StringSet.empty)
-        elements = SearchDbUtils.elements(index, set)
-        (to_remove, batch) = StringMap.fold(
-          lexem, values, (to_remove, acc) ->
-            (to_remove, values) = match StringMap.get(lexem, elements) with
-              | {some=l} ->
-                (List.cons(lexem, to_remove), List.append(l, values))
-              | _ -> (to_remove, values)
-            element = {_id = lexem; values = values} : index_element
-            (to_remove, List.cons(element, acc))
-          , state, ([], []))
-          (batch, to_remove)
-        , index_context)
-   match batch with
-   | [] -> void
-   | l ->
-     batch = SearchDbUtils.batch_from_list(l)
-     _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
-     _ = SearchDbUtils.insert_batch(index, batch)
-     _ = UserContext.change(_ -> StringMap.empty, index_context)
-     delta = (Date.now() |> Date.in_milliseconds(_)) - start_time
-     do Log.notice("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
-     void
-
-
    /* SEARCHING */
 
   build_list(index: index, lexem: string, exact: bool) : list(index_element) =
-    context_search = UserContext.execute(
-        state ->
-          if exact then
-            match StringMap.get(lexem, state) with
-            | {some=values} -> [{_id = lexem; ~values}]
-            | _ -> []
-          else StringMap.fold(
-            lex, values, acc ->
-              if String.contains(lex, lexem) then
-                List.cons({_id = lexem; ~values}, acc)
-              else acc
-            , state, [])
-      , index_context)
+    context_search =
+      cache = SearchCache.cache.get()
+      if exact then
+        match StringMap.get(lexem, cache) with
+        | {some=values} -> [{_id = lexem; ~values}]
+        | _ -> []
+      else StringMap.fold(
+        lex, values, acc ->
+          if String.contains(lex, lexem) then
+            List.cons({_id = lexem; ~values}, acc)
+          else acc
+        , cache, [])
     db_search =
       if exact then
         match (SearchDbUtils.find_one(index, {_id = lexem})) with
@@ -303,33 +318,26 @@ MongoSearch = {{
   add_to_index(index: (index, count), value: 'a, key: key) =
     do notice("add value {value} at key {key}")
     (index, count) = index
-    _ = match SearchDbUtils.find_one(count, {_id = "count"}) with
-      | {some = _} -> SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
-      | _ ->
-        index_count = {_id = "count"; count = 1} : index_count
-        SearchDbUtils.insert(count, index_count)
-    words =
-      SearchValueTransform.string_of_value(value, OpaValue.typeof(value))
-      |> String.explode(" ", _)
-    set = StringSet.From.list(words) // a set to avoid indexing more than one time the same word
-    _ = Set.iter(
+
+    // update count
+    _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
+
+    // compute a list of words from the given value
+    words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
+
+    // compute a set to avoid indexing more than one time the same word
+    set = StringSet.From.list(words)
+
+    Set.iter(
       lexem ->
+        // fix a limit to avoid 'key too large to index' error message from mongoDB
         if (String.length(lexem) <= 512) then
+          // compute tf-idf score for current lexem
           tf_idf = SearchUtils.compute_tf_idf(index, count, lexem, words)
           value = {_score =  tf_idf; lexem = lexem; key = key}
-          UserContext.change(
-            state ->
-              match StringMap.get(lexem, state) with
-              | {some = values} -> StringMap.add(lexem, List.cons(value, values), state)
-              | _ -> StringMap.add(lexem, [value], state)
-            , SearchUtils.index_context)
+          SearchCache.add_to_index(index, lexem, value)
         else void
      , set)
-   finalize = UserContext.execute(
-     state -> StringMap.size(state) >= 500
-   , SearchUtils.index_context)
-   do if finalize then SearchUtils.finalize_index(index)
-   void
 
   /**
    * Desindex the given value
@@ -342,28 +350,30 @@ MongoSearch = {{
   remove_from_index(index: (index, count), value: 'a, key: key) =
     do notice("remove value {value} from key {key}")
     (index, count) = index
+
+    // update count
     _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = -1}})
-    value_type = OpaValue.typeof(value)
-    words = SearchValueTransform.string_of_value(value, value_type) |> String.explode(" ", _)
+
+    // compute a list of words from the given value
+    words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
+
+    // compute a set to avoid desindexing more than one time the same word
     set = StringSet.From.list(words)
+
     (to_update, to_remove) = Set.fold(
       lexem, (to_update, to_remove) ->
-      do UserContext.change(
-        state -> match StringMap.get(lexem, state) with
-        | {none} -> state
-        | {some=l} ->
-          match (List.remove_p(value -> value.key == key, l)) with
-          | [] -> StringMap.remove(lexem, state)
-          | l -> StringMap.add(lexem, l, state)
-      , SearchUtils.index_context)
-    match (SearchDbUtils.find_one(index, {_id = lexem})) with
-    | {none} -> (to_update, to_remove) // lexem not found on db
-    | {some=elt} ->
-      match (List.remove_p(value -> value.key == key, elt.values)) with
-      | [] ->  (to_update, List.cons(lexem, to_remove)) // lexem with no more values => to be removed
-      | l ->
-        elt = {_id = lexem; values = l}
-        (List.cons(elt, to_update), to_remove) // lexem with some remaining values => to be updated
+
+      // clean the cache
+        do SearchCache.remove_from_index(lexem, key)
+
+        match (SearchDbUtils.find_one(index, {_id = lexem})) with
+        | {none} -> (to_update, to_remove) // lexem not found on db
+        | {some=elt} ->
+          match (List.remove_p(value -> value.key == key, elt.values)) with
+          | [] ->  (to_update, List.cons(lexem, to_remove)) // lexem with no more values => to be removed
+          | l ->
+          elt = {_id = lexem; values = l}
+          (List.cons(elt, to_update), to_remove) // lexem with some remaining values => to be updated
     , set, (List.empty, List.empty))
     _  = match to_update with
     | [] -> void
@@ -410,12 +420,15 @@ MongoSearch = {{
    * Create an index as a MongoDb collection
    * Exemple: [create_index db_name]
    * @param db_name: string the name of the main database
+   * @param cache_limit: int the size of the internal cache; a limit set at 0 implies a db write for each word to index
    * @return an index as a MongoDb collection
    */
   @server_private
-  create_index(db_name) =
+  create_index(db_name, cache_limit) =
     index = SearchUtils.create_col(db_name, "index")
     count = SearchUtils.create_col(db_name, "count")
+    _ = SearchDbUtils.insert(count, {_id = "count"; count = 0})
+    do SearchCache.cache_limit.set(cache_limit)
     (index, count)
 
 }}
