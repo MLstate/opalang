@@ -172,7 +172,7 @@ SearchCache = {{
      _ = SearchDbUtils.insert_batch(index, batch)
      do cache.set(StringMap.empty)
      delta = (Date.now() |> Date.in_milliseconds(_)) - start_time
-     Log.notice("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
+     Log.debug("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
 
   add_to_index(index, lexem, value) =
     current_cache = cache.get()
@@ -308,7 +308,7 @@ SearchUtils = {{
 
 MongoSearch = {{
 
-  notice(s) = Log.notice("SEARCH: ", s)
+  debug(s) = Log.debug("SEARCH: ", s)
 
   /**
    * Index the given value
@@ -319,7 +319,7 @@ MongoSearch = {{
    */
   @server_private
   add_to_index(index: (index, count), value: 'a, key: key) =
-    do notice("add value {value} at key {key}")
+    do debug("add value {value} at key {key}")
     (index, count) = index
 
     // update count
@@ -351,7 +351,7 @@ MongoSearch = {{
    */
   @server_private
   remove_from_index(index: (index, count), value: 'a, key: key) =
-    do notice("remove value {value} from key {key}")
+    do debug("remove value {value} from key {key}")
     (index, count) = index
 
     // update count
@@ -402,7 +402,7 @@ MongoSearch = {{
    */
   @server_private
   search(index: (index, count), query:string) : list(key) =
-    do notice("search for query {query}")
+    do debug("search for query {query}")
     (index, _) = index
     res = List.fold(
       lexem_list, acc ->
