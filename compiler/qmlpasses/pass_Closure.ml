@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -30,14 +30,15 @@ type env_apply_kind = EAK_std | EAK_with_ty
 let eak_str = function EAK_std -> "" | EAK_with_ty -> "_with_ty"
 
 let make_closure_name ?(safe=false) ~side ~renaming_server ~renaming_client ident =
+  (* Since closure client are renamed as pre-sliced closure don't use
+     renaming_client anymore *)
+  ignore (renaming_client);
   let client_ident =
     match side with
     | `client -> ident
     | `server ->
         try
-          let common_ident = QmlRenamingMap.original_from_new renaming_server ident in
-          (try QmlRenamingMap.new_from_original renaming_client common_ident
-           with Not_found -> ident)
+          QmlRenamingMap.original_from_new renaming_server ident
         with Not_found when safe ->
           ident in
   JsPrint.string_of_ident (JsAst.ExprIdent client_ident)
