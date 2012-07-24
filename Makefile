@@ -42,7 +42,7 @@ node: $(MYOCAMLBUILD)
 
 .PHONY: all
 all: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 	$(MAKE) manpages
 	$(MAKE) $(OPA_TOOLS)
