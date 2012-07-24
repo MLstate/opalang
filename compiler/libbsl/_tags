@@ -22,7 +22,7 @@
 <bslregister.*>: use_jslang
 <bslregister.{byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
 <portingBsl.{ml,byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
-<bslGeneration.{ml,mli}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums, use_jslang
+<bslGeneration.{ml,mli}>: use_ulex, use_dynlink, use_zip, use_nums, use_jslang
 
 # subdirs
 <validator>: traverse

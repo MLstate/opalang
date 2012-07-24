@@ -27,3 +27,4 @@ compiler/libbsl/BslRegisterParserState
 compiler/libbsl/BslError
 compiler/libbsl/BslArgs
 compiler/libbsl/BslTracker
+compiler/libbsl/BslGeneration
