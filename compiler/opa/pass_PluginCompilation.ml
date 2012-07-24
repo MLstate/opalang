@@ -33,18 +33,20 @@ let process env =
   let files =
     env.PH.options.O.client_plugin_files @
       env.PH.options.O.server_plugin_files in
-  let bsl_pref =
-    File.chop_extension (
-      Filename.basename env.PH.options.O.target
-    ) in
+  if not (List.is_empty files) then (
+    let bsl_pref =
+      File.chop_extension (
+        Filename.basename env.PH.options.O.target
+      ) in
 
-  let options = {BG.default_opts with
-    BG.
-    (* Use minimal options for now *)
-    files;
-    bsl_pref;
-    package_version = env.PH.options.O.package_version;
-  } in
+    let options = {BG.default_opts with
+      BG.
+      (* Use minimal options for now *)
+      files;
+      bsl_pref;
+      package_version = env.PH.options.O.package_version;
+    } in
 
-  BG.process options;
+    BG.process options
+  );
   env
