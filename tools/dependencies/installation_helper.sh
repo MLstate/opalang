@@ -353,6 +353,7 @@ package_install (){
         case $1 in
             ocaml)
                 [ $IS_WINDOWS ] && CYGOPT="-tk-no-x11 -no-tk"
+		PREFIX=$LIBDIR/ocaml
                 ./configure -prefix $PREFIX ${CYGOPT:-}
                 make world # clean world
                 make bootstrap
