@@ -342,7 +342,7 @@ struct
 
   (* Write shell script incantation to check dependencies,
      set load path, etc *)
-  let write_launcher_header oc =
+  let write_launcher_header oc static_link =
     Printf.fprintf oc "#!/usr/bin/env sh
 
 /*usr/bin/env true
@@ -352,11 +352,13 @@ export NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\
 */
 
 var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap'];
-var opa_dependencies = ['opa-js-runtime-cps'];
+var opa_dependencies = [%s];
 
 %s
 
-" stdlib_qmljs_path stdlib_path static_path LaunchHelper.script LaunchHelper.js
+" stdlib_qmljs_path stdlib_path static_path LaunchHelper.script
+      (if static_link then "" else "'opa-js-runtime-cps'")
+      LaunchHelper.js
 
   let linking_generation_static env_opt loaded_files env_js_input =
     (* When linking statically, we just produce a big file
@@ -367,7 +369,7 @@ var opa_dependencies = ['opa-js-runtime-cps'];
       0o700 (get_target env_opt) in
     let fmt = Format.formatter_of_out_channel oc in
 
-    write_launcher_header oc;
+    write_launcher_header oc env_opt.static_link;
 
     List.iter (fun (file, content) ->
       Format.fprintf fmt "// From %s\n"
