@@ -104,7 +104,7 @@ Barrier.prototype = {
         for(i = 0; i < len; ++i)
         {
             var k      = waiters[i];
-            k.execute1(result);
+            return_(k, result);
         }
         this._waiters = undefined;
     },
@@ -121,7 +121,7 @@ Barrier.prototype = {
     {
         if(this._is_computed)
         {
-            k._payload(this._result);
+            return_(k, this._result);
         } else {
             this._waiters.push(k);
         }
