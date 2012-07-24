@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -15,9 +15,11 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
-(**
-   Replace all directive js_ident
-   FIXME: author ?
+(** Replace all directive [js_ident]. These directive are typically use to
+    generates adhoc (i.e. backend specific) JavaScript code but using Opa
+    identifier.
+
+    @author Quentin Bourgerie
 *)
 
 (**
@@ -39,4 +41,4 @@
    t(x) = "{_v0_toto}(x, y)"
    ]}
 *)
-val perform : QmlAst.annotmap -> QmlAst.code -> QmlAst.annotmap * QmlAst.code
+val perform : QmlAst.annotmap -> QmlAst.code -> QmlRenamingMap.t -> QmlAst.annotmap * QmlAst.code

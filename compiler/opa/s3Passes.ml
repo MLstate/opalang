@@ -1852,7 +1852,9 @@ let pass_ResolveJsIdent =
        let annotmap, code =
          Opa_ResolveJsIdent.perform
            env.P.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.annotmap
-           env.P.newFinalCompile_qml_milkshake.QmlBlender.code in
+           env.P.newFinalCompile_qml_milkshake.QmlBlender.code
+           env.P.newFinalCompile_renaming_client
+       in
        let env =
          { env with P.
              newFinalCompile_qml_milkshake =

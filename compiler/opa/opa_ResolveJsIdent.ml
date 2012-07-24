@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -24,7 +24,7 @@ module JsIdent = Qmljs_Serializer.JsIdent
 module Q = QmlAst
 
 (* TODO - Merge it on JavaScriptCompilation *)
-let resolve annotmap code =
+let resolve annotmap code renaming =
   QmlAstWalk.CodeExpr.fold_map
     (QmlAstWalk.Expr.foldmap
        (fun annotmap expr ->
@@ -39,6 +39,7 @@ let resolve annotmap code =
                  in
                  let jsident =
                    let ident = OpaMapToIdent.val_ ~side:`client name in
+                   let ident = QmlRenamingMap.original_from_new renaming ident in
                    JsIdent.resolve ident
                  in
                  QmlAstCons.TypedExpr.ident annotmap jsident QmlAstCons.TypedExpr.ty_string
@@ -54,7 +55,7 @@ let resolve annotmap code =
     )
     annotmap code
 
-let perform annotmap code =
-  let annotmap, code = resolve annotmap code in
+let perform annotmap code renaming =
+  let annotmap, code = resolve annotmap code renaming in
   let decls = JsIdent.get_toplevel_declarations () in
   annotmap, (decls @ code)
