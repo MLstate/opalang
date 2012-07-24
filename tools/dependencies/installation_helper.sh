@@ -360,7 +360,7 @@ package_install (){
                 if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
                     make opt && make opt.opt
                 fi
-                PREFIX=$INSTALLDIR $SUDO make install -e
+                PREFIX=$LIBDIR/ocaml $SUDO make install -e
                 ;;
             camlzip)
                 make all allopt
