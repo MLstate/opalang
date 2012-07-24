@@ -99,31 +99,32 @@ OpaSerializeClosure = {{
     end
 
   to_intermediate(on_distant,clot:'cloture): option(OpaSerializeClosure.intermediate) =
-    match on_distant(clot) {none} -> none
-    {some=func_name} ->
-    opa_args = Closure.get_args(@unsafe_cast(clot))
-    opa_ty_args = Closure.get_ty_args(@unsafe_cast(clot))
-    nb_args = Closure.Args.length(opa_args)
-    nb_types = Closure.Args.length(opa_ty_args)
-    if WebUtils.is_client() && nb_args!=0 then none else // DISABLE CLIENT TO SERVER SEND WITH NON EMPTY ENV
-    if nb_args != nb_types then
-/*     do if nb_types == 0 then
-      println("cannot serialize no type in closure")
-        else
-      println("cannot serialize incoherent types in closure (nb_args={nb_args} nb_ty={nb_types})") */
-     none
-    else
-    args = Init.list(nb_args)(i->
-      arg = Closure.Args.get(opa_args,i)
-      ty  = Closure.Args.get(opa_ty_args,i):OpaType.ty
-      OpaSerialize.partial_serialize(arg,ty):RPC.Json.json
-    )
-    ty_args = Init.list(nb_types)(i->
-      ty  = Closure.Args.get(opa_ty_args,i):OpaType.ty
-      // @unsafe_cast is necessary until heteromorph recursivity is accepted
-      OpaSerialize.partial_serialize(@unsafe_cast(ty),@typeval(OpaType.ty)):RPC.Json.json
-    )
-    some(~{func_name args ty_args})
+    match on_distant(clot)
+    | {none} -> none
+    | {some=func_name} ->
+      opa_args = Closure.get_args(@unsafe_cast(clot))
+      opa_ty_args = Closure.get_ty_args(@unsafe_cast(clot))
+      nb_args = Closure.Args.length(opa_args)
+      nb_types = Closure.Args.length(opa_ty_args)
+      if WebUtils.is_client() && nb_args!=0 then none else // DISABLE CLIENT TO SERVER SEND WITH NON EMPTY ENV
+      if nb_args != nb_types then
+/*       do if nb_types == 0 then
+        println("cannot serialize no type in closure")
+          else
+        println("cannot serialize incoherent types in closure (nb_args={nb_args} nb_ty={nb_types})") */
+       none
+      else
+        args = Init.list(nb_args)(i->
+          arg = Closure.Args.get(opa_args,i)
+          ty  = Closure.Args.get(opa_ty_args,i):OpaType.ty
+          OpaSerialize.partial_serialize(arg,ty):RPC.Json.json
+        )
+        ty_args = Init.list(nb_types)(i->
+          ty  = Closure.Args.get(opa_ty_args,i):OpaType.ty
+          // @unsafe_cast is necessary until heteromorph recursivity is accepted
+          OpaSerialize.partial_serialize(@unsafe_cast(ty),@typeval(OpaType.ty)):RPC.Json.json
+        )
+        some(~{func_name args ty_args})
 
   @private
   from_intermediate(~{func_name args ty_args} : OpaSerializeClosure.intermediate):option(Closure.t) =
@@ -297,27 +298,31 @@ OpaSerializeClosure = {{
               | {client} -> Closure.on_local(clos)
           })
         cell =
-         match Closure.get_stored(clos)
-	     /* CASE 1 : closure is already serialized as a session */
-         {some = ~{cell arity}} ->
-          if arity == n_params then
-                aux(Magic.id(cell), @typeval(Cell.cell))
-          else error("runtime")
-         {none} ->
-          /* closure may be serialized as a closure */
-          /* Depends where we send the serialized structure */
-          if options.closure == {local} then make_cell() /* CASE 2 : as a session ; must not serialize closure */
-	      else match OpaSerializeClosure.to_intermediate(on_distant,clos)
-		  {none} -> make_cell() /* CASE 2 : as a session ; cannot serialize closure */
-          {some = intermediate} ->
-            /* CASE 3 : as a partial call */
-            do options.serialize_closure_callback(intermediate.func_name)
-            aux(@unsafe_cast(intermediate), @typeval(OpaSerializeClosure.intermediate))
+          match Closure.get_stored(clos)
+	  /* CASE 1 : closure is already serialized as a session */
+          | {some = ~{cell arity}} ->
+           if arity == n_params then aux(Magic.id(cell), @typeval(Cell.cell))
+           else error("runtime")
+          | {none} ->
+            /* closure may be serialized as a closure */
+            /* Depends where we send the serialized structure */
+            if options.closure == {local} then
+              /* CASE 2.1 : as a session ; must not serialize closure */
+              make_cell()
+            else
+              match OpaSerializeClosure.to_intermediate(on_distant,clos)
+              | {none} ->
+                /* CASE 2.2 : as a session ; cannot serialize closure */
+                make_cell()
+              | {some = intermediate} ->
+                /* CASE 3 : as a partial call */
+                do options.serialize_closure_callback(intermediate.func_name)
+                aux(@unsafe_cast(intermediate), @typeval(OpaSerializeClosure.intermediate))
+              end
           end
-          end
-      #<Ifstatic:CLOSURE_DEBUG>
+        #<Ifstatic:CLOSURE_DEBUG>
         do jlog("closure {Closure.get_identifier(clos)} empty={Closure.is_empty(clos)} serialized as {JsonTop.to_string(cell)}\nClosure dump = {Debug.dump(clos)}\nOptions = {options}")
-      #<End>
+        #<End>
         cell
       #<Else>
         make_cell()
