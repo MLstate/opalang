@@ -743,7 +743,7 @@ struct
              let { env_bsl ; env_typer ; code } = env_final in
              let renaming = QmlRenamingMap.empty in
              let is_distant _ = false in
-             let env_js_input = B.compile options ~is_distant ~renaming_client ~bsl:generated_ast env_bsl env_typer code ~bsl_lang:BslLanguage.js in
+             let env_js_input = B.compile options ~is_distant ~renaming ~bsl:generated_ast env_bsl env_typer code ~bsl_lang:BslLanguage.js in
              PassHandler.make_env options (generated_files, env_bsl, env_js_input)
          ))
       |> PassHandler.handler "JavascriptGeneration" (PassHandler.make_pass (
