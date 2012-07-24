@@ -568,7 +568,7 @@ let report_unification_conflict_with_context
       let ty_loc2 = W_TypeInfo.retrieve tmp_fun_ty.W_Algebra.sty_desc in
       let default_message _ = 
             QmlError.error ~msg:reason err_ctxt
-             ("%a@[@\nFunction @{<red>%s@}has type@\n\t[@{<red>%a@}@]" ^^
+             ("%a@[@\nFunction @{<red>%s@}has type@\n\t@[@{<red>%a@}@]" ^^
               "@\nbut is applied as a@\n\t@[@{<red>%a@}@]@]%a%a@.")
                pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
               fun_name
