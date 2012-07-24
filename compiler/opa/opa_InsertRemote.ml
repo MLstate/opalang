@@ -447,14 +447,13 @@ let generate_match_record_of_list ~annotmap expr ident_list_list ok_expr ko_expr
     It is NOT related to the closure identifiers
 *)
 let ident_to_registering renamingmap ident =
-  (*try*)
+  try
     Ident.to_uniq_string (
         QmlRenamingMap.original_from_new renamingmap ident
     )
-  (*with
+  with
     Not_found ->
-      Printf.printf "Couldn't find original name of %s\n%!" (Ident.to_string ident);
-      Ident.to_uniq_string ident*)
+      OManager.i_error "Couldn't find original name of %s\n%!" (Ident.to_uniq_string ident)
 
 (** Check given [expr], and retrieve associated expression, ident, and
     type in explicit map.*)
