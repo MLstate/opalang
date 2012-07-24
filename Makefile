@@ -117,6 +117,7 @@ opa-create: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(target-tool-opa-create)
 	@mkdir -p $(BUILD_DIR)/bin
 	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
+	@chmod 755 $(BUILD_DIR)/bin/opa-create
 
 .PHONY: install-opa-create
 install-opa-create:
