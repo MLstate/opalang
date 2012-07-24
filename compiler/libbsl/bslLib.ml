@@ -832,8 +832,8 @@ struct
   (* <!> The types definitions are in a topologic order,
      so we must use a SortedHashtbl (cf base) *)
   (* ===================================================================================================== *)
-  type _imperativ_data_module = (string, (BslKey.t, _imperativ_data_module) BI.kind) Hashtbl.t             (* *)
-  let _imperativ_module_table : _imperativ_data_module = Hashtbl.create 128                             (* *)
+  type _imperative_data_module = (string, (BslKey.t, _imperative_data_module) BI.kind) Hashtbl.t             (* *)
+  let _imperative_module_table : _imperative_data_module = Hashtbl.create 128                             (* *)
   let _bypass_table : (BslKey.t, ByPass.t) Hashtbl.t = Hashtbl.create 512                               (* *)
   let _types_table : (BslKey.t, (string * string list * BslTypes.t)) SortHashtbl.t =                (* *)
     SortHashtbl.create 128                                                                              (* *)
@@ -1212,7 +1212,7 @@ struct
                     assert false
               )
           | BI.Module a -> Some (name, BI.Module (from_mod a))
-        in from_mod _imperativ_module_table
+        in from_mod _imperative_module_table
       in
       { elt_root = None; types=types; typesmap = typesmap; map=map; ocaml_init=ocaml_init; js_init=js_init; root_node=root ;
         ml_ctrans_env = building.ml_ctrans ; js_ctrans_env = building.js_ctrans }
@@ -1233,25 +1233,27 @@ struct
       let is_loaded = Hashtbl.mem _loaded
       let first_load load = Hashtbl.add _loaded load ()
     end
-      (* Error : the error is abstract, so, you won't need to write a long try with. If you really need to catch this exception, you can print the error with string_of_error *)
+    (* Error : the error is abstract, so, you won't need to write a
+       long try with. If you really need to catch this exception, you
+       can print the error with pp_error *)
     type error =
-      | UnknownLang of string
-      | UnknownExt of string
-      | DefinitionError of BslTypes.t
-      | NotRegistredType of (string * BslTypes.t)
-      | RegisterFailure of string
-      | MultiImpl of BslLanguage.t * BslKey.t
-      | FileFun of (string * string)
-      | ExtensionLangClash of BslLanguage.t * BslLanguage.t
-      | FailureKeyType of (BslKey.t * BslTypes.t)
-      | PathFunctionOnModule of (string * BslKey.t)
-      | PathFunctionOnFunction of (string * BslKey.t)
-      | PathModuleOnFunction of (string * BslKey.t)
-      | List of error list
-      | TypeClash of BslTypes.t * BslTypes.t
-      | Redefinition of string
-      | TypeRedefinition of BslTypes.t * BslTypes.t
-      | BslTagsError of BslTags.error
+    | UnknownLang of string
+    | UnknownExt of string
+    | DefinitionError of BslTypes.t
+    | NotRegistredType of (string * BslTypes.t)
+    | RegisterFailure of string
+    | MultiImpl of BslLanguage.t * BslKey.t
+    | FileFun of (string * string)
+    | ExtensionLangClash of BslLanguage.t * BslLanguage.t
+    | FailureKeyType of (BslKey.t * BslTypes.t)
+    | PathFunctionOnModule of (string * BslKey.t)
+    | PathFunctionOnFunction of (string * BslKey.t)
+    | PathModuleOnFunction of (string * BslKey.t)
+    | List of error list
+    | TypeClash of BslTypes.t * BslTypes.t
+    | Redefinition of string
+    | TypeRedefinition of BslTypes.t * BslTypes.t
+    | BslTagsError of BslTags.error
     exception RegisterError of error
 
     (*
@@ -1301,7 +1303,7 @@ struct
               fct BslKey.pp key
 
         | PathFunctionOnFunction (fct, key) ->
-            !! "module path @{<bright>%S@} already binded@\nCannot register function @{<bright>%a@} there"
+            !! "module path @{<bright>%S@} already bound@\nCannot register function @{<bright>%a@} there"
               fct BslKey.pp key
 
         | PathModuleOnFunction (m, key) ->
@@ -1312,7 +1314,7 @@ struct
             Format.pp_list "@\n" aux fmt err
 
         | Redefinition infos ->
-            !! "This key is already binded in the register table :@\n%s" infos
+            !! "This key is already bound in the register table :@\n%s" infos
 
         | TypeRedefinition (t1, t2) ->
             !! "Multiple type definition@\n%a AND %a@\n" BslTypes.pp_citation t1 BslTypes.pp_citation t2
@@ -1330,17 +1332,17 @@ struct
             match SortHashtbl.find_opt _types_table key with
             | None ->
                 if definition then SortHashtbl.add _types_table key (ml_runtime, path, typ)
-                else raise (RegisterError (NotRegistredType (skey, typ)))
+                else error (NotRegistredType (skey, typ))
             | Some (_, _, ((External (_, _, par2)) as typ2)) ->
                 let arity = List.length par in
                 let arity2 = List.length par2 in
                 if arity <> arity2
-                then raise (RegisterError (TypeClash (typ, typ2)))
+                then error (TypeClash (typ, typ2))
                 else ()
-            | Some (_, _, typ2) -> raise (RegisterError (TypeClash (typ, typ2)))
+            | Some (_, _, typ2) -> error (TypeClash (typ, typ2))
           end
       | t ->
-          if definition then raise (RegisterError (DefinitionError t))
+          if definition then error (DefinitionError t)
           else (
             BslTypes.Walk.iter_nonrec inspection_register_type t
           )
@@ -1348,15 +1350,15 @@ struct
     (* Registration of hierarchy *)
     let current_plugin_name = ref ""
 
-    let register_imperativ_hierarchy mod_ link (fct, key) =
+    let register_imperative_hierarchy mod_ link (fct, key) =
       let rec aux mod_ = function
         | [] ->
             begin
               try
                 begin
                   match Hashtbl.find mod_ fct with
-                  | BI.Module _  -> raise (RegisterError (PathFunctionOnModule (fct, key)))
-                  | BI.Function _ -> raise (RegisterError (PathFunctionOnFunction (fct, key)))
+                  | BI.Module _  -> error (PathFunctionOnModule (fct, key))
+                  | BI.Function _ -> error (PathFunctionOnFunction (fct, key))
                 end
               with
               | Not_found -> Hashtbl.add mod_ fct (BI.Function key)
@@ -1368,7 +1370,7 @@ struct
                 begin
                   match Hashtbl.find mod_ t with
                   | BI.Module m -> aux m q
-                  | BI.Function key -> raise (RegisterError (PathModuleOnFunction (t, key)))
+                  | BI.Function key -> error (PathModuleOnFunction (t, key))
                 end
               with
               | Not_found ->
@@ -1454,7 +1456,7 @@ struct
           in
           let strlink = String.concat "." link in
           let infos = Format.sprintf "link=%S@ key=%a@ fun=%S@ type=%a" strlink BslKey.pp key short_key BslTypes.pp type_ in
-          (* #<< debug browserstructure (Printf.sprintf "imperativ_module_table : %s" infos); >>#; *)
+          (* #<< debug browserstructure (Printf.sprintf "imperative_module_table : %s" infos); >>#; *)
           (* If there is a previous binding of this key, we will produce an error *)
           (
             if Hashtbl.mem _bypass_table key
@@ -1463,7 +1465,7 @@ struct
           );
           try
             inspection_register_type type_ ;
-            register_imperativ_hierarchy _imperativ_module_table link (short_key, key);
+            register_imperative_hierarchy _imperative_module_table link (short_key, key);
             short_key
           with
           | RegisterError e -> error (List [e; FailureKeyType (key, type_)])

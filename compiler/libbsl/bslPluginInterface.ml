@@ -221,7 +221,7 @@ type multi_loading_safe_get_dynloader_interface =
 
 (**
    So, a dynloader in a plugin, is the function which is in charge
-   to get a dynloader_interface, and using it.
+   of getting a dynloader_interface, and using it.
 *)
 type dynloader = multi_loading_safe_get_dynloader_interface -> unit
 
