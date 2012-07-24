@@ -156,18 +156,18 @@ let write_simple_manpage
     file =
   Printf.fprintf file ".TH \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"\n" cmdname (string_of_int section) centerfooter leftfooter centerheader;
   if summary <> "" then
-    Printf.fprintf file ".SH NAME\n%s \\- %s\n" cmdname summary
+    Printf.fprintf file ".SH \"NAME\"\n%s \\- %s\n" cmdname summary
   else
-    Printf.fprintf file ".SH NAME\n%s\n" cmdname;
-  if synopsis <> "" then Printf.fprintf file ".SH SYNOPSIS\n%s\n" synopsis;
-  if description <> "" then Printf.fprintf file ".SH DESCRIPTION\n%s\n" description;
+    Printf.fprintf file ".SH \"NAME\"\n%s\n" cmdname;
+  if synopsis <> "" then Printf.fprintf file ".SH \"SYNOPSIS\"\n%s\n" synopsis;
+  if description <> "" then Printf.fprintf file ".SH \"DESCRIPTION\"\n%s\n" description;
   begin match options with None -> () | Some(speclist) -> begin
-    Printf.fprintf file ".SH OPTIONS\n";
+    Printf.fprintf file ".SH \"OPTIONS\"\n";
     List.iter (print_spec file) (add_help speclist);
   end end;
   List.iter (fun (title, content) -> Printf.fprintf file ".SH %s\n%s\n" title content) other;
   ()
-  
+
 (* --- *)
 
 
