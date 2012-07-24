@@ -198,6 +198,7 @@ type 'tmp_env env_Gen = {
 type env_Sliced_aux = QmlSimpleSlicer.splitted_code = {
   code : QmlAst.code;
   published : Pass_ExplicitInstantiation.published_map;
+  original_renaming : QmlRenamingMap.t;
   renaming : QmlRenamingMap.t;
 }
 
@@ -288,11 +289,13 @@ let pass_no_slicer ~options:(_:opa_options) (env:'tmp_env env_Gen) =
         server = {
           code;
           published = IdentMap.empty;
+          original_renaming = QmlRenamingMap.empty;
           renaming = QmlRenamingMap.empty;
         };
         client = {
           code = [];
           published = IdentMap.empty;
+          original_renaming = QmlRenamingMap.empty;
           renaming = QmlRenamingMap.empty;
         };
       }

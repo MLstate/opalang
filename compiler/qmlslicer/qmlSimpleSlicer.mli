@@ -28,6 +28,8 @@ type splitted_code = {
      contains its type of course)
   *)
 
+  original_renaming : QmlRenamingMap.t ;
+
   renaming : QmlRenamingMap.t ;
 }
 

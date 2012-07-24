@@ -235,6 +235,7 @@ end
 type splitted_code = {
   code : QmlAst.code ;
   published : Pass_ExplicitInstantiation.published_map;
+  original_renaming : QmlRenamingMap.t;
   renaming : QmlRenamingMap.t ;
 }
 
@@ -1579,11 +1580,13 @@ let split_code ~gamma:_ ~annotmap_old env code =
   let client = {
     code = List.rev (publish_rev_code_client @ rev_code_client);
     published = client_published;
+    original_renaming = renaming_map_client;
     renaming = renaming_map_client;
   } in
   let server = {
     code = List.rev (publish_rev_code_server @ rev_code_server);
     published = server_published;
+    original_renaming = renaming_map_server;
     renaming = renaming_map_server;
   } in
   let res =

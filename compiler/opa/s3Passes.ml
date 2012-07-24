@@ -1476,12 +1476,12 @@ let pass_SlicedCleaning =
        let client_renaming =
          QmlRenamingMap.filter client_renaming filter_fun_renaming in
        OpaMapToIdent.filter filter_fun;
-       let server = {(* env_gen_sliced.P.server with *)
+       let server = { env_gen_sliced.P.server with
                        P.code = server_code;
                        P.published = server_published;
                        P.renaming = server_renaming;
                     } in
-       let client = {(* env_gen_sliced.P.client with *)
+       let client = { env_gen_sliced.P.client with
                        P.code = client_code;
                        P.published = client_published;
                        P.renaming = client_renaming;
@@ -1541,9 +1541,11 @@ let pass_ExplicitInstantiation =
       let annotmap = env.P.env_gen.P.typerEnv.QmlTypes.annotmap in
       let {P.code=server_code;
            published=server_published;
+           original_renaming=server_original_renaming;
            renaming=server_renaming} = env.P.sliced_env.P.server in
       let {P.code=client_code;
            published=client_published;
+           original_renaming=client_original_renaming;
            renaming=client_renaming} = env.P.sliced_env.P.client in
       (* TODO: optimize by adding only dummy arguments for published functions,
          if there is no explicit instantiation to be done there;
@@ -1601,10 +1603,12 @@ let pass_ExplicitInstantiation =
           sliced_env =
           { P.server = { P.code = qmlAst_server;
                          published = server_published;
+                         original_renaming=server_original_renaming;
                          renaming = server_renaming;
                        };
             P.client = { P.code = qmlAst_client;
                          published = client_published;
+                         original_renaming=client_original_renaming;
                          renaming = client_renaming;
                        }
           };
@@ -1722,8 +1726,8 @@ let pass_SlicedToFinal =
            { P.
              newFinalCompile_bsl = e.PH.env.P.env_gen.P.bsl ;
              newFinalCompile_qml_milkshake = blender_milkshake;
-             newFinalCompile_renaming_server = eenv.P.sliced_env.P.server.P.renaming;
-             newFinalCompile_renaming_client = eenv.P.sliced_env.P.client.P.renaming;
+             newFinalCompile_renaming_server = eenv.P.sliced_env.P.server.P.original_renaming;
+             newFinalCompile_renaming_client = eenv.P.sliced_env.P.client.P.original_renaming;
              newFinalCompile_closure_map = IdentMap.empty;
              newFinalCompile_stdlib_gamma = e.PH.env.P.env_gen.P.stdlib_gamma;
            } in
