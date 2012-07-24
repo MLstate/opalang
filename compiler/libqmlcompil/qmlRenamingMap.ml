@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -49,6 +49,13 @@ let new_from_original t original_id =
 
 let new_from_original_opt t original_id =
   IdentMap.find_opt original_id t.map
+
+let remove_from_original t original_id =
+  let old_id = new_from_original t original_id in
+  {
+    map = IdentMap.remove original_id t.map;
+    rev = IdentMap.remove old_id t.rev;
+  }
 
 let filter t filter =
   IdentMap.fold

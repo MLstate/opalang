@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -27,8 +27,15 @@ type t
 val empty : t
 
 (** [add t original_id new_id] Add a new binding. Consider
-[original_id] has renamed on [new_id]. *)
+    [original_id] has renamed on [new_id].
+
+    BEWARE : If a previous binding exists it doesn't erase, implies map is not
+    bijective.
+*)
 val add : t -> QmlAst.ident -> QmlAst.ident -> t
+
+(** [remove t original_id] Remove a binding with the [original_id]. *)
+val remove_from_original : t -> QmlAst.ident -> t
 
 (** the input map must be injective *)
 val from_map : QmlAst.ident IdentMap.t -> t
