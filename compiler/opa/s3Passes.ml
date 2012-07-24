@@ -1677,9 +1677,12 @@ let pass_FunActionJsCallGeneration =
        in
        let stdlib_gamma = env_Gen_sliced.P.env_gen.P.stdlib_gamma in
 
+       let client_renaming = env_Gen_sliced.P.sliced_env.P.client.P.renaming in
+
        (* FunActionEnvSerialize *)
        let (gamma, annotmap), code =
-         Pass_FunActionJsCallGeneration.process_server_code stdlib_gamma gamma annotmap code
+         Pass_FunActionJsCallGeneration.process_server_code
+           client_renaming stdlib_gamma gamma annotmap code
        in
 
        (* Reconstruction of the env *)

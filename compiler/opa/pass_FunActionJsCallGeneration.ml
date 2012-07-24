@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -87,9 +87,10 @@ let process_ty_args ~stdlib_gamma gamma annotmap (ty_el: Q.expr list) =
 
    where ~id is the stringified name of id
 *)
-let process_funaction annotmap e =
+let process_funaction client_renaming annotmap e =
   match e with
   | Q.Ident (_, id) ->
+      let id = QmlRenamingMap.original_from_new client_renaming id in
       let jsident = JsIdent.resolve id in
       QCT.ident annotmap jsident QCT.ty_string
 
@@ -156,7 +157,7 @@ let generate_string_record stdlib_gamma gamma annotmap
 (**
    deconstruct the initial record and create the new one
 *)
-let process_fun_action_record stdlib_gamma gamma annotmap e =
+let process_fun_action_record client_renaming stdlib_gamma gamma annotmap e =
   match e with
   | Q.Record (_, [f_expr,dir]) when f_expr = field_expr ->
       begin match dir with
@@ -183,7 +184,9 @@ let process_fun_action_record stdlib_gamma gamma annotmap e =
                 end
             | _ -> bad_case funaction_ty ; assert false
           in
-          let annotmap, funaction = process_funaction annotmap funactionid in
+          let annotmap, funaction =
+            process_funaction client_renaming annotmap funactionid
+          in
           (* putting everything together *)
           generate_string_record stdlib_gamma gamma annotmap
             ~initial_record:e ~initial_letin ~oldcall:full_funaction_call
@@ -194,6 +197,6 @@ let process_fun_action_record stdlib_gamma gamma annotmap e =
       annotmap, e
 
 
-let process_server_code stdlib_gamma gamma annotmap code =
-  let annotmap, code = QmlAstWalk.CodeExpr.fold_map (QmlAstWalk.Expr.foldmap (process_fun_action_record stdlib_gamma gamma)) annotmap code in
+let process_server_code client_renaming stdlib_gamma gamma annotmap code =
+  let annotmap, code = QmlAstWalk.CodeExpr.fold_map (QmlAstWalk.Expr.foldmap (process_fun_action_record client_renaming stdlib_gamma gamma)) annotmap code in
   (gamma, annotmap), code

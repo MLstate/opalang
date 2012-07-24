@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -73,6 +73,7 @@
 *)
 
 val process_server_code:
+  QmlRenamingMap.t ->
   QmlTypes.gamma ->
   QmlTypes.gamma ->
   QmlAst.annotmap ->
