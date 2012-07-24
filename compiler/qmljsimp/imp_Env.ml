@@ -24,8 +24,8 @@ type env = {
   val_ : string -> Ident.t;
   private_bymap : Imp_Bsl.JsImpBSL.ByPassMap.t;
   bsl_lang : BslLanguage.t;
-  renaming_client : QmlRenamingMap.t;
-  renaming_server : QmlRenamingMap.t;
+  srenaming : QmlRenamingMap.t;
+  is_distant : Ident.t -> bool;
 }
 
 type private_env = {

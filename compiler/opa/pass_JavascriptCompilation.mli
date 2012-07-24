@@ -57,8 +57,8 @@
 val process :
   options:OpaEnv.opa_options ->
   closure_map:Ident.t IdentMap.t ->
-  renaming_server:QmlRenamingMap.t ->
-  renaming_client:QmlRenamingMap.t ->
+  is_distant:(Ident.t -> bool) ->
+  renaming:QmlRenamingMap.t ->
   client_roots:IdentSet.t ->
   typing:QmlTyper.env -> (* currently unused *)
   bsl_pp:(name:string-> string -> string) ->

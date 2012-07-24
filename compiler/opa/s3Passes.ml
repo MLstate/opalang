@@ -216,6 +216,16 @@ module EnvUtils = struct
   let sliced_printers x = qmlTracker_sliced PassHandler.define_printer PassHandler.printer_id QmlTracker.printers x
   let sliced_trackers x = qmlTracker_sliced PassHandler.define_tracker PassHandler.tracker_id QmlTracker.trackers x
 
+
+  let jsutils_from_renamings ~here ~other =
+    (fun ident ->
+       try
+         ignore (QmlRenamingMap.new_from_original other
+                   (QmlRenamingMap.original_from_new here ident));
+         true
+       with Not_found -> false
+    ), here
+
 end
 
 
@@ -1789,8 +1799,11 @@ let pass_JavascriptCompilation =
       let server = server_finalenv.P.newFinalCompile_qml_milkshake in
       let client = client_finalenv.P.newFinalCompile_qml_milkshake in
       let closure_map = client_finalenv.P.newFinalCompile_closure_map in
-      let renaming_server = client_finalenv.P.newFinalCompile_renaming_server in
-      let renaming_client = client_finalenv.P.newFinalCompile_renaming_client in
+      let is_distant, renaming =
+        let here = client_finalenv.P.newFinalCompile_renaming_client in
+        let other = client_finalenv.P.newFinalCompile_renaming_server in
+        EnvUtils.jsutils_from_renamings ~here ~other
+      in
       let bsl_pp =
         let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
         let ppenv = OpaEnv.Options.to_ppenv options ppenv in
@@ -1800,8 +1813,8 @@ let pass_JavascriptCompilation =
         Pass_JavascriptCompilation.process
           ~options
           ~closure_map
-          ~renaming_server
-          ~renaming_client
+          ~is_distant
+          ~renaming
           ~client_roots
           ~typing
           ~bsl_pp
@@ -2185,12 +2198,17 @@ let pass_ServerJavascriptCompilation =
        ) env_bsl.BslLib.direct_plugins in
        let loaded_files, generated_ast = (* ([] : JsAst.code) in *)
          Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
+       let is_distant, renaming =
+         let other = env.P.newFinalCompile_renaming_client in
+         let here  = env.P.newFinalCompile_renaming_server in
+         EnvUtils.jsutils_from_renamings ~here ~other
+       in
        let env_js_input = JsBackend.compile
          ~bsl: generated_ast
          ~val_:OpaMapToIdent.val_
          ~closure_map:env.Passes.newFinalCompile_closure_map
-         ~renaming_server:env.Passes.newFinalCompile_renaming_server
-         ~renaming_client:env.Passes.newFinalCompile_renaming_client
+         ~is_distant
+         ~renaming
          ~bsl_lang:BslLanguage.nodejs
          jsoptions
          env_bsl

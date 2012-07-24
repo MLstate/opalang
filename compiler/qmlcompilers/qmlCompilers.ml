@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -741,9 +741,9 @@ struct
              let options = env.PH.options in
              let generated_files, generated_ast, env_final = env.PH.env in
              let { env_bsl ; env_typer ; code } = env_final in
-             let renaming_client = QmlRenamingMap.empty in
-             let renaming_server = QmlRenamingMap.empty in
-             let env_js_input = B.compile options ~renaming_server ~renaming_client ~bsl:generated_ast env_bsl env_typer code ~bsl_lang:BslLanguage.js in
+             let renaming = QmlRenamingMap.empty in
+             let is_distant _ = false in
+             let env_js_input = B.compile options ~is_distant ~renaming_client ~bsl:generated_ast env_bsl env_typer code ~bsl_lang:BslLanguage.js in
              PassHandler.make_env options (generated_files, env_bsl, env_js_input)
          ))
       |> PassHandler.handler "JavascriptGeneration" (PassHandler.make_pass (

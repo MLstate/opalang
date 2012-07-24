@@ -1187,11 +1187,28 @@ let compile_non_rec_declarations env private_env iel =
 let compile_code_elt env private_env code_elt =
   assert (private_env.E.local_vars = []);
   assert (private_env.E.renaming = IdentMap.empty);
+  let srenaming = fun ip ->
+    try
+      QmlRenamingMap.original_from_new env.E.srenaming ip
+    with Not_found -> ip
+  in
+  let rename_idents bindings =
+    List.map
+      (fun (i, e) ->
+         srenaming i,
+         QmlAstWalk.Expr.map
+           (function
+            | Q.Ident (l, i) -> Q.Ident (l, (srenaming i))
+            | x -> x) e
+      ) bindings
+  in
   let private_env, res =
   match code_elt with
   | Q.NewVal (_,iel) ->
+      let iel = rename_idents iel in
       compile_non_rec_declarations env private_env iel
   | Q.NewValRec (_,l) ->
+      let l = rename_idents l in
       let groups = analyse_tail_recursion l in
       let private_env, statements =
         List.fold_left_map
@@ -1217,20 +1234,13 @@ let compile_code_elt env private_env code_elt =
   in
   E.reset_renaming private_env, res
 
-let is_distant env i =
-  (* FIXME: factorize with qmlClosure *)
-  try
-    ignore (QmlRenamingMap.new_from_original env.E.renaming_server (QmlRenamingMap.original_from_new env.E.renaming_client i));
-    true
-  with Not_found -> false
-
 let distant_identifier env acc = function
   | Q.NewVal (_, iel)
   | Q.NewValRec (_, iel) ->
       List.fold_left
         (fun acc (i,e) ->
            match e with
-           | Q.Lambda _ when is_distant env i -> i :: acc
+           | Q.Lambda _ when env.E.is_distant i -> i :: acc
            | _ -> acc
         ) acc iel
   | Q.NewType _ -> acc

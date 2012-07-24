@@ -26,7 +26,7 @@ module E = Imp_Env
 
 let warning_set = Imp_Warnings.warning_set
 
-let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_typer code =
+let initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code =
   let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
   (* Keep only Bypasses used in the code *)
   let filter =
@@ -56,8 +56,8 @@ let initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_ty
     val_;
     private_bymap;
     bsl_lang;
-    renaming_client;
-    renaming_server;
+    is_distant;
+    srenaming = renaming;
   } in
   env, code
 
@@ -80,10 +80,10 @@ let repeat2 n (f : int -> 'a -> 'b -> 'a * 'b) =
       aux (i+1) a b in
   aux 0
 
-let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming_server ~renaming_client ~bsl_lang options _env_bsl env_typer code =
+let compile ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming ~is_distant ~bsl_lang options _env_bsl env_typer code =
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
-  let env, code = initial_env ~val_ ~renaming_server ~renaming_client ~bsl_lang options env_typer code in
+  let env, code = initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code in
   let js_init = Imp_Bsl.JsImpBSL.ByPassMap.js_init env.E.private_bymap in
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in

@@ -202,8 +202,8 @@ let serialize_js_content
 let full_serialize
     ~options
     ~closure_map
-    ~renaming_server
-    ~renaming_client
+    ~is_distant
+    ~renaming
     ~client_roots
     ~typing:_
     ~bsl_pp
@@ -320,8 +320,8 @@ let full_serialize
       ~bsl:bsl_and_plugin_ast
       ~val_:env_js_input_val_
       ~closure_map
-      ~renaming_server
-      ~renaming_client
+      ~is_distant
+      ~renaming
       ~bsl_lang:BslLanguage.js
       back_end
       jsoptions
@@ -384,8 +384,8 @@ let reinjection ~options ~server ~rev_code =
 let process
     ~options
     ~closure_map
-    ~renaming_server
-    ~renaming_client
+    ~is_distant
+    ~renaming
     ~client_roots
     ~typing
     ~bsl_pp
@@ -403,8 +403,8 @@ let process
     let rev_code = full_serialize
       ~options
       ~closure_map
-      ~renaming_server
-      ~renaming_client
+      ~is_distant
+      ~renaming
       ~client_roots
       ~typing
       ~bsl_pp
