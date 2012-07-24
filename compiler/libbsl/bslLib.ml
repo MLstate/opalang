@@ -1495,6 +1495,12 @@ struct
 
     let dynload loader_dynload = loader_dynload register
     let dynload_no_obj = dynload
+
+    let clear () =
+      Hashtbl.clear _imperative_module_table;
+      Hashtbl.clear _bypass_table;
+      SortHashtbl.clear _types_table;
+      Hashtbl.clear _loaded;
   end
 end
 

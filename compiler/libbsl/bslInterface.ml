@@ -684,6 +684,9 @@ sig
     (** the same without registering the function pointers (the argument [obj:Obj.t]) *)
     val dynload_no_obj : BslPluginInterface.dynloader -> unit
 
+    (** Clear all state in the register (e.g. registered primitives
+        and types) *)
+    val clear : unit -> unit
   end
 end
 

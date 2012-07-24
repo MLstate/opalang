@@ -49,4 +49,10 @@ let process env =
 
     BG.process options
   );
+
+  (* HACK: The global BSL table is non-functional and is modified when
+     compiling a plugin. These changes are inconsistent with the way
+     regular plugins are loaded by the BslLoading pass. Thus, we must
+     clear the table and load the plugin again later. *)
+  BslLib.BSL.RegisterInterface.clear ();
   env
