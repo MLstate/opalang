@@ -158,6 +158,17 @@ WDatepicker = {{
    * {1 High-level interface}
    */
 
+  @private @client /* Adjust the calendar position to the input one */
+  adjust_calendar_position(id, config, _evt) =
+    input_sel       = #{get_input_id(id)}
+    height_px    = Dom.get_height(input_sel)
+    position_styler = WStyler.make_style(css {
+        position: absolute;
+        top: {height_px + 2}px;
+      })
+    calendar_styler = WStyler.merge([position_styler, config.global_style])
+    WStyler.set_dom(calendar_styler, get_picker_id(id))
+
   /**
    * This function produce a full date widget (a clickable input field,
    * associated to a date picker calendar).
@@ -180,18 +191,8 @@ WDatepicker = {{
         {calendar}
       </>
     else
-      /* Adjust the calendar position to the input one */
-      adjust_calendar_position(_evt) =
-        input_sel       = #{get_input_id(id)}
-        height_px    = Dom.get_height(input_sel)
-        position_styler = WStyler.make_style(css {
-            position: absolute;
-            top: {height_px + 2}px;
-          })
-        calendar_styler = WStyler.merge([position_styler, config.global_style])
-        WStyler.set_dom(calendar_styler, get_picker_id(id))
       /* Build the calendar HTML */
-      calendar = edit_inline(config, adjust_calendar_position, onchange,
+      calendar = edit_inline(config, @public_env(adjust_calendar_position(id, config, _)), onchange,
           id, init_date)
       input_date =
         <input id=#{get_input_id(id)} type="text"
@@ -868,3 +869,4 @@ WDatepicker = {{
   @private @both_implem options_year_mem    = Cache.simple(options_year)
   @private @both_implem options_month_mem   = Cache.simple(options_month)
 }}
+
