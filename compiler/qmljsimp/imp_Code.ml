@@ -317,7 +317,7 @@ let compile_expr_to_expr env private_env expr =
     | Q.Apply (_, f, args) ->
         aux_apply ~pure:false private_env f args
 
-    | Q.Directive (_, `partial_apply (Some _, true), e :: ty_args, _) ->
+    | Q.Directive (_, `partial_apply (_, true), e :: ty_args, _) ->
       begin match e with
       | Q.Apply (_, f, args) ->
         aux_partial_apply_with_ty ~pure:true private_env f args ty_args
