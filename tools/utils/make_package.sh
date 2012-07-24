@@ -328,10 +328,11 @@ Installed-Size: $(du -s $INSTALLDIR | cut -f1)
 Pre-Depends: debconf
 Depends: libc6 (>= 2.3.2), nodejs, npm
 Maintainer: $MAINTAINER
-Description: The unified language for web 2.0 development
- Opa is a unified programming language for web development. This self-contained
- package contains the Opa compiler, that compiles stand-alone web servers
- including AJAX features, database, etc. from single source files.
+Description: Enterprise Framework for JavaScript.
+ Opa is an advanced application framework for JavaScript.
+ All aspects are directly written in Opa:
+ Frontend code, backend code, database queries and configuration.
+ And everything is strongly statically typed.
 EOF
 
 #     cat > debian/DEBIAN/postinst <<EOF
