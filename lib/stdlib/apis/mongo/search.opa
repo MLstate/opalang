@@ -432,6 +432,16 @@ MongoSearch = {{
     , SearchUtils.parse_query(query), [])
     List.unique_list_of(res)
 
+  /**
+   * Get the size of the index, i.e. the number of words it contains
+   * Exemple: [get_count index]
+   * @param index: the index to count words from
+   * @return the number of words the given index contains
+   */
+  @server_private
+  get_count(index) =
+    (index, _) = index
+    MongoCollection.count(index, {none})
 
   /**
    * Create an index as a MongoDb collection
