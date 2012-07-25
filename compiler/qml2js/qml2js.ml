@@ -400,7 +400,7 @@ var opa_dependencies = [%s];
   let create_main_files env_opt =
     let launcher_oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
       0o700 (get_target env_opt) in
-    write_launcher_header launcher_oc;
+    write_launcher_header launcher_oc env_opt.static_link;
 
     let success = File.check_create_path ~rights:0o700 (modules_dir env_opt) in
     if not success then
