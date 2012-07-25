@@ -95,7 +95,8 @@ type env_js_input =
 
 module type JsBackend = sig
   val dynloader : BslPluginInterface.plugin -> unit
-  val compile : ?val_:(string -> QmlAst.ident) ->
+  val compile : ?runtime_ast:bool ->
+                ?val_:(string -> QmlAst.ident) ->
                 ?bsl:JsAst.code ->
                 ?closure_map:Ident.t IdentMap.t ->
                 renaming:QmlRenamingMap.t   ->

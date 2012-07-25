@@ -2216,6 +2216,7 @@ let pass_ServerJavascriptCompilation =
          EnvUtils.jsutils_from_renamings ~here ~other
        in
        let env_js_input = JsBackend.compile
+         ~runtime_ast:false
          ~bsl: generated_ast
          ~val_:OpaMapToIdent.val_
          ~closure_map:env.Passes.newFinalCompile_closure_map

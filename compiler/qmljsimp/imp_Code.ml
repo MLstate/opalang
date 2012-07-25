@@ -285,6 +285,9 @@ let simplify expr =
  |>  simplify_records
  |>  simplify_letin
 
+let compile_ident _env private_env i =
+  (try JsCons.Expr.ident (IdentMap.find i private_env.E.renaming)
+   with Not_found -> JsCons.Expr.exprident i)
 
 (* compilation of an expression into a javascript expression *)
 let compile_expr_to_expr env private_env expr =
@@ -303,8 +306,7 @@ let compile_expr_to_expr env private_env expr =
          private_env, Common.const c
 
     | Q.Ident (_, i) ->
-        (try private_env, JsCons.Expr.ident (IdentMap.find i private_env.E.renaming)
-         with Not_found -> private_env, JsCons.Expr.exprident i)
+        private_env, compile_ident env private_env i
 
     | Q.Directive (_, `restricted_bypass _, [Q.Bypass (_, key)], _)
     | Q.Bypass (_, key) ->
@@ -1182,16 +1184,30 @@ let compile_non_rec_declaration env private_env (i,e) =
 let compile_non_rec_declarations env private_env iel =
   let private_env, statements =
     List.fold_left_map (compile_non_rec_declaration env) private_env iel in
-  private_env, JsCons.Statement.block statements
+  private_env, statements
 
-let compile_code_elt env private_env code_elt =
+let srenaming env = fun ip ->
+  try
+    QmlRenamingMap.original_from_new env.E.srenaming ip
+  with Not_found -> ip
+
+let distant_identifier env acc = function
+  | Q.NewVal (_, iel)
+  | Q.NewValRec (_, iel) ->
+      List.fold_left
+        (fun acc (i,e) ->
+           match e with
+           | Q.Lambda _ when env.E.is_distant i -> srenaming env i :: acc
+           | _ -> acc
+        ) acc iel
+  | Q.NewType _ -> acc
+  | Q.NewDbValue _
+  | Q.Database _ -> assert false
+
+let compile_code_elt ?(runtime_ast=true) env private_env code_elt =
   assert (private_env.E.local_vars = []);
   assert (private_env.E.renaming = IdentMap.empty);
-  let srenaming = fun ip ->
-    try
-      QmlRenamingMap.original_from_new env.E.srenaming ip
-    with Not_found -> ip
-  in
+  let srenaming = srenaming env in
   let rename_idents bindings =
     List.map
       (fun (i, e) ->
@@ -1202,56 +1218,64 @@ let compile_code_elt env private_env code_elt =
             | x -> x) e
       ) bindings
   in
-  let private_env, res =
-  match code_elt with
-  | Q.NewVal (_,iel) ->
-      let iel = rename_idents iel in
-      compile_non_rec_declarations env private_env iel
-  | Q.NewValRec (_,l) ->
-      let l = rename_idents l in
-      let groups = analyse_tail_recursion l in
-      let private_env, statements =
-        List.fold_left_map
-          (fun private_env kind ->
-             let private_env, res =
-               match kind with
-               | `no_recursion binding ->
-                   compile_non_rec_declaration env private_env binding
-               | `self_recursion binding ->
-                   compile_function_bodies env private_env [binding]
-               | `mutual_recursion bindings ->
-                   compile_function_bodies env private_env bindings in
-             (* it is needed to reset the renaming because the same variable can appear in
-              * recursive block where it is renamed (to p0, p1 etc.) and in an other block
-              * where it is not renamed. (and since this is the same identifier, the renaming
-              * will get confused (happened with ei generated types)) *)
-             E.reset_renaming private_env, res
-          ) private_env groups in
-      private_env, JsCons.Statement.block statements
-  | Q.NewType _ -> private_env, JsCons.Statement.block []
-  | Q.NewDbValue _
-  | Q.Database _ -> assert false (* slicing error if that happens *)
+  let private_env, statements =
+    match code_elt with
+    | Q.NewVal (_,iel) ->
+        let iel = rename_idents iel in
+        compile_non_rec_declarations env private_env iel
+    | Q.NewValRec (_,l) ->
+        let l = rename_idents l in
+        let groups = analyse_tail_recursion l in
+        let private_env, statements =
+          List.fold_left_map
+            (fun private_env kind ->
+               let private_env, res =
+                 match kind with
+                 | `no_recursion binding ->
+                     compile_non_rec_declaration env private_env binding
+                 | `self_recursion binding ->
+                     compile_function_bodies env private_env [binding]
+                 | `mutual_recursion bindings ->
+                     compile_function_bodies env private_env bindings in
+               (* it is needed to reset the renaming because the same variable can appear in
+                * recursive block where it is renamed (to p0, p1 etc.) and in an other block
+                * where it is not renamed. (and since this is the same identifier, the renaming
+                * will get confused (happened with ei generated types)) *)
+               E.reset_renaming private_env, res
+            ) private_env groups in
+        private_env, statements
+    | Q.NewType _ -> private_env, []
+    | Q.NewDbValue _
+    | Q.Database _ -> assert false (* slicing error if that happens *)
   in
-  E.reset_renaming private_env, res
-
-let distant_identifier env acc = function
-  | Q.NewVal (_, iel)
-  | Q.NewValRec (_, iel) ->
-      List.fold_left
-        (fun acc (i,e) ->
-           match e with
-           | Q.Lambda _ when env.E.is_distant i -> i :: acc
-           | _ -> acc
-        ) acc iel
-  | Q.NewType _ -> acc
-  | Q.NewDbValue _
-  | Q.Database _ -> assert false
+  let statements =
+    if runtime_ast then statements
+    else
+      let identifiers = distant_identifier env [] code_elt in
+      statements @
+        (List.map
+           (fun i ->
+              (* _f.distant = true *)
+              let i = JsCons.Expr.exprident i in
+              let d = JsCons.Expr.dot i "distant" in
+              let a = JsCons.Expr.assign d (JsCons.Expr.true_ ()) in
+              JsCons.Statement.expr a)
+           identifiers)
+  in
+  E.reset_renaming private_env, JsCons.Statement.block statements
 
 let set_distant_identifiers identifiers =
-  JsCons.Statement.expr (JsCons.Expr.runtime (JsAstRuntime.SetDistant (List.map JsCons.Ident.ident identifiers)))
+    JsCons.Statement.expr
+      (JsCons.Expr.runtime
+         (JsAstRuntime.SetDistant (List.map JsCons.Ident.ident identifiers)))
 
-let compile env private_env code =
-  let private_env, js_code = List.fold_left_map (compile_code_elt env) private_env code in
+
+let compile ?(runtime_ast=true) env private_env code =
+  let private_env, js_code = List.fold_left_map (compile_code_elt ~runtime_ast env) private_env code in
   let distant_identifiers = List.fold_left (distant_identifier env) [] code in
-  let js_code_elt = set_distant_identifiers distant_identifiers in
-  private_env, js_code_elt :: js_code
+  let js_code_elt =
+    set_distant_identifiers distant_identifiers in
+  private_env,
+  if runtime_ast then
+    js_code_elt :: js_code
+  else js_code

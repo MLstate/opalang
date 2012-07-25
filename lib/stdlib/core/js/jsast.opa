@@ -93,7 +93,7 @@ JsOptions =
         ident -> match JsCleaning.check_if_kept(infos,ident) with
                  | {kept} | {no_cleaning} -> {some=JsIdent.rename(ident)}
                  | {client_cleaned} ->
-                   do %%bslclosure_set_distant_false%%(ident)
+                   do %%bslclosure_set_distant%%(ident, false)
                    {none}
                  | {server_cleaned} ->
                    // FIXME? could empty the rpc hashtbl
@@ -234,7 +234,7 @@ JsIdent = {{
    * can clean the reference with the [JsIdent.clear] function for memory
    * utilization.
   */
-  rename(key : JsAst.ident):JsAst.ident = // TODO - Command line
+  rename(key : JsAst.ident):JsAst.ident =
     match JsOptions.renaming with
     | {no} -> key
     | {fake} as renaming | {yes} as renaming ->

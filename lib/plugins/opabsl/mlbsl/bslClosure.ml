@@ -134,13 +134,13 @@ let get_local str =
     Some (Hashtbl.find funtbl str).local
   with Not_found -> None
 
-##register set_distant_false : string -> void
+##register [opacapi] set_distant : string, bool -> void
 (** If a client function get cleaned, set its distant property to
     false.  No need to create a container if the function was not
     already known. *)
-let set_distant_false str =
+let set_distant str b =
   try
-    (Hashtbl.find funtbl str).distant <- false;
+    (Hashtbl.find funtbl str).distant <- b;
   with Not_found ->
     ()
 

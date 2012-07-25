@@ -260,13 +260,6 @@ type JsCleaning.marked = JsIdentSet.t
          {client_cleaned}
 
   /**
-   * Bypass used to perform a side effect on the server to tell than
-   * a registered client function was cleaned, and so is no more
-   * defined, and no more available.
-  **/
-  @private set_distant_false = %%bslclosure_set_distant_false%%
-
-  /**
    * Return true if the code_elt should be kept, which means
    * that it is a root, or this is marked.
   **/

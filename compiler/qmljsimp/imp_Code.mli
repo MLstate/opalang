@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -19,4 +19,4 @@
    Compiles a qml code into a js code
 *)
 
-val compile : Imp_Env.env -> Imp_Env.private_env -> QmlAst.code -> Imp_Env.private_env * JsAst.code
+val compile : ?runtime_ast:bool -> Imp_Env.env -> Imp_Env.private_env -> QmlAst.code -> Imp_Env.private_env * JsAst.code

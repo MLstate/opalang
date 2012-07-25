@@ -684,6 +684,7 @@ struct
     let create_and_register = !! "create_and_register"
     let create_no_function_and_register = !! "create_no_function_and_register"
     let define_function = !! "define_function"
+    let set_distant = !!"set_distant"
   end
 
   module BslCps =
