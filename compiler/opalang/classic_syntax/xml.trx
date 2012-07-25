@@ -42,6 +42,7 @@ htmlentity         <-
 
 htmlspecial        <-
   / "{" {{ "{" }}
+  / "}" {{ "}" }}
   / " " {{ "&nbsp;" }}
   / "<" {{ "&lt;" }}
   / ">" {{ "&gt;" }}
@@ -54,7 +55,7 @@ htmlspecial        <-
 /** htmlchars **/
 htmlchars          <-
   / htmlentity
-  / ((![{] ![<] !htmlentity .)+  $_)
+  / ((![{] ![<] ![}] !htmlentity .)+  $_)
 
 /** svaluechars **/
 svaluechars        <-
