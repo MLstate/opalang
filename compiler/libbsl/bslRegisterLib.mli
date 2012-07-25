@@ -109,6 +109,11 @@ type finalized_t
 *)
 val finalize : session -> finalized_t
 
+(** Construct directly the plugin value from the finalized
+    session. Since the plugin wasn't loaded from disk, it doesn't have
+    an associated path *)
+val plugin : finalized_t -> BslPluginInterface.plugin
+
 (** check *)
 val js_validator : finalized_t -> unit
 

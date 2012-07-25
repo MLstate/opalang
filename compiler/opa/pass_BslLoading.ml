@@ -291,16 +291,6 @@ let process
     =
   (* Pass *)
   let plugins = "opabsl" :: options.O.bypass_plugin in
-  let plugins, bundled_plugin =
-    (* Check whether a custom plugin was built and update the plugin
-       list accordingly *)
-    if List.is_empty options.O.client_plugin_files &&
-      List.is_empty options.O.server_plugin_files then
-      plugins, None
-    else
-      let custom_plugin =
-        Filename.basename (File.chop_extension options.O.target) in
-      custom_plugin :: plugins, Some custom_plugin in
   let server_back_end = options.O.back_end in
   let client_back_end = options.O.js_back_end in
   let cwd = Sys.getcwd () in
@@ -430,20 +420,17 @@ let process
         Hashtbl.add extralib_plugin basename extralib ;
         Hashtbl.add extrapath_plugin basename extrapath ;
         BslDynlink.load_bypass_plugin (BslDynlink.MarshalPlugin plugin) ;
-        if Option.exists ((<>) basename) bundled_plugin then
-          (* We don't include bundled plugins in the list to prevent them from
-             being linked in files that use this package afterwards *)
-          let inclusion =
-            let bypass_plugin =
-              if (BslArgs.get ()).BslArgs.no_absolute then
-                Filename.basename bypass_plugin
-              else bypass_plugin
-            in
-            BslConvention.inclusion ~cwd:"" bypass_plugin in
-          let extralib = inclusion.BslConvention.extralib in
-          let extrapath = inclusion.BslConvention.extrapath in
-          let plugin = inclusion.BslConvention.plugin in
-          Separation.add separation (S.make basename extralib extrapath plugin)
+        let inclusion =
+          let bypass_plugin =
+            if (BslArgs.get ()).BslArgs.no_absolute then
+              Filename.basename bypass_plugin
+            else bypass_plugin
+          in
+          BslConvention.inclusion ~cwd:"" bypass_plugin in
+        let extralib = inclusion.BslConvention.extralib in
+        let extrapath = inclusion.BslConvention.extrapath in
+        let plugin = inclusion.BslConvention.plugin in
+        Separation.add separation (S.make basename extralib extrapath plugin)
       )
   ) plugins ;
 
@@ -510,12 +497,18 @@ let process
   let direct_plugins = find_used_plugins bymap code all_plugins in
 
   let all_external_plugins, direct_external_plugins, bundled_plugin =
-    match bundled_plugin with
-    | Some name ->
+    (* FIXME: We make the assumption that a plugin with the same name
+       as the current package should be bundled. This isn't too bad,
+       but could probably be improved *)
+    if List.is_empty options.O.client_plugin_files &&
+      List.is_empty options.O.server_plugin_files
+    then
+      let name = Filename.basename (File.chop_extension options.O.target) in
       List.filter (fun plugin -> plugin.BPI.basename <> name) all_plugins,
       List.filter (fun plugin -> plugin.BPI.basename <> name) direct_plugins,
       List.find_opt (fun plugin -> plugin.BPI.basename = name) direct_plugins
-    | None -> all_plugins, direct_plugins, None in
+    else
+      all_plugins, direct_plugins, None in
 
   let bsl = { BslLib.
               bymap; all_plugins; all_external_plugins;

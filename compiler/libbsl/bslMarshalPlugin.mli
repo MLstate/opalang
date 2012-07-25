@@ -87,7 +87,7 @@ val input : filename:string -> in_channel -> t
 (** {6 COMPATIBILITY with BslLib interface} *)
 
 (** Build the same plugin structure as you would optained after the native dynloading of a Loader.*)
-val plugin : t -> pathname -> BslPluginInterface.plugin
+val plugin : t -> pathname option -> BslPluginInterface.plugin
 
 (** {6 Dynlink API} *)
 

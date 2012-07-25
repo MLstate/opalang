@@ -231,7 +231,7 @@ let plugin t path =
   { BslPluginInterface.
 
     basename                = t.basename ;
-    path                    = Some path ;
+    path                    = path ;
     self_module_name        = t.self_module_name ;
     uniq_id                 = t.uniq_id ;
     conf                    = t.conf ;
@@ -257,7 +257,7 @@ let loadfile_private file =
   in
   let path = Filename.dirname path in
   let t = input_file file in
-  let plugin = plugin t path in
+  let plugin = plugin t (Some path) in
   BslPluginTable.store plugin
 
 let loadfile = loadfile_private

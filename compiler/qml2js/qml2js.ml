@@ -181,7 +181,9 @@ struct
     in
     let bundled, ast = match env_bsl.BslLib.bundled_plugin with
       | Some plugin ->
-        let content = File.content (filename_of_plugin plugin) in
+        let content = String.concat_map "" (fun (filename, content, _) ->
+          Printf.sprintf "// From file %s\n%s\n" filename content
+        ) plugin.BPI.nodejs_code in
         let code =
           try
             JsParse.String.code ~throw_exn:true content

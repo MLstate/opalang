@@ -1170,6 +1170,9 @@ let finalize s =
 
   finalized_t
 
+let plugin finalized_t =
+  BMP.plugin finalized_t.f_marshal_plugin_t None
+
 let command_not_found = 127
 
 let js_validator finalized_t =
