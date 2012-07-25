@@ -174,35 +174,33 @@ let parse_error_flag =
 
 module OA = OpaSyntax.Args
 
-(* FIXME, use FilePos for obtaining citations etc. *)
-let show_parse_error file_name content error_summary error_details pos =
+let show_content ppf (content, pos) = 
   let n = max 0 (min pos (String.length content-1)) in
-  let begin_citation  =   get_index_N_lines_before  content n 5  in
-  let length_citation =   n -  begin_citation                    in
-  let begin_error_zone =  get_index_N_lines_before  content n 0  in
-  let length_error_zone = min( (get_index_N_lines_after  content n 5)-begin_error_zone +1) (String.length content -begin_error_zone) in
-  let red = Ansi.print  `red
-  and green = Ansi.print  `green in
-  let line, col, gchar =
-    if pos = -1 then
-      "??", "??", "??"
-    else
-      let line_int, col_int = FilePos.get_pos file_name pos in
-      string_of_int line_int, string_of_int col_int, string_of_int pos
-  in
-  (* FIXME: use really format *)
-  OManager.printf "%s" (
-    (Printf.sprintf "In %s [%s:%s-%s:%s | global chars=%s-%s]\n%s at line %s, column %s\n"
-       (red file_name) line col line col gchar gchar
-       (red error_summary) (red line) (red col)
-    )
-    ^ (Printf.sprintf "The error may be in the following citation, usually in the %s part (starting at %s) or just before:" (red"red") (parse_error_flag))
-    ^ (Printf.sprintf "\n<<%s%s>>\n"
-         (green (String.sub content begin_citation    length_citation  ))
-         (red   (parse_error_flag^(String.sub content begin_error_zone  length_error_zone))))
-    ^ (Printf.sprintf "%s: %s\n" (red "Hint") error_details)
-  ) ;
-  OManager.error "Syntax error"
+  let begin_citation = get_index_N_lines_before content n 5 in
+  let length_citation = n-begin_citation in
+  let begin_error_zone = get_index_N_lines_before content n 0 in
+  let length_error_zone = 
+    min((get_index_N_lines_after content n 5)-begin_error_zone+1) 
+        (String.length content -begin_error_zone) in
+    Format.fprintf ppf
+      ("@[The@ error@ may@ be@ in@ the@ following@ citation,@ " ^^
+       "usually@ in@ the@ @{<red>red@}@ part@ (starting@ at@ %s)@ " ^^
+       "or@ just@ before:@.@\n@[@{<green>%s@}%s@{<red>%s@}@]")
+          parse_error_flag
+          (String.sub content begin_citation    length_citation  )
+          parse_error_flag 
+          (String.sub content begin_error_zone  length_error_zone)
+
+let show_parse_error file_name content error_summary error_details pos =
+  let _pos = FilePos. make_pos file_name pos pos in
+  OManager.error 
+     ("%a@\n@[<2>%s@\n@[%a@]@\n" ^^
+     "@[<2>@{<bright>Hint@}:@\n%s@]@]@.")
+      FilePos.pp_pos _pos error_summary
+      show_content (content, pos)
+      error_details
+  
+
 (* ====================================================================================== *)
 
 (* high level parsing *)
@@ -243,11 +241,11 @@ let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") ?(sugar=fals
         | Trx_runtime.SyntaxError (pos, err) ->
             show_parse_error filename content "Syntax error" err pos
         | Specific_parse_error (pos, err) ->
-            show_parse_error filename content "Error" err (FilePos.get_first_char pos) (* FIXME, whole range should be used *)
+            show_parse_error filename content "Parse error" err (FilePos.get_first_char pos) (* FIXME, whole range should be used *)
         | err ->
             (* All parser error in Opa should use the [Specific_parse_error] exception.
                Otherwise we have no location to report... *)
-            show_parse_error filename content "Error" (Printexc.to_string err) (-1)
+            show_parse_error filename content "Parse error" (Printexc.to_string err) (-1)
       in
       OManager.flush_errors (); (* make sure that if someone threw errors, then we stop before saving the cache *)
       if cache then CacheParse.set filename content res;

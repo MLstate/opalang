@@ -118,11 +118,13 @@ let warning1 s annot =
 let warning ~level:_ s =
   OManager.printf "@{<yellow>Warning@}: %s@." s
 
+let hint_color = Ansi.print `magenta
 let error1 s annot =
-  let str = sprintf "%s, %s" (FilePos.to_string annot.QmlLoc.pos) s in
-  raise (Specific_parse_error (annot.QmlLoc.pos,str))
+  raise (Specific_parse_error (annot.QmlLoc.pos,s))
 
-let error_rbrace_in_html = error1 (sprintf "%s is a special character in html,\n you have to replace it with %s" (Ansi.print `red "}") (Ansi.print `red "\\}") )
+let error_rbrace_in_html = 
+  error1 (sprintf "%s is a special character in html, maybe you mean %s" 
+           (hint_color "}") (hint_color "\\}"))
 let error_comment = error1 "you start an unterminated comment (the `/*' is not matched by a `*/')."
 let error_string = error1 "you start an unterminated string (the `\"' is not matched by a closing `\"')."
 let error_char_escape c = error1 (sprintf "the escape \\%s is illegal. The legal escapes are: \\{, \\}, \\n, \\t, \\r, \\', \\\", \\\\, \\<integer>, \\uXXXX, \\UXXXXXXXX." (Char.escaped c))
@@ -1311,10 +1313,11 @@ let nstag_to_string ns tag =
 let tag_mismatch ((ns1,_annot), (tag1,{QmlLoc.pos = pos1})) ((ns2,_annot), (tag2,{QmlLoc.pos = _pos2})) =
   let matched = (tag2 = "") || (tag1 = tag2 && ns1 = ns2) in
     if not matched then
-      error1 (sprintf "and %s\n  Open and close tag mismatch <%s> vs </%s>"
-                (FilePos.to_string pos1)
+      error1 (sprintf "Open and close tag mismatch <%s> vs </%s>.\n <%s> found at %s"
+                (hint_color (nstag_to_string ns1 tag1))
+                (hint_color (nstag_to_string ns2 tag2))
                 (nstag_to_string ns1 tag1)
-                (nstag_to_string ns2 tag2))
+                (FilePos.to_string pos1))
         _annot
     else ()
 
@@ -1323,9 +1326,10 @@ let nochild_elem nstag close_tag has_children create =
   let ((ns2,_),(tag2,_)) = close_tag in
   if tag1 = tag2 && ns1 = ns2 then begin
     if not has_children then Some (create ())
-    else error1 (sprintf "and %s\n <%s> is a void element: it can't have children"
-                  (FilePos.to_string pos1)
-                  (nstag_to_string ns1 tag1))
+    else error1 (sprintf "<%s> is a void element: it can't have childreni.\n <%s> found at %s"
+                  (hint_color (nstag_to_string ns1 tag1))
+                  (nstag_to_string ns1 tag1)
+                  (FilePos.to_string pos1))
            _annot
   end else None
 
