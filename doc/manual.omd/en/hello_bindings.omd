@@ -53,7 +53,7 @@ This part shows a complete example, including compilation command line.
     hello_binding.opa  plugin.js  plugin.ml  Makefile
 
 ##### Makefile
-file://opa_binding_examples/Makefile
+file://opa_bindings_examples/Makefile
 
 ### External implementation
 
@@ -70,10 +70,10 @@ directive defining the function `stammer` in the file `plugin` will introduce
 the function named `plugin_stammer`. The use of `##args` is optional, we can write instead:
 
 ##### plugin.ml
-[ocaml]file://opa_binding_examples/plugin.ml
+[ocaml]file://opa_bindings_examples/plugin.ml
 
 ##### plugin.js
-[js]file://opa_binding_examples/plugin.js
+[js]file://opa_bindings_examples/plugin.js
 
     ##register stammer : string -> string
     function plugin_stammer(s)
@@ -154,7 +154,7 @@ You can find there a simple _Opa_ application for calling either the client or t
 side implementation of the function `stammer`, with an input for giving the argument.
 
 ##### hello_bindings.opa
-[opa|fork=opa_bindings_examples]file://opa_binding_examples/hello_bindings.opa
+[opa|fork=opa_bindings_examples]file://opa_bindings_examples/hello_bindings.opa
 
 Compiling the application requires an extra argument to be passed to the _Opa_ compiler
 so that it finds the type of the external primitive, and find the
@@ -174,16 +174,16 @@ version of Opa.
     freq.opa  freq.c  c_binding.ml  Makefile
 
 ##### Makefile
-file://opa_binding_examples/c_binding/Makefile
+file://opa_bindings_examples/c_binding/Makefile
 
 ##### freq.c
-[c]file://opa_binding_examples/c_binding/freq.c
+[c]file://opa_bindings_examples/c_binding/freq.c
 
 ##### c_binding.ml
-[ocaml]file://opa_binding_examples/c_binding/c_binding.ml
+[ocaml]file://opa_bindings_examples/c_binding/c_binding.ml
 
 ##### freq.opa
-[opa|fork=opa_bindings_examples]file://opa_binding_examples/c_binding/freq.opa
+[opa|fork=opa_bindings_examples]file://opa_bindings_examples/c_binding/freq.opa
 
 ### Compilation
 
@@ -571,13 +571,13 @@ This example shows how to use the module `Big_int` of the _OCaml_ standard libra
     bigint.ml  bigint.opa  Makefile
 
 ##### Makefile
-file://opa_binding_examples/external_types/Makefile
+file://opa_bindings_examples/external_types/Makefile
 
 ##### bigint.ml
-file://opa_binding_examples/external_types/bigint.ml
+file://opa_bindings_examples/external_types/bigint.ml
 
 ##### bigint.opa
-file://opa_binding_examples/external_types/bigint.opa
+file://opa_bindings_examples/external_types/bigint.opa
 
 [[Opa_types]]
 ### Opa types
@@ -624,13 +624,13 @@ as much as you want using _OCaml_ bindings (ndbm is implemented originally in C)
     dbm.ml  dbm.opa  Makefile
 
 ##### Makefile
-file://opa_binding_examples/opa_types/Makefile
+file://opa_bindings_examples/opa_types/Makefile
 
 ##### dbm.ml
-file://opa_binding_examples/opa_types/dbm.ml
+file://opa_bindings_examples/opa_types/dbm.ml
 
 ##### dbm.opa
-[opa|fork=opa_bindings_examples]file://opa_binding_examples/opa_types/dbm.opa
+[opa|fork=opa_bindings_examples]file://opa_bindings_examples/opa_types/dbm.opa
 
 ### Exercise
 Add a primitive which return a opa-list of entries, and add a button to show all entries of the database.
