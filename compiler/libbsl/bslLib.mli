@@ -162,12 +162,17 @@ type env_bsl =
          transitive dependencies *)
       all_plugins : BslPluginInterface.plugin list ;
 
-      (* Direct plugin dependencies only *)
-      direct_plugins : BslPluginInterface.plugin list ;
+      (* External plugins used by transitive deps *)
+      all_external_plugins : BslPluginInterface.plugin list ;
+
+      (* Direct plugin dependencies only, not including bundled plugin *)
+      direct_external_plugins : BslPluginInterface.plugin list ;
 
       (* Plugin that was possibly built with this compilation
-         unit. Note that this entry is excluded from the previous
-         lists, as the plugin is indeed a part of the unit. *)
+         unit. Note that this entry is excluded from the previous two
+         lists, as the plugin is indeed a part of the compilation
+         unit. Therefore, it doesn't need to be linked again or
+         copied*)
       bundled_plugin : BslPluginInterface.plugin option ;
     }
 

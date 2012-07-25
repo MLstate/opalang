@@ -112,8 +112,7 @@ sig
   val js_bslfilesloading : Qml2jsOptions.t -> BslLib.env_bsl ->
     loaded_bsl
   val js_generation : Qml2jsOptions.t -> BslLib.env_bsl ->
-    BPI.plugin_basename list -> loaded_bsl ->
-    J.env_js_input -> env_js_output
+    loaded_bsl -> J.env_js_input -> env_js_output
   val js_treat : Qml2jsOptions.t -> env_js_output -> int
 end =
 struct
@@ -158,7 +157,7 @@ struct
        code contains call to bypass of bsl, it is too dangerous to put
        the extra-libs between bsl and the generated code *)
     let loaded_files =
-      let plugins = env_bsl.BslLib.all_plugins in
+      let plugins = env_bsl.BslLib.all_external_plugins in
       let fold acc loader =
         let filename = filename_of_plugin loader in
         let content = File.content filename in
@@ -187,7 +186,6 @@ struct
           try
             JsParse.String.code ~throw_exn:true content
           with JsParse.Exception error -> (
-            let _ = File.output "jserror.js" content in
             OManager.error "JavaScript parser error on bundled plugin\n%a\n"
               JsParse.pp error;
           ) in
@@ -455,7 +453,7 @@ var opa_dependencies = [%s];
       match plugin.BPI.path with
       | Some path -> maybe_install_node_module env_opt path
       | None -> ()
-    ) env_bsl.BslLib.all_plugins;
+    ) env_bsl.BslLib.all_external_plugins;
 
     R.iter_with_dir ~packages:true ~deep:true
       (fun path _saved ->
@@ -493,7 +491,10 @@ var opa_dependencies = [%s];
     else
       linking_generation_dynamic env_opt env_bsl
 
-  let js_generation env_opt env_bsl plugin_requires loaded_bsl env_js_input =
+  let js_generation env_opt env_bsl loaded_bsl env_js_input =
+    let plugin_requires = List.map (fun plugin ->
+      plugin.BslPluginInterface.basename
+    ) env_bsl.BslLib.direct_external_plugins in
     begin match ObjectFiles.compilation_mode () with
     | `compilation ->
       compilation_generation env_opt env_bsl plugin_requires

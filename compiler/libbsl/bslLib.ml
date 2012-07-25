@@ -1552,7 +1552,8 @@ module BSL : BI.BSLINTROSPECTION =
 type env_bsl = {
   bymap : BSL.ByPassMap.t ;
   all_plugins : BslPluginInterface.plugin list ;
-  direct_plugins : BslPluginInterface.plugin list ;
+  all_external_plugins : BslPluginInterface.plugin list ;
+  direct_external_plugins : BslPluginInterface.plugin list ;
   bundled_plugin : BslPluginInterface.plugin option ;
 }
 (* ========================================= *)
