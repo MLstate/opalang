@@ -59,7 +59,7 @@ let initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code =
     is_distant;
     srenaming = renaming;
   } in
-  env, code
+  env
 
 let initial_private_env () = {E.
   local_vars = [];
@@ -83,7 +83,7 @@ let repeat2 n (f : int -> 'a -> 'b -> 'a * 'b) =
 let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming ~is_distant ~bsl_lang options _env_bsl env_typer code =
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
-  let env, code = initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code in
+  let env = initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code in
   let js_init = Imp_Bsl.JsImpBSL.ByPassMap.js_init env.E.private_bymap in
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in
