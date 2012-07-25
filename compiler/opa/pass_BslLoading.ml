@@ -503,12 +503,13 @@ let process
     if List.is_empty options.O.client_plugin_files &&
       List.is_empty options.O.server_plugin_files
     then
+      all_plugins, direct_plugins, None
+    else
       let name = Filename.basename (File.chop_extension options.O.target) in
       List.filter (fun plugin -> plugin.BPI.basename <> name) all_plugins,
       List.filter (fun plugin -> plugin.BPI.basename <> name) direct_plugins,
       List.find_opt (fun plugin -> plugin.BPI.basename = name) direct_plugins
-    else
-      all_plugins, direct_plugins, None in
+  in
 
   let bsl = { BslLib.
               bymap; all_plugins; all_external_plugins;
