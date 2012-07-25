@@ -122,6 +122,7 @@ let error1 s annot =
   let str = sprintf "%s, %s" (FilePos.to_string annot.QmlLoc.pos) s in
   raise (Specific_parse_error (annot.QmlLoc.pos,str))
 
+let error_rbrace_in_html = error1 (sprintf "%s is a special character in html,\n you have to replace it with %s" (Ansi.print `red "}") (Ansi.print `red "\\}") )
 let error_comment = error1 "you start an unterminated comment (the `/*' is not matched by a `*/')."
 let error_string = error1 "you start an unterminated string (the `\"' is not matched by a closing `\"')."
 let error_char_escape c = error1 (sprintf "the escape \\%s is illegal. The legal escapes are: \\{, \\}, \\n, \\t, \\r, \\', \\\", \\\\, \\<integer>, \\uXXXX, \\UXXXXXXXX." (Char.escaped c))

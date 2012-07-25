@@ -77,6 +77,7 @@ val const_ty_to_string : string ty_node -> string
 val isolate : string -> string
 val warning1 : string -> annot -> unit
 val error1 : string -> annot -> 'a
+val error_rbrace_in_html : annot -> 'a
 val error_comment : annot -> 'a
 val error_string : annot -> 'a
 val error_char_escape : char -> annot -> 'a

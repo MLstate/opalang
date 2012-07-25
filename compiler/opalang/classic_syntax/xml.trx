@@ -56,6 +56,7 @@ htmlspecial        <-
 htmlchars          <-
   / htmlentity
   / ((![{] ![<] ![}] !htmlentity .)+  $_)
+  / pos:pos "}" {{ Parser_utils.error_rbrace_in_html pos }}
 
 /** svaluechars **/
 svaluechars        <-
