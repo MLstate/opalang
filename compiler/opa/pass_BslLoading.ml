@@ -430,16 +430,20 @@ let process
         Hashtbl.add extralib_plugin basename extralib ;
         Hashtbl.add extrapath_plugin basename extrapath ;
         BslDynlink.load_bypass_plugin (BslDynlink.MarshalPlugin plugin) ;
-        let inclusion =
-          let bypass_plugin =
-            if (BslArgs.get ()).BslArgs.no_absolute then Filename.basename bypass_plugin
-            else bypass_plugin
-          in
-          BslConvention.inclusion ~cwd:"" bypass_plugin in
-        let extralib = inclusion.BslConvention.extralib in
-        let extrapath = inclusion.BslConvention.extrapath in
-        let plugin = inclusion.BslConvention.plugin in
-        Separation.add separation (S.make basename extralib extrapath plugin) ;
+        if Option.exists ((<>) basename) bundled_plugin then
+          (* We don't include bundled plugins in the list to prevent them from
+             being linked in files that use this package afterwards *)
+          let inclusion =
+            let bypass_plugin =
+              if (BslArgs.get ()).BslArgs.no_absolute then
+                Filename.basename bypass_plugin
+              else bypass_plugin
+            in
+            BslConvention.inclusion ~cwd:"" bypass_plugin in
+          let extralib = inclusion.BslConvention.extralib in
+          let extrapath = inclusion.BslConvention.extrapath in
+          let plugin = inclusion.BslConvention.plugin in
+          Separation.add separation (S.make basename extralib extrapath plugin)
       )
   ) plugins ;
 
