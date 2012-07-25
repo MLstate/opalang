@@ -326,27 +326,32 @@ MongoSearch = {{
    * @param index: index
    * @param value: value to be indexed, of type 'a
    * @param key: the key from the main database to store in the index, so it can resend after a search query
+   * @param path: the path from the main database to check if there are some indexed values to remove
    */
   @server_private
-  add_to_index(index: (index, count), value: 'a, key: key) =
-    do debug("add value {value} at key {key}")
-    (index, count) = index
-    // update count
-    _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
-    // compute a list of words from the given value
-    words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
-    // compute a set to avoid indexing more than one time the same word
-    set = StringSet.From.list(words)
-    Set.iter(
-      lexem ->
-        // fix a limit to avoid 'key too large to index' error message from mongoDB
-        if (String.length(lexem) <= 512) then
-          // compute tf-idf score for current lexem
-          tf_idf = SearchUtils.compute_tf_idf(index, count, lexem, words)
-          value = {_score =  tf_idf; lexem = lexem; key = key}
-          SearchCache.add_to_index(index, lexem, value)
-        else void
-     , set)
+  add_to_index(index: (index, count), value: 'a, key: key, path: Db.ref_path('a, 'engine)) =
+    do debug("add value {value} at path {path} with key {key}")
+    value_to_remove = Db.read(path)
+    if value_to_remove == value then void
+    else
+      do remove_from_index(index, value_to_remove, key)
+      (index, count) = index
+      // update count
+      _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
+      // compute a list of words from the given value
+      words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
+      // compute a set to avoid indexing more than one time the same word
+      set = StringSet.From.list(words)
+      Set.iter(
+        lexem ->
+              // fix a limit to avoid 'key too large to index' error message from mongoDB
+              if (String.length(lexem) <= 512) then
+                 // compute tf-idf score for current lexem
+                 tf_idf = SearchUtils.compute_tf_idf(index, count, lexem, words)
+                 value = {_score =  tf_idf; lexem = lexem; key = key}
+                 SearchCache.add_to_index(index, lexem, value)
+               else void
+         , set)
 
   /**
    * Desindex the given value
