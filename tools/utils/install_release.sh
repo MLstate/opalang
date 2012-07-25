@@ -171,7 +171,7 @@ else
     msg Installing ocaml and other dependencies
     if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
         rm -rf $OPALANG/ocaml/build
-        . platform_helper.sh
+        . tools/platform_helper.sh
         if [ -n "$IS_MAC" ] ; then
             $OPALANG/tools/dependencies/installation_helper.sh --prefix $INSTALLDIR
         else
