@@ -363,7 +363,7 @@ let _ = Self.self_store ()
 
 (**
    The type record use for manipulating the module as a first level value
-   Each field correspond to a value of the interface [PLUGIN].
+   Each field corresponds to a value of the interface [PLUGIN].
    The documentation is in the documentation of this interface.
 
    This is an unmodularization of the plugin, used to access dynamically

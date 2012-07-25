@@ -576,7 +576,8 @@ let process opt =
 
   BR.js_validator finalized_t;
 
-  OManager.verbose "successfull generation of plugin files : @{<bright>%d@} files" !files_generated ;
+  OManager.verbose "successful generation of plugin files : @{<bright>%d@} files"
+    !files_generated ;
 
   if opt.auto_build && BR.need_makefile finalized_t then (
     OManager.verbose "building plugin...";
@@ -588,7 +589,8 @@ let process opt =
     then
       OManager.error "building failure due to error(s) in source files@\n"
     else
-      OManager.verbose "successful compilation of plugin @{<bright>%s@}" opt.bsl_pref
+      OManager.verbose "successful compilation of plugin @{<bright>%s@}"
+        opt.bsl_pref
   );
 
   (* if success : remove unused logs from previous error *)
