@@ -502,15 +502,16 @@ let process
       ()
   in
 
-  let all_plugins, bundled_plugin =
+  (* Only plugins that are directly used by the current unit *)
+  let direct_plugins = find_used_plugins bymap code all_plugins in
+
+  let all_plugins, direct_plugins, bundled_plugin =
     match bundled_plugin with
     | Some name ->
       List.filter (fun plugin -> plugin.BPI.basename <> name) all_plugins,
-      Some (List.find (fun plugin -> plugin.BPI.basename = name) all_plugins)
-    | None -> all_plugins, None in
-
-  (* Only plugins that are directly used by the current unit *)
-  let direct_plugins = find_used_plugins bymap code all_plugins in
+      List.filter (fun plugin -> plugin.BPI.basename <> name) direct_plugins,
+      List.find_opt (fun plugin -> plugin.BPI.basename = name) all_plugins
+    | None -> all_plugins, direct_plugins, None in
 
   let bsl = { BslLib.
               bymap; all_plugins; direct_plugins; bundled_plugin;
