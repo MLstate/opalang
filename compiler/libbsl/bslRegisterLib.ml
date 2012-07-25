@@ -297,7 +297,12 @@ let check_session session =
   let identification = session.s_identification in
 
   let error_unicity kind name =
-      OManager.error "Generation of @{<bright>%s@} module-clash@\nThe asked target module name @{<bright>%S@} is already used by a previous loaded primitive library@\nPlease specify an other target ( try option --help )@\n" kind name
+      OManager.error (
+        "Generation of @{<bright>%s@} module-clash@\n" ^^
+        "The asked target module name @{<bright>%S@} " ^^
+        "is already used by a previous loaded primitive library@\n" ^^
+        "Please specify another target ( try option --help )@\n"
+      ) kind name
 
   in
   (* unicity of plugin names *)
