@@ -187,7 +187,10 @@ struct
       (* building a first version the map (not compiler specific) *)
       let bymap = BslLib.BSL.RegisterTable.build_bypass_map () in
       let env = { BslLib. bymap = bymap ; all_plugins = loaders ;
-                  direct_plugins = loaders } in
+                  direct_external_plugins = loaders ;
+                  all_external_plugins = loaders ;
+                  bundled_plugin = None
+                } in
       let empty _ = [] in
       { pass_env with PassHandler.
           env = env ;
@@ -734,26 +737,27 @@ struct
              let env_final = env.PH.env in
              let env_bsl = env_final.env_bsl in
              let loaded_bsl = Qml2js.JsTreat.js_bslfilesloading options env_bsl in
-             let generated_files = loaded_bsl.Qml2js.regular in
              let generated_ast = loaded_bsl.Qml2js.generated_ast in
-             PassHandler.make_env options (generated_files, generated_ast, env_final)
+             PassHandler.make_env options (loaded_bsl, generated_ast, env_final)
          ))
       |> PassHandler.handler "JavascriptCompilation" (PassHandler.make_pass (
            fun env ->
              let options = env.PH.options in
-             let generated_files, generated_ast, env_final = env.PH.env in
+             let loaded_bsl, generated_ast, env_final = env.PH.env in
              let { env_bsl ; env_typer ; code } = env_final in
              let renaming = QmlRenamingMap.empty in
              let is_distant _ = false in
-             let env_js_input = B.compile options ~is_distant ~renaming ~bsl:generated_ast env_bsl env_typer code ~bsl_lang:BslLanguage.js in
-             PassHandler.make_env options (generated_files, env_bsl, env_js_input)
+             let env_js_input = B.compile options ~is_distant ~renaming
+               ~bsl:generated_ast env_bsl env_typer code
+               ~bsl_lang:BslLanguage.js in
+             PassHandler.make_env options (loaded_bsl, env_bsl, env_js_input)
          ))
       |> PassHandler.handler "JavascriptGeneration" (PassHandler.make_pass (
            fun env ->
              let options = env.PH.options in
-             let generated_files, env_bsl, env_js_input = env.PH.env in
+             let loaded_bsl, env_bsl, env_js_input = env.PH.env in
              let env_js_output = Qml2js.JsTreat.js_generation options
-               env_bsl [] generated_files env_js_input in
+               env_bsl loaded_bsl env_js_input in
              PassHandler.make_env options env_js_output
          ))
       |> PassHandler.handler "JavascriptTreat" (PassHandler.make_pass (
