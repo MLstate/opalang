@@ -209,6 +209,9 @@ SearchCache = {{
 @private
 SearchUtils = {{
 
+
+   /* INDEXING */
+
   /**
   * Return the number of time a given word appears in a given string
   */
@@ -303,6 +306,7 @@ SearchUtils = {{
         List.cons(elt, acc)
     , list, [])
 
+   /* UPDATING INTERAL COUNT */
 
   /**
   * reference path given at index creation
@@ -319,6 +323,8 @@ SearchUtils = {{
        else void
      | _ -> void
 
+
+   /* COLLECTIONS CREATION */
 
   create_col(db_name: string, col_name: string) =
     mongo = MongoConnection.openfatal("default")
