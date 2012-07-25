@@ -236,7 +236,7 @@ val output : string -> string -> bool
    returns [None] if everything ok,
    returns [Some error] in case of a [Sys_error]
 *)
-val pp_output : string -> (BaseFormat.formatter -> 'a -> unit) -> 'a -> string option
+val pp_output : string -> 'a BaseFormat.pprinter -> 'a -> string option
 
 (**
    Like [pp_output] but with a out_channel interface.
