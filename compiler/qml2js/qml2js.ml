@@ -101,21 +101,25 @@ let filename_of_plugin plugin =
    val qml_to_js : qml_to_js
 *)
 
+type loaded_bsl = {
+  regular : loaded_file list;
+  bundled : string option;
+  generated_ast: JA.code
+}
+
 module JsTreat :
 sig
   val js_bslfilesloading : Qml2jsOptions.t -> BslLib.env_bsl ->
-    loaded_file list * JsAst.code
+    loaded_bsl
   val js_generation : Qml2jsOptions.t -> BslLib.env_bsl ->
-    BPI.plugin_basename list ->
-    loaded_file list -> J.env_js_input -> env_js_output
+    BPI.plugin_basename list -> loaded_bsl ->
+    J.env_js_input -> env_js_output
   val js_treat : Qml2jsOptions.t -> env_js_output -> int
 end =
 struct
   open Qml2jsOptions
 
   let js_bslfilesloading env_opt env_bsl =
-    (* TODO: Replace file content by checksum? *)
-
     (* 1) extra libraries *)
     let extra_lib = List.filter_map (function
       | `server (lib, conf) -> Some (lib, conf)
@@ -176,13 +180,28 @@ struct
       )
     ) loaded_files)
     in
-    List.rev loaded_files, ast
+    let bundled, ast = match env_bsl.BslLib.bundled_plugin with
+      | Some plugin ->
+        let content = File.content (filename_of_plugin plugin) in
+        let code =
+          try
+            JsParse.String.code ~throw_exn:true content
+          with JsParse.Exception error -> (
+            let _ = File.output "jserror.js" content in
+            OManager.error "JavaScript parser error on bundled plugin\n%a\n"
+              JsParse.pp error;
+          ) in
+        Some content, code @ ast
+      | None -> None, ast in
+    { regular = loaded_files; bundled; generated_ast = ast; }
 
-  let write_main env_opt filename contents =
+  let write_main env_opt filename printer =
     let filename = Filename.concat env_opt.compilation_directory filename in
-    OManager.verbose "writing file @{<bright>%s@}" filename ;
-    let success = File.output filename contents in
-    if not success then OManager.error "cannot write file @{<bright>%S@}" filename
+    OManager.verbose "writing file @{<bright>%s@}" filename;
+    let oc = open_out filename in
+    let fmt = Format.formatter_of_out_channel oc in
+    printer fmt;
+    close_out oc
 
   (* Write a package.json package descriptor that can be understood by
      node and npm. *)
@@ -270,9 +289,14 @@ struct
         | _ -> expr)
       code
 
-  let compilation_generation env_opt env_bsl plugin_requires env_js_input =
+  let compilation_generation env_opt env_bsl plugin_requires
+      bundled_plugin env_js_input =
     let js_init =
       if env_opt.modular_plugins then
+        (* FIXME: there's probably a bug when fixing projections
+           that belong to the bundled plugin, since this
+           function cannot distinguish between projections
+           from a bundled plugin and regular ones *)
         List.map (fix_projection env_bsl) (get_js_init env_js_input)
       else
         List.map snd (get_js_init env_js_input) in
@@ -308,8 +332,11 @@ struct
     ) opx_requires in
 
     let requires = runtime_requires @ plugin_requires @ opx_requires in
-    let linked_code = requires @ js_code in
-    let content = Format.to_string JsPrint.scoped_pp_min#code linked_code in
+    let print_content fmt =
+      Format.fprintf fmt "%a\n%s%a\n"
+        JsPrint.pp_min#code requires
+        (Option.default "" bundled_plugin)
+        JsPrint.scoped_pp_min#code js_code in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
@@ -317,7 +344,7 @@ struct
     if not success then
      OManager.error "cannot create or enter in directory @{<bright>%s@}"
        build_dir;
-    write_main env_opt filename content;
+    write_main env_opt filename print_content;
     match ObjectFiles.compilation_mode () with
     | `compilation -> write_package_json env_opt
     | _ -> ()
@@ -360,11 +387,12 @@ var opa_dependencies = [%s];
       (if static_link then "" else "'opa-js-runtime-cps'")
       LaunchHelper.js
 
-  let linking_generation_static env_opt loaded_files env_js_input =
+  let linking_generation_static env_opt loaded_bsl env_js_input =
     (* When linking statically, we just produce a big file
        concatenating all JS files. First we add the runtime and
        plugins, then packages, then BSL projections and finally the
        current code *)
+    let loaded_files = loaded_bsl.regular in
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
       0o700 (get_target env_opt) in
     let fmt = Format.formatter_of_out_channel oc in
@@ -457,21 +485,23 @@ var opa_dependencies = [%s];
     install_dependencies env_opt env_bsl
 
 
-  let linking_generation env_opt env_bsl plugin_requires loaded_files env_js_input =
-    compilation_generation env_opt env_bsl plugin_requires env_js_input;
+  let linking_generation env_opt env_bsl plugin_requires loaded_bsl env_js_input =
+    compilation_generation env_opt env_bsl plugin_requires
+      loaded_bsl.bundled env_js_input;
     if env_opt.static_link then
-      linking_generation_static env_opt loaded_files env_js_input
+      linking_generation_static env_opt loaded_bsl env_js_input
     else
       linking_generation_dynamic env_opt env_bsl
 
-  let js_generation env_opt env_bsl plugin_requires loaded_files env_js_input =
+  let js_generation env_opt env_bsl plugin_requires loaded_bsl env_js_input =
     begin match ObjectFiles.compilation_mode () with
     | `compilation ->
-      compilation_generation env_opt env_bsl plugin_requires env_js_input
+      compilation_generation env_opt env_bsl plugin_requires
+        loaded_bsl.bundled env_js_input
     | `init -> ()
     | `linking ->
       linking_generation env_opt env_bsl plugin_requires
-        loaded_files env_js_input
+        loaded_bsl env_js_input
     | `prelude -> assert false
     end;
     { generated_files = [get_target env_opt, ""] }

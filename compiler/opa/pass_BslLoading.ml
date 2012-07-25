@@ -291,16 +291,16 @@ let process
     =
   (* Pass *)
   let plugins = "opabsl" :: options.O.bypass_plugin in
-  let plugins =
+  let plugins, bundled_plugin =
     (* Check whether a custom plugin was built and update the plugin
        list accordingly *)
     if List.is_empty options.O.client_plugin_files &&
       List.is_empty options.O.server_plugin_files then
-      plugins
+      plugins, None
     else
       let custom_plugin =
         Filename.basename (File.chop_extension options.O.target) in
-      custom_plugin :: plugins in
+      custom_plugin :: plugins, Some custom_plugin in
   let server_back_end = options.O.back_end in
   let client_back_end = options.O.js_back_end in
   let cwd = Sys.getcwd () in
@@ -502,12 +502,18 @@ let process
       ()
   in
 
+  let all_plugins, bundled_plugin =
+    match bundled_plugin with
+    | Some name ->
+      List.filter (fun plugin -> plugin.BPI.basename <> name) all_plugins,
+      Some (List.find (fun plugin -> plugin.BPI.basename = name) all_plugins)
+    | None -> all_plugins, None in
+
   (* Only plugins that are directly used by the current unit *)
   let direct_plugins = find_used_plugins bymap code all_plugins in
 
-  let bsl = { BslLib.bymap = bymap ;
-              all_plugins = all_plugins ;
-              direct_plugins = direct_plugins ;
+  let bsl = { BslLib.
+              bymap; all_plugins; direct_plugins; bundled_plugin;
             } in
 
   (* Separated compilation: saving *)

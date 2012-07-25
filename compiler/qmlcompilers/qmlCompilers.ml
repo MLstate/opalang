@@ -733,7 +733,9 @@ struct
              let options = env.PH.options in
              let env_final = env.PH.env in
              let env_bsl = env_final.env_bsl in
-             let generated_files, generated_ast = Qml2js.JsTreat.js_bslfilesloading options env_bsl in
+             let loaded_bsl = Qml2js.JsTreat.js_bslfilesloading options env_bsl in
+             let generated_files = loaded_bsl.Qml2js.regular in
+             let generated_ast = loaded_bsl.Qml2js.generated_ast in
              PassHandler.make_env options (generated_files, generated_ast, env_final)
          ))
       |> PassHandler.handler "JavascriptCompilation" (PassHandler.make_pass (

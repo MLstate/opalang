@@ -155,9 +155,20 @@ module BSL : BSLINTROSPECTION
 (** A type used several time in the framework, mostly by backends *)
 type env_bsl =
     {
+      (* All the loaded bypasses *)
       bymap : BSL.ByPassMap.t ;
+
+      (* All plugins required by the compilation unit, including
+         transitive dependencies *)
       all_plugins : BslPluginInterface.plugin list ;
+
+      (* Direct plugin dependencies only *)
       direct_plugins : BslPluginInterface.plugin list ;
+
+      (* Plugin that was possibly built with this compilation
+         unit. Note that this entry is excluded from the previous
+         lists, as the plugin is indeed a part of the unit. *)
+      bundled_plugin : BslPluginInterface.plugin option ;
     }
 
 (** {6 Extra common tools for projection} *)

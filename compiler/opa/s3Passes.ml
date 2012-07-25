@@ -2208,7 +2208,7 @@ let pass_ServerJavascriptCompilation =
        let direct_plugins = List.map (fun plugin ->
          plugin.BslPluginInterface.basename
        ) env_bsl.BslLib.direct_plugins in
-       let loaded_files, generated_ast = (* ([] : JsAst.code) in *)
+       let loaded_bsl =
          Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
        let is_distant, renaming =
          let other = env.P.newFinalCompile_renaming_client in
@@ -2217,7 +2217,7 @@ let pass_ServerJavascriptCompilation =
        in
        let env_js_input = JsBackend.compile
          ~runtime_ast:false
-         ~bsl: generated_ast
+         ~bsl:loaded_bsl.Qml2js.generated_ast
          ~val_:OpaMapToIdent.val_
          ~closure_map:env.Passes.newFinalCompile_closure_map
          ~is_distant
@@ -2230,7 +2230,7 @@ let pass_ServerJavascriptCompilation =
        in
        let env_js_output =
          Qml2js.JsTreat.js_generation jsoptions env_bsl direct_plugins
-           loaded_files env_js_input
+           loaded_bsl env_js_input
        in
        let code = Qml2js.JsTreat.js_treat jsoptions env_js_output in
        PH.make_env options code
