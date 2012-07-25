@@ -22,15 +22,15 @@ hello_recaptcha/%.exe:
 	cd $(<D) && $(OPA) $(<F)
 
 examples: $(EXAMPLES)
-	$(MAKE) -C opa_binding_examples
-	$(MAKE) -C opa_binding_examples/c_binding
-	$(MAKE) -C opa_binding_examples/external_types
-	$(MAKE) -C opa_binding_examples/opa_types
+	$(MAKE) -C opa_bindings_examples
+	$(MAKE) -C opa_bindings_examples/c_binding
+	$(MAKE) -C opa_bindings_examples/external_types
+	$(MAKE) -C opa_bindings_examples/opa_types
 
 clean:
 	rm -rf `find . -name '_build' -o -name '*.broken' -o -name '_tracks' -o -name '*.opp' -o -name '*.opx'`
 	rm -rf $(EXAMPLES)
-	$(MAKE) -C opa_binding_examples clean
-	$(MAKE) -C opa_binding_examples/c_binding clean
-	$(MAKE) -C opa_binding_examples/external_types clean
-	$(MAKE) -C opa_binding_examples/opa_types clean
+	$(MAKE) -C opa_bindings_examples clean
+	$(MAKE) -C opa_bindings_examples/c_binding clean
+	$(MAKE) -C opa_bindings_examples/external_types clean
+	$(MAKE) -C opa_bindings_examples/opa_types clean
