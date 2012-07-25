@@ -303,10 +303,29 @@ SearchUtils = {{
         List.cons(elt, acc)
     , list, [])
 
+
+  /**
+  * reference path given at index creation
+  * usefull to know when a new base document is added to the index, or remove from it, so we can update the count
+  */
+  ref_type = Mutable.make({none}): Mutable.t(option(OpaType.ty))
+
+   update_count(count, vtype, value) =
+     match ref_type.get() with
+     | {some = ref_type} ->
+       if ref_type == vtype then
+          _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = value}})
+          void
+       else void
+     | _ -> void
+
+
   create_col(db_name: string, col_name: string) =
     mongo = MongoConnection.openfatal("default")
     clone =  MongoConnection.clone(mongo)
     { db = MongoConnection.namespace(clone, db_name, col_name) }
+
+
 
 }}
 
@@ -334,12 +353,14 @@ MongoSearch = {{
     value_to_remove = Db.read(path)
     if value_to_remove == value then void
     else
-      do remove_from_index(index, value_to_remove, key)
       (index, count) = index
+      vtype = OpaValue.typeof(value)
       // update count
-      _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = 1}})
+      _ = SearchUtils.update_count(count, vtype, 1)
+      // remove old values
+      do remove_from_index((index, count), value_to_remove, key)
       // compute a list of words from the given value
-      words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
+      words = SearchValueTransform.string_of_value(value, vtype) |> String.explode(" ", _)
       // compute a set to avoid indexing more than one time the same word
       set = StringSet.From.list(words)
       Set.iter(
@@ -364,10 +385,9 @@ MongoSearch = {{
   remove_from_index(index: (index, count), value: 'a, key: key) =
     do debug("remove value {value} from key {key}")
     (index, count) = index
-    // update count
-    _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = -1}})
+    vtype = OpaValue.typeof(value)
     // compute a list of words from the given value
-    words = SearchValueTransform.string_of_value(value, OpaValue.typeof(value)) |> String.explode(" ", _)
+    words = SearchValueTransform.string_of_value(value, vtype) |> String.explode(" ", _)
     // compute a set to avoid desindexing more than one time the same word
     set = StringSet.From.list(words)
     (to_update, to_remove) = Set.fold(
@@ -383,15 +403,23 @@ MongoSearch = {{
           elt = {_id = lexem; values = l}
           (List.cons(elt, to_update), to_remove) // lexem with some remaining values => to be updated
     , set, (List.empty, List.empty))
-    _  = match to_update with
-    | [] -> void
-    | l ->
-      _ = SearchDbUtils.insert_batch(index, SearchDbUtils.batch_from_list(l))
+    match (to_update, to_remove) with
+    | ([], []) -> void
+    | (to_update, []) ->
+      _ = SearchDbUtils.insert_batch(index, SearchDbUtils.batch_from_list(to_update))
+      // update count
+      _ = SearchUtils.update_count(count, vtype, -1)
       void
-    match to_remove with
-    | [] -> void
-    | l ->
-      _ = SearchDbUtils.delete(index, {_id = {`$in` = l}})
+    | ([], to_remove) ->
+      _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
+      // update count
+      _ = SearchUtils.update_count(count, vtype, -1)
+      void
+    | (to_update, to_remove) ->
+      _ = SearchDbUtils.insert_batch(index, SearchDbUtils.batch_from_list(to_update))
+      _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
+      // update count
+      _ = SearchUtils.update_count(count, vtype, -1)
       void
 
   @server_private
@@ -453,14 +481,18 @@ MongoSearch = {{
    * Exemple: [create_index db_name]
    * @param db_name: string the name of the main database
    * @param cache_limit: int the size of the internal cache; a limit set at 0 implies a db write for each word to index
+   * @param ref_path: path to the main type of data to be indexed, nedded to keep internal count up to date
    * @return an index as a MongoDb collection
    */
   @server_private
-  create_index(db_name, cache_limit) =
+  create_index(db_name, cache_limit, ref_path) =
+    ref_val = Db.read(ref_path)
+    ref_type = OpaValue.typeof(ref_val)
     index = SearchUtils.create_col(db_name, "index")
     count = SearchUtils.create_col(db_name, "count")
     _ = SearchDbUtils.insert(count, {_id = "count"; count = 0})
     do SearchCache.cache_limit.set(cache_limit)
+    do SearchUtils.ref_type.set({some=ref_type})
     (index, count)
 
 }}
