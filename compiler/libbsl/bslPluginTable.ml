@@ -18,6 +18,7 @@
 (* CF mli *)
 
 module BPI = BslPluginInterface
+module Hashtbl = BaseHashtbl
 
 (* Need to do a topologic sort of plugin *)
 module ItemPlugin =
@@ -66,8 +67,7 @@ let last_finalize () = !private_last_finalize
 let store plugin =
   let mname = plugin.BPI.basename in
   let uniq_id = plugin.BPI.uniq_id in
-  match (try Some (Hashtbl.find table mname) with Not_found -> None) with
-
+  match Hashtbl.find_opt table mname with
   | Some plugin' ->
       let uniq_id' = plugin'.BPI.uniq_id in
       if String.compare uniq_id uniq_id' <> 0
