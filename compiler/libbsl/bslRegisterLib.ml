@@ -813,6 +813,9 @@ let f_register_primitives session =
 
 
 let finalizing_register_calls session =
+  ignore (BRI.register
+            ~uniq_id:session.s_identification.i_uniq_id
+            ~plugin_name:session.s_identification.i_basename);
   let session = f_register_types       session in
   let session = f_register_primitives  session in
   session

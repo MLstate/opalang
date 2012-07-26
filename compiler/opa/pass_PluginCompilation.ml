@@ -31,13 +31,14 @@ module List = BaseList
 let process env =
   let js_files = env.PH.options.O.client_plugin_files in
   let nodejs_files = env.PH.options.O.server_plugin_files in
+  let all_files = js_files @ nodejs_files in
   if not (List.is_empty js_files && List.is_empty nodejs_files) then (
     (* TODO: ensure we are in qmljs, and not qmlflat *)
-    let basename =
-      File.chop_extension (
-        Filename.basename env.PH.options.O.target
-      ) in
-
+    let basename = ObjectFiles.get_current_package_name () in
+    let ml_plugin_filename =
+      basename ^ BslConvention.Suffix.plugin ^ ".ml" in
+    let ml_runtime_filename =
+      basename ^ BslConvention.Suffix.mlruntime ^ ".ml" in
     let options = {
       BI.
       basename;
@@ -46,26 +47,20 @@ let process env =
       js_files;
       nodejs_files;
       js_validator = None;
-      ml_plugin_filename = "";
-      ml_runtime_filename = "";
+      ml_plugin_filename;
+      ml_runtime_filename;
       modular_plugins = false;
       unsafe_js = false;
       unsafe_opa = false;
     } in
 
     let session = BR.create ~options in
-
+    let session = List.fold_left BR.preprocess_file session all_files in
     let fin = BR.finalize session in
     let plugin = BR.plugin fin in
 
-    (* HACK: The global BSL table is non-functional and is modified
-       when compiling a plugin. These changes are inconsistent with
-       the way regular plugins are loaded by the BslLoading
-       pass. Thus, we must clear the table and load the plugin again
-       later. *)
-    BslLib.BSL.RegisterInterface.clear ();
-
-    BslPluginTable.store plugin
+    BslPluginTable.store plugin;
+    BslLib.declare_visibility basename basename
   );
 
   env
