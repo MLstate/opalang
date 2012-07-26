@@ -359,7 +359,9 @@ struct
   let modules_dir env_opt =
     Filename.concat (depends_dir env_opt) "node_modules"
 
-  let is_standard file = String.is_prefix stdlib_path file
+  let is_standard file =
+    String.is_prefix stdlib_path file ||
+      String.is_prefix static_path file
 
   let maybe_install_node_module env_opt path =
     if not (is_standard path) then
@@ -460,7 +462,7 @@ var opa_dependencies = [%s];
     ) env_bsl.BslLib.all_external_plugins ||
 
       ObjectFiles.fold_dir ~packages:true ~deep:false
-      (fun acc path -> acc || is_standard path) false
+      (fun acc path -> acc || not (is_standard path)) false
 
 
   (* Install required dependencies in the application
