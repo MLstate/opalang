@@ -179,6 +179,10 @@ struct
       )
     ) loaded_files)
     in
+
+    (* Correct reverse order produced by fold *)
+    let loaded_files = List.rev loaded_files in
+
     let bundled, ast = match env_bsl.BslLib.bundled_plugin with
       | Some plugin ->
         let content = String.concat_map "" (fun (filename, content, _) ->
