@@ -41,7 +41,8 @@ type annot = {
 
 (** get the pos field of an annot *)
 val pos : annot -> FilePos.pos
-
+val pp_pos_short : Format.formatter -> (FilePos.pos * bool) -> unit
+val pos_to_short_string : (FilePos.pos * bool) -> string
 (**
    A convenience structure to uniformly label the nodes of an AST
    with [annot] data.
