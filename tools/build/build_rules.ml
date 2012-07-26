@@ -722,17 +722,21 @@ rule "opa run-time libraries"
   (fun _env _build ->
      let mllibs = List.filter (fun f -> Pathname.check_extension f "cmxa") opacomp_deps_native in
      let mllibs = List.map Pathname.remove_extension mllibs in
+     let native_deps =
+       List.map (fun f -> P (opa_prefix / f)) opacomp_deps_native in
+     let mllibs_local =
+       List.map (fun f -> P (opa_prefix / f -.- !Options.ext_lib)) mllibs in
      let copylibs = List.map copy_lib_to_runtime mllibs in
      Seq[
        Cmd(S[Sh"rm"; A"-rf"; P (opa_prefix / opa_libs_dir)]);
        Cmd(S[Sh"mkdir"; A"-p"; P (opa_prefix / opa_libs_dir)]);
        Cmd(S[Sh"rm"; A"-rf"; P (opa_prefix / opa_share_dir)]);
        Cmd(S[Sh"mkdir"; A"-p"; P (opa_prefix / opa_share_dir)]);
-       Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f)) opacomp_deps_native
-             @ [ P (opa_prefix / opa_libs_dir) ]));
-       Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f -.- !Options.ext_lib)) mllibs
-             @ [ P (opa_prefix / opa_libs_dir) ]));
-       Cmd(S(link_cmd :: P (opa_prefix / libbase_dir / "mimetype_database.xml") :: [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
+       Cmd(S(link_cmd :: native_deps @ [ P (opa_prefix / opa_libs_dir) ]));
+       Cmd(S(link_cmd :: mllibs_local @ [ P (opa_prefix / opa_libs_dir) ]));
+       Cmd(S(link_cmd ::
+             P (opa_prefix / libbase_dir / "mimetype_database.xml") ::
+             [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
        Cmd(S[link_cmd;
              P (opa_prefix / opa_js_runtime_cps);
              P (opa_prefix / opa_libs_dir)]);
