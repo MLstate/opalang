@@ -452,6 +452,17 @@ var opa_dependencies = [%s];
     if status = 1 then
       OManager.error "Couldn't copy object to %s" main_path
 
+  let needs_package_install env_bsl =
+    List.exists (fun plugin ->
+      match plugin.BPI.path with
+      | Some path -> not (is_standard path)
+      | None -> false
+    ) env_bsl.BslLib.all_external_plugins ||
+
+      ObjectFiles.fold_dir ~packages:true ~deep:false
+      (fun acc path -> acc || is_standard path) false
+
+
   (* Install required dependencies in the application
      node_modules directory *)
   let install_dependencies env_opt env_bsl =
@@ -461,8 +472,8 @@ var opa_dependencies = [%s];
       | None -> ()
     ) env_bsl.BslLib.all_external_plugins;
 
-    R.iter_with_dir ~packages:true ~deep:true
-      (fun path _saved ->
+    ObjectFiles.iter_dir ~packages:true ~deep:true
+      (fun path ->
         maybe_install_node_module env_opt path
       )
 
@@ -470,6 +481,9 @@ var opa_dependencies = [%s];
     (* "Dynamic" here is somewhat of a misnomer. Compared to "static"
        mode, where we produce just a single file, what we actually do
        is the following:
+
+       1- If the program depends on any non-standard plugins or
+       packages, then we need to install its dependencies.
 
        - The "main" file (i.e. the one given as -o) will be just the
        launcher script, which will load the rest of the program.
@@ -483,11 +497,25 @@ var opa_dependencies = [%s];
        packages, will be copied to app_depends/node_modules, following
        NodeJs conventions.
 
+       2- Otherwise, no dependencies need to be installed, since all
+       of them can be found in the installation path. In this case, we
+       don't need a separate "_depends" dir and produce just one main
+       file with "requires" for the dependencies.
+
     *)
 
-    create_main_files env_opt;
-    install_dependencies env_opt env_bsl
-
+    if needs_package_install env_bsl then (
+      create_main_files env_opt;
+      install_dependencies env_opt env_bsl
+    ) else (
+      let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
+        0o700 (get_target env_opt) in
+      write_launcher_header oc env_opt.static_link;
+      let content = File.content
+        (Filename.concat env_opt.compilation_directory "a.js") in
+      Printf.fprintf oc "%s\n" content;
+      close_out oc
+    )
 
   let linking_generation env_opt env_bsl plugin_requires loaded_bsl env_js_input =
     compilation_generation env_opt env_bsl plugin_requires
