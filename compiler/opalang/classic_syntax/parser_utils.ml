@@ -123,7 +123,7 @@ let error1 s annot =
   raise (Specific_parse_error (annot.QmlLoc.pos,s))
 
 let error_rbrace_in_html = 
-  error1 (sprintf ("%s is a special character in html,maybe you mean %s")
+  error1 (sprintf ("%s is treated as a special character in html,\n if you want to use it you have to escape it: %s")
            (hint_color "}") (hint_color "\\}"))
 let error_comment = error1 "you start an unterminated comment (the `/*' is not matched by a `*/')."
 let error_string = error1 "you start an unterminated string (the `\"' is not matched by a closing `\"')."

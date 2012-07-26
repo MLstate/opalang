@@ -183,7 +183,7 @@ let check_unmatched_tag ppf content =
     let num2 = Parser_utils.count_close_tags_in_string content tag in
     if num>num2
       then Format.fprintf ppf 
-       "@[<2>@{<bright>Hint:@}@\nThe @{<magenta>%s@} found at %a is open\n"
+       "@[<2>@{<bright>Hint:@}@\nThe @{<magenta>%s@}, found at %a, might be open\n"
         (fst tag) QmlLoc.pp_pos_short ((QmlLoc.pos (snd tag)), false)
       else ()
   )
