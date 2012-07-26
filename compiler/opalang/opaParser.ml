@@ -174,6 +174,21 @@ let parse_error_flag =
 
 module OA = OpaSyntax.Args
 
+
+
+let check_unmatched_tag ppf content =
+  try(
+    let tag = Parser_utils.get_tag_with_annot () in
+    let num = Parser_utils.count_open_tags tag in
+    let num2 = Parser_utils.count_close_tags_in_string content tag in
+    if num>num2
+      then Format.fprintf ppf 
+       "@[<2>@{<bright>Hint:@}@\nThe @{<magenta>%s@} found at %a is open\n"
+        (fst tag) QmlLoc.pp_pos_short ((QmlLoc.pos (snd tag)), false)
+      else ()
+  )
+  with Parser_utils.No_tag -> ()
+
 let show_content ppf (content, pos) = 
   let n = max 0 (min pos (String.length content-1)) in
   let begin_citation = get_index_N_lines_before content n 5 in
@@ -195,11 +210,11 @@ let show_parse_error file_name content error_summary error_details pos =
   let _pos = FilePos. make_pos file_name pos pos in
   OManager.error 
      ("%a@\n@[<2>%s@\n@[%a@]@\n" ^^
-     "@[<2>@{<bright>Hint@}:@\n%s@]@]@.")
+     "@[<2>@{<bright>Hint@}:@\n%s@]%a@]@.")
       FilePos.pp_pos _pos error_summary
       show_content (content, pos)
       error_details
-  
+      check_unmatched_tag content
 
 (* ====================================================================================== *)
 

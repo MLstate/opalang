@@ -486,9 +486,15 @@ val push_xml : xml_or_xhtml -> unit
 val pop_xml : unit -> unit
 val xhtml_mode : unit -> bool
 
-val push_tag: string -> unit
+exception No_tag 
+val push_tag: (string * annot) -> unit
 val pop_tag:  unit   -> unit
 val get_tag:  unit   -> string
+val get_tag_with_annot:  unit   -> (string * annot)
+
+val count_open_tags: (string * annot)-> int
+
+val count_close_tags_in_string: string -> (string * annot)-> int
 
 (** Utils for CSS *)
 val hexa2 : char * annot -> char * 'a -> ('b, 'c) expr

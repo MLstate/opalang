@@ -123,7 +123,7 @@ let error1 s annot =
   raise (Specific_parse_error (annot.QmlLoc.pos,s))
 
 let error_rbrace_in_html = 
-  error1 (sprintf "%s is a special character in html, maybe you mean %s" 
+  error1 (sprintf ("%s is a special character in html,maybe you mean %s")
            (hint_color "}") (hint_color "\\}"))
 let error_comment = error1 "you start an unterminated comment (the `/*' is not matched by a `*/')."
 let error_string = error1 "you start an unterminated string (the `\"' is not matched by a closing `\"')."
@@ -1130,10 +1130,52 @@ let pop_xml () = ignore (Stack.pop xml_stack)
 let xhtml_mode () = Stack.top xml_stack = Xhtml
 let xml_typename () = if xhtml_mode () then Opacapi.Types.xhtml else Opacapi.Types.xml
 
-let tag_stack = Stack.create ()
+exception No_tag
+let tag_stack : (string * QmlLoc.annot) Stack.t = (Stack.create ()) 
 let push_tag s = Stack.push s tag_stack
-let get_tag()  = Stack.top tag_stack
-let pop_tag()  = ignore (Stack.pop tag_stack)
+let get_tag_with_annot () = try Stack.top tag_stack with | Stack.Empty -> raise No_tag
+let get_tag () = undecorate (get_tag_with_annot ())
+let pop_tag () = try ignore (Stack.pop tag_stack) with | Stack.Empty -> raise No_tag
+
+let count_open_tags tag =
+  let n = ref 0 in
+  Stack.iter (fun s -> if s = tag then incr n) tag_stack ;
+  !n
+
+let rec find_next_tag context pos tag_open tag_close=
+  let cmp sub pos1 = sub = String.sub context pos1 (String.length sub) in
+  try(
+  let s1 = String.index_from context pos '<' in
+  if cmp tag_open s1
+    then (s1, true)
+  else if cmp tag_close s1
+    then (s1, false)
+  else find_next_tag context (s1+1) tag_open tag_close
+  )
+  with Not_found -> (String.length context, true) 
+
+
+let count_close_tags_in_string content tag =
+  let num = ref 0 in
+  let tag_name = "<" ^ undecorate tag ^ ">" in
+  let end_tag = "</" ^ undecorate tag ^ ">" in
+  let rec aux current_pos (next_tag_pos, starting_tag) =
+    if next_tag_pos < String.length content 
+     then (
+        if starting_tag then decr num else incr num ;
+        let finish_tag = 
+          current_pos + 
+         (if starting_tag 
+           then String.length tag_name 
+           else String.length end_tag) in
+      let (new_tag_pos, new_starting_tag) = 
+        find_next_tag content current_pos tag_name end_tag in
+      aux finish_tag (new_tag_pos, new_starting_tag)
+    )
+  in
+  aux 0 (find_next_tag content 0 tag_name end_tag) ; !num
+
+
 
 type 'b dom_tag_args = {
   (* Non-special attributes *)
@@ -1310,15 +1352,17 @@ let nstag_to_string ns tag =
     if ns = "" then tag else (sprintf "%s:%s" ns tag)
 
 (* we allow any tags to be closed by </> thus, there is no error if tag2 = "" *)
-let tag_mismatch ((ns1,_annot), (tag1,{QmlLoc.pos = pos1})) ((ns2,_annot), (tag2,{QmlLoc.pos = _pos2})) =
+let tag_mismatch ((ns1,_annot), (tag1,tag1_annot)) ((ns2,_annot), (tag2,{QmlLoc.pos = _pos2})) =
   let matched = (tag2 = "") || (tag1 = tag2 && ns1 = ns2) in
-    if not matched then
-      error1 (sprintf "Open and close tag mismatch <%s> vs </%s>.\n <%s> found at %s"
+  let pos1 = tag1_annot.QmlLoc.pos in
+  if not matched then (
+     (*restore tag stack*)
+      push_tag (tag1, tag1_annot) ;
+      (error1 (sprintf "Open and close tag mismatch <%s>,found at %s, vs </%s>."
                 (hint_color (nstag_to_string ns1 tag1))
-                (hint_color (nstag_to_string ns2 tag2))
-                (nstag_to_string ns1 tag1)
-                (FilePos.to_string pos1))
-        _annot
+                (QmlLoc.pos_to_short_string (pos1, false)) 
+                (hint_color (nstag_to_string ns2 tag2))) _annot)
+    )
     else ()
 
 let nochild_elem nstag close_tag has_children create =

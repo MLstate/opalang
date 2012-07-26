@@ -99,8 +99,8 @@ open_sign          <- "<" spacing
 close_sign         <- spacing ">"
 autoclose          <- spacing "/" close_sign
 
-begin_open_tag     <- open_sign namespace:ns deco_tname:tag spacing {{ push_tag (undecorate tag); (ns, tag) }}
-begin_open_html5_void_tag <- open_sign namespace:ns deco_html5voidtname:tag spacing {{ push_tag (undecorate tag); (ns, tag) }}
+begin_open_tag     <- open_sign namespace:ns deco_tname:tag spacing {{ push_tag tag; (ns, tag) }}
+begin_open_html5_void_tag <- open_sign namespace:ns deco_html5voidtname:tag spacing {{ push_tag tag; (ns, tag) }}
 
 (* FIXME: factorisation of open_tag and autoclose_tag *)
 /** xml open tag **/
