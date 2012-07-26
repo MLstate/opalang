@@ -1,18 +1,18 @@
 [submodule "doc/manual.src/opa_bindings_examples"]
 	path = doc/manual.src/opa_bindings_examples
-	url = git@github.com:MLstate/opa_bindings_examples.git
+	url = https://github.com/MLstate/opa_bindings_examples.git
 [submodule "doc/manual.src/hello_recaptcha"]
 	path = doc/manual.src/hello_recaptcha
-	url = git@github.com:MLstate/hello_recaptcha.git
+	url = https://github.com/MLstate/hello_recaptcha.git
 [submodule "doc/manual.src/hello-opa"]
 	path = doc/manual.src/hello-opa
-	url = git@github.com:MLstate/hello-opa.git
+	url = https://github.com/MLstate/hello-opa.git
 [submodule "doc/manual.src/hello_wiki"]
 	path = doc/manual.src/hello_wiki
-	url = git@github.com:MLstate/hello_wiki.git
+	url = https://github.com/MLstate/hello_wiki.git
 [submodule "doc/manual.src/hello_web_services"]
 	path = doc/manual.src/hello_web_services
-	url = git@github.com:MLstate/hello_web_services.git
+	url = https://github.com/MLstate/hello_web_services.git
 [submodule "doc/manual.src/hello_chat"]
 	path = doc/manual.src/hello_chat
-	url = git@github.com:MLstate/hello_chat.git
+	url = https://github.com/MLstate/hello_chat.git
