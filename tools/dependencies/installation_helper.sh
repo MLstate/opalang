@@ -125,6 +125,7 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             PREFIX="$1"
+	    PREFIX=${PREFIX%%/}
             : ${INSTALLDIR:=$PREFIX}
             : ${LIBDIR:=$PREFIX}
             ;;
@@ -137,11 +138,13 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             INSTALLDIR="$1"
+	    INSTALLDIR=${INSTALLDIR%%/}
             ;;
         --libdir)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             LIBDIR="$1"
+	    LIBDIR=${LIBDIR%%/}
             ;;
         --sudo)
             SUDO="sudo"
