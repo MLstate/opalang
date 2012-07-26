@@ -356,14 +356,13 @@ package_install (){
         case $1 in
             ocaml)
                 [ $IS_WINDOWS ] && CYGOPT="-tk-no-x11 -no-tk"
-		PREFIX=$LIBDIR/ocaml
                 ./configure -prefix $PREFIX ${CYGOPT:-}
                 make world # clean world
                 make bootstrap
                 if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
                     make opt && make opt.opt
                 fi
-                PREFIX=$LIBDIR/ocaml $SUDO make install -e
+                PREFIX=$INSTALLDIR $SUDO make install -e
                 ;;
             camlzip)
                 make all allopt
@@ -585,7 +584,7 @@ setup_local_ocaml () {
         done
     fi
     msg_yellow "Extending path to find the proper ocaml (at $LIBDIR/ocaml/bin)"
-    export PATH=$LIBDIR/ocaml/bin:$PATH
+    export PATH=$INSTALLDIR/bin:$PATH
     # export LD_LIBRARY_PATH=$LIBDIR/ocaml/lib/ocaml:$LIBDIR/ocaml/lib/ocaml/stublibs/$LD_LIBRARY_PATH
     msg_yellow "Setting OCAMLLIB to the proper location ($LIBDIR/ocaml/lib/ocaml)"
     export OCAMLLIB=$LIBDIR/ocaml/lib/ocaml
