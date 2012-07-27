@@ -85,15 +85,15 @@ distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
-	$(MAKE) $(OPA_TOOLS)
 	$(MAKE) manpages
+	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: distrib-all
 distrib-all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
-	$(MAKE) $(OPA_TOOLS)
 	$(MAKE) manpages
+	$(MAKE) $(OPA_TOOLS)
 
 ##
 ## MANPAGES
