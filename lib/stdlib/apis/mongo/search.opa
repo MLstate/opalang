@@ -31,27 +31,27 @@ package stdlib.apis.mongo
 */
 
 /**
-* {1 Types defined in this module}
-*/
+ * {1 Types defined in this module}
+ */
 
-type key = string
+@abstract
+type MongoSearch.indexation('key) =
+     { _score: float // tf_idf weight
+     ; lexem: string // original lexem before it has been stemmed, to be able to search with exact matching
+     ; key: 'key }
 
-type indexation =
-  { _score: float // tf_idf weight
-  ; lexem: string // original lexem before it has been stemmed, to be able to search with exact matching
-  ; key: key }
+@abstract
+type MongoSearch.index_element('key) =
+     {_id: string
+     ; values: list(MongoSearch.indexation('key)) }
 
-type index_element =
-  {_id: string
-  ; values: list(indexation) }
-
-type index_count =
-  {_id : string
-  ; count : int }
-
-type index = Mongo.collection(index_element)
-type count = Mongo.collection(index_count)
-
+@abstract
+type MongoSearch.index('key) =
+     { count : Mutable.t(int)
+     ; col: Mongo.collection(MongoSearch.index_element('key))
+     ; cache: Mutable.t(stringmap(list(MongoSearch.indexation('key))))
+     ; cache_size: int
+    }
 
 @private
 SearchDbUtils = {{
@@ -144,70 +144,63 @@ SearchValueTransform = {{
 @private
 SearchCache = {{
 
-  /**
-  * cache mechanisme to store temporary index before writing it on db
-  * user can choose the size of the cache
-  * more the cache is small, more we need to write on db
-  */
-  cache = Mutable.make(StringMap.empty) : Mutable.t(stringmap(list(indexation)))
-  cache_limit = Mutable.make(500) : Mutable.t(int)
+    /**
+     * Write the index on db
+     */
+    finalize(index: MongoSearch.index('key)) =
+      current_cache = index.cache.get()
+      col = index.col
+      start_time = Date.now() |> Date.in_milliseconds(_)
+      set = StringMap.fold(
+	lexem, _, acc -> StringSet.add(lexem, acc)
+      , current_cache, StringSet.empty)
+      elements = SearchDbUtils.elements(col, set)
+      (to_remove, batch) = StringMap.fold(
+	lexem, values, (to_remove, acc) ->
+            (to_remove, values) = match StringMap.get(lexem, elements) with
+	    |{some=l} -> (List.cons(lexem, to_remove), List.append(l, values))
+            | _ -> (to_remove, values)
+            element = {_id = lexem; values = values} : MongoSearch.index_element('key)
+            (to_remove, List.cons(element, acc))
+      , current_cache, ([], []))
+      match batch with
+      | [] -> void
+      | l ->
+	batch = SearchDbUtils.batch_from_list(l)
+    _ = SearchDbUtils.delete(col, {_id = {`$in` = to_remove}})
+    _ = SearchDbUtils.insert_batch(col, batch)
+    do index.cache.set(StringMap.empty)
+    delta = (Date.now() |> Date.in_milliseconds(_)) - start_time
+    Log.debug("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
 
-  /**
-   * Write the index on db
-   */
-  finalize(index) =
-    current_cache = cache.get()
-    start_time = Date.now() |> Date.in_milliseconds(_)
-    set = StringMap.fold(
-      lexem, _, acc -> StringSet.add(lexem, acc)
-    , current_cache, StringSet.empty)
-    elements = SearchDbUtils.elements(index, set)
-    (to_remove, batch) = StringMap.fold(
-      lexem, values, (to_remove, acc) ->
-         (to_remove, values) = match StringMap.get(lexem, elements) with
-         | {some=l} -> (List.cons(lexem, to_remove), List.append(l, values))
-         | _ -> (to_remove, values)
-         element = {_id = lexem; values = values} : index_element
-        (to_remove, List.cons(element, acc))
-     , current_cache, ([], []))
-   match batch with
-   | [] -> void
-   | l ->
-     batch = SearchDbUtils.batch_from_list(l)
-     _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
-     _ = SearchDbUtils.insert_batch(index, batch)
-     do cache.set(StringMap.empty)
-     delta = (Date.now() |> Date.in_milliseconds(_)) - start_time
-     Log.debug("SEARCH", "INDEX WRITEN ON DB IN {delta} MS")
-
-  add_to_index(index, lexem, value) =
-    current_cache = cache.get()
-    limit = cache_limit.get()
+    add_to_index(index: MongoSearch.index('key), lexem: string, value: MongoSearch.indexation('key)) =
+	current_cache = index.cache.get()
+    limit = index.cache_size
     values = match StringMap.get(lexem, current_cache) with
-    | {some = values} -> List.cons(value, values)
-    | _ -> [value]
-    do cache.set(StringMap.add(lexem, values, current_cache))
-    if StringMap.size(cache.get()) >= limit then finalize(index) else void
+	| {some = values} -> List.cons(value, values)
+	| _ -> [value]
+    do index.cache.set(StringMap.add(lexem, values, current_cache))
+    if StringMap.size(index.cache.get()) >= limit then finalize(index) else void
 
-  remove_from_index(lexem, key) =
-    current_cache = cache.get()
+    remove_from_index(index: MongoSearch.index('key), lexem: string, key: 'key) =
+	current_cache = index.cache.get()
     match StringMap.get(lexem, current_cache) with
-    | {some=values} ->
-      map = match List.remove_p(value -> value.key == key, values) with
-       | [] -> StringMap.remove(lexem, current_cache)
-       | l -> StringMap.add(lexem, l, current_cache)
-       cache.set(map)
-    | {none} -> void
+	| {some=values} ->
+	map = match List.remove_p(value -> value.key == key, values) with
+	    | [] -> StringMap.remove(lexem, current_cache)
+	| l -> StringMap.add(lexem, l, current_cache)
+    index.cache.set(map)
+	| {none} -> void
 
-  remove_key_from_index(key) =
-    current_cache = cache.get()
+    remove_key_from_index(index: MongoSearch.index('key), key: 'key) =
+	current_cache = index.cache.get()
     map = StringMap.fold(
-      lexem, values, acc ->
-        match List.find(value -> value.key == key, values) with
-        | {some=_} -> StringMap.remove(lexem, acc)
-        | _ -> acc
-    , current_cache, current_cache)
-    cache.set(map)
+	lexem, values, acc ->
+            match List.find(value -> value.key == key, values) with
+		| {some=_} -> StringMap.remove(lexem, acc)
+            | _ -> acc
+	, current_cache, current_cache)
+    index.cache.set(map)
 
 }}
 
@@ -230,24 +223,22 @@ SearchUtils = {{
         else aux(tl, acc)
     aux(words, 0)
 
-  /**
-  * Compue tf-idf weight for a given word given a document
-  */
-  compute_tf_idf(index: index, count: count, lexem: string, words: list(string)) =
-    tf =
-      if List.is_empty(words) then 0.00
-      else int_to_float(count_occurrence(lexem, words)) / int_to_float(List.length(words))
+    /**
+     * Compue tf-idf weight for a given word given a document
+     */
+    compute_tf_idf(index: MongoSearch.index('key), lexem: string, words: list(string)) =
+	tf =
+	if List.is_empty(words) then 0.00
+    else int_to_float(count_occurrence(lexem, words)) / int_to_float(List.length(words))
     idf =
-      nb_docs = match SearchDbUtils.find_one(count, {_id = "count"}) with
-      | {some = count} -> int_to_float(count.count)
-      | {none} -> 0.0
-      context_count =
-        match StringMap.get(lexem, SearchCache.cache.get()) with
-        | {some=l} -> 1 + List.length(l) |> int_to_float
+	nb_docs = index.count.get() |> int_to_float
+    context_count =
+        match StringMap.get(lexem, index.cache.get()) with
+            | {some=l} -> 1 + List.length(l) |> int_to_float
         | {none} -> 1.00
-      db_count =
-        match SearchDbUtils.find_one(index, {_id = lexem}) with
-        | {some=elt: index_element} -> 1 + List.length(elt.values) |> int_to_float
+    db_count =
+        match SearchDbUtils.find_one(index.col, {_id = lexem}) with
+            | {some=elt: MongoSearch.index_element} -> 1 + List.length(elt.values) |> int_to_float
         | {none} -> 1.00
       nb_docs_with_lexem = context_count + db_count
       if (nb_docs_with_lexem == 0.0 || nb_docs == 0.0)
@@ -256,13 +247,13 @@ SearchUtils = {{
     tf * idf
 
 
-   /* SEARCHING */
+    /* SEARCHING */
 
-  build_list(index: index, lexem: string, exact: bool) : list(index_element) =
-    context_search =
-      cache = SearchCache.cache.get()
-      if exact then
-        match StringMap.get(lexem, cache) with
+    build_list(index: MongoSearch.index('key), lexem: string, exact: bool) : list(MongoSearch.index_element('key)) =
+	context_search =
+	cache = index.cache.get()
+    if exact then
+    match StringMap.get(lexem, cache) with
         | {some=values} -> [{_id = lexem; ~values}]
         | _ -> []
       else StringMap.fold(
@@ -272,18 +263,19 @@ SearchUtils = {{
           else acc
         , cache, [])
     db_search =
-      if exact then
-        match (SearchDbUtils.find_one(index, {_id = lexem})) with
+	col = index.col
+    if exact then
+    match (SearchDbUtils.find_one(col, {_id = lexem})) with
         | {some = elt} -> [elt]
         | {none}-> []
-      else
-        SearchDbUtils.find_all(index, {_id = {`$regex` = ".*{lexem}.*"}})
+    else
+        SearchDbUtils.find_all(col, {_id = {`$regex` = ".*{lexem}.*"}})
     List.append(context_search, db_search)
 
-  check_lexem(index: index, lexem: string, exact: bool) : list(key) =
-    match (build_list(index, lexem, exact)) with
-      | [] -> []
-      | l ->
+    check_lexem(index: MongoSearch.index('key), lexem: string, exact: bool) : list('key) =
+	match (build_list(index, lexem, exact)) with
+	    | [] -> []
+	| l ->
         List.fold(
           elt, acc ->
             List.fold(
@@ -310,27 +302,18 @@ SearchUtils = {{
       lexems, acc ->
         elt = String.explode("+", lexems) |> List.map(elt -> parse_exact(elt), _)
         List.cons(elt, acc)
-    , list, [])
+	, list, [])
 
-   /* UPDATING INTERAL COUNT */
+    /* UPDATING INTERAL COUNT */
 
-  /**
-  * reference path given at index creation
-  * usefull to know when a new base document is added to the index, or remove from it, so we can update the count
-  */
-  ref_type = Mutable.make({none}): Mutable.t(option(OpaType.ty))
+    ref_type = Mutable.make({none}): Mutable.t(option(OpaType.ty))
 
-   update_count(count, vtype, value) =
-     match ref_type.get() with
-     | {some = ref_type} ->
-       if ref_type == vtype then
-          _ = SearchDbUtils.update(count, {_id = "count"}, {`$inc` = {count = value}})
-          void
-       else void
-     | _ -> void
+    update_count(index, vtype, value: int) =
+      match ref_type.get() with
+      | {some = ref_type} -> if ref_type == vtype then index.count.set(index.count.get() + value)
+      | _ -> void
 
-
-   /* COLLECTIONS CREATION */
+    /* COLLECTION CREATION */
 
   create_col(db_name: string, col_name: string) =
     mongo = MongoConnection.openfatal("default")
@@ -349,120 +332,117 @@ SearchUtils = {{
 
 MongoSearch = {{
 
-  debug(s) = Log.debug("SEARCH: ", s)
+    debug(s) = Log.debug("SEARCH: ", s)
 
-  /**
-   * Index the given value
-   * Exemple: [add_to_index index value key]
-   * @param index: index
-   * @param value: value to be indexed, of type 'a
-   * @param key: the key from the main database to store in the index, so it can resend after a search query
-   * @param path: the path from the main database to check if there are some indexed values to remove
-   */
-  @server_private
-  add_to_index(index: (index, count), value: 'a, key: key, path: Db.ref_path('a, 'engine)) =
-    do debug("add value {value} at path {path} with key {key}")
+    /**
+     * Index the given value
+     * Exemple: [add_to_index index value key]
+     * @param index: index
+     * @param value: value to be indexed, of type 'a
+     * @param key: the key from the main database to store in the index, so it can resend after a search query
+     * @param path: the path from the main database to check if there are some indexed values to remove
+     */
+    @server_private
+    add_to_index(index: MongoSearch.index('key), value: 'a, key: 'key, path: Db.ref_path('a, 'engine)) =
+	do debug("add value {value} at path {path} with key {key}")
     value_to_remove = Db.read(path)
     if value_to_remove == value then void
     else
-      (index, count) = index
-      vtype = OpaValue.typeof(value)
-      // update count
-      _ = SearchUtils.update_count(count, vtype, 1)
-      // remove old values
-      do remove_from_index((index, count), value_to_remove, key)
-      // compute a list of words from the given value
-      words = SearchValueTransform.string_of_value(value, vtype) |> String.explode(" ", _)
-      // compute a set to avoid indexing more than one time the same word
-      set = StringSet.From.list(words)
-      Set.iter(
+	vtype = OpaValue.typeof(value)
+    // update count
+    _ = SearchUtils.update_count(index, vtype, 1)
+    // remove old values
+    do remove_from_index(index, value_to_remove, key)
+    // compute a list of words from the given value
+    words = SearchValueTransform.string_of_value(value, vtype) |> String.explode(" ", _)
+    // compute a set to avoid indexing more than one time the same word
+    set = StringSet.From.list(words)
+    Set.iter(
         lexem ->
-              // fix a limit to avoid 'key too large to index' error message from mongoDB
-              if (String.length(lexem) <= 512) then
-                 // compute tf-idf score for current lexem
-                 tf_idf = SearchUtils.compute_tf_idf(index, count, lexem, words)
-                 value = {_score =  tf_idf; lexem = lexem; key = key}
-                 SearchCache.add_to_index(index, lexem, value)
-               else void
-         , set)
+            // fix a limit to avoid 'key too large to index' error message from mongoDB
+            if (String.length(lexem) <= 512) then
+        // compute tf-idf score for current lexem
+        tf_idf = SearchUtils.compute_tf_idf(index, lexem, words)
+        value = {_score =  tf_idf; lexem = lexem; key = key}
+        SearchCache.add_to_index(index, lexem, value)
+        else void
+        , set)
 
-  /**
-   * Desindex the given value
-   * Exemple: [remove_from_index index value key]
-   * @param index: index
-   * @param value: value to be desindexed
-   * @param key: the key from the main database from where to remove value
-   */
-  @server_private
-  remove_from_index(index: (index, count), value: 'a, key: key) =
-    do debug("remove value {value} from key {key}")
-    (index, count) = index
+    /**
+     * Desindex the given value
+     * Exemple: [remove_from_index index value key]
+     * @param index: index
+     * @param value: value to be desindexed
+     * @param key: the key from the main database from where to remove value
+     */
+    @server_private
+    remove_from_index(index: MongoSearch.index('key), value: 'a, key: 'key) =
+	do debug("remove value {value} from key {key}")
+    col = index.col
     vtype = OpaValue.typeof(value)
     // compute a list of words from the given value
     words = SearchValueTransform.string_of_value(value, vtype) |> String.explode(" ", _)
     // compute a set to avoid desindexing more than one time the same word
     set = StringSet.From.list(words)
     (to_update, to_remove) = Set.fold(
-      lexem, (to_update, to_remove) ->
-        // clean the cache
-        do SearchCache.remove_from_index(lexem, key)
-        match (SearchDbUtils.find_one(index, {_id = lexem})) with
-        | {none} -> (to_update, to_remove) // lexem not found on db
-        | {some=elt} ->
-          match (List.remove_p(value -> value.key == key, elt.values)) with
-          | [] ->  (to_update, List.cons(lexem, to_remove)) // lexem with no more values => to be removed
-          | l ->
-          elt = {_id = lexem; values = l}
-          (List.cons(elt, to_update), to_remove) // lexem with some remaining values => to be updated
-    , set, (List.empty, List.empty))
+	lexem, (to_update, to_remove) ->
+            // clean the cache
+            do SearchCache.remove_from_index(index, lexem, key)
+        match (SearchDbUtils.find_one(col, {_id = lexem})) with
+            | {none} -> (to_update, to_remove) // lexem not found on db
+            | {some=elt} ->
+            match (List.remove_p(value -> value.key == key, elt.values)) with
+		| [] ->  (to_update, List.cons(lexem, to_remove)) // lexem with no more values => to be removed
+            | l ->
+            elt = {_id = lexem; values = l}
+        (List.cons(elt, to_update), to_remove) // lexem with some remaining values => to be updated
+	, set, (List.empty, List.empty))
     match (to_update, to_remove) with
-    | ([], []) -> void
-    | (to_update, []) ->
-      _ = SearchDbUtils.insert_batch(index, SearchDbUtils.batch_from_list(to_update))
-      // update count
-      _ = SearchUtils.update_count(count, vtype, -1)
-      void
-    | ([], to_remove) ->
-      _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
-      // update count
-      _ = SearchUtils.update_count(count, vtype, -1)
-      void
-    | (to_update, to_remove) ->
-      _ = SearchDbUtils.insert_batch(index, SearchDbUtils.batch_from_list(to_update))
-      _ = SearchDbUtils.delete(index, {_id = {`$in` = to_remove}})
-      // update count
-      _ = SearchUtils.update_count(count, vtype, -1)
-      void
+	| ([], []) -> void
+	| (to_update, []) ->
+	_ = SearchDbUtils.insert_batch(col, SearchDbUtils.batch_from_list(to_update))
+    // update count
+    _ = SearchUtils.update_count(index, vtype, -1)
+    void
+	| ([], to_remove) ->
+	_ = SearchDbUtils.delete(col, {_id = {`$in` = to_remove}})
+    // update count
+    _ = SearchUtils.update_count(index, vtype, -1)
+    void
+	| (to_update, to_remove) ->
+	_ = SearchDbUtils.insert_batch(col, SearchDbUtils.batch_from_list(to_update))
+    _ = SearchDbUtils.delete(col, {_id = {`$in` = to_remove}})
+    // update count
+    _ = SearchUtils.update_count(index, vtype, -1)
+    void
 
-  @server_private
-  remove_key_from_index(index: (index, count), key: key) =
-    (index, _) = index
+    @server_private
+    remove_key_from_index(index: MongoSearch.index('key), key: 'key) =
     do debug("remove key {key}")
     // clean the cache
-    do SearchCache.remove_key_from_index(key)
+    do SearchCache.remove_key_from_index(index, key)
     // create indexes
-   _ = MongoCollection.create_simple_index(index, "index", "values.key", 1)
-   // deleting
-   select = {key = key lexem = {`$ne` = ""}; _score = {`gt` = 0.0}}
-   _ = SearchDbUtils.delete(index, {values = {`$elemMatch` = select}})
-   void
+    _ = MongoCollection.create_simple_index(index.col, "index", "values.key", 1)
+    // deleting
+    select = {key = key lexem = {`$ne` = ""}; _score = {`gt` = 0.0}}
+    _ = SearchDbUtils.delete(index.col, {values = {`$elemMatch` = select}})
+    void
 
 
-  /**
-   * Search all documents containing the query words
-   * Exemple: [search index query]
-   * "toto" => search for exact lexem "toto"
-   * toto => search for lexems containing "toto"
-   * toto titi => search for lexems "toto" or "titi"
-   * toto + titi => search for lexems "toto" and "titi"
-   * @param index: index
-   * @param query: string containing words to search
-   * @return a list of db key representing the keys where to the found values
-   */
-  @server_private
-  search(index: (index, count), query:string) : list(key) =
-    do debug("search for query {query}")
-    (index, _) = index
+    /**
+     * Search all documents containing the query words
+     * Exemple: [search index query]
+     * "toto" => search for exact lexem "toto"
+     * toto => search for lexems containing "toto"
+     * toto titi => search for lexems "toto" or "titi"
+     * toto + titi => search for lexems "toto" and "titi"
+     * @param index: index
+     * @param query: string containing words to search
+     * @return a list of db key representing the keys where to the found values
+     */
+    @server_private
+    search(index: MongoSearch.index('key), query:string) : list('key) =
+	do debug("search for query {query}")
     res = List.fold(
       lexem_list, acc ->
         tmp_res = List.fold(
@@ -477,34 +457,34 @@ MongoSearch = {{
     , SearchUtils.parse_query(query), [])
     List.unique_list_of(res)
 
-  /**
-   * Get the size of the index, i.e. the number of words it contains
-   * Exemple: [get_count index]
-   * @param index: the index to count words from
-   * @return the number of words the given index contains
-   */
-  @server_private
-  get_count(index) =
-    (index, _) = index
-    MongoCollection.count(index, {none})
+    /**
+     * Get the size of the index, i.e. the number of words it contains
+     * Exemple: [get_count index]
+     * @param index: the index to count words from
+     * @return the number of words the given index contains
+     */
+    @server_private
+    get_count(index) = index.count.get()
 
-  /**
-   * Create an index as a MongoDb collection
-   * Exemple: [create_index db_name]
-   * @param db_name: string the name of the main database
-   * @param cache_limit: int the size of the internal cache; a limit set at 0 implies a db write for each word to index
-   * @param ref_path: path to the main type of data to be indexed, nedded to keep internal count up to date
-   * @return an index as a MongoDb collection
-   */
-  @server_private
-  create_index(db_name, cache_limit, ref_path) =
-    ref_val = Db.read(ref_path)
-    ref_type = OpaValue.typeof(ref_val)
-    index = SearchUtils.create_col(db_name, "index")
-    count = SearchUtils.create_col(db_name, "count")
-    _ = SearchDbUtils.insert(count, {_id = "count"; count = 0})
-    do SearchCache.cache_limit.set(cache_limit)
-    do SearchUtils.ref_type.set({some=ref_type})
-    (index, count)
-
+    /**
+     * Create an index as a MongoDb collection
+     * Exemple: [create_index db_name]
+     * @param db_name: string the name of the main database
+     * @param cache_size: int the size of the internal cache; a limit set at 0 implies a db write for each word to index
+     * @param ref_path: path to the main type of data to be indexed, nedded to keep internal count up to date
+     * @param ref_key: key used to store the main type of data, needed to handle polymorphic keys and avoid manual casts from user
+     * @return an index as a MongoDb collection
+     */
+    @server_private
+    create_index(db_name, cache_size, ref_path, _ref_key: 'key) =
+      ref_val = Db.read(ref_path)
+      ref_type = OpaValue.typeof(ref_val)
+      index =
+	{ count = Mutable.make(0)
+	  ; col = SearchUtils.create_col(db_name, "index")
+	  ; cache = Mutable.make(StringMap.empty)
+	  ; cache_size = cache_size
+	}: MongoSearch.index('key)
+    do SearchUtils.ref_type.set({some = ref_type})
+    index
 }}
