@@ -44,7 +44,7 @@ function CommandLine_ident(names,description,param_doc)(up) {
     }
 }
 
-list(CommandLine.parser({oprion(string) name, Template.t template})) options_parsers =
+list(CommandLine.parser({option(string) name, Template.t template})) options_parsers =
   template_names = List.map(_.name, templates)
   [
     CommandLine_ident(["--name", "-n"],
@@ -74,20 +74,19 @@ function write(file, content) {
   %%BslFile.of_string%%("./{file}", binary_of_string(content))
 }
 
-function process_resource(file_name, file_content) {
-  n = String.length(options.template.dir)
-  file = "{options.name}{String.sub(n, String.length(file_name) - n, file_name)}"
-  if (File.exists(file)) { warning("File {file_name} already exists. \nPlease delete it and try again."); System.exit(1) }
-  jlog("Generating {file_name}")
-  content = String.replace("application_name", options.name, string_of_binary(file_content()))
-  write(file, content)
-}
-
 Scheduler.push(function () { // hack for node.js toplevel instruction
 match (options.name) {
   case {none}: System.exit(0);
   case {some:name}:
+    function process_resource(file_name, file_content) {
+      n = String.length(options.template.dir)
+      file = "{options.name}{String.sub(n, String.length(file_name) - n, file_name)}"
+      if (File.exists(file)) { Log.warning("OpaCreate", "File {file_name} already exists. \nPlease delete it and try again."); System.exit(1) }
+      jlog("Generating {file_name}")
+      content = String.replace("application_name", name, string_of_binary(file_content()))
+      write(file, content)
+    }
     StringMap.iter(process_resource, options.template.resources)
     jlog("\nNow you can type:\n$ cd {options.name}\n$ make run")
   }
-}
+})
