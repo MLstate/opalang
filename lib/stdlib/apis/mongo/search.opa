@@ -14,6 +14,12 @@
 
 package stdlib.apis.mongo
 
+/**
+ * Full-text search for OPA.
+ *
+ * @destination public
+ * @stabilization work in progress
+ **/
 
 /**
 * {1 About this module}
