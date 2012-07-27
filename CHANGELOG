@@ -3,22 +3,25 @@ Reorganization of the project source code in order to be clearer and comply to l
 - lib and tools: MIT
 
 Improvements:
-- Launch script improved, with node version check
+- Launch script improved, with node version check and node module dependencies check
 - Launch helper is now in tools/dependencies
 - Added explicit dependency to simplesmtp (was expecting to be in nodemailer)
-- Improve type error messages (by adding type witnesses)
-- Improve syntax error messages
+- Improved type error messages (by adding type witnesses)
+- Improved syntax error messages
+- Better compliance with Lintian
 
 New features:
 - A module can be coerced with a restricted interface
 - Character } is treated as reserved in html environment
+- opa-plugin-builder and opa-plugin-brower now have their manpages
 
 Bug fixes::
 - File.content on node backend
+- installation_helper.sh install PATH fixed
 
 Documentation:
 - Manual examples are now separate repositories: https://github.com/MLstate/
-- Git submodules used for manual examples 
+- Git submodules used for manual examples
 - Chapter 7 "Hello, database" translated in Chinese. Thanks to Li Wenbo <li.wenbo@whu.edu.cn>
 
 
