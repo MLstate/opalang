@@ -6,7 +6,12 @@ Improvements:
 - Improved the launch script, with node version check
 - Launch helper is now in tools/dependencies
 - Added explicit dependency to simplesmtp (was expecting to be in nodemailer)
+- Improve type error messages (by adding type witnesses)
+- Improve syntax error messages
 
+New features:
+- A module can be coerced with a restricted interface
+- Character } is treated as reserved in html environment
 
 2012.07.03, Version 1.0.4 (stable), v2403
 
