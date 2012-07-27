@@ -84,7 +84,7 @@ OPA_TOOLS = opa-create
 distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
-	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
+	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
 	$(MAKE) manpages
 	$(MAKE) $(OPA_TOOLS)
 
