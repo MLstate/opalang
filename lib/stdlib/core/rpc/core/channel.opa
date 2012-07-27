@@ -236,7 +236,7 @@ GenChannel(N:GenChannel.NETWORK('cid, 'entity, 'ser)) = {{
   instantiate(c, id) =
     x = Random.string(20) ^ id
     #<Ifstatic:MLSTATE_SESSION_DEBUG>
-    do debug("Instantiate channel("^id^") as "^x^"")
+    do jlog("Instantiate channel("^id^") as "^x^"")
     #<End>
     do Hashtbl.add(local_channels, x, c)
     x

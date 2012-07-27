@@ -235,7 +235,7 @@ type OpaRPC.interface = {{
         error("OPARPC : Request on {url} has failed")
 
   async_send_to_server(fun_name, request, _) =
-    url= "/rpc_call/" ^ fun_name
+    url= "/rpc_call_async/" ^ fun_name
     body = OpaRPC.serialize(request)
     #<Ifstatic:OPA_FULL_DISPATCHER>
     PingClient.async_request(url, body)
@@ -477,7 +477,8 @@ OpaRPC_Server =
           if rpc_return(client, id, body) then reply(winfo, "true", {success})
           else reply(winfo, "false", {unauthorized})
         #<End>
-        | "rpc_call/" name=(.*) ->
+          | "rpc_call" async="_async"? "/" name=(.*) ->
+          async = Option.is_some(async)
           name = "{name}"
           #<Ifstatic:MLSTATE_PING_DEBUG>
           do Log.info("OpaRPC", "RPC({name}) try call")
@@ -497,7 +498,12 @@ OpaRPC_Server =
               #<Ifstatic:MLSTATE_PING_DEBUG>
               do Log.info("OpaRPC", "RPC({name}) skeleton was found")
               #<End>
-              match skeleton(get_requested_post_content(winfo.http_request.request)) with
+              body = get_requested_post_content(winfo.http_request.request)
+              if async then
+                do reply(winfo, "", {success})
+                Scheduler.push(-> ignore(skeleton(body)))
+              else
+              match skeleton(body) with
                 | {none} ->
                   do Log.error("OpaRPC", "RPC({name}) Bad formatted request")
                   reply_error(winfo, "Bad formatted rpc request")
