@@ -688,6 +688,20 @@ let report_unification_conflict_with_context
                           , ty_branch, ty_loc2)
  | W_InferErrors.UCC_dot
       (expr, rec_expr_ty, accessed_field_rec_ty, accessed_label) -> (
+      let (record_name, record_or_module) = match expr with
+         | QmlAst.Dot(_, (QmlAst.Ident(_, id)), _) ->
+           let package_name = Ident.get_package_name id in
+           let of_package_name =
+             if package_name = "" then " " else (" of " ^ package_name ^ " ") in
+           let name = Ident.original_name id in
+           let record_module = 
+             try (
+               let init = name.[0] in
+               if (init >= 'A' && init <= 'Z') 
+               then "Module" else "Record"
+            ) with Invalid_argument _-> "Record" in
+           ((name ^ of_package_name), record_module)
+        | _ -> ("", "Record") in
       W_Misc.set_error_position (Annot.pos (Annot.Magic.label expr));
       let err_ctxt =
         QmlError.Context.annoted_expr public_annotmap_with_locs expr in
@@ -714,11 +728,12 @@ let report_unification_conflict_with_context
           match cases with
           | [] ->
               QmlError.error ~msg:reason err_ctxt
-                ("%a@\n@[<2>Record has type@\n@{<red>%a}@\nbut field " ^^
+                ("%a@\n@[<2>%s @{<red>%s@}has type@\n@{<red>%a}@\nbut field " ^^
                  "access expects it to have type@\n@{<red>%a@}@]@." ^^
                  "@[<2>@{<bright>Hint@}:@\nYou@ tried to access an " ^^
                  "empty sum type as a record.@]@\n%a%a@.")
-                pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
+                pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2) 
+                record_or_module record_name
                 W_PrintTypes.pp_simple_type_start_sequence rec_expr_ty_unwinded
                 W_PrintTypes.pp_simple_type_continue_sequence
                   accessed_field_rec_ty
@@ -741,6 +756,7 @@ let report_unification_conflict_with_context
                  sufficient. Why 7 ? Because it's a prime number and really
                  lower than 42 ^^. *)
               let few_close_labels = List.take 7 close_labels in
+              let pp_string ppf s = Format.fprintf ppf "%s" s in
               if few_close_labels <> [] then (
                 (* We found some fields in the record type that are close to
                    the one used to perform the dot-access.
@@ -754,17 +770,17 @@ let report_unification_conflict_with_context
                    accessed expression, but this abbreviated information may be
                    easier for the user to dig into, instead of reading the ton
                    of irrelevant fields to find the unique interesting one ! *)
-                let shortened_record_ty =
+(*                let shortened_record_ty =
                   create_fake_shorten_record_ty
                     ~original_fields: fields
                     ~interresting_fields_names: few_close_labels in
-                QmlError.error ~msg:reason err_ctxt
-                  ("%a@\n@[<2>This record does not have field @{<red>%s@}.@ " ^^
-                   " Here is a summary of fields you may want to access:" ^^
+*)                QmlError.error ~msg:reason err_ctxt
+                  ("%a@\n@[<2>%s @{<red>%s@}does not have field @{<red>%s@}.@ " ^^
+                   "Here is a summary of fields you may want to access:" ^^
                      "@\n@{<red>%a@}.@]@\n%a%a@.")
                   pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
-                  accessed_label
-                  W_PrintTypes.pp_fake_simple_type shortened_record_ty
+                  record_or_module record_name accessed_label
+                  (BaseFormat.pp_list ",@ " pp_string) labels
                   (HintUtils.pp_suggestion labels) accessed_label
                   pp_unification_conflict_detail detail
              )
@@ -773,11 +789,11 @@ let report_unification_conflict_with_context
                    to make the access gave nothing. So, in this case, fall-back
                    on printing directly the 2 guilty types. *)
                 QmlError.error ~msg:reason err_ctxt
-                  ("%a@\n@[<2>This record does not have field @{<red>%s@}." ^^
+                  ("%a@\n@[<2>%s @{<red>%s@}does not have field @{<red>%s@}." ^^
                    "@ Here are the fields you may want to access" ^^
                    "@\n@{<red>%a@}@]@\n%a%a%a@.")
                 pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
-                  accessed_label
+                  record_or_module record_name accessed_label
                   W_PrintTypes.pp_fake_simple_type rec_expr_ty_unwinded
                   (HintUtils.pp_suggestion labels) accessed_label
                   pp_unification_conflict_detail detail
@@ -789,12 +805,13 @@ let report_unification_conflict_with_context
             )
           | _ ->
               QmlError.error ~msg:reason err_ctxt
-                ("%a@\n@[<2>Record has type@\n@{<red>%a@}@\nbut field " ^^
-                 "access expected it to have type @\n@{<red>%a@}@@\n]@." ^^
+                ("%a@\n@[<2>%s @{<red>%s@}has type@\n@{<red>%a@}@\nbut field " ^^
+                 "access expected it to have type @\n@{<red>%a@}@\n@]@." ^^
                  "@[<2>@{<bright>Hint@}:@\nYou tried to access a " ^^
                  "sum type with several cases as a " ^^
                  "record.@]@\n%a%a")
                 pp_precise_error(err_ty1, err_loc1, err_ty2, err_loc2)
+                record_or_module record_name
                 W_PrintTypes.pp_simple_type_start_sequence rec_expr_ty_unwinded
                 W_PrintTypes.pp_simple_type_continue_sequence
                   accessed_field_rec_ty
