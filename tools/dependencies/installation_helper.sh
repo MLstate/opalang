@@ -377,7 +377,7 @@ package_install (){
 		# very ugly way to uninstall previous cryptokit...
 		msg_yellow "Uninstalling potential previous cryptokit (moving it..)"
 		$SUDO mkdir -pv $INSTALLDIR/lib/ocaml/cryptokit.bak
-		$SUDO mv -v $INSTALLDIR/lib/ocaml/cryptokit.* $INSTALLDIRlib/ocaml/cryptokit.bak/ || true
+		$SUDO mv -v $INSTALLDIR/lib/ocaml/cryptokit.* $INSTALLDIR/lib/ocaml/cryptokit.bak/ || true
 		$SUDO mv -v $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so $INSTALLDIR/lib/ocaml/stublibs/dllcryptokit.so.bak  || true
 		ocaml setup.ml -configure
 		ocaml setup.ml -build
