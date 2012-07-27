@@ -3,7 +3,7 @@ Reorganization of the project source code in order to be clearer and comply to l
 - lib and tools: MIT
 
 Improvements:
-- Improved the launch script, with node version check
+- Launch script improved, with node version check
 - Launch helper is now in tools/dependencies
 - Added explicit dependency to simplesmtp (was expecting to be in nodemailer)
 - Improve type error messages (by adding type witnesses)
@@ -12,6 +12,15 @@ Improvements:
 New features:
 - A module can be coerced with a restricted interface
 - Character } is treated as reserved in html environment
+
+Bug fixes::
+- File.content on node backend
+
+Documentation:
+- Manual examples are now separate repositories: https://github.com/MLstate/
+- Git submodules used for manual examples 
+- Chapter 7 "Hello, database" translated in Chinese. Thanks to Li Wenbo <li.wenbo@whu.edu.cn>
+
 
 2012.07.03, Version 1.0.4 (stable), v2403
 
