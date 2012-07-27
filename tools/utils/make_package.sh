@@ -333,6 +333,7 @@ Description: Enterprise Framework for JavaScript.
  All aspects are directly written in Opa:
  Frontend code, backend code, database queries and configuration.
  And everything is strongly statically typed.
+ Learn more: http://opalang.org
 EOF
 
 #     cat > debian/DEBIAN/postinst <<EOF
