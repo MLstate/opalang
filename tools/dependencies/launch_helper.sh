@@ -16,11 +16,11 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
     exit 1
 fi;
 
-npm=`which npm 2>&1`
-if [ $? -ne 0 ] || [ ! -x "$npm" ]; then
-    echo "--> npm missing, please install npm from: http://npmjs.org/"
-    exit 1
-fi;
+# npm=`which npm 2>&1`
+# if [ $? -ne 0 ] || [ ! -x "$npm" ]; then
+#     echo "--> npm missing, please install npm from: http://npmjs.org/"
+#     exit 1
+# fi;
 
 if [ $? -ne 0 ]; then exit $?; fi;
 node "$0" "$@"; exit $?;
