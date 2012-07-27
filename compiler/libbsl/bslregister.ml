@@ -348,8 +348,8 @@ let anon_fun file =
 
 
 let usage_msg =
-  !> "@{<bright>%s@}: Opa External Libraries Register\nUsage: %s [options] files\n"
-    Sys.argv.(0) Sys.argv.(0)
+  !> "@{<bright>%s@}: Bob Opa External Libraries Register\nUsage: %s [options] files\n"
+    (Filename.basename Sys.argv.(0)) (Filename.basename Sys.argv.(0))
 
 let parse () =
   let spec = (
