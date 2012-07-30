@@ -375,12 +375,12 @@ struct
 
   (* Write shell script incantation to check dependencies,
      set load path, etc *)
-  let write_launcher_header oc static_link =
+  let write_launcher_header oc env_opt =
     Printf.fprintf oc "#!/usr/bin/env sh
 
 /*usr/bin/env true
 
-export NODE_PATH=\"$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\"
+export NODE_PATH=\"%s:$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\"
 %s
 */
 
@@ -389,8 +389,8 @@ var opa_dependencies = [%s];
 
 %s
 
-" stdlib_qmljs_path stdlib_path static_path LaunchHelper.script
-      (if static_link then "" else "'opa-js-runtime-cps'")
+" (modules_dir env_opt) stdlib_qmljs_path stdlib_path static_path LaunchHelper.script
+      (if env_opt.static_link then "" else "'opa-js-runtime-cps'")
       LaunchHelper.js
 
   let linking_generation_static env_opt loaded_bsl env_js_input =
@@ -403,7 +403,7 @@ var opa_dependencies = [%s];
       0o700 (get_target env_opt) in
     let fmt = Format.formatter_of_out_channel oc in
 
-    write_launcher_header oc env_opt.static_link;
+    write_launcher_header oc env_opt;
 
     List.iter (fun (file, content) ->
       Format.fprintf fmt "// From %s\n"
@@ -428,31 +428,6 @@ var opa_dependencies = [%s];
       env_js_input.js_code;
 
     close_out oc
-
-  (* Output the application launcher and the main object for
-     "dynamic" linking *)
-  let create_main_files env_opt =
-    let launcher_oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
-      0o700 (get_target env_opt) in
-    write_launcher_header launcher_oc env_opt.static_link;
-
-    let success = File.check_create_path ~rights:0o700 (modules_dir env_opt) in
-    if not success then
-      OManager.error "Couldn't create directory %s" (modules_dir env_opt);
-    let main_file_name = "main.js" in
-    let main_path = Filename.concat (depends_dir env_opt) main_file_name in
-    let relative_main_path = Filename.concat
-      (Filename.basename (depends_dir env_opt)) main_file_name in
-
-    Printf.fprintf launcher_oc "require('./%s');\n" relative_main_path;
-    close_out launcher_oc;
-
-    let status = File.copy ~force:true
-      (Filename.concat env_opt.compilation_directory "a.js")
-      main_path in
-
-    if status = 1 then
-      OManager.error "Couldn't copy object to %s" main_path
 
   let needs_package_install env_bsl =
     List.exists (fun plugin ->
@@ -506,18 +481,15 @@ var opa_dependencies = [%s];
 
     *)
 
-    if needs_package_install env_bsl then (
-      create_main_files env_opt;
-      install_dependencies env_opt env_bsl
-    ) else (
-      let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
-        0o700 (get_target env_opt) in
-      write_launcher_header oc env_opt.static_link;
-      let content = File.content
-        (Filename.concat env_opt.compilation_directory "a.js") in
-      Printf.fprintf oc "%s\n" content;
-      close_out oc
-    )
+    if needs_package_install env_bsl then
+      install_dependencies env_opt env_bsl;
+    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
+      0o700 (get_target env_opt) in
+    write_launcher_header oc env_opt;
+    let content = File.content
+      (Filename.concat env_opt.compilation_directory "a.js") in
+    Printf.fprintf oc "%s\n" content;
+    close_out oc
 
   let linking_generation env_opt env_bsl plugin_requires loaded_bsl env_js_input =
     compilation_generation env_opt env_bsl plugin_requires
