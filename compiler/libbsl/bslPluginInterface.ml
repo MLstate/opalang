@@ -280,6 +280,7 @@ let meta_plugin__01 buf
     ~depends
     ~js_code
     ~nodejs_code
+    ~has_server_code
     ~opa_code
     ~ocaml_env
     ~javascript_env
@@ -312,6 +313,7 @@ struct
     (pp_ml_list pp_fc_conf)
     nodejs_code
   in
+  let b = ~> b    "let has_server_code = %B\n"       has_server_code                      in
   let b = ~> b    "let opa_code = [ %a ]\n"          (pp_ml_list pp_fc)        opa_code   in
   let b = ~> b    "let ocaml_env = (Marshal.from_string %S 0)\n" (Marshal.to_string (ocaml_env : ocaml_env) []) in
   let b = ~> b    "let javascript_env = (Marshal.from_string %S 0)\n" (Marshal.to_string (javascript_env : javascript_env) []) in
@@ -349,6 +351,7 @@ let meta_plugin__03 = "
     opa_code ;
     js_code ;
     nodejs_code ;
+    has_server_code ;
     dynloader ;
     ocaml_env ;
     javascript_env ;
@@ -380,6 +383,7 @@ type plugin = {
   opa_code              : (filename * contents) list ;
   js_code               : (filename * contents * BslJsConf.conf) list ;
   nodejs_code           : (filename * contents * BslJsConf.conf) list ;
+  has_server_code       : bool ;
   dynloader             : dynloader ;
   ocaml_env             : ocaml_env ;
   javascript_env        : javascript_env ;
@@ -461,6 +465,11 @@ sig
      as [js_code] but on node files
   *)
   val nodejs_code : (filename * contents * BslJsConf.conf) list
+
+  (**
+     [true] if the plugin has any server-side code
+  *)
+  val has_server_code : bool
 
   (** {6 Registering primitives and types} *)
 

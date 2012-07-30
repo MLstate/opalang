@@ -823,17 +823,19 @@ let finalizing_register_calls session =
 
 let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
 
-  let s_identification      = s.s_identification in
+  let s_identification = s.s_identification in
 
-  let basename              = s_identification.i_basename in
-  let self_module_name      = s_identification.i_ml_plugin in
-  let uniq_id               = s_identification.i_uniq_id in
+  let basename         = s_identification.i_basename in
+  let self_module_name = s_identification.i_ml_plugin in
+  let uniq_id          = s_identification.i_uniq_id in
 
-  let ml_runtime            = s_identification.i_ml_runtime in
-  let depends               = s.s_depends.d_parents in
-  let js_code               = s.s_js_code in
-  let nodejs_code           = s.s_nodejs_code in
-  let opa_code              = s.s_opa_code in
+  let ml_runtime       = s_identification.i_ml_runtime in
+  let depends          = s.s_depends.d_parents in
+  let js_code          = s.s_js_code in
+  let nodejs_code      = s.s_nodejs_code in
+  let has_server_code  =
+    not (List.is_empty nodejs_code && List.is_empty s.s_rev_ml_parsed_files) in
+  let opa_code         = s.s_opa_code in
 
   let buf = FBuffer.create 1024 in
   let buf =
@@ -847,6 +849,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
       ~depends
       ~js_code
       ~nodejs_code
+      ~has_server_code
       ~opa_code
       ~ocaml_env
       ~javascript_env
