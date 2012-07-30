@@ -1,44 +1,61 @@
-Reorganization of the project source code in order to be clearer and comply to license change:
-- ocamllib and compiler: AGPL
-- lib and tools: MIT
+New features:
+  * Stdlib :
+    - Added Binary module
+    - Added Pack module
 
 Improvements:
-- Launch script improved, with node version check and node module dependencies check
-- Launch helper is now in tools/dependencies
-- Added explicit dependency to simplesmtp (was expecting to be in nodemailer)
-- Improved type error messages (by adding type witnesses)
-- Improved syntax error messages
-- Better compliance with Lintian
-- Do not copy standard Opa JS plugins and packages when building object
 
-New features:
-- A module can be coerced with a restricted interface
-- Character } is treated as reserved in html environment
-- opa-plugin-builder and opa-plugin-brower now have their manpages
-- Output a package.json descriptor for packages and plugins
-- Add flag --package-version to specify version in package.json
-- (experimental) option --modular-plugins to export plugin
-  bypasses following commonjs conventions instead of using
-  the global namespace. For now, the stdlib must be compiled
-  with it in order to work.
-- opa now accepts .js and .nodejs files when compiling packages and
-  executables. Files should be in plugin format and used with standard
-  plugin syntax.
+  * Compiler :
+    - Improved type error messages (by adding type witnesses)
+    - A module can be coerced with a restricted interface
+    - Improved syntax error messages
+    - Character } is treated as reserved in html environment (avoid an ambiguity of the syntax)
+    - Reduce the javascript size by reduces size of some generated idents
+    - Added the new 'pure' bsltag, allows some JS optimizations
+    - Do not copy standard Opa JS plugins and packages when building object
+    - Output a package.json descriptor for packages and plugins
+	- Add flag --package-version to specify version in package.json
+	- Opa now accepts .js and .nodejs files when compiling packages and
+	  executables. Files should be in plugin format and used with standard
+	  plugin syntax
+
+  * Node.js runtime:
+    - Launch script improved, with node version check and node module dependencies check
+    - Launch helper is now in tools/dependencies
+    - Speedup of the runtime (fibo : 3.75, hello siege: 1.70)
+    - Improve the function of logger and clean the server outputs
+    - Closure serialization (empty closure and published closure)
+    - Binaries manipulation
+
+  * Other:
+    - Better compliance with Lintian
+    - Reorganization of the project source code in order to be clearer and comply to license change (ocamllib and compiler: AGPL, lib and tools: MIT)
+    - opa-plugin-builder and opa-plugin-brower now have their manpages
+    - add plugins to opacapi checker
 
 Bug fixes:
-- File.content on node backend
-- installation_helper.sh install PATH fixed
-- Wrong renaming of variables in JS catch statements
-- Obj. dependency directory placed in same path as main file
+
+  * File manipulation on node backend
+  * installation_helper.sh install PATH fixed
+  * Added explicit dependency to simplesmtp (was expecting to be in nodemailer)
+  * serve "application/xhtml+xml" to webkit browser (fix especially svg)
+  * Opa applications stop if no server
+  * Server runtime options
+  * Opa timer delay the first call to the callback
+  * Javascript inlining
+  * Safari hangs when mixing asynchronous and synchronous request
+  * Wrong renaming of variables in JS catch statements
+  * Obj. dependency directory placed in same path as main file
 
 Documentation:
-- Manual examples are now separate repositories: https://github.com/MLstate/
-- Git submodules used for manual examples
-- Chapter 7 "Hello, database" translated in Chinese. Thanks to Li Wenbo <li.wenbo@whu.edu.cn>
+
+  * Manual examples are now separate repositories: https://github.com/MLstate/
+  * Git submodules used for manual examples
+  * Chapter 7 "Hello, database" translated in Chinese. Thanks to Li Wenbo <li.wenbo@whu.edu.cn>
 
 Removed:
-- Process management functions (e.g. fork) that were not implemented in the
-  NodeJS backend were removed
+  * Process management functions (e.g. fork) that were not implemented in the
+    NodeJS backend were removed
 
 2012.07.03, Version 1.0.4 (stable), v2403
 
