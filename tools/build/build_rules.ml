@@ -929,15 +929,14 @@ let dir_rec_all_files dir =
 in
 
 rule "opa application creator"
-  ~deps:("lib/plugins/opabsl_for_server.cmxa" :: (dir_rec_all_files "tools/opa-create"))
+  ~deps:(dir_rec_all_files "tools/opa-create")
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
-	Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
         get_tool "opa-bin";
         A"-o"; P opa_create_dst; P opa_create_src;
 	A"--opx-dir";A "stdlib.qmljs";
-	A"--static-link";
+        A"--no-server";
 	A"-I"; A plugins_dir
       ]));
 
