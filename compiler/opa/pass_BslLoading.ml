@@ -100,7 +100,7 @@ end
 let already_seen_plugin : (plugin_name, plugin_name) Hashtbl.t = Hashtbl.create 16
 
 (*
-  We accumulate the extralib and extrapath implied by the plugin seens,
+  We accumulate the extralib and extrapath implied by the seen plugins,
   and add it in the topologic order of plugins (after finalization).
 *)
 
