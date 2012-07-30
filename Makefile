@@ -157,8 +157,8 @@ define install-plugin
 @printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
 @mkdir -p "$(STDLIB_DIR)/$*.opp"
 @$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
-@$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js "$(STDLIB_DIR)/$*.opp/";
-@$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json "$(STDLIB_DIR)/$*.opp/";
+@$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js "$(STDLIB_DIR)/$*.opp/")
+@$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json "$(STDLIB_DIR)/$*.opp/")
 @$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*MLRuntime.*), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/")
 endef
 
