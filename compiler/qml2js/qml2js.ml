@@ -159,9 +159,12 @@ struct
     let loaded_files =
       let plugins = env_bsl.BslLib.all_external_plugins in
       let fold acc loader =
-        let filename = filename_of_plugin loader in
-        let content = File.content filename in
-        (Plugin loader.BPI.basename, content) :: acc
+        if not (List.is_empty loader.BslPluginInterface.nodejs_code) then
+          let filename = filename_of_plugin loader in
+          let content = File.content filename in
+          (Plugin loader.BPI.basename, content) :: acc
+        else
+          acc
       in
       List.fold_left fold loaded_files plugins
     in
@@ -500,8 +503,11 @@ var opa_dependencies = [%s];
       linking_generation_dynamic env_opt env_bsl
 
   let js_generation env_opt env_bsl loaded_bsl env_js_input =
-    let plugin_requires = List.map (fun plugin ->
-      plugin.BslPluginInterface.basename
+    let plugin_requires = List.filter_map (fun plugin ->
+      if List.is_empty plugin.BslPluginInterface.nodejs_code then
+        None
+      else
+        Some plugin.BslPluginInterface.basename
     ) env_bsl.BslLib.direct_external_plugins in
     begin match ObjectFiles.compilation_mode () with
     | `compilation ->

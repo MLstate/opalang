@@ -104,7 +104,6 @@ let default_opts = {
 
 type files = {
   opp_dir: string;
-  has_node_content: bool; (* Whether or not to output node content *)
   js_files: string list;
   nodejs_files: string list;
   nodejspackage: string;
@@ -174,7 +173,6 @@ let files_of_opt opt =
   let nodejs_files = List.filter (has_extension "nodejs") opt.files in
   {
     opp_dir          = opp_dir opt;
-    has_node_content = not (List.is_empty nodejs_files);
     js_files;
     nodejs_files;
     nodejspackage    = map (S.nodejspackage ^ ".js");
@@ -508,7 +506,7 @@ let files_generation (opt : options) (fs : files) (fin : BR.finalized_t) =
   BR.out_opa_code             iterator_opa_code               fin;
   BR.out_opa_interface        iterator_opa_interface          fin;
 
-  if fs.has_node_content then (
+  if not (List.is_empty fs.nodejs_files) then (
     output fs.nodejspackage   BR.out_nodejs_package           fin;
     output_package_json opt fs;
   );
