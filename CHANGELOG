@@ -7,7 +7,6 @@ Improvements:
 
   * Compiler :
     - Improved type error messages (by adding type witnesses)
-    - A module can be coerced with a restricted interface
     - Improved syntax error messages
     - Character } is treated as reserved in html environment (avoid an ambiguity of the syntax)
     - Reduce the javascript size by reduces size of some generated idents
