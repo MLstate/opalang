@@ -201,7 +201,7 @@ else
     echo "Ocaml 3.12 or newer is required. It's usually found in package 'ocaml'."
     false
 fi
-OCAMLOPT_DIR=$(dirname $(which $OCAMLOPT))
+OCAMLOPT_DIR=$(dirname $OCAMLOPT)
 
 
 echo-check ocamlbuild
