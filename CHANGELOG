@@ -1,3 +1,5 @@
+2012.07.30, Version 1.0.5 (stable), v2988
+
 New features:
   * Stdlib :
     - Added Binary module
@@ -31,6 +33,7 @@ Improvements:
     - Reorganization of the project source code in order to be clearer and comply to license change (ocamllib and compiler: AGPL, lib and tools: MIT)
     - opa-plugin-builder and opa-plugin-brower now have their manpages
     - add plugins to opacapi checker
+    - less files installed
 
 Bug fixes:
 
@@ -55,6 +58,7 @@ Documentation:
 Removed:
   * Process management functions (e.g. fork) that were not implemented in the
     NodeJS backend were removed
+
 
 2012.07.03, Version 1.0.4 (stable), v2403
 
