@@ -889,7 +889,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       perform_infer_expr_type_postlude
         original_expr final_annotmap extended_record_ty
     )
-  | QmlAst.Bypass (_, bsl_key) -> (
+  | QmlAst.Bypass (loc, bsl_key) -> (
       #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
       OManager.printf "Bypass start@." ;
       #<End> ; (* <---------- END DEBUG *)
@@ -906,6 +906,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
           let ty =
             W_TypingEnv.qml_type_to_simple_type
               typing_env qml_ty_expr ~is_type_annotation: false in
+          W_TypeInfo.add_loc_object ty.W_Algebra.sty_desc loc ;
           #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
           OManager.printf "@[Bypass nearly end with ty: %a@]@."
             W_PrintTypes.pp_simple_type ty ;
