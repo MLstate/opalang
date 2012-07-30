@@ -21,8 +21,8 @@
   Note about some duplication of code between BslOCaml and BslJs:
 
   The previous of libbsl was implemented using a functor for sharing some part of this process.
-  The experience has shown that the tratement done on Javascript and Ocaml is quite different,
-  which has lead to have a complexe code in the argument of the functor, not very natural.
+  The experience has shown that the treatment done on Javascript and Ocaml is quite different,
+  which led to complex code in the argument of the functor, not very natural.
 
   I (mathieu) think that proceding now with 2 different files is more relax, the implementation
   can be different, without hacking the interfaces of functors and args.
@@ -328,7 +328,7 @@ let debug fmt =
 
 (**
    regexp used to process bypass alias : when a user use %%BslSource.BslModule.bslkey%%,
-   the bsl preprocessor replace the alias by it's implementation
+   the bsl preprocessor replaces the alias by its implementation
    Str.full_split split_regexp "texte %%BslCps.Notcps_compatibility.thread_context%%; texte ";;
 *)
 let split_regexp = Str.regexp "%%[ ]*[a-zA-Z\\._]+[ ]*%%";;
