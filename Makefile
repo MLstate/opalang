@@ -223,6 +223,7 @@ install-bin:
 
 install-lib:
 	@printf "Installing into $(INSTALL_DIR)/lib/opa[K\r"
+	@rm -f $(BUILD_DIR)/lib/opa/static/opabslMLRuntime.cmi
 	@mkdir -p $(INSTALL_DIR)/lib/opa
 	@$(if $(wildcard $(BUILD_DIR)/lib/opa/*),$(INSTALL) -r $(BUILD_DIR)/lib/opa/* $(INSTALL_DIR)/lib/opa/)
 	@printf "Installation to $(INSTALL_DIR)/lib/opa done.[K\n"
