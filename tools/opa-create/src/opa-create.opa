@@ -16,6 +16,7 @@
  * @category tools
  * @author Cedric Soulas
  * @author Adam Koprowski (added multiple templates)
+ * @author Frederic Ye
  * @destination PUBLIC
  * @stability experimental
  */
@@ -25,7 +26,7 @@ import stdlib.{system, io.file}
 type Template.t = { string name, string dir, map(string, -> binary) resources }
 
 function Template.t mk_template(name, dir, resources) {
-  ~{ name, dir, ~resources }
+  ~{ name, dir, resources }
 }
 
 mvc_wiki_template =
@@ -76,17 +77,23 @@ function write(file, content) {
 
 Scheduler.push(function () { // hack for node.js toplevel instruction
 match (options.name) {
-  case {none}: System.exit(0);
+  case {none}:
+    Log.warning("OpaCreate:", "No project name specified.\nPlease specify a project name. See {CommandLine.executable()} --help for more information")
+    System.exit(0);
   case {some:name}:
     function process_resource(file_name, file_content) {
       n = String.length(options.template.dir)
-      file = "{options.name}{String.sub(n, String.length(file_name) - n, file_name)}"
-      if (File.exists(file)) { Log.warning("OpaCreate", "File {file_name} already exists. \nPlease delete it and try again."); System.exit(1) }
-      jlog("Generating {file_name}")
+      file = "{name}{String.sub(n, String.length(file_name) - n, file_name)}"
+      if (File.exists(file)) {
+        Log.warning("OpaCreate:", "File {file} already exists. \nPlease delete it and try again.");
+        System.exit(1)
+      }
+      Log.notice("OpaCreate:", "Generating {file}...")
       content = String.replace("application_name", name, string_of_binary(file_content()))
       write(file, content)
     }
     StringMap.iter(process_resource, options.template.resources)
-    jlog("\nNow you can type:\n$ cd {options.name}\n$ make run")
+    jlog("\nNow you can type:\n$ cd {name}\n$ make run")
+    System.exit(0);
   }
 })
