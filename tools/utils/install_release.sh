@@ -153,9 +153,9 @@ fi
 mkdir -p $INSTALLDIR
 
 INSTALLDIR_LIBOPA=$INSTALLDIR/lib/opa
-if [ -n "$IS_MAC" ] ; then
-    INSTALLDIR_LIBOPA=$INSTALLDIR
-fi
+# if [ -n "$IS_MAC" ] ; then
+#     INSTALLDIR_LIBOPA=$INSTALLDIR
+# fi
 
 
 # Install (our) ocaml
@@ -175,15 +175,15 @@ else
         if [ -n "$IS_MAC" ] ; then
             $OPALANG/tools/dependencies/installation_helper.sh --prefix $INSTALLDIR
         else
-            $OPALANG/tools/dependencies/installation_helper.sh --prefix $PREFIX/lib/opa/ocaml \
-		--installdir $INSTALLDIR --libdir $INSTALLDIR_LIBOPA
+            $OPALANG/tools/dependencies/installation_helper.sh --prefix $INSTALLDIR \
+		--installdir $INSTALLDIR
         fi
 	if [ -n "$IS_MAC" ] ; then
             export OCAMLLIB=$INSTALLDIR/lib/ocaml
             export PATH=$INSTALLDIR/bin:$PATH
 	else
-            export OCAMLLIB=$INSTALLDIR_LIBOPA/ocaml/lib/ocaml
-            export PATH=$INSTALLDIR_LIBOPA/ocaml/bin:$PATH
+            export OCAMLLIB=$INSTALLDIR/lib/ocaml
+            export PATH=$INSTALLDIR/bin:$PATH
 	fi
     fi
 fi
@@ -191,8 +191,8 @@ fi
 # mlstate libs and tools (generic)
 msg Installing mlstate stuff
 
-if [ "$KEEP_INSTALL_SYS" = "false" ] && [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR_LIBOPA/ocaml/lib/ocaml" ]; then
-    msg "Error: fresh installed ocaml not found (ocamlc -where returned $(ocamlc.opt -where) instead of $INSTALLDIR_LIBOPA/ocaml/lib/ocaml"
+if [ "$KEEP_INSTALL_SYS" = "false" ] && [ -z "$IS_WINDOWS" ] && [ -z "$IS_MAC" ] && [ "$(ocamlc.opt -where)" != "$INSTALLDIR/lib/ocaml" ]; then
+    msg "Error: fresh installed ocaml not found (ocamlc -where returned $(ocamlc.opt -where) instead of $INSTALLDIR/lib/ocaml"
     exit 1
 fi
 
@@ -202,7 +202,7 @@ if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
     if [ -n "$IS_MAC" ] ; then
 	export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
     else
-	export OCAMLOPT=$INSTALLDIR_LIBOPA/ocaml/bin/ocamlopt.opt
+	export OCAMLOPT=$INSTALLDIR/bin/ocamlopt.opt
     fi
 fi
 cd $OPALANG
@@ -278,16 +278,16 @@ install -m 0644 -v $SRCDIR/LICENSE $INSTALLDIR/share/doc/opa/AGPL
 # Cleaning up:
 msg Removing unneeded ocaml executables
 # ocaml
-rm -rvf $INSTALLDIR_LIBOPA/ocaml/man*
+rm -rvf $INSTALLDIR/man/man*
 # leave only ocamlc.opt, ocamlopt.opt
 for i in {camlp4*,mkcamlp4,ocamlbuild.byte,ocamlcp,ocamldoc,ocamlmklib*,ocamlprof,ocaml,ocamlbuild.native,ocamldebug,ocamldoc.opt,ocamlmktop,ocamlrun,ocamlbrowser,ocamlc,ocamldep,ocamllex,ocamlopt,ocamlyacc,labltk,ocamlbuild,ocamldep.opt,ocamllex.opt,ocamlc.opt,ocamlobjinfo,ocamlfind,findlib,safe_camlp4,camlidl} ; do
-        echo "    --  Removing $INSTALLDIR_LIBOPA/ocaml/bin/$i"
-        rm -fv $INSTALLDIR_LIBOPA/ocaml/bin/$i
+        echo "    --  Removing $INSTALLDIR/bin/$i"
+        rm -fv $INSTALLDIR/bin/$i
 done
-rm -rvf $INSTALLDIR_LIBOPA/ocaml/etc
+rm -rvf $INSTALLDIR/etc
 for i in {findlib,etc,camlp4,labltk,ocamldoc,objinfo_helper,toplevellib.cma,addlabels,camlheader,expunge,extract_crc,scrapelabels}; do
-        echo "    --  Removing $INSTALLDIR_LIBOPA/ocaml/lib/ocaml/$i"
-        rm -rvf $INSTALLDIR_LIBOPA/ocaml/lib/ocaml/$i
+        echo "    --  Removing $INSTALLDIR/lib/ocaml/$i"
+        rm -rvf $INSTALLDIR/lib/ocaml/$i
 done
 
 rm -rvf $INSTALLDIR/lib/ocaml/mascot
