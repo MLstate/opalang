@@ -348,7 +348,7 @@ Pack = {{
    * @param name string to prefix the output
    * @param input the current Pack.input value
    **/
-  @expand pinput(name:string, input:Pack.input) =
+  @expand pinput(_name:string, _input:Pack.input) =
     #<Ifstatic:OPA_PACK_DEBUG>
       data = Binary.get_string(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
       Log.debug("{name}: input=\n{memdump(data)}")
