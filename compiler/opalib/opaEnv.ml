@@ -117,6 +117,17 @@ let string_of_available_back_end : available_back_end -> string = function
   | `qmlflat -> "qmlflat"
   | `qmljs -> "qmljs"
 
+
+let available_js_bypass_syntax_list = ["classic"; "jsdoc"; "new"]
+let js_bypass_syntax_of_string = function
+  | "classic" -> Some `classic
+  | "jsdoc"
+  | "new" -> Some `jsdoc
+  | _ -> None
+let js_bypass_syntax : [`classic | `jsdoc] ref = ref `classic
+let set_js_bypass_syntax s =
+  js_bypass_syntax := Option.get (js_bypass_syntax_of_string s)
+
 type opa_options = {
 
   ocamlc : string ;
@@ -196,6 +207,7 @@ type opa_options = {
   package_version: string; (* The version to be used when outputting
                               the package.json file *)
   modular_plugins: bool;
+  js_classic_bypass_syntax: bool;
 }
 
 let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
@@ -524,6 +536,10 @@ struct
           ("--extra-path",        Arg.String add_full_extra_path, "\"dir,...\" Add path(s) to link the generated server");
           ("-impl",               Arg.String add_any_file,   "<file> Take <file> as a .opa file");
           ("--js-check-bsl-types", Arg.Set js_check_bsl_types, " Enables runtime type checking of the types of bypasses");
+
+          "--js-bypass-syntax",
+          Arg.Symbol (available_js_bypass_syntax_list, set_js_bypass_syntax),
+          " Choose a bsl directive syntax for JS files (default: \"classic\")" ;
 
           (* m *)
 
@@ -886,7 +902,7 @@ struct
     static_link = !ArgParser.static_link;
     package_version = !ArgParser.package_version;
     modular_plugins = !ArgParser.modular_plugins;
-
+    js_classic_bypass_syntax = !js_bypass_syntax = `classic;
   }
 
   let echo_help () = ArgParser.do_print_help ()

@@ -777,4 +777,10 @@ type options = {
   (**
      Continue, even if the opa validation fails.
   *)
+
+  js_classic_bypass_syntax: bool ;
+  (**
+     Whether to use the classic (i.e. with "##" instead of the
+     jsdoc-like) when parsing js files
+  *)
 }

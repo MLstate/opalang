@@ -74,6 +74,7 @@ type options = {
   js_validator_files: string list;
   js_validator_options: string list;
   pprocess: string option;
+  js_classic_bypass_syntax: bool;
 }
 
 let default_opts = {
@@ -100,6 +101,7 @@ let default_opts = {
   js_validator_files = [];
   js_validator_options = [];
   pprocess = None;
+  js_classic_bypass_syntax = true;
 }
 
 type files = {
@@ -374,6 +376,8 @@ let bslregisterlib_options opt fs =
 
     unsafe_js = opt.unsafe_js;
     unsafe_opa = opt.unsafe_opa;
+
+    js_classic_bypass_syntax = opt.js_classic_bypass_syntax;
 
   } in
   options

@@ -60,6 +60,7 @@ let js_validator = ref (Some "js")
 let js_validator_files = MutableList.create ()
 let js_validator_options = MutableList.create ()
 let pprocess = ref None
+let js_bypass_syntax : [`classic | `jsdoc] ref = ref `classic
 
 let cwd = Sys.getcwd ()
 let is_default_lib = ref true
@@ -134,6 +135,15 @@ let js_validator_add_file s =
 let js_validator_add_option o =
   MutableList.add js_validator_options o
 
+let available_js_bypass_syntax_list = ["classic"; "jsdoc"; "new"]
+let js_bypass_syntax_of_string = function
+  | "classic" -> Some `classic
+  | "jsdoc"
+  | "new" -> Some `jsdoc
+  | _ -> None
+let set_js_bypass_syntax s =
+  js_bypass_syntax := Option.get (js_bypass_syntax_of_string s)
+
 (* m *)
 
 
@@ -199,6 +209,11 @@ let spec = [
     " Add path to external librairies for the compilation" ;
 
   (* j *)
+
+  "--js-bypass-syntax",
+  Arg.Symbol (available_js_bypass_syntax_list, set_js_bypass_syntax),
+  !>
+    " Choose a bsl directive syntax for JS files (default: \"classic\")" ;
 
   "--js-validator",
   Arg.String (fun s -> js_validator := Some s),
@@ -391,6 +406,7 @@ let parse () =
     js_validator_files = MutableList.to_list js_validator_files;
     js_validator_options = MutableList.to_list js_validator_options;
     pprocess = !pprocess;
+    js_classic_bypass_syntax = !js_bypass_syntax = `classic;
   }
 
 (* Checking options *)
