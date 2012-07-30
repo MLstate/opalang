@@ -28,6 +28,7 @@ module String = Base.String
 
 module BI = BslInterface
 module BR = BslRegisterLib
+module List = BaseList
 
 let files_generated = ref 0
 
@@ -103,6 +104,9 @@ let default_opts = {
 
 type files = {
   opp_dir: string;
+  has_node_content: bool; (* Whether or not to output node content *)
+  js_files: string list;
+  nodejs_files: string list;
   nodejspackage: string;
   package_json: string;
   jskeys: string;
@@ -165,8 +169,14 @@ let files_of_opt opt =
   let map f = output_prefix opt opt.bsl_pref f in
   let module S = BslConvention.Suffix in
   let module E = BslConvention.Extension in
+  let has_extension ext f = File.extension f = ext in
+  let js_files = List.filter (has_extension "js") opt.files in
+  let nodejs_files = List.filter (has_extension "nodejs") opt.files in
   {
     opp_dir          = opp_dir opt;
+    has_node_content = not (List.is_empty nodejs_files);
+    js_files;
+    nodejs_files;
     nodejspackage    = map (S.nodejspackage ^ ".js");
     package_json     = output_prefix opt "" "package.json";
     jskeys           = map (S.jskeys ^ ".js");
@@ -342,10 +352,6 @@ end
 (* ======================================================================= *)
 
 let bslregisterlib_options opt fs =
-  let has_extension ext f = File.extension f = ext in
-  let js_files = List.filter (has_extension "js") opt.files in
-  let nodejs_files = List.filter (has_extension "nodejs") opt.files in
-
   let js_validator =
     Option.map (
       fun js ->
@@ -359,8 +365,8 @@ let bslregisterlib_options opt fs =
     basename = opt.bsl_pref;
     bypass_plugins = opt.bypass_plugins;
     check_style = opt.check_style;
-    js_files ;
-    nodejs_files ;
+    js_files = fs.js_files;
+    nodejs_files = fs.nodejs_files;
     js_validator ;
 
     ml_plugin_filename = fs.plugin;
@@ -502,9 +508,10 @@ let files_generation (opt : options) (fs : files) (fin : BR.finalized_t) =
   BR.out_opa_code             iterator_opa_code               fin;
   BR.out_opa_interface        iterator_opa_interface          fin;
 
-  output fs.nodejspackage     BR.out_nodejs_package           fin;
-
-  output_package_json opt fs;
+  if fs.has_node_content then (
+    output fs.nodejspackage   BR.out_nodejs_package           fin;
+    output_package_json opt fs;
+  );
 
   output fs.jskeys            BR.out_js_keys                  fin;
 
