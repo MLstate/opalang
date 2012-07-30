@@ -17,7 +17,7 @@ if (process.version < min_node_version) {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= '+min_node_version+')');
     process.exit(1);
 } else if (process.version > max_node_version) {
-    console.warn('This version of node ('+process.version+') has not been tested with Opa. Use it at your own risks. The last known supported version is + '+max_node_version);
+    console.warn('This version of node ('+process.version+') has not been tested with Opa. Use it at your own risks. The last known supported version is '+max_node_version);
 }
 
 dependencies = dependencies.filter(function(dependency, index, array) {
