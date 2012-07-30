@@ -38,14 +38,12 @@ node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: all
 all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: build
 build: all
@@ -86,14 +84,12 @@ distrib: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
 	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
 
 .PHONY: distrib-all
 distrib-all: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-both-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
 
 ##
 ## MANPAGES
@@ -245,10 +241,10 @@ install-man:
 	@$(if $(wildcard $(BUILD_DIR)/man/man1/*.1.gz),$(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1)
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
-install: install-bin install-lib install-share install-plugins install-packages install-node-packages install-man
+install: install-lib install-share install-plugins install-packages install-node-packages install-man $(OPA_TOOLS) install-bin
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
-install-node: install-bin install-lib install-share install-plugins install-node-packages install-man
+install-node: install-lib install-share install-plugins install-node-packages install-man $(OPA_TOOLS) install-bin
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
