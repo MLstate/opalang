@@ -29,10 +29,10 @@ jsbsl/bslHashtbl.js
 nodejsbsl/bslNativeLib.nodejs
 nodejsbsl/bslSyslog.nodejs
 nodejsbsl/bslPervasives.nodejs
-nodejsbsl/float_parser.nodejs
+nodejsbsl/bslNumber.nodejs
+nodejsbsl/bslBinary.nodejs
 nodejsbsl/bslString.nodejs
 nodejsbsl/bslCactutf.nodejs
-nodejsbsl/bslNumber.nodejs
 nodejsbsl/bslTime.nodejs
 nodejsbsl/bslReference.nodejs
 nodejsbsl/bslBuffer.nodejs
@@ -57,6 +57,7 @@ mlbsl/bslClosure.ml
 mlbsl/bslCps.ml
 mlbsl/bslNumber.ml
 mlbsl/bslReference.ml
+mlbsl/bslBinary.ml
 mlbsl/bslString.ml
 mlbsl/bslSyslog.ml
 mlbsl/bslTime.ml

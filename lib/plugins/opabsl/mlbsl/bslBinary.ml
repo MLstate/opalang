@@ -6,7 +6,7 @@
 ##register length\ `Buffer.length`: binary -> int
 
 ##register binary_of_string : string -> binary
-let binary_of_string s = 
+let binary_of_string s =
   let b = Buffer.create (String.length s) in
   Buffer.add_string b s;
   b
