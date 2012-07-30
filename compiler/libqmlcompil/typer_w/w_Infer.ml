@@ -482,7 +482,7 @@ and infer_pattern_type typing_env pattern =
       W_TypeInfo.addrec_loc_object coercing_ty.W_Algebra.sty_desc loc ;
       (* Force unification between the type inferred for the pattern and the
          coercing type. *)
-      (try W_Unify.unify_simple_type_in_coercion typing_env pat_ty coercing_ty
+      (try W_Unify.unify_simple_type typing_env pat_ty coercing_ty
        with W_Unify.Unification_simple_type_conflict (err_t1, err_t2, detail) ->
          raise
            (W_InferErrors.Infer_detailled_unification_conflict
@@ -976,7 +976,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
       #<End> ; (* <---------- END DEBUG *)
       (* Force unification between the type inferred for the expression and the
          coercing type. *)
-      (try W_Unify.unify_simple_type_in_coercion typing_env expr_ty coercing_ty
+      (try W_Unify.unify_simple_type typing_env expr_ty coercing_ty
        with W_Unify.Unification_simple_type_conflict (err_t1, err_t2, detail) ->
          raise
            (W_InferErrors.Infer_detailled_unification_conflict
