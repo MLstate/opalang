@@ -135,7 +135,7 @@ let serialize bsons b =
                    aux (unwrap_opa_bson_document value);
                    Bson.Append.finish_array b
                | Some "Binary" ->
-                   let bin = ServerLib.unwrap_string value in
+                   let bin = Buffer.contents value in
                    Bson.Append.binary b name Bson.st_bin_binary bin (String.length bin)
                | Some "ObjectID" -> Bson.Append.oid b name (ServerLib.unwrap_string value)
                | Some "Boolean" -> Bson.Append.bool b name (ServerLib.unwrap_bool value)
@@ -225,7 +225,10 @@ let make_bool n x = make_val field_bool n (ServerLib.wrap_bool x)
 let make_string = make_val field_string
 let make_document = make_val field_document
 let make_array = make_val field_array
-let make_binary = make_val field_binary
+let make_binary n s =
+  let x = Buffer.create (String.length s) in
+  Buffer.add_string x s;
+  make_val field_binary n x
 let make_objectid = make_val field_objectid
 let make_date = make_val field_date
 let make_regexp n r ro = make_val field_regexp n (make_pair r ro)

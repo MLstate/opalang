@@ -43,7 +43,7 @@ import stdlib.core.{date,map}
  **/
 type Bson.numeric = int
 type Bson.oid = string
-type Bson.binary = string
+type Bson.binary = binary
 type Bson.regexp = (string, string)
 type Bson.code = string
 type Bson.symbol = string
@@ -79,7 +79,7 @@ type Bson.value =
   / { String: string }
   / { Document: Bson.document }
   / { Array: Bson.document }
-  / { Binary: string }
+  / { Binary: binary }
   / { ObjectID: string }
   / { Boolean: bool }
   / { Date: Date.date }
