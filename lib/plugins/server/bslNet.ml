@@ -22,7 +22,7 @@ let default_scheduler = BslScheduler.opa
 ##extern-type caml_list('a) = 'a list
 ##extern-type endpoint = Hlnet.endpoint
 ##extern-type llarray('a) = Obj.t array
-##extern-type binary = string
+##extern-type binary = Buffer.t
 ##property[endmli]
 
 ##opa-type list('a)
@@ -48,7 +48,6 @@ let opa_list_to_ocaml_list f l =
 ##extern-type WebInfo.private.native_response = HttpServerTypes.response
 ##extern-type WebInfo.private.native = HttpServerTypes.web_info
 ##extern-type WebInfo.private.native_connection = Scheduler.connection_info
-##extern-type buffer = Buffer.t
 ##extern-type HttpRequest.multipart = HttpServerTypes.post_body list
 ##extern-type HttpRequest.payload = HttpServerCore.payload
 ##extern-type HttpRequest.msg_list = HttpServerCore_parse.msg list
@@ -194,7 +193,7 @@ let opa_list_to_ocaml_list f l =
   let make_response ms req stat headers s1 s2 k =
     let modified_since = Option.map Time.milliseconds ms in
     HttpServer.make_response_with_headers ~modified_since ~req headers stat s1
-      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
+      (Http_common.Result (Buffer.contents s2)) (function r -> QmlCpsServerLib.return k r)
 
   ##register [cps-bypass] make_response_modified_since : \
       option(time_t), \
@@ -206,7 +205,7 @@ let opa_list_to_ocaml_list f l =
   let make_response_modified_since modified_since req stat s1 s2 k =
     let ms = Option.map Time.milliseconds modified_since in
     HttpServer.make_response ~modified_since:ms ~expires:Time.zero ~req stat s1
-      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
+      (Http_common.Result (Buffer.contents s2)) (function r -> QmlCpsServerLib.return k r)
 
   ##register [cps-bypass] make_response_expires_at : \
       option(time_t), \
@@ -224,7 +223,7 @@ let opa_list_to_ocaml_list f l =
     in
     let modified_since = Option.map Time.milliseconds modified_since in
     HttpServer.make_response ~expires ~modified_since ~req stat s1
-      (Http_common.Result s2) (function r -> QmlCpsServerLib.return k r)
+      (Http_common.Result (Buffer.contents s2)) (function r -> QmlCpsServerLib.return k r)
 
   ##register [cps-bypass] make_response_req : time_t, WebInfo.private.native_request, web_server_status, string, string, \
     continuation(WebInfo.private.native_response) -> void
