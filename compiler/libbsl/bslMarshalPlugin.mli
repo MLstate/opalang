@@ -138,7 +138,7 @@ type uniq_id     = string
 
 (** *)
 
-val register_basename               : session -> BslPluginInterface.plugin_basename -> unit
+val register_basename               : session -> BslPluginInterface.plugin_basename option -> unit
 val register_module_name            : session -> module_name -> unit
 val register_uniq_id                : session -> uniq_id -> unit
 val register_conf                   : session -> BslConf.conf -> unit

@@ -94,37 +94,36 @@ let compile_bypass env key =
           | Some bypass -> BP.plugin_name bypass
           | None -> assert false (* We know that some binding exists *)
         in
-        fun field ->
+        Option.map (fun plugin_name field ->
           JsCons.Expr.dot
             (JsCons.Expr.native ("__opa_" ^ plugin_name))
             field
+        ) plugin_name
       in
       let nodejs = BslLanguage.is_nodejs env.E.bsl_lang in
       let modularize = nodejs && env.E.options.Qml2jsOptions.modular_plugins in
       match
-        I.CompiledFunction.compiler_detailed_repr compiled
+        I.CompiledFunction.compiler_detailed_repr compiled, plugin_prefix
       with
-      | I.Ident ident when modularize &&
+      | I.Ident ident, Some f when modularize &&
           not(I.CompiledFunction.is_transtype compiled) ->
-          plugin_prefix (Ident.to_string ident)
-
-      | I.Ident ident -> JsCons.Expr.exprident ident
-      | I.String s ->
-          if modularize then plugin_prefix (BslKey.to_string key)
-          else
-            match JsParse.String.expr ~globalize:true s with
-            | J.Je_ident (p, J.Native (`global _, s)) ->
-                J.Je_ident (p, J.Native (`global (is_pure key), s))
-            | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
-                assert false
-            | x -> x
-          (*
-            No parse error should happen
-            This is verified at the moment we build the bypass plugin
-            If an injected code does not reparse, this is notified to
-            the developper of the plugin.
-          *)
-        )
+          f (Ident.to_string ident)
+      | I.Ident ident, _ -> JsCons.Expr.exprident ident
+      | I.String _, Some f when modularize -> f (BslKey.to_string key)
+      | I.String s, _ ->
+        match JsParse.String.expr ~globalize:true s with
+        | J.Je_ident (p, J.Native (`global _, s)) ->
+          J.Je_ident (p, J.Native (`global (is_pure key), s))
+        | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
+          assert false
+        | x -> x
+        (*
+          No parse error should happen
+          This is verified at the moment we build the bypass plugin
+          If an injected code does not reparse, this is notified to
+          the developper of the plugin.
+        *)
+  )
 
 let may_alias_matched_begin cons private_env matched =
   (*

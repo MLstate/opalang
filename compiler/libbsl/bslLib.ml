@@ -335,7 +335,7 @@ struct
           name : string;
           def_type : BslTypes.t;
           impl : Implementation.t list;
-          plugin_name : BslPluginInterface.plugin_basename ;
+          plugin_name : BslPluginInterface.plugin_basename option ;
         }
 
     let key t = t.key
@@ -518,19 +518,21 @@ struct
           let () =
             if ObjectFiles.Arg.is_separated ()
             then
-              (* check if the visibility is valid, if not warning *)
+              (* Check if the visibility is valid, if not warning. If
+                 the plugin is bundled, it is always visible *)
               let package_name = ObjectFiles.get_current_package_name () in
-              let plugin = bypass.ByPass.plugin_name in
-              if not (BypassVisibility.mem package_name plugin)
-              then (
-                OManager.serror (
-                  "The bypass @{<bright>%a@} is not visible from this package.@\n"^^
-                  "@[<2>@{<bright>Hint@}:@\nadd an @{<bright>import-plugin %s@} in the package '@{<bright>%s@}'@]"
+              match bypass.ByPass.plugin_name with
+              | Some plugin ->
+                if not (BypassVisibility.mem package_name plugin) then (
+                  OManager.serror (
+                    "The bypass @{<bright>%a@} is not visible from "^^
+                      "this package.@\n@[<2>@{<bright>Hint@}:@\nadd an "^^
+                      "@{<bright>import-plugin %s@} in the package "^^
+                      "'@{<bright>%s@}'@]"
+                  ) BslKey.pp key plugin package_name;
+                  Return.return label None
                 )
-                  BslKey.pp key plugin package_name
-                ;
-                Return.return label None
-              )
+              | None -> ()
           in
           let impls = ByPass.all_implementations bypass in
           let is_cps impl =
@@ -538,12 +540,12 @@ struct
           let is_cps =
             List.fold_left
               (fun cps impl ->
-                 let icps = is_cps impl in
-                 if cps != icps then
-                   OManager.error
-                     "Tag cps-bypass must be present on all implementation for %s"
-                     (BslKey.to_string key)
-                 else cps && icps)
+                let icps = is_cps impl in
+                if cps != icps then
+                  OManager.error
+                    "Tag cps-bypass must be present on all implementation for %s"
+                    (BslKey.to_string key)
+                else cps && icps)
               (is_cps (List.hd impls)) (List.tl impls)
           in
           let def_type = (ByPass.definition_type bypass) in
@@ -559,10 +561,10 @@ struct
     let bsl_bypass_tags t ~lang key =
       match BslKeyMap.find_opt key t.map with
       | Some bypass -> (
-          match ByPass.implementation ~lang bypass with
-          | Some impl -> Some (Implementation.bsltags impl)
-          | None -> None
-        )
+        match ByPass.implementation ~lang bypass with
+        | Some impl -> Some (Implementation.bsltags impl)
+        | None -> None
+      )
       | None -> None
 
     let bsl_bypass_cps t ~lang key =
@@ -570,32 +572,32 @@ struct
       let cps_key = BslKey.normalize cps_key in
       match BslKeyMap.find_opt cps_key t.map with
       | Some bypass when (ByPass.implementation ~lang bypass <> None) -> (
-          match bsl_bypass_tags t ~lang cps_key with
-          | Some tags when tags.BslTags.cps_bypass ->
-              let ty = Option.get (bsl_bypass_typer t key) in
-              let ty = BslTypes.purge_opavalue ty in
-              let ty_cps = Option.get (bsl_bypass_typer t cps_key) in
-              let ty_cps = BslTypes.purge_opavalue ty_cps in
-              if BslTypes.compare ~normalize:true ty ty_cps != 0 then
-                OManager.error
-                  "Found cps bypass (%a) %a for %a but type is not compatible\nExp Type : %a\n\nCps type : %a\n%!"
-                  BslLanguage.pp lang
-                  BslKey.pp cps_key BslKey.pp key
-                  BslTypes.pp ty BslTypes.pp ty_cps
-              else
-                Some cps_key
-          | Some _ ->
-              OManager.i_error
-                "Found cps bypass (%a) %a for %a but is not tagged as [cps-bypass]"
-                BslLanguage.pp lang
-                BslKey.pp cps_key BslKey.pp key
-          | None ->
-              OManager.i_error "The bypass %a was found but these tags was not found in lang %s" BslKey.pp cps_key (BslLanguage.to_string lang)
-        )
+        match bsl_bypass_tags t ~lang cps_key with
+        | Some tags when tags.BslTags.cps_bypass ->
+          let ty = Option.get (bsl_bypass_typer t key) in
+          let ty = BslTypes.purge_opavalue ty in
+          let ty_cps = Option.get (bsl_bypass_typer t cps_key) in
+          let ty_cps = BslTypes.purge_opavalue ty_cps in
+          if BslTypes.compare ~normalize:true ty ty_cps != 0 then
+            OManager.error
+              "Found cps bypass (%a) %a for %a but type is not compatible\nExp Type : %a\n\nCps type : %a\n%!"
+              BslLanguage.pp lang
+              BslKey.pp cps_key BslKey.pp key
+              BslTypes.pp ty BslTypes.pp ty_cps
+          else
+            Some cps_key
+        | Some _ ->
+          OManager.i_error
+            "Found cps bypass (%a) %a for %a but is not tagged as [cps-bypass]"
+            BslLanguage.pp lang
+            BslKey.pp cps_key BslKey.pp key
+        | None ->
+          OManager.i_error "The bypass %a was found but these tags was not found in lang %s" BslKey.pp cps_key (BslLanguage.to_string lang)
+      )
       | Some _ -> None
       | None -> None
 
-(*     let bsl_bypass_cps t ~lang key = *)
+    (*     let bsl_bypass_cps t ~lang key = *)
 
     module Browser =
     struct
@@ -1348,7 +1350,7 @@ struct
           )
 
     (* Registration of hierarchy *)
-    let current_plugin_name = ref ""
+    let current_plugin_name = ref None
 
     let register_imperative_hierarchy mod_ link (fct, key) =
       let rec aux mod_ = function

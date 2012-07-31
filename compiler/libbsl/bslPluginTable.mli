@@ -30,9 +30,10 @@
 val store : BslPluginInterface.plugin -> unit
 
 (**
-   Get a plugin from the common table by its name
+   Get a plugin from the common table by its name. None means a
+   plugin with no name (i.e., a bundled plugin).
 *)
-val get : string -> BslPluginInterface.plugin option
+val get : string option -> BslPluginInterface.plugin option
 
 (**
    The finalization will check if the dependancies of plugins are satisfied.

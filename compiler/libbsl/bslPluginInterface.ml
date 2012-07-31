@@ -216,7 +216,7 @@ type dynloader_interface = {
 *)
 type multi_loading_safe_get_dynloader_interface =
   uniq_id:string ->
-  plugin_name:plugin_basename ->
+  plugin_name:plugin_basename option ->
   dynloader_interface option
 
 (**
@@ -298,13 +298,13 @@ struct
   let b = buf in
   let b = FBuffer.add b static_part in
 
-  let b = ~> b    "let basename             = %S\n"  basename                             in
-  let b = ~> b    "let path                 = %s\n"  "None"                               in
-  let b = ~> b    "let self_module_name     = %S\n"  self_module_name                     in
-  let b = ~> b    "let uniq_id              = %S\n"  uniq_id                              in
-  let b = ~> b    "let conf                 = %a\n"  pp_conf conf                         in
-  let b = ~> b    "let ml_runtime           = %S\n"  ml_runtime                           in
-  let b = ~> b    "let depends  = [ %a ]\n"          (pp_ml_list pp_escaped)   depends    in
+  let b = ~> b    "let basename         = Some %S\n"  basename                             in
+  let b = ~> b    "let path             = %s\n"       "None"                               in
+  let b = ~> b    "let self_module_name = %S\n"       self_module_name                     in
+  let b = ~> b    "let uniq_id          = %S\n"       uniq_id                              in
+  let b = ~> b    "let conf             = %a\n"       pp_conf conf                         in
+  let b = ~> b    "let ml_runtime       = %S\n"       ml_runtime                           in
+  let b = ~> b    "let depends  = [ %a ]\n"           (pp_ml_list pp_escaped)   depends    in
   let b = ~> b    "let js_code  = ( [ %a ] : (string * string * BslJsConf.conf) list )\n"
     (pp_ml_list pp_fc_conf)
     js_code
@@ -373,7 +373,7 @@ let _ = Self.self_store ()
    the value of a plugin Module.
 *)
 type plugin = {
-  basename              : plugin_basename ;
+  basename              : plugin_basename option ;
   path                  : pathname option ;
   self_module_name      : ocaml_module_name ;
   uniq_id               : uniq_id ;
@@ -390,7 +390,7 @@ type plugin = {
 }
 
 let pp fmt plugin =
-  Format.fprintf fmt "@[<2>%s.opp: {@\n" plugin.basename ;
+  Format.fprintf fmt "@[<2>%s.opp: {@\n" (Option.default "<bundled>" plugin.basename) ;
   Format.fprintf fmt "plugin: %S@\n" plugin.self_module_name ;
   Format.fprintf fmt "id: %S@\n" plugin.uniq_id ;
   Format.fprintf fmt "conf: %a@\n" BslConf.pp plugin.conf ;
@@ -405,8 +405,9 @@ sig
 
   (**
      The name asked for the plugin, without the extension opp.
+     If absent, means that the plugin was bundled.
   *)
-  val basename : plugin_basename
+  val basename : plugin_basename option
 
   (**
      Where this plugin was loaded from

@@ -33,7 +33,7 @@ type contents        = string
 (* essentially the same as a BslPluginInterface.plugin
    without any functional values for safe marshaling *)
 type t = {
-  basename                             : BPI.plugin_basename ;
+  basename                             : BPI.plugin_basename option ;
   self_module_name                     : module_name ;
   uniq_id                              : uniq_id ;
   conf                                 : BslConf.conf ;
@@ -54,7 +54,7 @@ type t = {
 }
 
 type session = {
-  mutable s_basename                   : BPI.plugin_basename ;
+  mutable s_basename                   : BPI.plugin_basename option ;
   mutable s_self_module_name           : module_name ;
   mutable s_uniq_id                    : uniq_id ;
   mutable s_conf                       : BslConf.conf ;
@@ -77,7 +77,7 @@ type session = {
 }
 
 let create () = {
-  s_basename = "" ;
+  s_basename = None ;
   s_self_module_name = "" ;
   s_uniq_id = "" ;
   s_conf = BslConf.default_conf ;
@@ -211,6 +211,7 @@ let input_file filename =
       fail "input" filename s
 
 let plugin t path =
+  (* invalid plugin name if empty *)
   let plugin_name = t.basename in
   let uniq_id = t.uniq_id in
   let dynloader ( get_register : BslPluginInterface.multi_loading_safe_get_dynloader_interface ) =

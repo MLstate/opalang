@@ -76,7 +76,7 @@ type depends = {
 
   d_bymap                      : BSL.ByPassMap.t ;
   d_ml_runtimes                : module_name list ;
-  d_parents                    : BPI.plugin_basename list ;
+  d_parents                    : BPI.uniq_id list ;
 
   d_js_code                    : ( filename * contents ) list ;
   d_nodejs_code                : ( filename * contents ) list ;
@@ -89,7 +89,7 @@ type depends = {
   Some of then are needed, because their name appears in some generated files
 *)
 type identification = {
-  i_basename                    : BPI.plugin_basename ;
+  i_basename                    : BPI.plugin_basename option ;
 
   i_ml_plugin                   : module_name ;
   i_ml_runtime                  : module_name ;
@@ -217,7 +217,7 @@ let d_fold_plugin
   BSL.RegisterInterface.dynload_no_obj plugin.BPI.dynloader ;
 
   let rev_ml_runtime_list = plugin.BPI.ml_runtime              :: rev_ml_runtime_list in
-  let rev_parent_list     = plugin.BPI.basename                :: rev_parent_list     in
+  let rev_parent_list     = plugin.BPI.uniq_id                 :: rev_parent_list     in
   let rev_js_code_list    = List.fold_left (fun rev (f, c, _) -> (f, c)::rev) rev_js_code_list plugin.BPI.js_code in
   let rev_nodejs_code_list= List.fold_left (fun rev (f, c, _) -> (f, c)::rev) rev_nodejs_code_list plugin.BPI.nodejs_code in
   let rev_opa_code_list   = List.rev_append plugin.BPI.opa_code   rev_opa_code_list   in
@@ -308,7 +308,7 @@ let check_session session =
   in
   (* unicity of plugin names *)
   let _ =
-    let ml_plugin = identification.i_basename in
+    let ml_plugin = identification.i_uniq_id in
     if List.mem ml_plugin depends.d_parents then
       error_unicity "MLplugin" ml_plugin
   in
@@ -831,6 +831,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
   let s_identification = s.s_identification in
 
   let basename         = s_identification.i_basename in
+  let basename         = Option.default "" basename in
   let self_module_name = s_identification.i_ml_plugin in
   let uniq_id          = s_identification.i_uniq_id in
 
@@ -1188,7 +1189,8 @@ let plugin finalized_t =
 let command_not_found = 127
 
 let js_validator finalized_t =
-  let name = finalized_t.f_options.BI.basename in
+  (* TODO: make validation work for anonymous plugins *)
+  let name = Option.get finalized_t.f_options.BI.basename in
   match finalized_t.f_options.BI.js_validator with
   | Some ((executable, extern_files),cmd_options) when finalized_t.f_js_code <> [] ->
     let pp_str_list = Format.pp_list " " Format.pp_print_string in

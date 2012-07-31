@@ -24,7 +24,7 @@ module Hashtbl = BaseHashtbl
 module ItemPlugin =
 struct
   type t = BPI.plugin
-  let index t = t.BPI.basename
+  let index t = t.BPI.uniq_id
   let depends t = t.BPI.depends
 end
 
@@ -35,7 +35,7 @@ let debug fmt =
 
 let pp_list = Base.Format.pp_list
 
-let table : (string, BPI.plugin) Hashtbl.t = Hashtbl.create 10
+let table : (string option, BPI.plugin) Hashtbl.t = Hashtbl.create 10
 
 let private_last_finalize = ref None
 
@@ -77,7 +77,7 @@ let store plugin =
           "@[<2>External plugin: conflicting versions for %S@\n"^^
           "mismatch: <%s> / <%s>@]@\n"
         )
-          ml_runtime mname uniq_id uniq_id'
+          ml_runtime (Option.default "bundled plugin" mname) uniq_id uniq_id'
       else ()
 
   | None ->

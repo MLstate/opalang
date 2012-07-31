@@ -48,13 +48,13 @@ type nodejs_module = string
 
 type linked_file =
 | ExtraLib of nodejs_module
-| Plugin of nodejs_module (* without the .opp extension *)
+| Plugin of nodejs_module
 
 type loaded_file = linked_file * string
 
 let nodejs_module_of_linked_file = function
   | ExtraLib m -> m
-  | Plugin m -> m ^ ".opp"
+  | Plugin m -> Filename.basename m
 
 let system_path =
   try Sys.getenv InstallDir.name
@@ -73,20 +73,12 @@ let plugin_object name =
   (* pluginNodeJsPackage.js *)
   name ^ BslConvention.Suffix.nodejspackage ^ ".js"
 
-let path_of_plugin plugin =
-  (* plugin_path/plugin.opp *)
-  let name = plugin.BPI.basename in
-  let plugin_path = match plugin.BPI.path with
-    | Some path -> path
-    | None -> Filename.concat stdlib_path (name ^ ".opp") (* guess *)
-  in
-  plugin_path
-
-let filename_of_plugin plugin =
-  (* plugin_path/plugin.opp/pluginNodeJsPackage.js *)
-  let plugin_path = path_of_plugin plugin in
-  let name = plugin.BPI.basename in
-  Filename.concat plugin_path (plugin_object name)
+let plugin_main_file plugin =
+  (* Some plugin_path/plugin.opp/pluginNodeJsPackage.js or None*)
+  match plugin.BPI.basename, plugin.BPI.path with
+  | Some name, Some path ->
+    Some (Filename.concat path (plugin_object name))
+  | _, _ -> None
 
 (**
    PASSES :
@@ -160,9 +152,11 @@ struct
       let plugins = env_bsl.BslLib.all_external_plugins in
       let fold acc loader =
         if not (List.is_empty loader.BslPluginInterface.nodejs_code) then
-          let filename = filename_of_plugin loader in
-          let content = File.content filename in
-          (Plugin loader.BPI.basename, content) :: acc
+          match plugin_main_file loader with
+          | Some filename ->
+            let content = File.content filename in
+            (Plugin filename, content) :: acc
+          | None -> acc
         else
           acc
       in
@@ -273,28 +267,31 @@ struct
     let key = BslKey.of_string index in
     let bymap = env_bsl.BslLib.bymap in
     let bypass = Option.get (BslLib.BSL.ByPassMap.find_opt bymap key) in
-    let plugin_name = BslLib.BSL.ByPass.plugin_name bypass in
-    let compiled = BslLib.BSL.ByPass.compiled_implementation
-      ~lang:BslLanguage.nodejs bypass in
-    let compiled = match compiled with
-      | Some compiled -> compiled
-      | None ->
-        (* Shouldn't happen, since this bypass was correctly projected *)
-        OManager.error "Couldn't find bypass for index %s" index
-    in
-    let repr =
-      BslLib.BSL.Implementation.CompiledFunction.compiler_repr compiled
-    in
-    let field = BslKey.to_string key in
-    JsWalk.ExprInStatement.map
-      (fun expr ->
-        match expr with
-        | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
-          JsCons.Expr.dot
-            (JsCons.Expr.native ("__opa_" ^ plugin_name))
-            field
-        | _ -> expr)
-      code
+    match BslLib.BSL.ByPass.plugin_name bypass with
+    (* Bundled plugins can be skipped since they aren't imported *)
+    | None -> code
+    | Some plugin_name ->
+      let compiled = BslLib.BSL.ByPass.compiled_implementation
+        ~lang:BslLanguage.nodejs bypass in
+      let compiled = match compiled with
+        | Some compiled -> compiled
+        | None ->
+          (* Shouldn't happen, since this bypass was correctly projected *)
+          OManager.error "Couldn't find bypass for index %s" index
+      in
+      let repr =
+        BslLib.BSL.Implementation.CompiledFunction.compiler_repr compiled
+      in
+      let field = BslKey.to_string key in
+      JsWalk.ExprInStatement.map
+        (fun expr ->
+          match expr with
+          | JA.Je_ident (_, ident) when JsIdent.to_string ident = repr ->
+            JsCons.Expr.dot
+              (JsCons.Expr.native ("__opa_" ^ plugin_name))
+              field
+          | _ -> expr)
+        code
 
   let compilation_generation env_opt env_bsl plugin_requires
       bundled_plugin env_js_input =
@@ -507,7 +504,7 @@ var opa_dependencies = [%s];
       if List.is_empty plugin.BslPluginInterface.nodejs_code then
         None
       else
-        Some plugin.BslPluginInterface.basename
+        plugin.BslPluginInterface.basename
     ) env_bsl.BslLib.direct_external_plugins in
     begin match ObjectFiles.compilation_mode () with
     | `compilation ->

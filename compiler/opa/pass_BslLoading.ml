@@ -190,16 +190,19 @@ let upgrade_options plugins options =
 
   let rev_acc present to_add plugins = List.fold_left
     (fun rev plugin ->
-       let plugin_name = plugin.BPI.basename in
-       let rev =
-         match Hashtbl.find_opt to_add plugin_name with
-         | None -> rev
-         | Some add ->
+       match plugin.BPI.basename with
+       (* Bundled plugins do not need to be included *)
+       | None -> rev
+       | Some plugin_name ->
+         let rev =
+           match Hashtbl.find_opt to_add plugin_name with
+           | None -> rev
+           | Some add ->
              if Hashtbl.mem present add
              then rev
              else add::rev
-       in
-       rev) [] plugins
+         in
+         rev) [] plugins
   in
 
   let server_plugins = List.filter (fun plugin ->
@@ -260,11 +263,19 @@ let resolve_entry search_path entry =
             extrapath ;
           aux extrapath
 
+module StringOptCompare : (OrderedTypeSig.S with type t = string option) =
+struct
+  type t = string option
+  let compare a b = Option.make_compare String.compare a b
+end
+
+module StringOptSet = BaseSet.Make(StringOptCompare)
+
 (* Return plugins listed in [plugins] that are directly mentioned by
    [code]. The compiler currently outputs direct calls to opabsl, so
    we must include that as well even if the code doesn't explicitely
    mention it. *)
-let find_used_plugins bypass_map code plugins =
+let find_used_plugins bypass_map code =
   let collect_bypasses used_bypasses (expr, _) =
     match expr with
     | SA.Bypass key -> BslKeySet.add key used_bypasses
@@ -275,18 +286,11 @@ let find_used_plugins bypass_map code plugins =
   let used_plugins_names =
     BslLib.BSL.ByPassMap.fold (fun key bypass used_plugins_names ->
       if BslKeySet.mem key used_bypasses then
-        StringSet.add (BslLib.BSL.ByPass.plugin_name bypass) used_plugins_names
+        StringOptSet.add (BslLib.BSL.ByPass.plugin_name bypass) used_plugins_names
       else
         used_plugins_names
-    ) bypass_map (StringSet.singleton "opabsl") in
-  let used_plugins =
-    StringSet.fold (fun used_plugin_name used_plugins ->
-      let used_plugin = List.find (fun plugin ->
-        plugin.BPI.basename = used_plugin_name
-      ) plugins in
-      used_plugin :: used_plugins
-    ) used_plugins_names [] in
-  used_plugins
+    ) bypass_map (StringOptSet.singleton (Some "opabsl")) in
+  used_plugins_names
 
 let process
     ~options
@@ -496,23 +500,24 @@ let process
       ()
   in
 
-  (* Only plugins that are directly used by the current unit *)
-  let direct_plugins = find_used_plugins bymap code all_plugins in
+  let used_plugins_names = find_used_plugins bymap code in
 
-  let all_external_plugins, direct_external_plugins, bundled_plugin =
-    (* FIXME: We make the assumption that a plugin with the same name
-       as the current package should be bundled. This isn't too bad,
-       but could probably be improved *)
-    if List.is_empty options.O.client_plugin_files &&
-      List.is_empty options.O.server_plugin_files
-    then
-      all_plugins, direct_plugins, None
+  let all_external_plugins = List.filter (fun plugin ->
+    Option.is_some plugin.BPI.basename
+  ) all_plugins in
+
+  (* Only plugins that are directly used by the current unit *)
+  let direct_external_plugins = List.filter (fun plugin ->
+    StringOptSet.mem plugin.BPI.basename used_plugins_names
+  ) all_external_plugins in
+
+  let bundled_plugin =
+    if StringOptSet.mem None used_plugins_names then
+      Some (List.find (fun plugin ->
+        Option.is_none plugin.BPI.basename
+      ) all_plugins)
     else
-      let name = Filename.basename (File.chop_extension options.O.target) in
-      List.filter (fun plugin -> plugin.BPI.basename <> name) all_plugins,
-      List.filter (fun plugin -> plugin.BPI.basename <> name) direct_plugins,
-      List.find_opt (fun plugin -> plugin.BPI.basename = name) direct_plugins
-  in
+      None in
 
   let bsl = { BslLib.
               bymap; all_plugins; all_external_plugins;

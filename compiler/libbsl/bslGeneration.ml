@@ -360,7 +360,7 @@ let bslregisterlib_options opt fs =
   let options = {
     BI.
 
-    basename = opt.bsl_pref;
+    basename = Some opt.bsl_pref;
     bypass_plugins = opt.bypass_plugins;
     check_style = opt.check_style;
     js_files = fs.js_files;
