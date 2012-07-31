@@ -710,12 +710,12 @@ type options = {
 
   basename : BslPluginInterface.plugin_basename ;
   (**
-     The name of the plugin being build
+     The name of the plugin being built
   *)
 
   bypass_plugins : BslDynlink.bypass_plugin_file list ;
   (**
-     The list of plugin which this lib depends on
+     The list of plugins which this lib depends on
   *)
 
   check_style : bool ;

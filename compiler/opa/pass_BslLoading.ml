@@ -188,7 +188,7 @@ let upgrade_options plugins options =
   let t_extralibs = make_tbl extralibs in
   let t_extrapath = make_tbl extrapath in
 
-  let rev_acc present to_add = List.fold_left
+  let rev_acc present to_add plugins = List.fold_left
     (fun rev plugin ->
        let plugin_name = plugin.BPI.basename in
        let rev =
@@ -202,9 +202,12 @@ let upgrade_options plugins options =
        rev) [] plugins
   in
 
-  let rev_plugins = rev_acc t_bypass_plugins already_seen_plugin in
-  let rev_libs = rev_acc t_extralibs extralib_plugin in
-  let rev_path = rev_acc t_extrapath extrapath_plugin in
+  let server_plugins = List.filter (fun plugin ->
+    plugin.BPI.has_server_code
+  ) plugins in
+  let rev_plugins = rev_acc t_bypass_plugins already_seen_plugin plugins in
+  let rev_libs = rev_acc t_extralibs extralib_plugin server_plugins in
+  let rev_path = rev_acc t_extrapath extrapath_plugin plugins in
 
   let bypass_plugin = options.O.bypass_plugin @ (List.rev rev_plugins) in
   let extralibs = extralibs @ (List.rev rev_libs) in

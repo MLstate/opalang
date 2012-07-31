@@ -149,5 +149,7 @@ val register_opa_code               : session -> (filename * contents) list -> u
 val register_js_code                : session -> (filename * contents * BslJsConf.conf) list -> unit
 val register_nodejs_code            : session -> (filename * contents * BslJsConf.conf) list -> unit
 
+val register_has_server_code        : session -> bool -> unit
+
 val register_ocaml_env              : session -> BslPluginInterface.ocaml_env -> unit
 val register_javascript_env         : session -> BslPluginInterface.javascript_env -> unit

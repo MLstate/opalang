@@ -148,7 +148,6 @@ type session = {
   s_depends                    : depends ;
   s_identification             : identification ;
 
-
   (* 2) evoluation as long as we process files *)
 
   s_conf                       : BslConf.t ;
@@ -165,6 +164,8 @@ type session = {
   s_rev_ml_parsed_files        : BslDirectives.bypasslang_decorated_file list ;
 
   s_rev_opa_decorated_files    : BslDirectives.opalang_decorated_file  list ;
+
+  s_has_server_code            : bool ;
 
   (*
     3) collecting calls to the Register Interface.
@@ -343,6 +344,8 @@ let create ~options =
 
   let s_rev_opa_decorated_files      = [] in
 
+  let s_has_server_code              = false in
+
   let s_rp_calls                     = BslKeyMap.empty in
   let s_rt_calls                     = BslKeyMap.empty in
 
@@ -377,6 +380,8 @@ let create ~options =
     s_rev_ml_parsed_files ;
 
     s_rev_opa_decorated_files ;
+
+    s_has_server_code ;
 
     s_rp_calls ;
     s_rt_calls ;
@@ -833,8 +838,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
   let depends          = s.s_depends.d_parents in
   let js_code          = s.s_js_code in
   let nodejs_code      = s.s_nodejs_code in
-  let has_server_code  =
-    not (List.is_empty nodejs_code && List.is_empty s.s_rev_ml_parsed_files) in
+  let has_server_code  = s.s_has_server_code in
   let opa_code         = s.s_opa_code in
 
   let buf = FBuffer.create 1024 in
@@ -1141,6 +1145,8 @@ let finalize s =
     BMP.register_js_code                   bmp_session   f_js_code ;
     BMP.register_nodejs_code               bmp_session   f_nodejs_code ;
     BMP.register_opa_code                  bmp_session   f_opa_code ;
+
+    BMP.register_has_server_code           bmp_session   s.s_has_server_code ;
 
     BMP.register_ocaml_env                 bmp_session   ocaml_env ;
     BMP.register_javascript_env            bmp_session   javascript_env ;
@@ -1604,6 +1610,7 @@ let preprocess_file session filename =
       let session = {
         session with
           s_rev_ml_parsed_files ;
+          s_has_server_code = true ;
       } in
       session
 
@@ -1627,6 +1634,7 @@ let preprocess_file session filename =
       let session = {
         session with
           s_rev_nodejs_parsed_files ;
+          s_has_server_code = true ;
       } in
       session
 
