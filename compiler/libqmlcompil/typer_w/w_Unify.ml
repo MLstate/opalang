@@ -228,14 +228,15 @@ let min_level_of_column_endings end1 end2 =
 
 
 (* ************************************************************************* *)
-(* W_Algebra.simple_type list -> W_Algebra.simple_type list -> bool          *)
-(** {b Descr}: Function checking if 2 type variables lists are in bijection.
+(* bool -> W_Algebra.simple_type list -> W_Algebra.simple_type list -> bool  *)
+(** {b Descr}: Function checking if 2 type variables lists are in injection
+    and if the first argument is true, are also in bijection.
     In other words, we have 2 lists of types [v_vars] and [w_vars], assumed
     all to be *type variables* and we want to ensure that all the variables
     from the first list are equal (i.e. were unified with) one variable of
-    the second list and, in the other way, that all the variables of the
-    second list are equal (were unified with) to one variable of the first
-    list.
+    the second list and, if the first argument is true the other way: that 
+    all the variables of the second list are equal (were unified with) to one 
+    variable of the first list.
     This obviously means that both lists have the same length.
     This function is used to ensure that during unification of 2 types forall,
     the generalized variables of both schemes we mapped one-to-one, in other
@@ -253,7 +254,7 @@ let min_level_of_column_endings end1 end2 =
     be generalized ones.
     {b Visibility}: Not exported outside this module.                        *)
 (* ************************************************************************* *)
-let check_type_variables_are_in_bijection v_vars w_vars =
+let check_type_variables_are_in_injection check_bijection w_vars v_vars =
   (* Local function testing if 2 types are physically equal variables. *)
   let test_vars_eq t1 t2 =
     match (t1.W_Algebra.sty_desc, t2.W_Algebra.sty_desc) with
@@ -263,7 +264,6 @@ let check_type_variables_are_in_bijection v_vars w_vars =
   (* Local function that takes one variable and tries to remove it from the
      list of other variables. *)
   let check_one_v v ws =
-    let v = W_CoreTypes.simple_type_repr v in
     (* If the variable can't be removed because it is not in the list, then
        [Not_found] will be raised. *)
     List.remove_first_or_fail_eq ~eq: test_vars_eq v ws in
@@ -276,81 +276,82 @@ let check_type_variables_are_in_bijection v_vars w_vars =
     let remaining_ws =
       List.fold_left
         (fun accu_ws v -> check_one_v v accu_ws)
-        w_vars v_vars in
-    assert (remaining_ws = []) ;
+        (List.map W_CoreTypes.simple_type_repr w_vars) v_vars in
+    if check_bijection then  assert (remaining_ws = []) ;
     true
-  with Not_found -> false
+  with Not_found ->  false
 
 
 
 (* ************************************************************************* *)
-(* W_Algebra.row_variable list -> W_Algebra.row_variable list -> bool        *)
+(* bool -> W_Algebra.row_variable list -> W_Algebra.row_variable list -> bool*)
 (** {b Descr}: Performs the same job than
-    [check_type_variables_are_in_bijection] above, but on row variables.
-    See header of [check_type_variables_are_in_bijection] for more details.
+    [check_type_variables_are_in_injection] above, but on row variables.
+    See header of [check_type_variables_are_in_injection] for more details.
     {b Visibility}: Not exported outside this module.                        *)
 (* ************************************************************************* *)
-let check_row_variables_are_in_bijection v_vars w_vars =
+let check_row_variables_are_in_injection check_bijection w_vars v_vars =
+  (* We simulate a call to "repr" on a row variable. To do this, we manually
+     inspect the [W_Algebra.rv_value] fields. If it is [W_Algebra.Row_unknown]
+     then the variable was not instantiated and we take it as it is.
+     If it is [W_Algebra.Row_known, then we call [W_CoreTypes.row_type_repr]
+     to get the canonical representation of the variable's value then we
+     check that we got a row type with not fields and if so, we take its
+     ending variable. *)
+  let repr v =
+    match v.W_Algebra.rv_value with
+    | W_Algebra.Row_unknown -> v
+    | W_Algebra.Row_known row_type -> (
+        match (W_CoreTypes.row_type_repr row_type).W_Algebra.rt_value with
+        | ([], W_Algebra.Var_row v') -> v'
+        | _ ->
+            (* Not bijective because instantiated by something else than a
+               variable. *)
+            raise Not_found
+      ) in
   let check_one_v v ws =
-    (* We simulate a call to "repr" on a row variable. To do this, we manually
-       inspect the [W_Algebra.rv_value] fields. If it is [W_Algebra.Row_unknown]
-       then the variable was not instantiated and we take it as it is.
-       If it is [W_Algebra.Row_known, then we call [W_CoreTypes.row_type_repr]
-       to get the canonical representation of the variable's value then we
-       check that we got a row type with not fields and if so, we take its
-       ending variable. *)
-    let v =
-      match v.W_Algebra.rv_value with
-      | W_Algebra.Row_unknown -> v
-      | W_Algebra.Row_known row_type -> (
-          match (W_CoreTypes.row_type_repr row_type).W_Algebra.rt_value with
-          | ([], W_Algebra.Var_row v') -> v'
-          | _ ->
-              (* Not bijective because instantiated by something else than a
-                 variable. *)
-              raise Not_found
-        ) in
     (* If the variable can't be removed because it is not in the list, then
        [Not_found] will be raised. *)
     List.remove_first_or_fail_eq ~eq: (==) v ws in
-  (* Same explanation than in [check_type_variables_are_in_bijection] above. *)
+  (* Same explanation than in [check_type_variables_are_in_injection] above. *)
   try
     let remaining_ws =
       List.fold_left
         (fun accu_ws v -> check_one_v v accu_ws)
-        w_vars v_vars in
-    assert (remaining_ws = []) ;
+        (List.map repr w_vars) v_vars in
+    if check_bijection then assert (remaining_ws = []) ;
     true
   with Not_found -> false
 
 
 
 (* ************************************************************************* *)
-(* W_Algebra.column_variable list -> W_Algebra.column_variable list -> bool  *)
+(* bool -> W_Algebra.column_variable list  
+        -> W_Algebra.column_variable list -> bool                            *)
 (** {b Descr}: Performs the same job than
     [check_type_variables_are_in_bijection] above, but on column variables.
-    See header of [check_type_variables_are_in_bijection] for more details.
+    See header of [check_type_variables_are_in_injection] for more details.
     {b Visibility}: Not exported outside this module.                        *)
 (* ************************************************************************* *)
-let check_column_variables_are_in_bijection v_vars w_vars =
+let check_column_variables_are_in_injection check_bijection w_vars v_vars =
+  (* Same explanation than in [check_row_variables_are_in_injection] above. *)
+  let repr v =
+    match v.W_Algebra.cv_value with
+    | W_Algebra.Col_unknown -> v
+    | W_Algebra.Col_known col_type -> (
+        match (W_CoreTypes.column_type_repr col_type).W_Algebra.ct_value with
+        | ([], W_Algebra.Var_column v') -> v'
+        | _ -> raise Not_found
+      ) in
   let check_one_v v ws =
-    (* Same explanation than in [check_row_variables_are_in_bijection] above. *)
-    let v =
-      match v.W_Algebra.cv_value with
-      | W_Algebra.Col_unknown -> v
-      | W_Algebra.Col_known col_type -> (
-          match (W_CoreTypes.column_type_repr col_type).W_Algebra.ct_value with
-          | ([], W_Algebra.Var_column v') -> v'
-          | _ -> raise Not_found
-        ) in
     List.remove_first_or_fail_eq ~eq: (==) v ws in
   (* Same explanation than in [check_type_variables_are_in_bijection] above. *)
   try
     let remaining_ws =
       List.fold_left
         (fun accu_ws v -> check_one_v v accu_ws)
-        w_vars v_vars in
-    assert (remaining_ws = []) ;
+        (List.map repr w_vars) v_vars in
+    if check_bijection then assert (remaining_ws = []) ;
     true
   with Not_found -> false
 
@@ -717,9 +718,12 @@ and __unify_simple_type is_under_coercion env seen_expansions ty1 ty2 =
                (sch_var, (W_CoreTypes.__generic_column_variable ())))
             scheme2.W_Algebra.column_parameters in
         (* Ensure that both schemes have the same number of variables. *)
-        if !count_ty_vars1 <> ! count_ty_vars2 ||
-           !count_row_vars1 <> !count_row_vars2 ||
-           !count_column_vars1 <> !count_column_vars2 then (
+        if ( not (is_under_coercion  && !count_ty_vars1 > !count_ty_vars2) &&
+           !count_ty_vars1 <> ! count_ty_vars2) || 
+           (not (is_under_coercion  && !count_row_vars1 > !count_row_vars2) &&
+           !count_row_vars1 <> !count_row_vars2) ||
+           (not (is_under_coercion  && !count_column_vars1 > !count_column_vars2) &&
+           !count_column_vars1 <> !count_column_vars2) then (
           (* In fact, we are in the case where the 2 schemes do not have the
              same number of generalized variables. *)
           let n1 = !count_ty_vars1 + !count_row_vars1 + !count_column_vars1 in
@@ -755,8 +759,11 @@ and __unify_simple_type is_under_coercion env seen_expansions ty1 ty2 =
            even if lists of variables are generally not very long. *)
         let fresh_gen_ty_vars1 = List.map snd ty_vars_mapping1 in
         let fresh_gen_ty_vars2 = List.map snd ty_vars_mapping2 in
+        (* if under coercion check only for injection, 
+           otherwise check for bijection *)
+        let check_for_bijection = not is_under_coercion in 
         let bij1 =
-          check_type_variables_are_in_bijection
+          check_type_variables_are_in_injection check_for_bijection
             fresh_gen_ty_vars1 fresh_gen_ty_vars2 in
         if not bij1 then
           raise
@@ -765,7 +772,7 @@ and __unify_simple_type is_under_coercion env seen_expansions ty1 ty2 =
         let fresh_gen_row_vars1 = List.map snd row_vars_mapping1 in
         let fresh_gen_row_vars2 = List.map snd row_vars_mapping2 in
         let bij2 =
-          check_row_variables_are_in_bijection
+          check_row_variables_are_in_injection check_for_bijection
             fresh_gen_row_vars1 fresh_gen_row_vars2 in
         if not bij2 then
           raise
