@@ -311,7 +311,7 @@ if [ "$DEB" = "true" ]; then
     mkdir -p $DEBROOT$PREFIX
     mkdir -p $DEBROOT/DEBIAN
     mkdir _build
-    rm $INSTALLDIR/install.sh
+    rm -f $INSTALLDIR/install.sh
     cp -a $INSTALLDIR/* $DEBROOT$PREFIX
     # if [ $NOOCAML = "true" ]; then
     # 	 rm -rf $DEBROOT$PREFIX/lib/opa/static
