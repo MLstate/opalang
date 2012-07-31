@@ -684,13 +684,19 @@ and __unify_simple_type is_under_coercion env seen_expansions ty1 ty2 =
           List.map
             (fun sch ->
                incr count_ty_vars1 ;
-               (sch, (W_CoreTypes.__generic_type_variable ())))
+               let tyv = W_CoreTypes.__generic_type_variable () in
+               W_TypeInfo.add_linked_object 
+                 tyv.W_Algebra.sty_desc ty1.W_Algebra.sty_desc ;
+               (sch, tyv))
             scheme1.W_Algebra.ty_parameters in
         let ty_vars_mapping2 =
           List.map
             (fun sch ->
                incr count_ty_vars2 ;
-               (sch, (W_CoreTypes.__generic_type_variable ())))
+               let tyv = W_CoreTypes.__generic_type_variable () in 
+               W_TypeInfo.add_linked_object
+                 tyv.W_Algebra.sty_desc ty2.W_Algebra.sty_desc ;
+               (sch, tyv))
             scheme2.W_Algebra.ty_parameters in
         (* Do the same thing for row variables... *)
         let count_row_vars1 = ref 0 in
