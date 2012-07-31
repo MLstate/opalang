@@ -566,7 +566,7 @@ struct
   and directive opa_annot ((c, e, t) as d) =
     match c, e, t with
     | (
-        `typeof | `opensums | `openrecord | `unsafe_cast
+        `typeof | `opensums | `openrecord | `extendwith | `unsafe_cast
       | `nonexpansive | `doctype _ | `module_ | `module_field_lifting
       | `spawn | `wait | `atomic | `callcc | `js_ident | `expand _
       | `create_lazy_record | `assert_  | `fail

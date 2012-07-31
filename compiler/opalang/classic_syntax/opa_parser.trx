@@ -648,6 +648,7 @@ directive1 <-
   / "may_cps" {{ `may_cps }}
   / "nonexpansive" {{ `nonexpansive }}
   / "openrecord" {{ `openrecord }}
+  / "extendwith" {{ `extendwith }}
   / "opensums" {{ `opensums }}
   / "throw"  {{ `throw }}
   / "typeof" {{ `typeof }}

@@ -1660,6 +1660,16 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
         err_ctxt
         ("Opensums@ directive@ expected@ to@ be@ applied@ to@ onl@y one@ " ^^
          "expression.")
+  | (`extendwith, [expr]) -> (
+        let err_ctxt = QmlError.Context.expr original_expr in
+        QmlError.error err_ctxt "@@extendwith directive: undefined@\n"
+    )
+  | (`extendwith, _) ->  
+      let err_ctxt = QmlError.Context.expr original_expr in
+      QmlError.error
+        err_ctxt
+        ("@@extendwith@ directive@ expected@ to@ be@ applied@ to@ only@ " ^^
+         "one@ expression.")
   | (`openrecord, [expr]) -> (
       (* First, typecheck the expression to "open". *)
       let (ty, annotmap) = infer_expr_type ~bypass_typer typing_env expr in

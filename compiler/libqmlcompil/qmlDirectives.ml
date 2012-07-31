@@ -139,7 +139,12 @@ struct
     let beta = next () in
     Q.TypeArrow ([alpha], beta)
 
-  let opavalue_make_performer tys build_add build =
+   let extendwith () =
+    let alpha = next () in
+    let beta = next () in
+    Q.TypeArrow ([alpha], beta)
+
+ let opavalue_make_performer tys build_add build =
     let ty, add_args =
       match tys with
       | [Q.TypeName (args, _) as ty] ->
@@ -196,6 +201,7 @@ let ty directive exprs tys =
   | `module_field_lifting -> Ty.id ()
   | `opensums -> Ty.opensums ()
   | `openrecord -> Ty.openrecord ()
+  | `extendwith -> Ty.extendwith ()
   | `unsafe_cast -> Q.TypeArrow ([Ty.next()], Ty.next())
   | `nonexpansive -> Ty.id ()
   | `warncoerce -> Ty.id ()
@@ -434,6 +440,7 @@ let to_string d =
   | `unsafe_cast -> "unsafe_cast"
   | `opensums -> "opensums"
   | `openrecord -> "openrecord"
+  | `extendwith -> "extendwith"
   | `assert_ -> "assert"
   | `typeof -> "typeof"
   | `atomic -> "atomic"

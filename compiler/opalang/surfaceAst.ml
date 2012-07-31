@@ -356,6 +356,7 @@ type type_directive =
     | `nonexpansive
     | `opensums
     | `openrecord
+    | `extendwith
     | `module_
     | `module_field_lifting
     | `warncoerce

@@ -905,6 +905,11 @@ type type_directive = [
          Adds a row variable to allow subtyping of record types
       *)
 
+  | `extendwith
+      (**
+         Adds a field to a record
+      *)
+
   | `module_
       (**
          Indicate that the underlying record is a module, for type generalization purpose
