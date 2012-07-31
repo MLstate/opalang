@@ -512,12 +512,12 @@ let process
   ) all_external_plugins in
 
   let bundled_plugin =
-    if StringOptSet.mem None used_plugins_names then
-      Some (List.find (fun plugin ->
-        Option.is_none plugin.BPI.basename
-      ) all_plugins)
-    else
-      None in
+    (* FIXME: Right now, inlining doesn't work well with private
+       module constants. Therefore, we will include the bundled plugin
+       in every package, even if it isn't used directly *)
+    List.find_opt (fun plugin ->
+      Option.is_none plugin.BPI.basename
+    ) all_plugins in
 
   let bsl = { BslLib.
               bymap; all_plugins; all_external_plugins;
