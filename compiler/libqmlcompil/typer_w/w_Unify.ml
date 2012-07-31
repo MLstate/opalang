@@ -476,12 +476,17 @@ and __unify_simple_type is_under_coercion env seen_expansions ty1 ty2 =
           (* If the variable is generalized, then we must not unify since this
              would means a loss of generality. In effect, generalized variable
              are not instantiable ! *)
-          if var1.W_Algebra.tv_level = W_CoreTypes.generic_binding_level then
-            raise
-              (Unification_simple_type_conflict
-                 (ty1, ty2,
-                  { ucd_kind = DK_binding_level_mismatch ;
-                    ucd_through_field = None })) ;
+          if var1.W_Algebra.tv_level = W_CoreTypes.generic_binding_level 
+            then if is_under_coercion
+                   then W_CoreTypes.change_ty_var_level var1
+                          !W_CoreTypes.current_binding_level
+                 else (
+                   raise
+                     (Unification_simple_type_conflict
+                        (ty1, ty2,
+                         { ucd_kind = DK_binding_level_mismatch ;
+                           ucd_through_field = None })) 
+                 );
           lowerize_level_in_simple_type var1.W_Algebra.tv_level ty2 ;
           (* Don't forget to cleanup the lowerized type. *)
           W_CoreTypes.cleanup_simple_type ty2 ;
