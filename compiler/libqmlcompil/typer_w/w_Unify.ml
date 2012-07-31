@@ -363,9 +363,10 @@ let check_column_variables_are_in_bijection v_vars w_vars =
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
 
-let rec __unify_and_return_higher_type env seen_expansions ty1' ty2' ty1 ty2 = 
+let rec __unify_and_return_higher_type is_under_coercion 
+          env seen_expansions ty1' ty2' ty1 ty2 = 
   try
-    __unify_simple_type env seen_expansions ty1' ty2'
+    __unify_simple_type is_under_coercion env seen_expansions ty1' ty2'
   with (Unification_simple_type_conflict (ty3, ty4, context)) ->
     if ty1' == ty3 || ty1' == ty3 || ty2' == ty4 || ty2' == ty4
      then raise (Unification_simple_type_conflict(ty1, ty2, context))
@@ -382,9 +383,9 @@ let rec __unify_and_return_higher_type env seen_expansions ty1' ty2' ty1 ty2 =
     @raise Unification_binding_level_conflict
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-and __unify_simple_type env seen_expansions ty1 ty2 =
+and __unify_simple_type is_under_coercion env seen_expansions ty1 ty2 =
   #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
-  OManager.printf "__unify_simple_type: %a VERSUS %a@."
+    OManager.printf "__unify_simple_type:%b  %a VERSUS %a@." is_under_coercion
     W_PrintTypes.pp_simple_type_start_sequence ty1
     W_PrintTypes.pp_simple_type_end_sequence ty2 ;
   #<End> ;    (* <---------- END DEBUG *)
@@ -525,9 +526,9 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
         W_CoreTypes.change_ty_link ~receiver: ty1 ~link_val: (Some ty2) ;
         (* Unify types of arguments 2 by 2. *)
         List.iter2
-          (__unify_simple_type env seen_expansions) args_tys1 args_tys2 ;
+          (__unify_simple_type is_under_coercion env seen_expansions) args_tys1 args_tys2 ;
         (* Unify the types of results. *)
-        __unify_simple_type env seen_expansions res_ty1 res_ty2
+        __unify_simple_type is_under_coercion env seen_expansions res_ty1 res_ty2
        )
     | (W_Algebra.SType_named { W_Algebra.nst_name = name ;
                                W_Algebra.nst_args = args ;
@@ -538,7 +539,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
         when QmlAst.TypeIdent.equal name name' -> (
           try
             W_CoreTypes.change_ty_link ~receiver: ty1 ~link_val: (Some ty2) ;
-            List.iter2 (__unify_simple_type env seen_expansions) args args' ;
+            List.iter2 (__unify_simple_type is_under_coercion env seen_expansions) args args' ;
             (* Two instances of a same named type, as far as they have unifiable
                arguments must have unifiable manifest representations. No need
                to descend inside in order to save efficiency unless we want
@@ -549,7 +550,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
             (match (manifest, manifest') with
              | (None, None) -> ()
              | ((Some m), (Some m')) ->
-                 __unify_simple_type env m m'
+                 __unify_simple_type is_under_coercion env m m'
              | (_, _) ->
                  (* Two instances of a same named type should have either no
                     manifest representation or both one. *)
@@ -569,7 +570,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
     | (W_Algebra.SType_named nty1,
        W_Algebra.SType_named nty2)
         (* name <> name' *) -> (
-          __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2
+          __unify_different_named_types is_under_coercion env seen_expansions ty1 ty2 nty1 nty2
       )
     | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest }), _) ->
           (* Same remark about trivially cyclic types than in the previous
@@ -585,7 +586,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
                (ty1, ty2,
                 { ucd_kind = DK_none ;
                   ucd_through_field = None })) ;
-        __unify_simple_type env seen_expansions ty2 manifest
+        __unify_simple_type is_under_coercion env seen_expansions ty2 manifest
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = Some manifest })) ->
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
         OManager.printf "Case other / SType_named manifest: %a VERSUS %a@."
@@ -598,7 +599,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-        __unify_simple_type env seen_expansions ty1 manifest
+        __unify_simple_type is_under_coercion env seen_expansions ty1 manifest
     | ((W_Algebra.SType_named { W_Algebra.nst_unwinded = None }), _) -> (
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
         OManager.printf "Case SType_named non-manifest / other: %a VERSUS %a@."
@@ -615,7 +616,8 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-        __unify_and_return_higher_type env seen_expansions' ty2 ty1' ty2 ty1
+        __unify_and_return_higher_type is_under_coercion 
+          env seen_expansions' ty2 ty1' ty2 ty1
        )
     | (_, (W_Algebra.SType_named { W_Algebra.nst_unwinded = None })) -> (
         #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
@@ -629,13 +631,14 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-          __unify_and_return_higher_type env seen_expansions' ty1 ty2' ty1 ty2
+          __unify_and_return_higher_type is_under_coercion
+            env seen_expansions' ty1 ty2' ty1 ty2
        )
     | ((W_Algebra.SType_sum_of_records col1),
        (W_Algebra.SType_sum_of_records col2)) -> (
         try
           W_CoreTypes.change_ty_link ~receiver: ty1 ~link_val: (Some ty2) ;
-          __unify_column_type env seen_expansions col1 col2
+          __unify_column_type is_under_coercion env seen_expansions col1 col2
         with Unification_column_conflict (_, _) ->
           (* At this point, recover the unification on columns failure.
              [TODO] There should be a clear error message here, but for the
@@ -741,7 +744,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
            generalized in the schemes have been copied, unification will
            operate on these copies, hence preventing from dirtying the
            schemes original generalized variables. *)
-        __unify_simple_type
+        __unify_simple_type is_under_coercion
           env seen_expansions scheme1_instance scheme2_instance ;
         (* Now, ensure that the qualtified variables of both schemes were
            mapped one-to-one, i.e. no collapse occurred, i.e. both scheme
@@ -771,12 +774,17 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
         let fresh_gen_column_vars1 = List.map snd column_vars_mapping1 in
         let fresh_gen_column_vars2 = List.map snd column_vars_mapping2 in
         let bij3 =
-          check_column_variables_are_in_bijection
+          check_column_variables_are_in_injection check_for_bijection
             fresh_gen_column_vars1 fresh_gen_column_vars2 in
         if not bij3 then
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None }))
+      )
+    | ((W_Algebra.SType_forall schm1), _)
+        when is_under_coercion -> (
+        __unify_simple_type is_under_coercion 
+          env seen_expansions (W_SchemeGenAndInst.specialize schm1) ty2
       )
     | (_, _) ->
         raise
@@ -786,7 +794,7 @@ and __unify_simple_type env seen_expansions ty1 ty2 =
 
 
 (* [TODO-REFACTOR] DOCUMENTATION. *)
-and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
+and __unify_different_named_types is_under_coercion env seen_expansions ty1 ty2 nty1 nty2 =
   #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
   OManager.printf "__unify_different_named_types@." ;
   #<End> ;                (* <---------- END DEBUG *)
@@ -805,7 +813,8 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
       raise
         (Unification_simple_type_conflict
            (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-    __unify_and_return_higher_type env seen_expansions'' ty1' ty2' ty1 ty2
+    __unify_and_return_higher_type is_under_coercion 
+      env seen_expansions'' ty1' ty2' ty1 ty2
   )
   else (  (* Else 0. *)
     (* Not ((h_nty1 < 0) && (h_nty2 < 0)). *)
@@ -824,7 +833,8 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
         raise
           (Unification_simple_type_conflict
              (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-      __unify_and_return_higher_type env seen_expansions' ty2 ty1' ty2 ty1
+      __unify_and_return_higher_type is_under_coercion 
+        env seen_expansions' ty2 ty1' ty2 ty1
     )
     else (  (* Else 1. *)
       (* (h_nty1 >= 0). *)
@@ -843,7 +853,8 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
           raise
             (Unification_simple_type_conflict
                (ty1, ty2, { ucd_kind = DK_none ; ucd_through_field = None })) ;
-        __unify_and_return_higher_type env seen_expansions' ty1 ty2' ty1 ty2
+        __unify_and_return_higher_type is_under_coercion 
+          env seen_expansions' ty1 ty2' ty1 ty2
       )
       else (   (* Else 2. *)
         (* None of heights are negative. *)
@@ -868,7 +879,8 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
               (Unification_simple_type_conflict
                  (ty1, ty2,
                   { ucd_kind = DK_none ; ucd_through_field = None })) ;
-          __unify_and_return_higher_type env seen_expansions'' ty1' ty2' ty1 ty2
+          __unify_and_return_higher_type is_under_coercion 
+            env seen_expansions'' ty1' ty2' ty1 ty2
         )
         else (   (* Else 3. *)
           (* None of heights are negative and they are not equal.
@@ -894,7 +906,8 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
                 (Unification_simple_type_conflict
                    (ty1, ty2,
                     { ucd_kind = DK_none ; ucd_through_field = None })) ;
-            __unify_and_return_higher_type env seen_expansions' ty1 ty2' ty1 ty2
+            __unify_and_return_higher_type is_under_coercion 
+              env seen_expansions' ty1 ty2' ty1 ty2
           )
           else (   (* Else 4. *)
             #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
@@ -915,7 +928,8 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
                 (Unification_simple_type_conflict
                    (ty1, ty2,
                     { ucd_kind = DK_none ; ucd_through_field = None })) ;
-            __unify_and_return_higher_type env seen_expansions' ty2 ty1' ty2 ty1
+            __unify_and_return_higher_type is_under_coercion 
+              env seen_expansions' ty2 ty1' ty2 ty1
           )     (* End of else 4. *)
         )       (* End of else 3. *)
       )         (* End of else 2. *)
@@ -953,7 +967,7 @@ and __unify_different_named_types env seen_expansions ty1 ty2 nty1 nty2 =
     @raise Unification_binding_level_conflict
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-and __unify_row_type env seen_expansions row_ty1 row_ty2 =
+and __unify_row_type is_under_coercion env seen_expansions row_ty1 row_ty2 =
   (* First, get the canonical representation of the 2 row types to unify. *)
   let row_ty1 = W_CoreTypes.row_type_repr row_ty1 in
   let row_ty2 = W_CoreTypes.row_type_repr row_ty2 in
@@ -1012,10 +1026,11 @@ and __unify_row_type env seen_expansions row_ty1 row_ty2 =
         let phi0 = (List.tl row1_fields, row1_ending) in
         let field1 = List.hd row2_fields in
         let phi1 = (List.tl row2_fields, row2_ending) in
-        if __unify_field env seen_expansions field0 field1 then
+        if __unify_field is_under_coercion 
+             env seen_expansions field0 field1 then
           (* If head field labels are equal, then we must unify their types by
              side effect and go on with the remaining fields. *)
-          __unify_row_type
+          __unify_row_type is_under_coercion
             env seen_expansions
             { W_Algebra.rt_value = phi0 } { W_Algebra.rt_value = phi1 }
         else
@@ -1031,13 +1046,13 @@ and __unify_row_type env seen_expansions row_ty1 row_ty2 =
                even if one of the sub-unification tells us it is not a
                success. *)
             let success1 =
-              __unify_row_type
+              __unify_row_type is_under_coercion
                 env seen_expansions
                 { W_Algebra.rt_value = phi0 }
                 { W_Algebra.rt_value =
                     ([field1], (W_Algebra.Var_row fresh_rv)) } in
             let success2 =
-              __unify_row_type
+              __unify_row_type is_under_coercion
                 env seen_expansions
                 { W_Algebra.rt_value = phi1 }
                 { W_Algebra.rt_value =
@@ -1060,7 +1075,7 @@ and __unify_row_type env seen_expansions row_ty1 row_ty2 =
     @raise Unification_column_conflict
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-and __unify_column_type env seen_expansions col_ty1 col_ty2 =
+and __unify_column_type is_under_coercion env seen_expansions col_ty1 col_ty2 =
   (* First, get the canonical representation of the 2 column types to unify. *)
   let col_ty1 = W_CoreTypes.column_type_repr col_ty1 in
   let col_ty2 = W_CoreTypes.column_type_repr col_ty2 in
@@ -1109,10 +1124,11 @@ and __unify_column_type env seen_expansions col_ty1 col_ty2 =
         (* Record the unification changes state to revert back to this point
            in case the unification on the row would fail. *)
         let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
-        if __unify_row_type env seen_expansions record0 record1 then (
+        if __unify_row_type is_under_coercion
+             env seen_expansions record0 record1 then (
           (* If head records are unifiable, then we must go on with the
              remaining records. *)
-          __unify_column_type
+          __unify_column_type is_under_coercion
             env seen_expansions
             { W_Algebra.ct_value = phi0 } { W_Algebra.ct_value = phi1 }
         )
@@ -1134,12 +1150,12 @@ and __unify_column_type env seen_expansions col_ty1 col_ty2 =
           W_CoreTypes.change_column_var_level
             fresh_cv (min_level_of_column_endings col1_ending col2_ending) ;
           (* Now, unify in cross. *)
-          __unify_column_type
+          __unify_column_type is_under_coercion
             env seen_expansions
             { W_Algebra.ct_value = phi0 }
             { W_Algebra.ct_value =
                 ([record1], (W_Algebra.Var_column fresh_cv)) } ;
-          __unify_column_type
+          __unify_column_type is_under_coercion
             env seen_expansions
             { W_Algebra.ct_value = phi1 }
             { W_Algebra.ct_value =
@@ -1161,11 +1177,12 @@ and __unify_column_type env seen_expansions col_ty1 col_ty2 =
     @raise Unification_binding_level_conflict
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-and __unify_field env seen_expansions  (field_name1, field_ty1) (field_name2, field_ty2) =
+and __unify_field is_under_coercion env seen_expansions  
+      (field_name1, field_ty1) (field_name2, field_ty2) =
   if field_name1 <> field_name2 then false
   else (
     try
-      __unify_simple_type env seen_expansions field_ty1 field_ty2 ;
+      __unify_simple_type is_under_coercion env seen_expansions field_ty1 field_ty2 ;
       (* If the above unification succeeded, then we arrive here then return a
          boolean telling that everything succeeded. Otherwise, the above
          unification will have raised an exception, and then we never arrive
@@ -1185,6 +1202,16 @@ and __unify_field env seen_expansions  (field_name1, field_ty1) (field_name2, fi
   )
 
 
+(* ************************************************************************** *)
+(** {b Descr}: Internal function performing unification of 2 simple types
+    when unification was initally called from coercion. It unifies a schema s
+    with a type t, by generalizing the type and calling __unify_simple_type
+    @raise Unification_simple_type_conflict
+    @raise Unification_binding_level_conflict
+    {b Visibility}: Not exported outside this module.                         *)
+(* ************************************************************************** *)
+and __unify_simple_type_in_coercion env seen_expansions ty1 ty2 =
+      __unify_simple_type true env seen_expansions ty1 ty2
 
 (* ************************************************************************** *)
 (** {b Descr}: Unification of 2 simple types. The unification is performed by
@@ -1203,7 +1230,7 @@ let unify_simple_type env ty1 ty2 =
   #<End> ;     (* <---------- END DEBUG *)
   let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
   try
-    __unify_simple_type env W_TypeAbbrevs.empty_memory ty1 ty2 ;
+    __unify_simple_type false env W_TypeAbbrevs.empty_memory ty1 ty2 ;
     #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
     OManager.printf "Ended unify_simple_type@." ;
     #<End> ;    (* <---------- END DEBUG *)
@@ -1215,6 +1242,23 @@ let unify_simple_type env ty1 ty2 =
     #<End> ;    (* <---------- END DEBUG *)
     raise any
 
+let unify_simple_type_in_coercion env ty1 ty2 =
+  #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+  OManager.printf "unify_simple_type_in_coercion@." ;
+  #<End> ;     (* <---------- END DEBUG *)
+  let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
+  try
+    __unify_simple_type true env W_TypeAbbrevs.empty_memory ty1 ty2 ;
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Ended unify_simple_type_in_coercion@." ;
+    #<End> ;    (* <---------- END DEBUG *)
+    W_CoreTypes.reset_unification_changes_trace ()
+  with any ->
+    W_CoreTypes.rewind_unification_changes ~performed_after: checkpoint ;
+    #<If:TYPER $minlevel 11> (* <---------- DEBUG *)
+    OManager.printf "Ended unify_simple_type_in_coercion@." ;
+    #<End> ;    (* <---------- END DEBUG *)
+    raise any
 
 
 (* ************************************************************************** *)
@@ -1231,7 +1275,7 @@ let unify_simple_type env ty1 ty2 =
 let unify_row_type env row_ty1 row_ty2 =
   let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
   try
-    if __unify_row_type env W_TypeAbbrevs.empty_memory row_ty1 row_ty2 then (
+    if __unify_row_type false env W_TypeAbbrevs.empty_memory row_ty1 row_ty2 then (
       (* Forget the unification trace since unification succeeded. No need to
          remind them since we won't revert this unification. *)
       W_CoreTypes.reset_unification_changes_trace () ;
@@ -1262,7 +1306,7 @@ let unify_row_type env row_ty1 row_ty2 =
 let unify_column_type env column_ty1 column_ty2 =
   let checkpoint = W_CoreTypes.get_current_changes_checkpoint () in
   try
-    __unify_column_type env W_TypeAbbrevs.empty_memory column_ty1 column_ty2 ;
+    __unify_column_type false env W_TypeAbbrevs.empty_memory column_ty1 column_ty2 ;
     (* Forget the unification trace since unification succeeded. No need to
        remind them since we won't revert this unification. *)
     W_CoreTypes.reset_unification_changes_trace ()
@@ -1276,10 +1320,10 @@ let unify_column_type env column_ty1 column_ty2 =
 (* [TODO-REFACTOR] DOCUMENTATION. *)
 let _ = W_TypingEnv.forward_ref__unify_simple_type :=
   (fun env t1 t2 ->
-     __unify_simple_type env W_TypeAbbrevs.empty_memory t1 t2)
+     __unify_simple_type false env W_TypeAbbrevs.empty_memory t1 t2)
 let _ = W_TypingEnv.forward_ref__unify_row_type :=
   (fun env row_ty1 row_ty2 ->
-     __unify_row_type env W_TypeAbbrevs.empty_memory row_ty1 row_ty2)
+     __unify_row_type false env W_TypeAbbrevs.empty_memory row_ty1 row_ty2)
 let _ = W_TypingEnv.forward_ref__unify_column_type :=
   (fun env column_ty1 column_ty2 ->
-     __unify_column_type env W_TypeAbbrevs.empty_memory column_ty1 column_ty2)
+     __unify_column_type false env W_TypeAbbrevs.empty_memory column_ty1 column_ty2)
