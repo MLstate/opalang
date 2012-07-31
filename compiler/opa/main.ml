@@ -67,13 +67,13 @@ let () =
 
   |+> ("Parse", S3.pass_Parse)
 
+  |+> ("PluginCompilation", PH.make_pass Pass_PluginCompilation.process)
+
   (**********************************************)
   (* SURFACE AST PASSES *************************)
   |> PH.handler ~count_time:false "LoadObjects" (S3.pass_LoadObjects (fun e -> e
 
     |+> ("DbEngineImportation", S3.pass_DbEngineImportation)
-
-    |+> ("PluginCompilation", S3.pass_PluginCompilation)
 
     |+> ("BslLoading", S3.pass_BslLoading)
 
