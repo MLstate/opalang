@@ -196,7 +196,7 @@ let comp_result_neq  = wrap_opa_order_comparison (ServerLib.make_simple_record (
 ##register serialize_string_length : string -> string
 
 let ser_int b i = (* DIRTY DIRTY copy pasting *)
-  for j = 64 / 8 - 1 downto 0 do
+  for j = 32 / 8 - 1 downto 0 do
     Buffer.add_char b (Char.chr ((i lsr (j*8)) mod 256));
   done
 
