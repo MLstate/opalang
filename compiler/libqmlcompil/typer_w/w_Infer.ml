@@ -1661,9 +1661,64 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
         ("Opensums@ directive@ expected@ to@ be@ applied@ to@ onl@y one@ " ^^
          "expression.")
   | (`extendwith, [expr]) -> (
-        let err_ctxt = QmlError.Context.expr original_expr in
-        QmlError.error err_ctxt "@@extendwith directive: undefined@\n"
-    )
+      match expr with 
+        | QmlAst.ExtendRecord (_, field_name, field_expr, record_expr) -> (
+          (* First, typecheck the record expression. *)
+          let (record_ty, record_annotmap) = 
+            infer_expr_type ~bypass_typer typing_env record_expr in
+          #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+          OManager.printf "@[Extendwith record type: %a@]@."
+            W_PrintTypes.pp_simple_type record_ty ;
+          #<End> ; (* <---------- END DEBUG *)
+          let (field_ty, field_annotmap) = 
+            infer_expr_type ~bypass_typer typing_env field_expr in
+          #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+          OManager.printf "@[Extendwith field type: %a@]@."
+            W_PrintTypes.pp_simple_type field_ty ;
+          #<End> ; (* <---------- END DEBUG *)
+          let final_annotmap = 
+            QmlAnnotMap.merge record_annotmap field_annotmap in
+          try
+            let extended_ty =
+              W_ExtendWithDirective.extend_record_simple_type 
+              typing_env record_ty field_name field_ty in
+            W_TypeInfo.add_loc_object
+              extended_ty.W_Algebra.sty_desc loc ;
+            #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+            OManager.printf
+              "@[Extendwith extended_ty: %a@]@."
+              W_PrintTypes.pp_simple_type extended_ty ;
+            #<End> ; (* <---------- END DEBUG *)
+            let (_, final_annotmap') = perform_infer_expr_type_postlude 
+              expr final_annotmap extended_ty in
+            perform_infer_expr_type_postlude
+              original_expr final_annotmap' extended_ty
+          with W_ExtendWithDirective.Extend_with_failure reason ->
+            (* Issue an error message depending on if the failure occurred by trying
+               to open a type variable or another (hard) type. *)
+            let err_msg =
+              if reason then
+                "Record@ part@ of@ the@ expression@ argument@ of@ the@ " ^^
+                "@@extendwith@ directive@ has a@ " ^^
+                "type@ that@ can't@ be@ subtype@ of@ another@ type@ (record).@\n" ^^
+                "@[<2>@{<bright>Hint@}:@\n"^^
+                "Its@ type@ is@ currently@ unconstrained.@ Consider@ explicitly "^^
+                "adding@ a@ type@ constraint@ toward@ a@ record@ type@ to@ " ^^
+                "precise@ the@ expression's@ type.@]"
+              else
+                "Record@ part@ of@ the@ expression@ argument@ of@ the@ " ^^
+                "@@extendwith@ directive@ has@ " ^^
+                "a@ type@ that@ can't@ be@ subtype@ of@ a@ record@ type.@\n" in
+            let err_ctxt = QmlError.Context.expr original_expr in
+            QmlError.error err_ctxt err_msg
+        )
+        | _ -> 
+       let err_ctxt = QmlError.Context.expr original_expr in
+      QmlError.error
+        err_ctxt
+        ("@@extendwith@ directive@ expects@ to@ be@ applied@ to@ only@ " ^^
+         "an@ with@ expression expression.")
+  )
   | (`extendwith, _) ->  
       let err_ctxt = QmlError.Context.expr original_expr in
       QmlError.error

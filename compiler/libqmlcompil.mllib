@@ -60,4 +60,5 @@ compiler/libqmlcompil/typer_w/W_Exceptions
 compiler/libqmlcompil/Typer_w
 compiler/libqmlcompil/typer_w/W_OpenSumsDirective
 compiler/libqmlcompil/typer_w/W_OpenRecordDirective
+compiler/libqmlcompil/typer_w/W_ExtendWithDirective
 compiler/libqmlcompil/QmlRefresh
