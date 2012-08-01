@@ -310,8 +310,8 @@ if [ $NOOCAML = "true" ]; then
     rm -rfv $INSTALLDIR/lib/ocaml
     echo "    --  Removing $INSTALLDIR_LIBOPA/stdlib/*.opp/*ML*"
     rm -fv $INSTALLDIR_LIBOPA/stdlib/*.opp/*ML*
-    echo "    --  Removing $INSTALLDIR_LIBOPA/static/*.{cmi,cmxa,a,ml}"
-    rm -rfv $INSTALLDIR_LIBOPA/static/*.{cmi,cmxa,a,ml}
+    echo "    --  Removing $INSTALLDIR_LIBOPA/static/*.{cmi,cmxa,a,ml,cmx,o}"
+    rm -rfv $INSTALLDIR_LIBOPA/static/*.{cmi,cmxa,a,ml,cmx,o}
 fi
 
 msg "Cleaning RPATH of binaries and shared libraries"
