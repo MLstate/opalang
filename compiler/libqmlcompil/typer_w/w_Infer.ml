@@ -1670,6 +1670,13 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
           OManager.printf "@[Extendwith record type: %a@]@."
             W_PrintTypes.pp_simple_type record_ty ;
           #<End> ; (* <---------- END DEBUG *)
+          (* Since record is extended it can not have an open Column, 
+            if it does close it.*)
+          (match record_ty.W_Algebra.sty_desc with
+          | W_Algebra.SType_sum_of_records column_type ->
+              column_type.W_Algebra.ct_value <- 
+                (fst column_type.W_Algebra.ct_value, W_Algebra.Closed_column)
+          | _ -> () );
           let (field_ty, field_annotmap) = 
             infer_expr_type ~bypass_typer typing_env field_expr in
           #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
