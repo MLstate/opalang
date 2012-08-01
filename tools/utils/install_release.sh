@@ -340,7 +340,8 @@ upxf(){
 	editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # in case upx malfunctions
     elif [ -n "$IS_MAC" ];
     then
-	upx $1 || true
+	echo "No UPX on linux for the moment, BUGGY"
+	#upx $1 || true
     else
 	echo "No UPX on linux for the moment, BUGGY"
 	#upx $1 || true
