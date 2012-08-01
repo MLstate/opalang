@@ -461,7 +461,9 @@ let defaultpaths =
     that InstallDir is not computed if unsed (--help, --version, etc.)
   *)
   lazy (
-    !opxdir :: prefix_by_mlstatelibs InstallDir.lib_opa :: []
+    let dirplug = prefix_by_mlstatelibs InstallDir.opa_packages in
+    let dirplug = if File.exists dirplug then [dirplug] else [] in
+    !opxdir :: prefix_by_mlstatelibs InstallDir.lib_opa :: dirplug
   )
 
 let relative_stdlib = ref ""
@@ -469,13 +471,12 @@ let defaultpaths_for_stdlib =
   (* need to delay the computation until after options have been parsed
    * or else the --quiet option wouldn't have been set yet *)
   lazy (let dirname = prefix_by_mlstatelibs (Filename.concat InstallDir.opa_packages !relative_stdlib) in
-        let dirplug = prefix_by_mlstatelibs InstallDir.opa_packages in
         let formula =
           Filename.concat (Printf.sprintf "$%s" InstallDir.name) InstallDir.opa_packages
         in
         try
           if Sys.is_directory dirname then
-            [dirname; dirplug]
+            [dirname]
           else (
             if is_separated () then
               OManager.unquiet "%s (=%s) is not a directory. It won't be used as a default included directory."
