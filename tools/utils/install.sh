@@ -82,6 +82,9 @@ done
 
 : ${PREFIX:=$INSTALLDIR}
 : ${OCAML_PREFIX:=$PREFIX/lib/opa/ocaml}
+: ${STATIC_PREFIX:=$PREFIX/lib/opa/static}
+: ${STDLIB_PREFIX:=$PREFIX/lib/opa/stdlib}
+: ${STDLIB_QMLJS_PREFIX:=$PREFIX/lib/opa/stdlib/stdlib.qmljs}
 
 # create_wrapper basefile exename
 create_wrapper() {
@@ -116,6 +119,7 @@ case "$1" in
         then OPT="--name $1"
         else OPT="$1"
         fi
+        export NODE_PATH="$NODE_PATH:'$STATIC_PREFIX':'$STDLIB_PREFIX':'$STDLIB_QMLJS_PREFIX'"
         opa-create $OPT
         ;;
     *)
