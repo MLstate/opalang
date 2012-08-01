@@ -1566,6 +1566,30 @@ and rewrite_record_update (e:(_,_) expr) (ts:tree list) =
     )
   )
 
+let rec rewrite_record_extend_aux e (((s,annot),t_aux):tree) =
+  match t_aux with
+  | Leaf v -> v
+  | Node ts -> rewrite_record_extend (Dot (e,s), annot) ts
+and rewrite_record_extend (e:(_,_) expr) (ts:tree list) =
+  let path, wrapper =
+    match e with
+    | (Ident _,_) -> e, (fun x -> x)
+    | _ ->
+      if List.for_all (function (_,Node _) -> false | _ -> true) ts then
+        e, (fun x -> x)
+      else
+        let i = fresh_name () in
+        (Ident i, nlabel e), (fun body -> (LetIn (false, [i, e], body), nlabel e)) in
+  wrapper ( 
+    (Directive(`extendwith, [
+      wrapper (ExtendRecord (
+       List.rev_map (fun (((s,_),_) as t) -> (s, rewrite_record_extend_aux path t)) ts,
+       path
+     ),
+     nlabel e
+    )], [] )
+   , nlabel e))
+
 let rewrite_add_recval x =
   let rec aux (e, l) =
     (match e with
@@ -1588,6 +1612,10 @@ let rewrite_letin is_rec binds expr =
 let rewrite_long_extend_record fields expr =
   let trees = make_record_tree fields in
   rewrite_record_update expr trees
+
+let rewrite_long_extended_record fields expr =
+  let trees = make_record_tree fields in
+  rewrite_record_extend expr trees
 
 (*
  * Functions that are expected to be defined later

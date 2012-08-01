@@ -1018,12 +1018,13 @@ module <- Opa_lexer.MODULE module_no_keyword:m
 
 (* ******************************************************************)
 (**
-   {7 Record expression}
+   {8 Record expression}
 *)
 /** Record expression **/
 record <-
   / record_simple
   / record_with
+  / record_extend
 
 /** Simple record **/
 record_simple <- tilda:tilda lbrace record_fields:f rbrace
@@ -1052,6 +1053,12 @@ record_with <- tilda:tilda lbrace expr:e Opa_lexer.WITH record_with_fields:f rbr
   {{
     let long_bindings = default_value_in_expr_record tilda f in
     undecorate (rewrite_long_extend_record long_bindings e)
+  }}
+
+record_extend <- tilda:tilda lbrace expr:e Opa_lexer.EXTEND record_with_fields:f rbrace
+  {{
+    let long_bindings = default_value_in_expr_record tilda f in
+    undecorate (rewrite_long_extended_record long_bindings e)
   }}
 
 record_with_fields <-

@@ -250,7 +250,7 @@ not_a_keyword      <- !(keyword end_of_ident_nosp)
 keyword <- (
   Opa_parser.declaration_directive0_keyword $_
   / "function" / "module"
-  / "with" / "type" / "abstract"
+  / "with" / "type" / "abstract" / "extend"
 
   / "recursive" / "and"
 
@@ -269,6 +269,7 @@ OR     <- (=Opa_lexer.exact_keyword("or"))
 FUNCTION <- (=Opa_lexer.exact_keyword("function"))
 MODULE <- (=Opa_lexer.exact_keyword("module"))
 WITH <- (=Opa_lexer.exact_keyword("with"))
+EXTEND <- (=Opa_lexer.exact_keyword("extend"))
 TYPE <- (=Opa_lexer.exact_keyword("type"))
 
 (* Keywords : Recursive bindings *)
