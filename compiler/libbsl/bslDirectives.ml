@@ -132,7 +132,7 @@ type opalang_decorated_file =
    {9 IncludeType}
 
    A directive for producing all types definitions matching a regexp.
-   A typicall example, is to include all type from a given path
+   A typical example, is to include all type from a given path
 
    {[
    ##extern-type mymodule.*
