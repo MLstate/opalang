@@ -277,14 +277,18 @@ install -m 0644 -v $SRCDIR/LICENSE $INSTALLDIR/share/doc/opa/AGPL
 
 # Cleaning up:
 msg Removing unneeded ocaml executables
+
 # ocaml
 rm -rvf $INSTALLDIR/man/man*
+
 # leave only ocamlc.opt, ocamlopt.opt
 for i in {camlp4*,mkcamlp4,ocamlbuild.byte,ocamlcp,ocamldoc,ocamlmklib*,ocamlprof,ocaml,ocamlbuild.native,ocamldebug,ocamldoc.opt,ocamlmktop,ocamlrun,ocamlbrowser,ocamlc,ocamldep,ocamllex,ocamlopt,ocamlyacc,labltk,ocamlbuild,ocamldep.opt,ocamllex.opt,ocamlc.opt,ocamlobjinfo,ocamlfind,findlib,safe_camlp4,camlidl} ; do
         echo "    --  Removing $INSTALLDIR/bin/$i"
         rm -fv $INSTALLDIR/bin/$i
 done
+
 rm -rvf $INSTALLDIR/etc
+
 for i in {findlib,etc,camlp4,labltk,ocamldoc,objinfo_helper,toplevellib.cma,addlabels,camlheader,expunge,extract_crc,scrapelabels}; do
         echo "    --  Removing $INSTALLDIR/lib/ocaml/$i"
         rm -rvf $INSTALLDIR/lib/ocaml/$i
@@ -300,10 +304,14 @@ if [ -z "$IS_MAC" ] ; then
 fi
 
 if [ $NOOCAML = "true" ]; then
+    echo "    --  Removing $INSTALLDIR/bin/ocamlopt.opt"
+    rm -fv $INSTALLDIR/bin/ocamlopt.opt
+    echo "    --  Removing $INSTALLDIR/lib/ocaml"
+    rm -rfv $INSTALLDIR/lib/ocaml
     echo "    --  Removing $INSTALLDIR_LIBOPA/stdlib/*.opp/*ML*"
     rm -fv $INSTALLDIR_LIBOPA/stdlib/*.opp/*ML*
-    # echo "    --  Removing $INSTALLDIR_LIBOPA/static"
-    # rm -rfv $INSTALLDIR_LIBOPA/static
+    echo "    --  Removing $INSTALLDIR_LIBOPA/static/*.{cmi,cmxa,a,ml}"
+    rm -rfv $INSTALLDIR_LIBOPA/static/*.{cmi,cmxa,a,ml}
 fi
 
 msg "Cleaning RPATH of binaries and shared libraries"
