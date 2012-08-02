@@ -304,10 +304,8 @@ let check_row_variables_are_in_injection check_bijection w_vars v_vars =
     | W_Algebra.Row_known row_type -> (
         match (W_CoreTypes.row_type_repr row_type).W_Algebra.rt_value with
         | ([], W_Algebra.Var_row v') -> v'
-        | _ ->
-            (* Not bijective because instantiated by something else than a
-               variable. *)
-            raise Not_found
+        | _ -> v
+            (* Instantiated by something else than a variable. *)
       ) in
   let check_one_v v ws =
     (* If the variable can't be removed because it is not in the list, then
@@ -341,7 +339,7 @@ let check_column_variables_are_in_injection check_bijection w_vars v_vars =
     | W_Algebra.Col_known col_type -> (
         match (W_CoreTypes.column_type_repr col_type).W_Algebra.ct_value with
         | ([], W_Algebra.Var_column v') -> v'
-        | _ -> raise Not_found
+        | _ -> v
       ) in
   let check_one_v v ws =
     List.remove_first_or_fail_eq ~eq: (==) v ws in
