@@ -620,11 +620,16 @@ OpaSerializeClosure = {{
                     | {some = field} ->
                       (Record.add_field(acc, field, value), tl, err)
             ), js_lst, (Record.empty_constructor(), fields, false))
-        if res.f3 then
-          do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}",
-                       "{js_lst}")
-          none
-        else some(Record.make_record(res.f1))
+        match res.f2 with
+        | [_ | _] as fields ->
+          error_ret("The following fields are not consumed : {OpaType.to_pretty_fields(fields)}"
+                    , none)
+        | _ ->
+          if res.f3 then
+            do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}",
+                         "{js_lst}")
+            none
+          else some(Record.make_record(res.f1))
 
     /* For abstract type ************************/
     and aux_abstract_client(json, client) =
