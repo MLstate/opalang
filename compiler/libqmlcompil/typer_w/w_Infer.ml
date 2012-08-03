@@ -1662,7 +1662,13 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
          "expression.")
   | (`extendwith, [expr]) -> (
       match expr with 
-        | QmlAst.ExtendRecord (_, field_name, field_expr, record_expr) -> (
+        | QmlAst.ExtendRecord _ -> (
+          let rec collect_fields ack e = 
+            match e with
+             | QmlAst.ExtendRecord (_, field_name, field_expr, record_expr) ->
+                collect_fields ((field_name, field_expr, e)::ack) record_expr
+             | e -> (ack, e) in
+          let fields_es, record_expr = collect_fields [] expr in
           (* First, typecheck the record expression. *)
           let (record_ty, record_annotmap) = 
             infer_expr_type ~bypass_typer typing_env record_expr in
@@ -1677,20 +1683,29 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
               column_type.W_Algebra.ct_value <- 
                 (fst column_type.W_Algebra.ct_value, W_Algebra.Closed_column)
           | _ -> () );
-          let (field_ty, field_annotmap) = 
-            infer_expr_type ~bypass_typer typing_env field_expr in
-          #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
-          OManager.printf "@[Extendwith field type: %a@]@."
+          (*find fields types*)
+          let find_field_type (init_annotmap, record_ty) 
+                (field_name, field_expr, extend_exp) =
+            let (field_ty, annotmap) =
+             infer_expr_type ~bypass_typer typing_env field_expr in
+            #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+            OManager.printf "@[Extendwith field type: %a@]@."
             W_PrintTypes.pp_simple_type field_ty ;
-          #<End> ; (* <---------- END DEBUG *)
-          let final_annotmap = 
-            QmlAnnotMap.merge record_annotmap field_annotmap in
-          try
+            #<End> ; (* <---------- END DEBUG *)
             let extended_ty =
               W_ExtendWithDirective.extend_record_simple_type 
               typing_env record_ty field_name field_ty in
             W_TypeInfo.add_loc_object
               extended_ty.W_Algebra.sty_desc loc ;
+            let (extended_ty', annotmap') = perform_infer_expr_type_postlude 
+              extend_exp annotmap extended_ty in
+            ( QmlAnnotMap.merge ~no_conflict_if_equal:true init_annotmap annotmap',
+              extended_ty' ) in
+          let field_annotmap, extended_ty =
+            List.fold_left find_field_type (record_annotmap, record_ty) fields_es in
+          let final_annotmap = 
+            QmlAnnotMap.merge ~no_conflict_if_equal:true record_annotmap field_annotmap in
+          try
             #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
             OManager.printf
               "@[Extendwith extended_ty: %a@]@."
