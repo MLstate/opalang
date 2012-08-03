@@ -124,6 +124,10 @@ let string_of_token = function
   | ChapeauEqual -> "^="
   | Div -> "/"
   | DivEqual -> "/="
+  | OpenDocComment -> "/**"
+  | CloseComment -> "*/"
+  | CommentLine s -> s
+  | CommentTag (t, _) -> "@" ^ t
 
 (* redefining the modules Stream allows us to 'override' the syntax of streams
  * the new peek, junk and empty function look at the first non-newline token

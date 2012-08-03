@@ -120,6 +120,13 @@
   | AmperAmper
   | Amper
 
+  (* These tokens are used only when parsing comments for bsl files
+     and are not produced in normal lexing*)
+  | OpenDocComment
+  | CloseComment
+  | CommentLine of string
+  | CommentTag of string * string
+
   (* the ecmascript defines two kinds of lexing: for the places in the ast
    * where a token starting with / is a regular expression, and the places where
    * it is the division or the division-assignment /=
@@ -188,15 +195,25 @@
 let identifier_part = ['a'-'z''A'-'Z''_''$''0'-'9']
 let identifier = ['a'-'z''A'-'Z''_''$'] identifier_part*
 let hexa = ['0'-'9''a'-'f''A'-'F']
+let whitespace = ['\t''\012''\013'' ']
+let until_end_of_line_or_comment = ('\\'['\r''\n']|[^'\r''\n''*']|'*'[^'/'])*
+let tag = ['a'-'z''A'-'Z''0'-'9']*
 
-rule main = parse
-| ['\t''\012''\013'' ']+ { main lexbuf }
+rule main lex_comments = parse
+| ['\t''\012''\013'' ']+ { main lex_comments lexbuf }
 
 (* beware that we must not throw newlines to be able to implement semicolon
  * insertions *)
 | ['\n' '\r']+ { LT }
 
-| "//" [^'\n''\r']* { main lexbuf }
+| "//" [^'\n''\r']* { main lex_comments lexbuf }
+
+| "/**/" { main lex_comments lexbuf }
+
+| "/**" {
+  if lex_comments then OpenDocComment
+  else multiline_comment false lexbuf
+}
 
 (* beware that if a newline appears in a multi line comment
  * then we _must_ generate a newline token *)
@@ -314,9 +331,16 @@ and string double = parse
 and multiline_comment newline = parse
 | [^'*''\n''\r']* { multiline_comment newline lexbuf }
 | ['\r''\n'] { multiline_comment true lexbuf }
-| "*/" { if newline then LT else main lexbuf }
+| "*/" { if newline then LT else main false lexbuf }
 | '*' { multiline_comment newline lexbuf }
 | eof { raise (Stream.Error "unterminated multiline comment") }
+
+and comment = parse
+| "*/" { CloseComment }
+| ['\r''\n'] { LT }
+| (whitespace|'*')* '@' (tag as t) whitespace*
+    (until_end_of_line_or_comment as s) { CommentTag (t, s) }
+| until_end_of_line_or_comment as s { CommentLine s }
 
 {
 (* this global variable is used to ensure that the lexer never returns
@@ -325,15 +349,24 @@ and multiline_comment newline = parse
  * of 2 with this (otherwise the lookahead would be unbounded) *)
 let just_parsed_a_line_terminator = ref true
 
+(* Tracks whether we are currently lexing a comment or not, so we can
+   call the appropriate lexer *)
+let inside_of_comment = ref false
+
 (* the main lexing function: called the actual lexer, and updates the global
  * state *)
-let rec lex lexbuf =
-  match main lexbuf with
+let rec lex lex_comments lexbuf =
+  let token =
+    if lex_comments && !inside_of_comment then
+      comment lexbuf
+    else
+      main lex_comments lexbuf in
+  match token with
   | LT when !just_parsed_a_line_terminator ->
     (* INVARIANT: there is never two consecutive LT in the token stream *)
     (* can have a division doesn't change *)
     (* just_parsed_a_line_terminator is still true *)
-    lex lexbuf
+    lex lex_comments lexbuf
   | LT ->
     (* can have a division doesn't change *)
     just_parsed_a_line_terminator := true;
@@ -448,31 +481,43 @@ let rec lex lexbuf =
     just_parsed_a_line_terminator := false;
     can_have_a_division := true;
     r
+
+  (* When lexing comments, we don't have to produce a 100% correct
+     token sequence, since the corresponding parser will mostly ignore
+     these tokens. Therefore, we ignore the rest of the state in those
+     cases *)
+  | OpenDocComment as s -> inside_of_comment := true; s
+  | CloseComment as s -> inside_of_comment := false; s
+  | CommentLine _
+  | CommentTag _
+      as s -> s
+
 let init_lexer () =
   can_have_a_division := false;
-  just_parsed_a_line_terminator := true
+  just_parsed_a_line_terminator := true;
+  inside_of_comment := false
 
-let stream lexbuf =
+let stream lex_comments lexbuf =
   Stream.from (
     fun _ ->
-      match lex lexbuf with
+      match lex lex_comments lexbuf with
       | EOF -> None
       | t -> Some t
   )
 
-let stream_of_file file =
+let stream_of_file ?(lex_comments=false) file =
   init_lexer ();
   try
     let ic_ = open_in file in
     Gc.finalise close_in ic_; (* garbage collecting the input channel *)
     let lexbuf = Lexing.from_channel ic_ in
-    stream lexbuf, lexbuf
+    stream lex_comments lexbuf, lexbuf
   with Sys_error diagnostic ->
     Printf.printf "Couldn't open file %s: %s\n%!" file diagnostic;
     exit 1
 
-let stream_of_string string =
+let stream_of_string ?(lex_comments=false) string =
   init_lexer ();
   let lexbuf = Lexing.from_string string in
-  stream lexbuf, lexbuf
+  stream lex_comments lexbuf, lexbuf
 }

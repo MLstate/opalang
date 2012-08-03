@@ -128,13 +128,20 @@ type token =
   | AmperAmper
   | Amper
 
+  (* These tokens are used only when parsing comments for bsl files
+     and are not produced in normal lexing*)
+  | OpenDocComment
+  | CloseComment
+  | CommentLine of string
+  | CommentTag of string * string
+
 val init_lexer : unit -> unit
-val lex : Lexing.lexbuf -> token
-val stream : Lexing.lexbuf -> token Stream.t
+val lex : bool -> Lexing.lexbuf -> token
+val stream : bool -> Lexing.lexbuf -> token Stream.t
 
 (**
-   These high levels function automatically init the lexer
+   These high level functions automatically init the lexer
    when called
 *)
-val stream_of_file : string -> token Stream.t * Lexing.lexbuf
-val stream_of_string : string -> token Stream.t * Lexing.lexbuf
+val stream_of_file : ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf
+val stream_of_string : ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf
