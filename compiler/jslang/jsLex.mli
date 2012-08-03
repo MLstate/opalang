@@ -27,6 +27,10 @@
    functions provided in jsParse if you want to parse some javascript.
 *)
 
+type doc_comment_elt =
+  | CommentLine of string
+  | CommentTag of string * string
+
 type token =
   | Yield
   | With
@@ -130,10 +134,7 @@ type token =
 
   (* These tokens are used only when parsing comments for bsl files
      and are not produced in normal lexing*)
-  | OpenDocComment
-  | CloseComment
-  | CommentLine of string
-  | CommentTag of string * string
+  | DocComment of doc_comment_elt list
 
 val string_of_token : token -> string
 val init_lexer : unit -> unit

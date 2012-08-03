@@ -1591,8 +1591,9 @@ let parse_js_bypass_file_new filename =
         Format.printf "external type %s\n%!" key
       | BDir.OpaTypeDef (key, _vars) ->
         Format.printf "opa type def %s\n%!" key
-      | BDir.Register (key, _, _, _) ->
-        Format.printf "register %s\n%!" key
+      | BDir.Register (key, _, _, ty) ->
+        Format.printf "register %s %a\n%!" key
+          BslTypes.pp_meta ty
       | _ ->
         Format.printf "other\n%!"
     ) directives;

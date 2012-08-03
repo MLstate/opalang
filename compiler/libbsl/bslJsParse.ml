@@ -306,14 +306,15 @@ let maybe_extract_directive tags : extract_result =
   in
   aux None extracted_directives
 
-let rec comment_tags = parser
-  | [< 'CommentLine _; tags = comment_tags >] -> tags
-  | [< 'CommentTag (t, s); tags = comment_tags >] ->
-    (t, String.replace s "\\\n" "") :: tags
-  | [< >] -> []
+let filter_lines lines = List.filter_map (fun line ->
+  match line with
+  | CommentLine s -> None
+  | CommentTag (tag, args) -> Some (tag, args)
+) lines
 
 let rec doc_comment acc = parser
-  | [< 'OpenDocComment; tags = comment_tags; 'CloseComment; stream >] -> (
+  | [< 'DocComment lines; stream >] -> (
+    let tags = filter_lines lines in
     match maybe_extract_directive tags with
     | NoOccurrences -> doc_comment acc stream
     | Error e -> `error e

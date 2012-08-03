@@ -17,6 +17,10 @@
 *)
 
 {
+  type doc_comment_elt =
+  | CommentLine of string
+  | CommentTag of string * string
+
   (* to know what these tokens correspond to, simply
    * look at association list below *)
   type token =
@@ -122,10 +126,7 @@
 
   (* These tokens are used only when parsing comments for bsl files
      and are not produced in normal lexing*)
-  | OpenDocComment
-  | CloseComment
-  | CommentLine of string
-  | CommentTag of string * string
+  | DocComment of doc_comment_elt list
 
 (* used for debug only, not error messages *)
 let string_of_token = function
@@ -228,11 +229,7 @@ let string_of_token = function
   | ChapeauEqual -> "^="
   | Div -> "/"
   | DivEqual -> "/="
-  | OpenDocComment -> "/**"
-  | CloseComment -> "*/"
-  | CommentLine s -> s
-  | CommentTag (t, _) -> "@" ^ t
-
+  | DocComment _ -> "/**"
 
   (* the ecmascript defines two kinds of lexing: for the places in the ast
    * where a token starting with / is a regular expression, and the places where
@@ -297,14 +294,22 @@ let string_of_token = function
 
   (* using a single buffer to store the result of parsing string literals, regexp literals, etc. *)
   let b = Buffer.create 1000
+
+  let get_doc_comment_elt () =
+    let re = Str.regexp "[ \t\\*]*@\\([a-zA-Z0-9]*\\)[ \t]*\\(.*\\)" in
+    let line = Buffer.contents b in
+    Buffer.clear b;
+    if Str.string_match re line 0 then
+      let tag = Str.matched_group 1 line in
+      let args = Str.matched_group 2 line in
+      CommentTag (tag, args)
+    else
+      CommentLine line
 }
 
 let identifier_part = ['a'-'z''A'-'Z''_''$''0'-'9']
 let identifier = ['a'-'z''A'-'Z''_''$'] identifier_part*
 let hexa = ['0'-'9''a'-'f''A'-'F']
-let whitespace = ['\t''\012''\013'' ']
-let until_end_of_line_or_comment = ('\\'['\r''\n']|[^'\r''\n''*']|'*'[^'/'])*
-let tag = ['a'-'z''A'-'Z''0'-'9']*
 
 rule main lex_comments = parse
 | ['\t''\012''\013'' ']+ { main lex_comments lexbuf }
@@ -318,7 +323,7 @@ rule main lex_comments = parse
 | "/**/" { main lex_comments lexbuf }
 
 | "/**" {
-  if lex_comments then OpenDocComment
+  if lex_comments then doc_comment [] lexbuf
   else multiline_comment false lexbuf
 }
 
@@ -442,12 +447,17 @@ and multiline_comment newline = parse
 | '*' { multiline_comment newline lexbuf }
 | eof { raise (Stream.Error "unterminated multiline comment") }
 
-and comment = parse
-| "*/" { CloseComment }
-| ['\r''\n'] { LT }
-| (whitespace|'*')* '@' (tag as t) whitespace*
-    (until_end_of_line_or_comment as s) { CommentTag (t, s) }
-| until_end_of_line_or_comment as s { CommentLine s }
+and doc_comment elts = parse
+| "*/" {
+  let elt = get_doc_comment_elt () in
+  DocComment (List.rev (elt :: elts))
+}
+| ['\r''\n'] {
+  let elt = get_doc_comment_elt () in
+  doc_comment (elt :: elts) lexbuf
+}
+| _ as c { Buffer.add_char b c; doc_comment elts lexbuf }
+| eof { raise (Stream.Error "unterminated multiline comment") }
 
 {
 (* this global variable is used to ensure that the lexer never returns
@@ -456,19 +466,10 @@ and comment = parse
  * of 2 with this (otherwise the lookahead would be unbounded) *)
 let just_parsed_a_line_terminator = ref true
 
-(* Tracks whether we are currently lexing a comment or not, so we can
-   call the appropriate lexer *)
-let inside_of_comment = ref false
-
 (* the main lexing function: called the actual lexer, and updates the global
  * state *)
 let rec lex lex_comments lexbuf =
-  let token =
-    if lex_comments && !inside_of_comment then
-      comment lexbuf
-    else
-      main lex_comments lexbuf in
-  match token with
+  match main lex_comments lexbuf with
   | LT when !just_parsed_a_line_terminator ->
     (* INVARIANT: there is never two consecutive LT in the token stream *)
     (* can have a division doesn't change *)
@@ -593,16 +594,11 @@ let rec lex lex_comments lexbuf =
      token sequence, since the corresponding parser will mostly ignore
      these tokens. Therefore, we ignore the rest of the state in those
      cases *)
-  | OpenDocComment as s -> inside_of_comment := true; s
-  | CloseComment as s -> inside_of_comment := false; s
-  | CommentLine _
-  | CommentTag _
-      as s -> s
+  | DocComment _ as s -> s
 
 let init_lexer () =
   can_have_a_division := false;
-  just_parsed_a_line_terminator := true;
-  inside_of_comment := false
+  just_parsed_a_line_terminator := true
 
 let stream lex_comments lexbuf =
   Stream.from (
