@@ -135,6 +135,7 @@ type token =
   | CommentLine of string
   | CommentTag of string * string
 
+val string_of_token : token -> string
 val init_lexer : unit -> unit
 val lex : bool -> Lexing.lexbuf -> token
 val stream : bool -> Lexing.lexbuf -> token Stream.t

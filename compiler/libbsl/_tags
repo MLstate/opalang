@@ -42,3 +42,6 @@
 <bslbrowser.ml>     : with_mlstate_debug
 <bslOcaml.ml>       : with_mlstate_debug
 <bslConf.ml>        : with_mlstate_debug
+
+<bslJsParse.ml>: use_camlp4, camlp4orf_fixed
+<bslJsParse.ml>: use_jslang

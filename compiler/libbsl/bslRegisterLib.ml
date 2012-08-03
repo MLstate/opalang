@@ -1572,9 +1572,6 @@ let parse_opa_file pprocess options f =
     BRParse.parse_bslregisterparser_opalang f in
   ( parsed : BslDirectives.opalang_decorated_file )
 
-
-
-
 let parse_bypass_file pprocess options filename =
   let set_last_directive d = BRState.set_last_directive d in
   let process_directive = bypass_process_directive in
@@ -1582,6 +1579,30 @@ let parse_bypass_file pprocess options filename =
     BRParse.parse_bslregisterparser_bypasslang filename in
   ( parsed : BslDirectives.bypasslang_decorated_file )
 
+let parse_js_bypass_file_new filename =
+  match BslJsParse.parse filename with
+  | `error e ->
+    OManager.error "Error while reading file %s: %s"
+      filename e
+  | `success directives ->
+    List.iter (fun (_, directive) ->
+      match directive with
+      | BDir.ExternalTypeDef (key, _vars, _) ->
+        Format.printf "external type %s\n%!" key
+      | BDir.OpaTypeDef (key, _vars) ->
+        Format.printf "opa type def %s\n%!" key
+      | BDir.Register (key, _, _, _) ->
+        Format.printf "register %s\n%!" key
+      | _ ->
+        Format.printf "other\n%!"
+    ) directives;
+    failwith "not implemented"
+
+let parse_js_bypass_file pprocess options filename =
+  if options.BI.js_classic_bypass_syntax then
+    parse_bypass_file pprocess options filename
+  else
+    parse_js_bypass_file_new filename
 
 (*
   Main preprocessor
@@ -1628,7 +1649,7 @@ let preprocess_file session filename =
 
 
   | "js" ->
-      let parsed_file = parse_bypass_file session.s_pprocess session.s_options filename in
+      let parsed_file = parse_js_bypass_file session.s_pprocess session.s_options filename in
       let s_rev_js_parsed_files =
         parsed_file :: session.s_rev_js_parsed_files in
 
@@ -1639,7 +1660,7 @@ let preprocess_file session filename =
       session
 
   | "nodejs" ->
-      let parsed_file = parse_bypass_file session.s_pprocess session.s_options filename in
+      let parsed_file = parse_js_bypass_file session.s_pprocess session.s_options filename in
       let s_rev_nodejs_parsed_files =
         parsed_file :: session.s_rev_nodejs_parsed_files in
 
