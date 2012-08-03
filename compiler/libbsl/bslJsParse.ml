@@ -239,17 +239,17 @@ let extract_register =
   try_read_args "register" (fun args ->
     if Str.string_match re args 0 then
       (* TODO:
-         - Parse type
          - Find a way of telling apart injected and not injected with
          different name *)
-      let _ty = Str.matched_group 1 args in
+      let ty = Str.matched_group 1 args in
+      let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
       let name = Str.matched_group 2 args in
       try
         let source = Str.matched_group 3 args in
-        `found (BD.Register (name, Some source, true, BT.Void dummy_pos))
+        `found (BD.Register (name, Some source, true, ty))
       with
         Not_found ->
-          `found (BD.Register (name, None, false, BT.Void dummy_pos))
+          `found (BD.Register (name, None, false, ty))
     else
       `wrong_format
         "Format of @register is \"@register {type} key [optional source]\""
