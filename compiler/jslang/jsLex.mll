@@ -418,10 +418,26 @@ and regexp_flags s1 = parse
 (* [double] is true when the string is enclosed in double quotes
  * and false when it is enclosed in single quotes *)
 and string double = parse
-| "'" { if double then (Buffer.add_char b '\''; string double lexbuf)
-        else String (Buffer.contents b) }
-| '"' { if double then String (Buffer.contents b)
-        else (Buffer.add_char b '"'; string double lexbuf) }
+| "'" {
+  if double then (
+    Buffer.add_char b '\'';
+    string double lexbuf
+  ) else (
+    let s = Buffer.contents b in
+    Buffer.clear b;
+    String s
+  )
+}
+| '"' {
+  if double then (
+    let s = Buffer.contents b in
+    Buffer.clear b;
+    String s
+  ) else (
+    Buffer.add_char b '"';
+    string double lexbuf
+  )
+ }
 | [^'\'' '"' '\\''\n''\r']+ as s { Buffer.add_string b s; string double lexbuf }
 | ['\n' '\r'] { raise (Stream.Error "Line terminator inside a single string literal") }
 | "\\" (['0'-'7'] ['0'-'7']? ['0'-'7']? as s) { Buffer.add_char b (Char.chr (int_of_string s)); string double lexbuf }
