@@ -376,7 +376,7 @@ struct
         | J.Js_var (_, ident, _)
         | J.Js_function (_, ident, _, _) ->
             ident
-        | J.Js_comment (_, _, _) ->
+        | J.Js_comment (_, _) ->
             J.ExprIdent (Ident.next "comment")
         | _ ->
             (*

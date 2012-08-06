@@ -638,13 +638,22 @@ object(self)
           label
           self#statement stmt
 
-    | J.Js_comment (_, `one_line, string) ->
-        pp f "// %s" string
-
-    | J.Js_comment (_, kind, string) ->
-        pp f "%s@\n%s@\n*/"
-          (match kind with `doc -> "/**" | _ -> "/*")
-          string
+    | J.Js_comment (_, comment) -> (
+        match comment with
+        | J.Jc_one_line (_, string) ->
+            pp f "// %s" string
+        | J.Jc_simple (_, string) ->
+            pp f "/*%s*/" string
+        | J.Jc_doc (_, lines) ->
+            pp f "/**";
+            List.iter (fun line ->
+                match line with
+                | JsLex.CommentLine line ->
+                    pp f "%s\n" line
+                | JsLex.CommentTag (tag, args) ->
+                    pp f "@%s %s\n" tag args
+            ) lines
+    )
 
   (*
     do not use self#statements there, all the toplevel would be

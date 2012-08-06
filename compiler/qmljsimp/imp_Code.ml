@@ -819,7 +819,7 @@ let compile_function_body_aux env private_env recursion_info name body =
     (* adding comments or else the generated code is really difficult to read *)
     let set_callee =
       match recursion_info.case_ident with
-      | None -> [JsCons.Statement.comment ~kind:`one_line (Printf.sprintf "simple rec call (to %s)" (Ident.to_string f))]
+      | None -> [JsCons.Statement.comment (Printf.sprintf "simple rec call (to %s)" (Ident.to_string f))]
       | Some case_ ->
           let my_index = IdentMap.find name recursion_info.index in
           let other_index = IdentMap.find f recursion_info.index in
@@ -838,10 +838,10 @@ let compile_function_body_aux env private_env recursion_info name body =
              *   }
              * }
              *)
-            [JsCons.Statement.comment ~kind:`one_line (Printf.sprintf "rec call (to %s) / falling through" (Ident.to_string f))]
+            [JsCons.Statement.comment (Printf.sprintf "rec call (to %s) / falling through" (Ident.to_string f))]
           else (
             let s1 = JsCons.Statement.assign_ident case_ (JsCons.Expr.int other_index) in
-            let s2 = JsCons.Statement.comment ~kind:`one_line (Printf.sprintf "rec call (to %s) / general case" (Ident.to_string f)) in
+            let s2 = JsCons.Statement.comment (Printf.sprintf "rec call (to %s) / general case" (Ident.to_string f)) in
             if recursion_info.number_of_funs = my_index + 1 then
               (* no need to put a continue in the last case of the switch
                * (see the example above, in the right hand side of the 'case 1') *)
@@ -954,7 +954,7 @@ let compile_function_body_aux env private_env recursion_info name body =
   match recursion_info.case_ident with
   | None -> private_env, stm
   | Some _ ->
-      let comment = JsCons.Statement.comment ~kind:`one_line ("body of " ^ Ident.to_string name) in
+      let comment = JsCons.Statement.comment ("body of " ^ Ident.to_string name) in
       private_env, JsCons.Statement.block [comment;stm]
 
 let wrap_function_body _env private_env recursion_info fun_env (name:Ident.t) body =

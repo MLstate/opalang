@@ -207,6 +207,9 @@ let postfixoperator = parser
   | [< 'MinusMinus >] -> J.Ju_sub2_post
 
 let rec statement = parser
+  | [< 'DocComment lines >] ->
+    let l = label () in
+    J.Js_comment (l, J.Jc_doc (l, lines))
   | [< 'Function; 'Ident name ?? "expected an identifier after 'function' in a statement"; 'Lparen; params = list0_sep native comma; 'Rparen; 'Lcurly; body = statements; 'Rcurly >] ->
     J.Js_function (label(), native_ident name, params, body)
   | [< 'Lcurly; block = statements; 'Rcurly ?? "expected a closing curly brace" >] ->

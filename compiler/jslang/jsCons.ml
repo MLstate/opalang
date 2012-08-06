@@ -226,8 +226,8 @@ struct
   let block ?(label=def_label()) stms =
     J.Js_block (label, stms)
 
-  let comment ?(label=def_label()) ?(kind=`simple) string =
-    J.Js_comment (label, kind, string)
+  let comment ?(label=def_label()) string =
+    J.Js_comment (label, J.Jc_simple (label, string))
 
   let continue ?(label=def_label()) ?label:label2 () =
     J.Js_continue (label, label2)

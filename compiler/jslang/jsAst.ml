@@ -211,7 +211,7 @@ type expr =
    | J.Js_block (_, body) ->
    | J.Js_with (_, expr, body) ->
    | J.Js_label (_, label, stmt) ->
-   | J.Js_comment (_, kind, string) ->
+   | J.Js_comment (_, comment) ->
    ]}
 
 *)
@@ -249,7 +249,12 @@ and statement =
   | Js_block of      loc * statement list
   | Js_with of       loc * expr * statement
   | Js_label of      loc * string * statement
-  | Js_comment of    loc * [ `doc | `simple | `one_line ] * string
+  | Js_comment of    loc * comment
+
+and comment =
+  | Jc_doc      of loc * JsLex.doc_comment_elt list
+  | Jc_simple   of loc * string
+  | Jc_one_line of loc * string
 
 (**
    A code element is simply a statement

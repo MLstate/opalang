@@ -119,7 +119,7 @@ sig
   val assign_ident : ?label:Annot.label -> JsAst.ident -> JsAst.expr -> JsAst.statement
   val block : ?label:Annot.label -> JsAst.statement list -> JsAst.statement
   val continue : ?label:Annot.label -> ?label:JsAst.label -> unit -> JsAst.statement
-  val comment : ?label:Annot.label -> ?kind:[`doc|`simple|`one_line] -> string -> JsAst.statement
+  val comment : ?label:Annot.label -> string -> JsAst.statement
   val expr : ?label:Annot.label -> JsAst.expr -> JsAst.statement
   val function_ : ?label:Annot.label -> JsAst.ident -> JsAst.ident list -> JsAst.statement list -> JsAst.statement
   val if_ : ?label:Annot.label -> JsAst.expr -> JsAst.statement -> JsAst.statement -> JsAst.statement
