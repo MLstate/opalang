@@ -308,7 +308,7 @@ let maybe_extract_directive tags : extract_result =
 
 let filter_lines lines = List.filter_map (fun line ->
   match line with
-  | CommentLine s -> None
+  | CommentLine _ -> None
   | CommentTag (tag, args) -> Some (tag, args)
 ) lines
 

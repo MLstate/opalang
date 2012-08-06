@@ -452,6 +452,7 @@ and doc_comment elts = parse
   let elt = get_doc_comment_elt () in
   DocComment (List.rev (elt :: elts))
 }
+| "\\\n" { Buffer.add_char b ' '; doc_comment elts lexbuf }
 | ['\r''\n'] {
   let elt = get_doc_comment_elt () in
   doc_comment (elt :: elts) lexbuf
