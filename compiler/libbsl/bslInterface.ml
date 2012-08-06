@@ -745,7 +745,7 @@ type options = {
      as [js_files]
   *)
 
-  js_validator      : ( (executable * shell_options) * filename list ) option ;
+  js_validator      : ( filename * (executable * shell_options) * filename list ) option ;
   (**
      The executable for performing js validation (syntax at least).
   *)

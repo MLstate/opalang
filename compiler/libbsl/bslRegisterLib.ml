@@ -1192,7 +1192,7 @@ let js_validator finalized_t =
   (* TODO: make validation work for anonymous plugins *)
   let name = Option.get finalized_t.f_options.BI.basename in
   match finalized_t.f_options.BI.js_validator with
-  | Some ((executable, extern_files),cmd_options) when finalized_t.f_js_code <> [] ->
+  | Some (builddir,(executable, extern_files),cmd_options) when finalized_t.f_js_code <> [] ->
     let pp_str_list = Format.pp_list " " Format.pp_print_string in
     let pp_extern_files_list = Format.pp_list " " (
       if executable = "java" then (fun fmt v -> Format.fprintf fmt "--externs %s" v) (* probably google compiler *)
@@ -1211,7 +1211,10 @@ let js_validator finalized_t =
       pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
     in
     Printf.printf "%s\n" command;
+    let cwd = Sys.getcwd () in
+    Sys.chdir builddir;
     let r = Sys.command command in
+    Sys.chdir cwd;
     if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
       if r = command_not_found
       then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable

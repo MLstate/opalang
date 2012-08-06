@@ -353,7 +353,7 @@ let bslregisterlib_options opt fs =
   let js_validator =
     Option.map (
       fun js ->
-        (js, opt.js_validator_files), opt.js_validator_options
+        opt.build_dir, (js, opt.js_validator_files), opt.js_validator_options
     ) (opt.js_validator)
   in
 
