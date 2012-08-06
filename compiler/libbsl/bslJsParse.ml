@@ -20,6 +20,7 @@ module List = BaseList
 module String = BaseString
 module BD = BslDirectives
 module BT = BslTypes
+module BRS = BslRegisterParserState
 
 open JsLex
 
@@ -183,7 +184,7 @@ let extract_type_declaration =
           if List.for_all (fun s -> Str.string_match var_regexp s 0) vars then
             let vars = List.map (fun var ->
               let var = Str.string_after var 1 in
-              QmlTypeVars.TypeVar.next ~name:var ()
+              BRS.TypeVar.var var
             ) vars in
             `found (constructor name vars)
           else
@@ -320,7 +321,7 @@ let rec doc_comment acc = parser
     | Error e -> `error e
     | Found (bsl_tags, d) ->
       (* TODO: analyze next parts *)
-      doc_comment ((bsl_tags, d) :: acc) stream
+      doc_comment ((dummy_pos, bsl_tags, d) :: acc) stream
   )
   | [< _ = Stream.next; stream >] -> doc_comment acc stream
   | [< >] -> `success (List.rev acc)

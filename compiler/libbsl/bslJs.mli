@@ -29,6 +29,22 @@
 type filename = string
 type contents = string
 
+(** We support two different syntaxes for JS bsl files: the classic
+    one, with "##" directives, and another one that uses
+    "documentation comments", such as those in jsdoc.
+*)
+
+type js_decorated_file = {
+  directives:
+    (FilePos.pos * BslTags.t * BslDirectives.bypasslang_directive) list;
+  contents: contents;
+  filename: filename;
+}
+
+type decorated_file =
+| Classic of BslDirectives.bypasslang_decorated_file
+| DocLike of js_decorated_file
+
 (**
    Bsl Preprocessing for Javascript files.
 
@@ -40,7 +56,7 @@ type contents = string
    given as a record of type [BslPluginInterface.dynloader_interface],
    which contains support for registering types and primitives.
 
-   The preprocess should respect the module hiearchy and keys names,
+   The preprocess should respect the module hiearchy and key names,
    for being coherent with Ocaml, but the actual implementation is free,
    as long as the generated javascript is coherent
    with the impl used as argument for calling the dynload interface.
@@ -64,5 +80,5 @@ val preprocess :
   dynloader_interface:BslPluginInterface.dynloader_interface ->
   depends:(filename * contents) list ->
   lang:BslLanguage.t ->
-  BslDirectives.bypasslang_decorated_file list ->
+  decorated_file list ->
   BslPluginInterface.javascript_env * (filename * contents) list

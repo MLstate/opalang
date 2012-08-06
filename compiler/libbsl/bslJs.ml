@@ -44,6 +44,15 @@ type opaname = string
 
 type js_file = FBuffer.t
 
+type js_decorated_file = {
+  directives: (FilePos.pos * BslTags.t * D.bypasslang_directive) list;
+  contents: contents;
+  filename: filename;
+}
+
+type decorated_file =
+| Classic of D.bypasslang_decorated_file
+| DocLike of js_decorated_file
 
 let fbuffer () = FBuffer.create (8 * 1024)
 
@@ -334,7 +343,8 @@ let debug fmt =
 let split_regexp = Str.regexp "%%[ ]*[a-zA-Z\\._]+[ ]*%%";;
 
 
-let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) source_elt =
+let fold_source_elt_classic ~dynloader_interface ~filename ~lang
+    (env, js_file) source_elt =
 
   let env, js_file =
     match source_elt with
@@ -534,13 +544,11 @@ let rec fold_source_elt ~dynloader_interface ~filename ~lang (env, js_file) sour
   in
   env, js_file
 
-
 let env_add_file_line ~filename env js_file =
   let js_file = FBuffer.printf js_file "// file %S, line 1@\n" filename in
   js_file, env
 
-
-let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
+let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
   let filename = decorated_file.D.filename in
   let source = decorated_file.D.decorated_source in
   let implementation = js_module_of_filename filename in
@@ -551,7 +559,7 @@ let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
   let js_file, env = env_add_file_line ~filename env js_file in
 
   let env, js_file =
-    List.fold_left (fold_source_elt ~dynloader_interface ~filename ~lang) (env, js_file) source
+    List.fold_left (fold_source_elt_classic ~dynloader_interface ~filename ~lang) (env, js_file) source
   in
   let js_code = FBuffer.contents js_file in
   let file_js_code = filename, js_code in
@@ -574,6 +582,197 @@ let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
   in
   env
 
+let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
+    (env, local_defs) (pos, tags, directive) =
+  match directive with
+  | D.OpaTypeDef (skey, params) ->
+    if not tags.BslTags.opaname then
+      !! pos "an opa-type cannot be @{<brigth>normalized@}";
+
+    (* for opa types, all rt_ty_skey are opaname *)
+    let rt_ty_skey = skey in
+
+    let skey = "opa_" ^ skey in
+    let rt_ks = env_rp_ks env skey in
+    let key = BslKey.normalize rt_ty_skey in
+    let skey = BslKey.normalize_string skey in
+    let tyitem = rt_ty_skey, env_js_path env skey in
+
+    let ty_spec_map =
+      let replace = function
+        | None ->
+          tyitem
+        | Some (_opaname, conflict_path) ->
+          let path = String.concat "." conflict_path in
+                    (* Check of overwrite of key in ty_spec_map *)
+          warning pos (
+            "an opa-type with the same opa name is already defined:@\n"^^
+              "key: %a@\n"^^
+              "path: %s@\n"^^
+              "This is allowed, but this is a bad practice because this hides the@ "^^
+              "previous definition, and this will lead to code duplication.@\n"^^
+              "@[<2>@{<bright>Hint@}:@\n"^^
+              "Use rather functions working on type %s"^^
+              "@]"
+          )
+            BslKey.pp key
+            path
+            path
+          ;
+          tyitem
+      in
+      let () = SeparatedEnv.SideEffect.add_ty_spec_map key tyitem in
+      BslKeyMap.replace key replace env.ty_spec_map
+    in
+
+    let params = List.map (fun v -> BslTypes.TypeVar (pos, v)) params in
+
+    let rt_ty = BslTypes.External (pos, rt_ty_skey, params) in
+
+    let rt = { BslPluginInterface.
+               rt_ks ;
+               rt_ty ;
+             } in
+    BslPluginInterface.apply_register_type
+      dynloader_interface.BslPluginInterface.register_type rt;
+    let env = { env with ty_spec_map; } in
+    env, local_defs
+
+  | D.ExternalTypeDef (skey, params, implementation) ->
+    let () =
+      match implementation with
+      | None -> ()
+      | Some code ->
+        warning pos (
+          "In javascript, type implementation are ignored.@\n"^^
+            "@[<2>@{<bright>Hint@}:@\n"^^
+            "remove this part: ' = %s'@]"
+        ) code
+    in
+    let rt_ks = env_rp_ks env skey in
+    let rt_ty_skey = env_rt_ty_skey env tags skey in
+    let key = BslKey.normalize rt_ty_skey in
+    let skey = BslKey.normalize_string skey in
+    let tyitem = rt_ty_skey, env_js_path env skey in
+
+    let ty_spec_map =
+      let replace = function
+        | None ->
+          tyitem
+        | Some (_, conflict_path) ->
+                    (* Check of overwrite of key in ty_spec_map *)
+          warning pos (
+            "an extern-type with the same opa name is already defined:@\n"^^
+              "key: %a@\n"^^
+              "path: %a@\n"^^
+              "This is a bad practice, and will be rejected in a further version of Opa"
+          )
+            BslKey.pp key
+            (Format.pp_list "." Format.pp_print_string) conflict_path
+          ;
+          tyitem
+      in
+      SeparatedEnv.SideEffect.add_ty_spec_map key tyitem;
+      BslKeyMap.replace key replace env.ty_spec_map
+    in
+
+    let params = List.map (fun v -> BslTypes.TypeVar (pos, v)) params in
+
+    let rt_ty = BslTypes.External (pos, rt_ty_skey, params) in
+
+    let rt = { BslPluginInterface.
+               rt_ks ;
+               rt_ty ;
+             } in
+    BslPluginInterface.apply_register_type
+      dynloader_interface.BslPluginInterface.register_type rt;
+    let env = { env with ty_spec_map; } in
+    env, local_defs
+
+  | D.Module (skey, implementation) ->
+    env_add_module pos skey implementation env, local_defs
+
+  | D.EndModule ->
+    env_add_endmodule pos env, local_defs
+
+  | D.Register (skey, source_implementation, injected, bslty) ->
+    let rp_ks = env_rp_ks env skey in
+    let rp_ty = env_map_ty_reference_for_opa env pos skey bslty in
+    let parsed_t = BslTags.parsed_t tags in
+
+    let implementation =
+      match source_implementation with
+      | Some source -> source
+      | None ->
+        if injected then assert false
+        else
+          env_rp_implementation env skey injected
+    in
+    let rp_ips = [ lang, filename, parsed_t, implementation ] in
+    let rp = { BslPluginInterface.
+               rp_ks  = rp_ks ;
+               rp_ty  = rp_ty ;
+               rp_ips = rp_ips ;
+               rp_obj = None ;
+             } in
+    let key = BslKey.normalize (String.concat "." rp_ks)  |> BslKey.to_string in
+    SeparatedEnv.SideEffect.add_renaming key implementation;
+    let env = {env with renaming = StringMap.add key implementation env.renaming } in
+    BslPluginInterface.apply_register_primitive
+      dynloader_interface.BslPluginInterface.register_primitive rp;
+    let local_defs = StringMap.add key implementation local_defs in
+    env, local_defs
+
+  | _ ->
+    (* Right now, other directives aren't recognized by the doc-like
+       parser and shouldn't appear here *)
+    assert false
+
+
+let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
+  let filename = decorated_file.filename in
+  let directives = decorated_file.directives in
+  let implementation = js_module_of_filename filename in
+
+  (* we add a module for each file *)
+  let env = env_add_module nopos implementation None env in
+  (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
+  let js_file = fbuffer () in
+  let js_file, env = env_add_file_line ~filename env js_file in
+  let js_file = FBuffer.add js_file decorated_file.contents in
+  let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
+  let init_state = (env, StringMap.empty) in
+  let env, local_defs = List.fold_left fold init_state directives in
+  let js_file = StringMap.fold (fun key implementation js_file ->
+    FBuffer.printf js_file "var %s = %s;\n" key implementation
+  ) local_defs js_file in
+  let js_code = FBuffer.contents js_file in
+  let file_js_code = filename, js_code in
+  let rev_files_js_code = file_js_code :: env.rev_files_js_code in
+  let env = { env with rev_files_js_code } in
+  let env = env_add_endmodule nopos env in
+  let _ =
+    match env.rev_path with
+    | [] -> ()
+    | list ->
+        let list = List.rev (List.tl (List.rev list)) in
+        List.iter (
+          fun (_, _, pos) ->
+            OManager.printf "%a" FilePos.pp_citation pos ;
+        ) list;
+        OManager.error (
+          "File %S: unclosed module(s)@\n@[<2>@{<bright>Hint@}:@\n" ^^
+          "Add the corresponding @{<bright>##endmodule@}@]@\n"
+        ) filename
+  in
+  env
+
+let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
+  match decorated_file with
+  | Classic decorated_file ->
+    fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file
+  | DocLike decorated_file ->
+    fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file
 
 let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang decorated_files =
   let env = empty in

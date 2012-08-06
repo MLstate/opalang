@@ -203,7 +203,7 @@ type bypasslang_decorated_file =
 
    A extern type definition.
 
-   This makes actually sence only in Ocaml files.
+   This makes actually sense only in Ocaml files.
    It introduces a new ocaml type.
 
    {[

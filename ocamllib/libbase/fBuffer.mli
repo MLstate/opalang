@@ -57,14 +57,14 @@ val create : ?name:string -> int -> t
 
 (** {6 Basic operations} *)
 
-(** [add] operations on not too big strings is effecienter
+(** [add] operations on not too big strings are more effecient
     using [FBuffer] rather than [SRope] *)
 val add : t -> string -> t
 
 (** like [add] but add a new line at end *)
 val addln : t -> string -> t
 
-(** [concat a b] does not affect [a] or [b] (functionnal) *)
+(** [concat a b] does not affect [a] or [b] (functional) *)
 val concat : t -> t -> t
 
 (** [add_substring t s start len] append to [t] the substring of s
@@ -72,7 +72,7 @@ val concat : t -> t -> t
 val add_substring : t -> string -> int -> int -> t
 
 (** diverge is used whenever you need to start from a point of your history
-    and to diverge. (implementation is not fully functionnal, but by using
+    and to diverge. (implementation is not fully functional, but by using
     this function, you are sure not to erase anything in memory *)
 val diverge : t -> t
 
