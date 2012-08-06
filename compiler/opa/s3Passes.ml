@@ -377,7 +377,7 @@ let pass_CheckOptions =
        then (
          OManager.printf "opa.exe: @{<bright>no opa files@}@.";
          OpaEnv.Options.echo_help ();
-         OManager.printf "@[<2>@{<bright>Hint@}:@\nprecise some opa files@]@.";
+         OManager.printf "@[<2>@{<bright>Hint@}:@\nspecify some opa files@]@.";
          exit 1;
        ) else (
          let filenames = e.PH.options.O.filenames in
