@@ -545,7 +545,7 @@ let fold_source_elt ~dynloader_interface ~filename env source_elt =
 
             let ml_runtime = env.ml_runtime in
             let ml_runtime = FBuffer.printf ml_runtime
-              "type %s@\n" st_ty
+              "type %s = ServerLib.ty_record@\n" st_ty
             in
             let ml_runtime = FBuffer.printf ml_runtime
               "external wrap_%s : ServerLib.ty_record -> %s@ = \"%%identity\"\n" skey st_ty
@@ -558,7 +558,7 @@ let fold_source_elt ~dynloader_interface ~filename env source_elt =
 
             let ml_runtime_mli = env.ml_runtime_mli in
             let ml_runtime_mli = FBuffer.printf ml_runtime_mli
-              "type %s@\n" st_ty
+              "type %s  = ServerLib.ty_record@\n" st_ty
             in
 
             let env = {
