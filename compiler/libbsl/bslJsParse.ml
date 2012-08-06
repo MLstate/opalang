@@ -206,8 +206,8 @@ let extract_type_declaration =
 
 (** The tag readers, one for each recognized tag *)
 
-let extract_external_type_def =
-  extract_type_declaration "externalType" (fun ty args ->
+let extract_extern_type_def =
+  extract_type_declaration "externType" (fun ty args ->
     BD.ExternalTypeDef (ty, args, None)
   )
 
@@ -264,7 +264,7 @@ let extract_register implementation =
   )
 
 let readers implementation = [
-  extract_external_type_def;
+  extract_extern_type_def;
   extract_opa_type_def;
   extract_module;
   extract_end_module;
