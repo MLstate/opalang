@@ -712,10 +712,10 @@ let plugin_building name =
         files in
     let options = List.fold_left
       (fun options jsfile ->
-         P jsfile ::
            match is_jschecker_file jsfile with
            | true -> A "--js-validator-file" :: P jsfile :: options
            | false ->
+               P jsfile ::
                match Tags.mem "with_mlstate_debug" (tags_of_pathname jsfile) with
                | true -> A "--pp-file" ::
                    P (Printf.sprintf "%s:%s" jsfile
@@ -723,7 +723,14 @@ let plugin_building name =
                | false -> options
       ) options (List.rev jsfiles)
     in
-    A "--unsafe-js" :: options
+    (* Specify the JavaScript validator *)
+    if jsfiles = [] then options
+    else match js_checker with
+    | [] -> []
+    | t::q ->
+        (* TODO : Remove unsafe-js *)
+        A "--unsafe-js" :: A "--js-validator" :: t
+        :: List.fold_right (fun opt acc -> A"--js-validator-opt"::opt::acc) q options
   in
   let has_ml, options (* OCaml files *) =
     let mlfiles = List.filter (fun f -> Pathname.check_extension f "ml") files in
