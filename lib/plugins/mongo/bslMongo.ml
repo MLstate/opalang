@@ -10,27 +10,17 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
 
-module BslUtils = OpabslMLRuntime.BslUtils
-module BslNativeLib = OpabslMLRuntime.BslNativeLib
+module BslNativeLib = BslUtils
 
 (** TODO - plugins dependencies *)
 ##property[mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 ##property[endmli]
 
-##opa-type list('a)
-##opa-type tuple_2('a, 'b)
-##opa-type outcome('a, 'b)
-
-let opa_list_to_ocaml_list f l =
-  BslNativeLib.opa_list_to_ocaml_list f
-    (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
-let ocaml_tuple_2 x =
-  BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 x))
-let opa_tuple_2 x =
-  wrap_opa_tuple_2 (BslNativeLib.unwrap_opa_tuple_2 (BslNativeLib.opa_tuple_2 x))
-let create_outcome x =
-  wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome x))
+let opa_list_to_ocaml_list = BslUtils.opa_list_to_ocaml_list
+let ocaml_tuple_2  = BslUtils.ocaml_tuple_2
+let opa_tuple_2 = BslUtils.opa_tuple_2
+let create_outcome = BslUtils.create_outcome
 (** *****************************)
 
 module C = QmlCpsServerLib
