@@ -10,8 +10,7 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
 
-module BslUtils = OpabslMLRuntime.BslUtils
-module BslNativeLib = OpabslMLRuntime.BslNativeLib
+module BslNativeLib = BslUtils
 (** TODO - plugins dependencies *)
 ##property[mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
@@ -21,13 +20,8 @@ module BslNativeLib = OpabslMLRuntime.BslNativeLib
 ##extern-type SSL.secure_type = SslAS.secure_type
 ##property[endmli]
 
-##opa-type list('a)
-##opa-type tuple_2('a, 'b)
-
-let caml_list_to_opa_list f l =
-  wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
-let opa_list_to_ocaml_list f l =
-  BslNativeLib.opa_list_to_ocaml_list f (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
+let caml_list_to_opa_list = BslNativeLib.caml_list_to_opa_list
+let opa_list_to_ocaml_list = BslNativeLib.opa_list_to_ocaml_list
 (** *****************************)
 
 ##module smtpClient
@@ -304,7 +298,7 @@ let opa_list_to_ocaml_list f l =
       handler f t c (
 	QmlCpsServerLib.cont_ml (
           fun res ->
-	    let i, s = BslNativeLib.ocaml_tuple_2 (BslNativeLib.wrap_opa_tuple_2 (unwrap_opa_tuple_2 res)) in
+	    let i, s = BslNativeLib.ocaml_tuple_2 res in
 	    k (ServerLib.unwrap_int i, ServerLib.unwrap_string s))
       )
     in
