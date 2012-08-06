@@ -5,8 +5,6 @@ DIRS=$(find . -type d | sed "s/.\///")
 
 : ${PACKAGE_FILTER:=cat}
 
-echo opabsl
-
 PACKAGES=''
 for dir in $DIRS ; do
     files=$(find $dir -maxdepth 1 -name '*.opa')
