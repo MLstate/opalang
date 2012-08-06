@@ -1895,12 +1895,11 @@ let no_cps_pass env code =
 
 (* keep it consistent with the name of the module *)
 let serverlib_module_name = "QmlCpsServerLib"
-let bsl = "OpabslMLRuntime.BslCps"
 
 (* cf mli *)
 let meta_cps_utils n =
   let b = FBuffer.create 1024 in
-  let b = FBuffer.printf b "let uncps = %s.uncps_ml\n" bsl in
+  let b = FBuffer.printf b "let uncps = %s.uncps_ml\n" serverlib_module_name in
   let b = FBuffer.printf b "let uncps0 s k f = (); fun () -> uncps s k f\n" in
   let b =
     let b =
