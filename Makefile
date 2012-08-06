@@ -165,7 +165,7 @@ endef
 
 # List all packages and plugins in stdlib
 OPA_PACKAGES := $(shell cd lib/stdlib && ./all_packages.sh)
-OPA_PLUGINS  := $(shell cd lib/stdlib && ./all_plugins.sh)
+OPA_PLUGINS  := $(shell cd lib/stdlib && ./all_plugins.sh && echo "opabsl")
 
 # Rules installing everything that has been compiled
 #
