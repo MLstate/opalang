@@ -231,10 +231,10 @@ let extract_end_module =
       `wrong_format "@endModule takes no arguments"
   )
 
-let extract_register =
+let extract_register implementation =
   let re = Str.regexp (
-    "^{\\([^}]*\\)}[ \t]+" ^ (* Type between brackets *)
-    "\\([a-zA-Z][a-zA-Z0-9]*\\)[ \t]*" ^ (* Bypass name *)
+    "^{\\([^}]*\\)}" ^ (* Type between brackets *)
+    "\\([ \t]+[a-zA-Z][a-zA-Z0-9]*\\)?[ \t]*" ^ (* Optional bypass name *)
     "\\([^ \t]+\\)?[ \t]*$" (* Optional source code *)
   ) in
   try_read_args "register" (fun args ->
@@ -244,24 +244,31 @@ let extract_register =
          different name *)
       let ty = Str.matched_group 1 args in
       let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
-      let name = Str.matched_group 2 args in
-      try
-        let source = Str.matched_group 3 args in
-        `found (BD.Register (name, Some source, true, ty))
-      with
-        Not_found ->
-          `found (BD.Register (name, None, false, ty))
+      let name =
+        try
+          Some (String.trim (Str.matched_group 2 args))
+        with
+          Not_found -> implementation in
+      let source =
+        try
+          Some (Str.matched_group 3 args)
+        with
+          Not_found -> implementation in
+      let injected = Option.is_some source in
+      match name with
+      | Some name -> `found (BD.Register (name, source, injected, ty))
+      | None -> `wrong_format "Missing bypass name in @register declaration"
     else
       `wrong_format
         "Format of @register is \"@register {type} key [optional source]\""
   )
 
-let readers = [
+let readers implementation = [
   extract_external_type_def;
   extract_opa_type_def;
   extract_module;
   extract_end_module;
-  extract_register;
+  extract_register implementation;
 ]
 
 type extract_result =
@@ -270,10 +277,10 @@ type extract_result =
 | Found of BslTags.t * BD.bypasslang_directive
 
 (** Try to extract a bsl directive from a list of tags, *)
-let maybe_extract_directive tags : extract_result =
+let maybe_extract_directive implementation tags : extract_result =
   let extracted_directives = List.map (fun extract ->
     extract tags
-  ) readers in
+  ) (readers implementation) in
   let rec aux acc extracted_directives =
     match extracted_directives with
     | [] -> (
@@ -316,11 +323,16 @@ let filter_lines lines = List.filter_map (fun line ->
 let rec doc_comment acc = parser
   | [< 'DocComment lines; stream >] -> (
     let tags = filter_lines lines in
-    match maybe_extract_directive tags with
+    let implementation =
+      match Stream.npeek 2 stream with
+      | [Function; Ident name] -> Some name
+      | [Var; Ident name] -> Some name
+      | _ -> None
+    in
+    match maybe_extract_directive implementation tags with
     | NoOccurrences -> doc_comment acc stream
     | Error e -> `error e
     | Found (bsl_tags, d) ->
-      (* TODO: analyze next parts *)
       doc_comment ((dummy_pos, bsl_tags, d) :: acc) stream
   )
   | [< _ = Stream.next; stream >] -> doc_comment acc stream
