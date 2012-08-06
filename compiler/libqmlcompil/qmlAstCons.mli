@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -500,6 +500,7 @@ sig
   val dot : ?label:Annot.label -> QmlAst.expr -> string -> QmlAst.expr
   val extendrecord : ?label:Annot.label -> string -> QmlAst.expr -> QmlAst.expr -> QmlAst.expr
   val bypass : ?label:Annot.label -> BslKey.t -> QmlAst.expr
+  val restricted_bypass : ?label:Annot.label -> pass:string -> BslKey.t -> QmlAst.expr
   val coerce : ?label:Annot.label -> QmlAst.expr -> QmlAst.ty -> QmlAst.expr
 end
 

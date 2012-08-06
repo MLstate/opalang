@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -981,6 +981,8 @@ struct
   let dot ?(label=Annot.next_label nopos) e f = Q.Dot (label, e, f)
   let extendrecord ?(label=Annot.next_label nopos) f e n = Q.ExtendRecord (label, f, e, n)
   let bypass ?(label=Annot.next_label nopos) s = Q.Bypass (label, s)
+  let restricted_bypass ?label ~pass s =
+    directive (`restricted_bypass pass) [bypass ?label s] []
   let coerce ?(label=Annot.next_label nopos) e t = Q.Coerce (label, e, t)
 end
 
