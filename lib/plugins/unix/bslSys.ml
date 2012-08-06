@@ -11,12 +11,10 @@
 *)
 module String = Base.String
 
-module BslNativeLib = OpabslMLRuntime.BslNativeLib
+module BslNativeLib = BslUtils
 
-##opa-type list('a)
-
-let caml_list_to_opa_list f l =
-  wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
+let caml_list_to_opa_list =
+  BslNativeLib.caml_list_to_opa_list
 
 (** This returns the raw arguments from the command line,
  *  it's used to seed the Opa version of ServerArgs.
