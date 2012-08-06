@@ -1971,9 +1971,11 @@ Dom = {{
           , xmlns)
         do List.iter(
              (~{namespace name value} ->
-               match XmlNsEnv.try_get_uri(namespace, nsenv)
-               | {none} -> set_attribute(element, name, value)
-               | {some = uri} -> set_attribute_ns(element, uri, name, value)
+               if namespace == "" then set_attribute(element, name, value)
+               else
+                 match XmlNsEnv.try_get_uri(namespace, nsenv)
+                 | {none} -> set_attribute(element, name, value)
+                 | {some = uri} -> set_attribute_ns(element, uri, name, value)
              ), args)
         do List.iter(
              (child -> append_child(element, aux(child, nsenv))),

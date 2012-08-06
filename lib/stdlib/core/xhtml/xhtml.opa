@@ -595,7 +595,7 @@ type XmlNsEnv.t =
 
 XmlNsEnv = {{
 
-  empty = {default = "" map = StringMap.empty}
+  empty:XmlNsEnv.t = {default = "" map = StringMap.empty}
 
   add(x:XmlNsEnv.t, binds:list(Xml.binding)):XmlNsEnv.t =
     List.fold_left(~{map default}, bind ->
