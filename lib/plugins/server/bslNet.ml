@@ -12,7 +12,7 @@
 module List = BaseList
 module HSCp = HttpServerCore_parse
 
-module BslNativeLib = OpabslMLRuntime.BslNativeLib
+module BslNativeLib = BslUtils
 (* The opa scheduler *)
 let default_scheduler = BslScheduler.opa
 
@@ -25,21 +25,10 @@ let default_scheduler = BslScheduler.opa
 ##extern-type binary = Buffer.t
 ##property[endmli]
 
-##opa-type list('a)
-##opa-type tuple_2('a, 'b)
-##opa-type tuple_3('a, 'b, 'c)
-##opa-type ThreadContext.t
-##opa-type ThreadContext.client
-
-let caml_list_to_opa_list f l =
-  wrap_opa_list (BslNativeLib.unwrap_opa_list (BslNativeLib.caml_list_to_opa_list f l))
-let opa_tuple_2 t =
-  wrap_opa_tuple_2 (BslNativeLib.unwrap_opa_tuple_2 (BslNativeLib.opa_tuple_2 t))
-let opa_tuple_3 t =
-  wrap_opa_tuple_3 (BslNativeLib.unwrap_opa_tuple_3 (BslNativeLib.opa_tuple_3 t))
-let opa_list_to_ocaml_list f l =
-  BslNativeLib.opa_list_to_ocaml_list f
-    (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
+let caml_list_to_opa_list = BslNativeLib.caml_list_to_opa_list
+let opa_tuple_2 = BslNativeLib.opa_tuple_2
+let opa_tuple_3 = BslNativeLib.opa_tuple_3
+let opa_list_to_ocaml_list = BslNativeLib.opa_list_to_ocaml_list
 (** *****************************)
 
 ##extern-type web_server_status = Requestdef.status

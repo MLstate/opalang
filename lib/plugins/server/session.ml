@@ -11,8 +11,6 @@
 *)
 #<Debugvar:SESSION_DEBUG>
 
-module BslUtils = OpabslMLRuntime.BslUtils
-
 (**********************************************************)
 (* Alias **************************************************)
 open Cps.Ops

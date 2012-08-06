@@ -34,7 +34,7 @@ let inactive = BslPingRegister.M.Inactive
    [BslPingRegister.Client.key]. Used by [register_event] below.              *)
 (* ************************************************************************** *)
 external opa_tc_c_2_bsl_pr_c_k :
-    BslNet.opa_threadcontext_client -> BslPingRegister.Client.key =
+    BslUtils.opa_threadcontext_client -> BslPingRegister.Client.key =
  "%identity"
 
 (* ************************************************************************** *)
@@ -42,7 +42,7 @@ external opa_tc_c_2_bsl_pr_c_k :
    [BslUtils.opa_threadcontext_client]. Used by [register_event] below.       *)
 (* ************************************************************************** *)
 external bsl_pr_c_k_2_opa_tc_c :
-    BslPingRegister.Client.key -> BslNet.opa_threadcontext_client =
+    BslPingRegister.Client.key -> BslUtils.opa_threadcontext_client =
  "%identity"
 
 module Ping = BslPingRegister.M
