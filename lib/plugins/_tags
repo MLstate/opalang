@@ -14,7 +14,7 @@
 <server>: traverse, classic_syntax
 <session>: traverse, classic_syntax
 <socket>: traverse, classic_syntax
-<unix>:traverse, classic_syntax
+<unix>: traverse
 
 <**/*Loader*.{ml,mli,byte,native}>: use_libbsl
 <crypto/*.{ml,byte,native,opa_plugin}>: use_cryptokit
