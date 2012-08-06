@@ -373,7 +373,8 @@ struct
     | TypeRecord r -> wrap typerecord (sub_row_t_node r)
     | TypeSumSugar l -> wrap typesumsugar (sub_list sub_sum_t l)
     | TypeNamed ti -> wrap typenamed (sub_typeinstance_node ti)
-    | TypeForall (vars, t) -> wrap typeforall (sub_2 sub_ignore sub_t (vars, t))
+    | TypeForall (tvars, rvars, cvars, t) ->
+        wrap typeforall (sub_4 sub_ignore sub_ignore sub_ignore sub_t (tvars, rvars, cvars, t))
     | TypeModule fields -> wrap typemodule (sub_fields fields)
   let sub_ty ty = unannot sub_ty_node ty
 

@@ -395,7 +395,8 @@ just_type_without_sum <- just_type_const:t {{ t }}
                        / external {{ TypeExternal }}
                        / lpar just_typ:t rpar {{ t }}
                        / type_tuple
-                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t {{ TypeForall(typevars, t) }}
+                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t 
+                           {{ TypeForall(typevars, [], [], t) }}
                        / type_module
 
 external <- (=exact_ident("external"))

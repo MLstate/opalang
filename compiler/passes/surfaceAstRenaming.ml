@@ -143,6 +143,8 @@ type toplevel_env =
 type 'a folding_env =
     { fglobal : information IdentMap.t
     ; ftypevars : Ident.t StringMap.t
+    ; frowvars : Ident.t StringMap.t
+    ; fcolvars : Ident.t StringMap.t
     ; data: 'a (* - when renaming types, it contains a boolean saying whether
                 * type variable are explicitely bound or not
                 * - when renaming patterns, it contains a set containing
@@ -272,6 +274,8 @@ let empty_local_env =
 let empty_folding_env =
   { fglobal = IdentMap.empty
   ; ftypevars = StringMap.empty
+  ; frowvars = StringMap.empty
+  ; fcolvars = StringMap.empty
   ; data = ()
   }
 
@@ -651,6 +655,22 @@ let add_type_var name hierar all_env label =
             ftypevars = StringMap.add name ident folding_env.ftypevars}},
      ident)
 
+let add_row_var name hierar all_env label =
+  let ident = ident_of_string ~label name hierar in
+  let folding_env = all_env.f in
+    ({all_env with f =
+         {folding_env with
+            frowvars = StringMap.add name ident folding_env.frowvars}},
+     ident)
+
+let add_col_var name hierar all_env label =
+  let ident = ident_of_string ~label name hierar in
+  let folding_env = all_env.f in
+    ({all_env with f =
+         {folding_env with
+            fcolvars = StringMap.add name ident folding_env.fcolvars}},
+     ident)
+
 let add_var ?(no_warning=false) ?(exported=true) name hierar all_env label =
   let ident = ident_of_string ~label name hierar in
   let warning = if no_warning then Some `never else None in
@@ -720,6 +740,34 @@ let get_typevar name hierar all_env label =
             | None ->
                 (* else define it in the environment *)
                 let all_env, ident = add_type_var name hierar all_env label in
+                all_env.f, ident
+            | Some ident ->
+                all_env.f, ident)
+    | Some ident ->
+        all_env.f, ident
+let get_rowvar name hierar all_env label =
+  (* if the variable is bound to a typedef, use it *)
+  match List.find_opt (fun ident -> Ident.original_name ident = name) all_env.f.data with
+    | None ->
+        (* else, it is in the environment, use it *)
+        ( match StringMap.find_opt name all_env.f.frowvars with
+            | None ->
+                (* else define it in the environment *)
+                let all_env, ident = add_row_var name hierar all_env label in
+                all_env.f, ident
+            | Some ident ->
+                all_env.f, ident)
+    | Some ident ->
+        all_env.f, ident
+let get_colvar name hierar all_env label =
+  (* if the variable is bound to a typedef, use it *)
+  match List.find_opt (fun ident -> Ident.original_name ident = name) all_env.f.data with
+    | None ->
+        (* else, it is in the environment, use it *)
+        ( match StringMap.find_opt name all_env.f.fcolvars with
+            | None ->
+                (* else define it in the environment *)
+                let all_env, ident = add_col_var name hierar all_env label in
                 all_env.f, ident
             | Some ident ->
                 all_env.f, ident)
@@ -821,7 +869,7 @@ and f_row_t_node label all_env hierar (TyRow (fields, rowvaro)) =
     match rowvaro with
       | None -> f_env, TyRow (fields, None)
       | Some (Rowvar v) ->
-          let f_env, v = f_typevar label {all_env with f = f_env} hierar v in
+          let f_env, v = f_rowvar label {all_env with f = f_env} hierar v in
           f_env, TyRow (fields, Some (Rowvar v))
 
 and f_fields_t_node_list all_env hierar fields =
@@ -829,17 +877,28 @@ and f_fields_t_node_list all_env hierar fields =
 
 and f_module_fields all_env hierar fields =
   let original_ftypevars = all_env.f.ftypevars in
+  let original_frowvars = all_env.f.frowvars in
+  let original_fcolvars = all_env.f.fcolvars in
   let new_ftypevars = StringMap.empty in
+  let new_frowvars = StringMap.empty in
+  let new_fcolvars = StringMap.empty in
   let f_env, fields =
     List.fold_left_map
       (fun f_env (field,ty) ->
-         let f_env, ty = f_ty {all_env with f = {f_env with ftypevars = new_ftypevars}} hierar ty in
+         let f_env, ty = f_ty {all_env with f = {f_env with ftypevars = new_ftypevars ;
+                                                            frowvars = new_frowvars ;
+                                                            fcolvars = new_fcolvars }} hierar ty in
          (* rev_map is used so that variables have the same order as in the source
           * it shouldn't matter but it is easier to read *)
          let defined_typed_vars = List.rev_map SurfaceAstHelper.flatvar (StringMap.elts f_env.ftypevars) in
-         let ty = if defined_typed_vars = [] then ty else (TypeForall (defined_typed_vars, ty), Parser_utils.nlabel ty) in
+         let defined_row_vars = List.rev_map SurfaceAstHelper.rowvar (StringMap.elts f_env.frowvars) in
+         let defined_col_vars = List.rev_map SurfaceAstHelper.colvar (StringMap.elts f_env.fcolvars) in
+         let ty =
+           if defined_typed_vars=[] && defined_row_vars=[] && defined_col_vars = [] then ty 
+           else ( TypeForall (defined_typed_vars, defined_row_vars, defined_col_vars, ty)
+                , Parser_utils.nlabel ty) in
          f_env, (field,ty)) all_env.f fields in
-  {f_env with ftypevars = original_ftypevars}, fields
+  {f_env with ftypevars = original_ftypevars; frowvars = original_frowvars; fcolvars = original_fcolvars}, fields
 
 and f_fields_t_node all_env hierar (field_name, ty) =
   let f_env, ty = f_ty all_env hierar ty in
@@ -858,7 +917,7 @@ and f_sum_t_node label all_env hierar = function
       let f_env, row_t = f_row_t_node label all_env hierar row_t in
       f_env, SumRecord row_t
   | SumVar (Colvar name) ->
-      let f_env, name = f_typevar label all_env hierar name in
+      let f_env, name = f_colvar label all_env hierar name in
       f_env, SumVar (Colvar name)
 
 and f_ty all_env hierar (ty_node, label) =
@@ -885,15 +944,32 @@ and f_ty_node label (all_env:Ident.t list all_envs) hierar = function
   | TypeNamed ti ->
       let f_env, ti = f_typeinstance_node label all_env hierar ti in
       f_env, TypeNamed ti
-  | TypeForall (vars, t) ->
-      let original_vars = vars in
+  | TypeForall (tvars,rvars,cvars,t) -> (*put all vars in the env!!!! TODO*)
+      let original_tvars = tvars in
+      let original_rvars = rvars in
+      let original_cvars = cvars in
       let original_ftypevars = all_env.f.ftypevars in
-      let f_env, vars =
-        (* put the vars in the environment *)
+      let original_frowvars = all_env.f.frowvars in
+      let original_fcolvars = all_env.f.fcolvars in
+      let f_env, tvars =
+        (* put the tvars in the environment *)
         List.fold_left_map
           (fun f_env (Flatvar var) ->
              let all_env, var = add_type_var var hierar {all_env with f = f_env} label in
-             all_env.f, (Flatvar var)) all_env.f vars in
+             all_env.f, (Flatvar var)) all_env.f tvars in
+      let f_env, rvars =
+        (* put the rvars in the environment *)
+        List.fold_left_map
+          (fun f_env (Rowvar var) ->
+             let all_env, var = add_row_var var hierar {all_env with f = f_env} label in
+             all_env.f, (Rowvar var)) f_env rvars in
+
+      let f_env, cvars =
+        (* put the cvars in the environment *)
+        List.fold_left_map
+          (fun f_env (Colvar var) ->
+             let all_env, var = add_col_var var hierar {all_env with f = f_env} label in
+             all_env.f, (Colvar var)) f_env cvars in
       (* rename the underlying type *)
       let f_env, t = f_ty {all_env with f = f_env} hierar t in
       let f_env = (* remove the bindings for the quantified variables
@@ -906,8 +982,27 @@ and f_ty_node label (all_env:Ident.t list all_envs) hierar = function
                      (StringMap.find v original_ftypevars) map
                  with Not_found ->
                    StringMap.remove v map
-              ) f_env.ftypevars original_vars} in
-      f_env, TypeForall (vars,t)
+              ) f_env.ftypevars original_tvars
+        ; frowvars =
+            List.fold_left
+              (fun (map:_ StringMap.t) (Rowvar v) ->
+                 try
+                   StringMap.add v
+                     (StringMap.find v original_frowvars) map
+                 with Not_found ->
+                   StringMap.remove v map
+              ) f_env.frowvars original_rvars
+        ; fcolvars =
+            List.fold_left
+              (fun (map:_ StringMap.t) (Colvar v) ->
+                 try
+                   StringMap.add v
+                     (StringMap.find v original_fcolvars) map
+                 with Not_found ->
+                   StringMap.remove v map
+              ) f_env.fcolvars original_cvars
+       } in
+      f_env, TypeForall (tvars,rvars,cvars,t)
   | TypeModule fields ->
       let f_env, fields = f_module_fields all_env hierar fields in
       f_env, TypeRecord (TyRow (fields, None))
@@ -917,6 +1012,10 @@ and f_flatvar label (all_env:Ident.t list all_envs) hierar (Flatvar name) =
   f_env, Flatvar name
 and f_typevar label all_env hierar name =
   get_typevar name hierar all_env label
+and f_rowvar label all_env hierar name =
+  get_rowvar name hierar all_env label
+and f_colvar label all_env hierar name =
+  get_colvar name hierar all_env label
 let f_flatvars label x y z = f_list_aux (f_flatvar label) x y z
 
 (**

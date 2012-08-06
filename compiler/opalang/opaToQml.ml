@@ -253,10 +253,12 @@ struct
     | SA.TypeNamed (SA.Typeident s,tyl) ->
         QA.TypeName (List.map ty tyl, Arg.typeident ~check:false s)
     | SA.TypeExternal -> QA.TypeAbstract
-    | SA.TypeForall (vars, t) ->
+    | SA.TypeForall (tvars, rvars, cvars, t) ->
         QA.TypeForall
-          (List.map (function (SA.Flatvar v) -> Arg.typevar v) vars,
-           [], [], ty t)
+         ( List.map (fun (SA.Flatvar v) -> Arg.typevar v) tvars
+         , List.map (fun (SA.Rowvar v) -> Arg.rowvar v) rvars
+         , List.map (fun (SA.Colvar v) -> Arg.colvar v) cvars
+         , ty t)
     | SA.TypeModule fields ->
         let aux_module_field (s, t) =
           Arg.add_local_scope ();

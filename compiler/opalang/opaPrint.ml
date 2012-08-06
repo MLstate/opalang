@@ -632,8 +632,14 @@ module Classic = struct
       match params with
       | [] -> self#typeident f ident
       | _ -> pp f "@[@[<2>%a(%a@])@]" self#typeident ident (list ",@ " self#under_comma#ty) params
-    method private typeforall f (vars,ty) =
-      pp f "@[<2>forall(@[<h>%a@]) %a@]" (list ",@ " self#typevar) vars self#under_forall#ty ty
+    method private typeforall f (tvars,rvars,cvars,ty) =
+      pp f "@[<2>forall(@[<h>%a%s%a%s%a@]) %a@]" 
+        (list ",@ " self#typevar) tvars
+        (if tvars=[] then "" else ", ")
+        (list ",@ " self#rowvar) rvars
+        (if tvars=[] && rvars=[] then "" else ", ")
+        (list ",@ " self#colvar) cvars 
+        self#under_forall#ty ty
     method private typesumsugar f l =
       pp f "@[<v>  %a@]" (list "@ / " self#under_typesum#sum_t) l
     method private typemodule f fields =
@@ -1158,8 +1164,14 @@ module Js = struct
           with
           | Scanf.Scan_failure _ -> pp f "@[@[<2>%a(%a@])@]" self#typeident ident (list ",@ " self#under_comma#ty) params
       )
-    method private typeforall f (vars,ty) =
-      pp f "@[<2>forall(@[<h>%a@]). %a@]" (list ",@ " self#typevar) vars self#under_forall#ty ty
+    method private typeforall f (tvars,rvars,cvars,ty) =
+      pp f "@[<2>forall(@[<h>%a%s%a%s%a@]). %a@]" (*print empty space always!!! fix this and above*)
+       (list ",@ " self#typevar) tvars
+       (if tvars=[] then "" else ", ")
+       (list ",@ " self#rowvar) rvars
+       (if tvars=[] && rvars=[] then "" else ", ")
+       (list ",@ " self#colvar) cvars 
+       self#under_forall#ty ty
     method private typesumsugar f l =
       pp f "@[<v>or %a@]" (list "@ or " self#under_typesum#sum_t) l
     method private typemodule f fields =

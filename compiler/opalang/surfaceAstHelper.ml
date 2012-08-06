@@ -80,6 +80,9 @@ let typemodule l = TypeModule l
 
 (* functions wrapping other type constructors *)
 let flatvar a = Flatvar a
+let rowvar a = Rowvar a
+let colvar a = Colvar a
+
 let tyrow (a,b) = TyRow (a,b)
 let sumname a = SumName a
 let sumrecord a = SumRecord a

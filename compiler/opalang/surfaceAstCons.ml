@@ -432,7 +432,7 @@ struct
     | TypeRecord r -> TypeRecord (row_node r)
     | TypeSumSugar l -> TypeSumSugar (List.map sum l)
     | TypeNamed t -> TypeNamed (typeinstance_node t)
-    | TypeForall (vars, t) -> TypeForall (vars, ty t)
+    | TypeForall (tvars, rvars, cvars, t) -> TypeForall (tvars, rvars, cvars, ty t)
     | TypeModule fields -> TypeModule (fields_t_node fields)
   and typeinstance (v,l) = (typeinstance_node v, copy_label l)
   and typeinstance_node (i,tyl) = (i,List.map ty tyl)

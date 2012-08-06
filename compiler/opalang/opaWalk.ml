@@ -140,11 +140,11 @@ struct
           acc,
           if tyl == tyl' then orig_ty else
           (TypeNamed (ident,tyl'),lab)
-      | TypeForall (vars,ty) ->
+      | TypeForall (tvars,rvars,cvars,ty) ->
           let acc, ty' = tra acc ty in
           acc,
           if ty == ty' then orig_ty else
-          (TypeForall (vars,ty'),lab)
+          (TypeForall (tvars,rvars,cvars,ty'),lab)
       | TypeModule fields ->
           let acc, fields' =
             List.fold_left_map_stable

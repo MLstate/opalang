@@ -178,7 +178,7 @@ and 'ident ty_node =
     | TypeForall   of 'ident typeforall
     | TypeModule   of 'ident fields_t_node
 
-and 'ident typeforall = 'ident typevar list * 'ident ty
+and 'ident typeforall = 'ident typevar list * 'ident rowvar list * 'ident colvar list * 'ident ty
 
 and 'ident typeinstance_t= 'ident typeinstance_t_node label
 and 'ident typeinstance_t_node = 'ident typeident * 'ident ty list
