@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -10,10 +10,10 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
   type black_ref (*internal type*)
-  external black : 'a ref -> black_ref = "%identity"
-  external unblack : black_ref -> 'a ref = "%identity"
+  external black : 'a ref -> 'a ref = "%identity"
+  external unblack : 'a ref -> 'a ref = "%identity"
 
-  ##extern-type reference('a) = black_ref
+  ##extern-type reference('a) = 'a ref
 
   ##register [opacapi] create : 'a -> reference('a)
   let create x = black (ref x)

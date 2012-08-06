@@ -48,8 +48,8 @@ nodejsbsl/bslLogger.nodejs
 nodejsbsl/bslTimeServer.nodejs
 nodejsbsl/bslPervasivesServer.nodejs
 
-mlbsl/bslNativeLib.ml
 mlbsl/bslUtils.ml
+mlbsl/bslNativeLib.ml
 mlbsl/bslPervasives.ml
 mlbsl/bslBuffer.ml
 mlbsl/bslCactutf.ml
