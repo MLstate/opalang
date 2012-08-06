@@ -1,20 +1,20 @@
 # -*- conf -*- (for emacs)
 
-<badop>: traverse
-<browser_canvas>: traverse
-<crypto>: traverse
-<gcharts>: traverse
-<hlnet>: traverse
-<iconv>: traverse
-<irc>: traverse
-<mail>: traverse
-<mongo>: traverse
-<opabsl>: traverse, static
-<qos>: traverse
-<server>: traverse
-<session>: traverse
-<socket>: traverse
-<unix>:traverse
+<badop>: traverse, classic_syntax
+<browser_canvas>: traverse, classic_syntax
+<crypto>: traverse, classic_syntax
+<gcharts>: traverse, classic_syntax
+<hlnet>: traverse, classic_syntax
+<iconv>: traverse, classic_syntax
+<irc>: traverse, classic_syntax
+<mail>: traverse, classic_syntax
+<mongo>: traverse, classic_syntax
+<opabsl>: traverse, static, classic_syntax
+<qos>: traverse, classic_syntax
+<server>: traverse, classic_syntax
+<session>: traverse, classic_syntax
+<socket>: traverse, classic_syntax
+<unix>:traverse, classic_syntax
 
 <**/*Loader*.{ml,mli,byte,native}>: use_libbsl
 <crypto/*.{ml,byte,native,opa_plugin}>: use_cryptokit

@@ -754,6 +754,14 @@ let plugin_building name =
     else options
   in
 
+  let classic_syntax = Tags.mem "classic_syntax" (tags_of_pathname path) in
+  let options =
+    if classic_syntax then
+      A "--js-bypass-syntax" :: A "classic" :: options
+    else
+      A "--js-bypass-syntax" :: A "new" :: options
+  in
+
   (* Hack for opabsl *)
   let postlude = [] in
   let prods = [] in
