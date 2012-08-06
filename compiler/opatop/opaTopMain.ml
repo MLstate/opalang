@@ -36,6 +36,8 @@
 
 module String = Base.String
 
+module SL = ServerLib
+
 (** {6 Options} *)
 (**
    Since opatop is a runtime tool, linked with the application server suite,
