@@ -21,16 +21,9 @@
 ##extern-type time_t = int
 ##property[endmli]
 
-##opa-type list('a)
-##opa-type tuple_2('a, 'b)
-##opa-type outcome('a, 'b)
-module BslNativeLib = OpabslMLRuntime.BslNativeLib
-module BslUtils = OpabslMLRuntime.BslUtils
-let opa_list_to_ocaml_list f l =
-  BslNativeLib.opa_list_to_ocaml_list f
-    (BslNativeLib.wrap_opa_list (unwrap_opa_list l))
-let create_outcome x =
-  wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome x))
+module BslNativeLib = BslUtils
+let opa_list_to_ocaml_list = BslUtils.opa_list_to_ocaml_list
+let create_outcome x = BslUtils.create_outcome x
 (** *****************************)
 
 module D = Badop.Dialog

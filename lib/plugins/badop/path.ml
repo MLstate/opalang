@@ -12,7 +12,7 @@
 (** Database paths handling (high-level, low level ones are in Badoplink) *)
 
 (* TODO: move all operations using the engine directly to badoplink *)
-module BslNativeLib = Badop_engine.BslNativeLib
+module BslNativeLib = BslUtils
 module B = Badoplink
 module C = QmlCpsServerLib
 module D = Badop.Dialog
@@ -57,7 +57,7 @@ let ( @* ) f g x = f(g(x))
 
 let nil_record = ServerLib.make_simple_record (BslNativeLib.field_nil)
 let qml_nil () =
-  Badop_engine.wrap_opa_list nil_record
+  BslUtils.wrap_opa_list nil_record
 
 let qml_cons x l =
   let record =
@@ -65,7 +65,7 @@ let qml_cons x l =
       (ServerLib.add_field
          (ServerLib.add_field ServerLib.empty_record_constructor BslNativeLib.field_hd x)
          BslNativeLib.field_tl l)
-  in Badop_engine.wrap_opa_list record
+  in BslUtils.wrap_opa_list record
 
 let qml_pair x y =
   let record =
@@ -74,7 +74,7 @@ let qml_pair x y =
          (ServerLib.add_field ServerLib.empty_record_constructor
             BslNativeLib.f1 x)
          BslNativeLib.f2 y)
-  in Badop_engine.wrap_opa_tuple_2 record
+  in BslUtils.wrap_opa_tuple_2 record
 
 (* We need to handle map types (with values passed to dbgen) *)
 ##opa-type map('keys,'values)
