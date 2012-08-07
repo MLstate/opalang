@@ -20,6 +20,7 @@ open JsLex (* bringing token in the scope *)
 
 (* right now, the parser doesn't insert any positions in the ast *)
 let dummy_pos = FilePos.nopos "jsParse"
+let nl pos = Annot.next_label pos
 let label () = Annot.next_label dummy_pos
 let native_ident = JsCons.Ident.native
 
@@ -40,7 +41,7 @@ struct
   let junk stream =
     (* this function is symmetric with peek below *)
     (match Stream.peek stream with
-    | Some LT -> Stream.junk stream
+    | Some (LT _) -> Stream.junk stream
     | _ -> ());
     Stream.junk stream
 
@@ -52,7 +53,7 @@ struct
     | [] -> None*)
   let peek stream = (* this Stream.peek makes the parsing really faster *)
     match Stream.peek stream with
-    | Some LT ->
+    | Some (LT _) ->
       (* using the invariant that says that you never have two consecutives
        * newlines in the token stream *)
       (match Stream.npeek 2 stream with
@@ -131,128 +132,133 @@ let option_default default parser_ = parser
  * which is parsed as [return; 2] and not [return 2] *)
 let option_no_newline parser_ stream =
   match Stream.peek_no_newline stream with
-  | Some LT -> None
+  | Some (LT _)-> None
   | _ -> option parser_ stream
 
 let semic stream =
   match Stream.peek_no_newline stream with
   | None
-  | Some (Semic | LT) -> Stream.junk_no_newline stream
-  | Some Rcurly -> () (* do not discard the bracket! *)
+  | Some (Semic _ | LT _) -> Stream.junk_no_newline stream
+  | Some (Rcurly _) -> () (* do not discard the bracket! *)
   | _ -> raise Stream.Failure
 let ident = parser
-  | [< 'Ident i >] -> i
+  | [< 'Ident (_, i) >] -> i
 let native = parser
-  | [< 'Ident i >] -> native_ident i
+  | [< 'Ident (_, i) >] -> native_ident i
 let comma = parser
-  | [< 'Comma >] -> ()
+  | [< 'Comma _ >] -> ()
 let barbar = parser
-  | [< 'BarBar >] -> J.Jb_lor
+  | [< 'BarBar _ >] -> J.Jb_lor
 let amperamper = parser
-  | [< 'AmperAmper >] -> J.Jb_land
+  | [< 'AmperAmper _ >] -> J.Jb_land
 let bar = parser
-  | [< 'Bar >] -> J.Jb_or
+  | [< 'Bar _ >] -> J.Jb_or
 let chapeau = parser
-  | [< 'Chapeau >] -> J.Jb_xor
+  | [< 'Chapeau _ >] -> J.Jb_xor
 let amper = parser
-  | [< 'Amper >] -> J.Jb_and
+  | [< 'Amper _ >] -> J.Jb_and
 let assignmentoperator = parser
-  | [< 'TimesEqual >] -> J.Jb_mul_assign
-  | [< 'PlusEqual >] -> J.Jb_add_assign
-  | [< 'PercentEqual >] -> J.Jb_mod_assign
-  | [< 'MinusEqual >] -> J.Jb_sub_assign
-  | [< 'LtLtEqual >] -> J.Jb_lsl_assign
-  | [< 'GtGtGtEqual >] -> J.Jb_asr_assign
-  | [< 'GtGtEqual >] -> J.Jb_lsr_assign
-  | [< 'Equal >] -> J.Jb_assign
-  | [< 'DivEqual >] -> J.Jb_div_assign
-  | [< 'ChapeauEqual >] -> J.Jb_xor_assign
-  | [< 'BarEqual >] -> J.Jb_or_assign
-  | [< 'AmperEqual >] -> J.Jb_and_assign
+  | [< 'TimesEqual _ >] -> J.Jb_mul_assign
+  | [< 'PlusEqual _ >] -> J.Jb_add_assign
+  | [< 'PercentEqual _ >] -> J.Jb_mod_assign
+  | [< 'MinusEqual _ >] -> J.Jb_sub_assign
+  | [< 'LtLtEqual _ >] -> J.Jb_lsl_assign
+  | [< 'GtGtGtEqual _ >] -> J.Jb_asr_assign
+  | [< 'GtGtEqual _ >] -> J.Jb_lsr_assign
+  | [< 'Equal _ >] -> J.Jb_assign
+  | [< 'DivEqual _ >] -> J.Jb_div_assign
+  | [< 'ChapeauEqual _ >] -> J.Jb_xor_assign
+  | [< 'BarEqual _ >] -> J.Jb_or_assign
+  | [< 'AmperEqual _ >] -> J.Jb_and_assign
 let equalityoperator = parser
-  | [< 'EqualEqual >] -> J.Jb_eq
-  | [< 'EqualEqualEqual >] -> J.Jb_seq
-  | [< 'BangEqual >] -> J.Jb_neq
-  | [< 'BangEqualEqual >] -> J.Jb_sneq
+  | [< 'EqualEqual _ >] -> J.Jb_eq
+  | [< 'EqualEqualEqual _ >] -> J.Jb_seq
+  | [< 'BangEqual _ >] -> J.Jb_neq
+  | [< 'BangEqualEqual _ >] -> J.Jb_sneq
 let relationaloperator = parser
-  | [< 'Lt >] -> J.Jb_lt
-  | [< 'Gt >] -> J.Jb_gt
-  | [< 'Le >] -> J.Jb_leq
-  | [< 'Ge >] -> J.Jb_geq
-  | [< 'Instanceof >] -> J.Jb_instanceof
-  | [< 'In >] -> J.Jb_in
+  | [< 'Lt _ >] -> J.Jb_lt
+  | [< 'Gt _ >] -> J.Jb_gt
+  | [< 'Le _ >] -> J.Jb_leq
+  | [< 'Ge _ >] -> J.Jb_geq
+  | [< 'Instanceof _ >] -> J.Jb_instanceof
+  | [< 'In _ >] -> J.Jb_in
 let shiftoperator = parser
-  | [< 'LtLt >] -> J.Jb_lsl
-  | [< 'GtGt >] -> J.Jb_lsr
-  | [< 'GtGtGt >] -> J.Jb_asr
+  | [< 'LtLt _ >] -> J.Jb_lsl
+  | [< 'GtGt _ >] -> J.Jb_lsr
+  | [< 'GtGtGt _ >] -> J.Jb_asr
 let additiveoperator = parser
-  | [< 'Plus >] -> J.Jb_add
-  | [< 'Minus >] -> J.Jb_sub
+  | [< 'Plus _ >] -> J.Jb_add
+  | [< 'Minus _ >] -> J.Jb_sub
 let multiplicativeoperator = parser
-  | [< 'Times >] -> J.Jb_mul
-  | [< 'Div >] -> J.Jb_div
-  | [< 'Percent >] -> J.Jb_mod
+  | [< 'Times _ >] -> J.Jb_mul
+  | [< 'Div _ >] -> J.Jb_div
+  | [< 'Percent _ >] -> J.Jb_mod
 let unaryoperator = parser
-  | [< 'PlusPlus >] -> J.Ju_add2_pre
-  | [< 'Delete >] -> J.Ju_delete
-  | [< 'Typeof >] -> J.Ju_typeof
-  | [< 'Void >] -> J.Ju_void
-  | [< 'MinusMinus >] -> J.Ju_sub2_pre
-  | [< 'Plus >] -> J.Ju_add_pre
-  | [< 'Minus >] -> J.Ju_sub_pre
-  | [< 'Tilda >] -> J.Ju_tilde
-  | [< 'Bang >] -> J.Ju_not
+  | [< 'PlusPlus _ >] -> J.Ju_add2_pre
+  | [< 'Delete _ >] -> J.Ju_delete
+  | [< 'Typeof _ >] -> J.Ju_typeof
+  | [< 'Void _ >] -> J.Ju_void
+  | [< 'MinusMinus _ >] -> J.Ju_sub2_pre
+  | [< 'Plus _ >] -> J.Ju_add_pre
+  | [< 'Minus _ >] -> J.Ju_sub_pre
+  | [< 'Tilda _ >] -> J.Ju_tilde
+  | [< 'Bang _ >] -> J.Ju_not
 let postfixoperator = parser
-  | [< 'PlusPlus >] -> J.Ju_add2_post
-  | [< 'MinusMinus >] -> J.Ju_sub2_post
+  | [< 'PlusPlus _ >] -> J.Ju_add2_post
+  | [< 'MinusMinus _ >] -> J.Ju_sub2_post
 
 let rec statement = parser
-  | [< 'DocComment lines >] ->
-    let l = label () in
-    J.Js_comment (l, J.Jc_doc (l, lines))
-  | [< 'Function; 'Ident name ?? "expected an identifier after 'function' in a statement"; 'Lparen; params = list0_sep native comma; 'Rparen; 'Lcurly; body = statements; 'Rcurly >] ->
+  | [< 'DocComment (pos, lines) >] ->
+    J.Js_comment (nl pos, J.Jc_doc (nl pos, lines))
+  | [< 'Function _;
+       'Ident (_, name) ?? "expected an identifier after 'function' in a statement";
+       'Lparen _; params = list0_sep native comma; 'Rparen _;
+       'Lcurly _; body = statements; 'Rcurly _ >] ->
     J.Js_function (label(), native_ident name, params, body)
-  | [< 'Lcurly; block = statements; 'Rcurly ?? "expected a closing curly brace" >] ->
+  | [< 'Lcurly _; block = statements; 'Rcurly _ ?? "expected a closing curly brace" >] ->
     J.Js_block (label(),block)
-  | [< 'Semic; stream >] ->
+  | [< 'Semic _; stream >] ->
     statement stream
-  | [< 'Var; l = list1_sep vardeclaration comma; _ = semic >] ->
+  | [< 'Var _; l = list1_sep vardeclaration comma; _ = semic >] ->
       (match l with
        | [(i,o)] -> J.Js_var (label (), i, o)
        | _ -> J.Js_block (label(), List.map (fun (i,o) -> J.Js_var (label(),i,o)) l))
-  | [< 'If; 'Lparen; e = expr; 'Rparen; s1 = statement; stream >] ->
+  | [< 'If _; 'Lparen _; e = expr; 'Rparen _; s1 = statement; stream >] ->
     let o =
       match stream with parser
-      | [< 'Else; s2 = statement >] -> Some s2
+      | [< 'Else _; s2 = statement >] -> Some s2
       | [< >] -> None in
     J.Js_if (label(),e,s1,o)
-  | [< 'Do; s = statement; 'While; 'Lparen; e = expr; 'Rparen; _ = semic >] ->
+  | [< 'Do _; s = statement; 'While _; 'Lparen _; e = expr; 'Rparen _; _ = semic >] ->
     J.Js_dowhile (label(),s,e)
-  | [< 'While; 'Lparen; e = expr; 'Rparen; s = statement >] ->
+  | [< 'While _; 'Lparen _; e = expr; 'Rparen _; s = statement >] ->
     J.Js_while (label(),e,s)
-  | [< 'For; 'Lparen; stream >] -> (
+  | [< 'For _; 'Lparen _; stream >] -> (
       match stream with parser
-      | [< 'Var; (i,o) = vardeclaration; stream >] ->
+      | [< 'Var _; (i,o) = vardeclaration; stream >] ->
         (match o with
         | Some (J.Je_binop (_,J.Jb_in,e1,e2)) ->
           (match stream with parser
-          | [< 'Rparen; s = statement >] ->
+          | [< 'Rparen _; s = statement >] ->
               let s1 = J.Js_var (label(), i, Some e1) in
               let s2 = J.Js_forin (label(), J.Je_ident (label(),i), e2, s) in
               J.Js_block (label (), [s1; s2])
           )
         | _ ->
           match stream with parser
-          | [< 'In; e2 = expr; 'Rparen; s = statement >] ->
+          | [< 'In _; e2 = expr; 'Rparen _; s = statement >] ->
               let s1 = J.Js_var (label(), i, o) in
               let s2 = J.Js_forin (label(), J.Je_ident(label(),i), e2, s) in
               J.Js_block (label (), [s1; s2])
-          | [< 'Comma; l = list1_sep vardeclaration comma; 'Semic; e2 = option expr; 'Semic; e3 = option expr; 'Rparen; s = statement >] ->
+          | [< 'Comma _; l = list1_sep vardeclaration comma; 'Semic _;
+               e2 = option expr; 'Semic _; e3 = option expr; 'Rparen _;
+               s = statement >] ->
               let s1 = J.Js_var (label(), i, o) in
               let s1_more = List.map (fun (i,o) -> J.Js_var (label(),i,o)) l in
               let s2 = J.Js_for (label(), None, e2, e3, s) in
               J.Js_block (label (), s1 :: s1_more @ [s2])
-          | [< 'Semic; e2 = option expr; 'Semic; e3 = option expr; 'Rparen; s = statement >] ->
+          | [< 'Semic _; e2 = option expr; 'Semic _; e3 = option expr;
+               'Rparen _; s = statement >] ->
               let s1 = J.Js_var (label(), i, o) in
               let s2 = J.Js_for (label(), None, e2, e3, s) in
               J.Js_block (label (), [s1;s2])
@@ -261,24 +267,27 @@ let rec statement = parser
         match o1 with
         | Some J.Je_binop (_,J.Jb_in,e1,e2) -> (
           match stream with parser
-          | [< 'Rparen; s = statement >] ->
+          | [< 'Rparen _; s = statement >] ->
               J.Js_forin (label(), e1, e2, s)
         )
         | _ ->
           match stream with parser
-          | [< _ = semic; e2 = option expr; _ = semic; e3 = option expr; 'Rparen; s = statement >] ->
+          | [< _ = semic; e2 = option expr; _ = semic; e3 = option expr;
+               'Rparen _; s = statement >] ->
             J.Js_for (label(), o1, e2, e3, s)
       )
   )
-  | [< 'Continue; o = option_no_newline ident; _ = semic >] -> J.Js_continue (label(), o)
-  | [< 'Break; o = option_no_newline ident; _ = semic >] -> J.Js_break (label(), o)
-  | [< 'Return; o = option_no_newline expr; _ = semic >] -> J.Js_return (label(), o)
-  | [< 'With; 'Lparen; e = expr; 'Rparen; s = statement >] -> J.Js_with (label(),e,s)
-  | [< 'Switch; 'Lparen; e = expr; 'Rparen; 'Lcurly; clauses = list0 caseclause; default = option defaultclause; 'Rcurly >] -> J.Js_switch (label(),e,clauses,default)
-  | [< 'Throw; e = expr; _ = semic >] -> J.Js_throw (label(),e)
+  | [< 'Continue _; o = option_no_newline ident; _ = semic >] -> J.Js_continue (label(), o)
+  | [< 'Break _; o = option_no_newline ident; _ = semic >] -> J.Js_break (label(), o)
+  | [< 'Return _; o = option_no_newline expr; _ = semic >] -> J.Js_return (label(), o)
+  | [< 'With _; 'Lparen _; e = expr; 'Rparen _; s = statement >] -> J.Js_with (label(),e,s)
+  | [< 'Switch _; 'Lparen _; e = expr; 'Rparen _;
+       'Lcurly _; clauses = list0 caseclause; default = option defaultclause;
+       'Rcurly _ >] -> J.Js_switch (label(),e,clauses,default)
+  | [< 'Throw _; e = expr; _ = semic >] -> J.Js_throw (label(),e)
       (* the specification seems crazy, where is the problem with a newline here? *)
-  | [< 'Debugger >] -> (*SDebugger*) failwith "No ast node for \"debugger\""
-  | [< 'Try; b = block_stm; stream >] -> (
+  | [< 'Debugger _ >] -> (*SDebugger*) failwith "No ast node for \"debugger\""
+  | [< 'Try _; b = block_stm; stream >] -> (
     match stream with parser
     | [< (i,s) = catch_block; o = option finally >] ->
       J.Js_trycatch (label(), b, [(i,None,s)], o)
@@ -287,7 +296,7 @@ let rec statement = parser
   )
   | [< e = expr; stream >] ->
     match stream with parser
-    | [< 'Colon; s = statement >] ->
+    | [< 'Colon _; s = statement >] ->
       (match e with
       | J.Je_ident (label,i) ->
           (match i with
@@ -297,25 +306,25 @@ let rec statement = parser
     | [< _ = semic >] -> J.Js_expr (label(), e)
 
 and block = parser
-  | [< 'Lcurly; l = statements; 'Rcurly >] -> l
+  | [< 'Lcurly _; l = statements; 'Rcurly _ >] -> l
 and block_stm stream =
   J.Js_block (label(), block stream)
 
 and vardeclaration = parser
-  | [< 'Ident i; stream >] ->
+  | [< 'Ident (_, i); stream >] ->
     match stream with parser
-    | [< 'Equal; e = assignmentexpr >] -> (native_ident i, Some e)
+    | [< 'Equal _; e = assignmentexpr >] -> (native_ident i, Some e)
     | [< >] -> (native_ident i, None)
 
 and caseclause = parser
-  | [< 'Case; e = expr; 'Colon; l = statements_stm >] -> (e, l)
+  | [< 'Case _; e = expr; 'Colon _; l = statements_stm >] -> (e, l)
 and defaultclause = parser
-  | [< 'Default; 'Colon; l = statements_stm >] -> l
+  | [< 'Default _; 'Colon _; l = statements_stm >] -> l
 
 and catch_block = parser
-  | [< 'Catch; 'Lparen; 'Ident i; 'Rparen; b = block_stm >] -> (native_ident i,b)
+  | [< 'Catch _; 'Lparen _; 'Ident (_, i); 'Rparen _; b = block_stm >] -> (native_ident i,b)
 and finally = parser
-  | [< 'Finally; b = block_stm >] -> b
+  | [< 'Finally _; b = block_stm >] -> b
 
 and expr stream =
   match rev_list1_sep assignmentexpr comma stream with
@@ -327,7 +336,7 @@ and assignmentexpr stream =
 and conditionalexpr = parser
   | [< e = logicalorexpr; stream >] ->
     match stream with parser
-    | [< 'Question; e2 = assignmentexpr; 'Colon; e3 = conditionalexpr >] -> J.Je_cond (label(),e,e2,e3)
+    | [< 'Question _; e2 = assignmentexpr; 'Colon _; e3 = conditionalexpr >] -> J.Je_cond (label(),e,e2,e3)
     | [< >] -> e
 and logicalorexpr stream =
   list1_sep_left_assoc logicalandexpr barbar stream
@@ -359,46 +368,47 @@ and postfixexpr = parser
     | None -> e
     | Some op -> J.Je_unop(label(),op,e)
 and lefthandsideexpr new_ = parser
-  | [< 'New; e = lefthandsideexpr true; el = option_default [] arguments; stream >] ->
+  | [< 'New _; e = lefthandsideexpr true; el = option_default [] arguments; stream >] ->
       let e = J.Je_new (label(),e,el) in
       dot_hashref_call true e stream
-  | [< 'Function; name = option native; 'Lparen; params = list0_sep native comma; 'Rparen; 'Lcurly; body = statements; 'Rcurly; stream >] ->
+  | [< 'Function _; name = option native; 'Lparen _; params = list0_sep native comma; 'Rparen _; 'Lcurly _; body = statements; 'Rcurly _; stream >] ->
       (* put the this rule into primaryexpr instead? *)
       let e = J.Je_function (label(),name,params,body) in
       dot_hashref_call (not new_) e stream
   | [< e = primaryexpr; r = dot_hashref_call (not new_) e >] -> r
 and dot_hashref_call can_call e = parser
-  | [< 'Dot; 'Ident i; stream >] ->
+  | [< 'Dot _; 'Ident (_, i); stream >] ->
     dot_hashref_call can_call (J.Je_dot (label(),e,i)) stream
-  | [< 'Lbracket; i = expr; 'Rbracket; stream >] ->
+  | [< 'Lbracket _; i = expr; 'Rbracket _; stream >] ->
     dot_hashref_call can_call (J.Je_binop (label(),J.Jb_hashref,e,i)) stream
-  | [< 'Lparen when can_call; l = list0_sep assignmentexpr comma; 'Rparen; stream >] ->
+  | [< 'Lparen _ when can_call; l = list0_sep assignmentexpr comma; 'Rparen _; stream >] ->
     (* refusing to parse arguments when under a new because in [new f()], the arguments are given to new_
      * not to f *)
     dot_hashref_call can_call (J.Je_call (label(),e,l,false)) stream
   | [< >] -> e
 and arguments = parser
-  | [< 'Lparen; l = list0_sep assignmentexpr comma; 'Rparen >] -> l
+  | [< 'Lparen _; l = list0_sep assignmentexpr comma; 'Rparen _ >] -> l
 and primaryexpr = parser
-  | [< 'Null >] -> J.Je_null (label())
-  | [< 'This >] -> J.Je_this (label())
-  | [< 'Ident i >] -> J.Je_ident (label(), native_ident i)
-  | [< 'Integer i >] -> J.Je_num (label(), i)
-  | [< 'True >] -> J.Je_bool (label(), true)
-  | [< 'False >] -> J.Je_bool (label(), false)
-  | [< 'String s >] -> J.Je_string (label(), s, true)
-  | [< 'Lbracket; l = list0_sep assignmentexpr comma; 'Rbracket >] -> J.Je_array (label(), l)
-  | [< 'Lcurly; l = list0_sep property_assignment comma; _ = option comma; 'Rcurly >] -> J.Je_object(label(), l)
-  | [< 'Lparen; e = expr; 'Rparen >] -> e
-  | [< 'Regexp (s1,s2) >] -> J.Je_regexp (label(),s1,s2)
+  | [< 'Null pos >] -> J.Je_null (nl pos)
+  | [< 'This pos >] -> J.Je_this (nl pos)
+  | [< 'Ident (pos, i) >] -> J.Je_ident (nl pos, native_ident i)
+  | [< 'Integer (pos, i) >] -> J.Je_num (nl pos, i)
+  | [< 'True pos >] -> J.Je_bool (nl pos, true)
+  | [< 'False pos >] -> J.Je_bool (nl pos, false)
+  | [< 'String (pos, s) >] -> J.Je_string (nl pos, s, true)
+  | [< 'Lbracket _; l = list0_sep assignmentexpr comma; 'Rbracket _ >] -> J.Je_array (label(), l)
+  | [< 'Lcurly _; l = list0_sep property_assignment comma; _ = option comma;
+       'Rcurly _ >] -> J.Je_object(label(), l)
+  | [< 'Lparen _; e = expr; 'Rparen _ >] -> e
+  | [< 'Regexp (pos,s1,s2) >] -> J.Je_regexp (nl pos,s1,s2)
 and statements stream = list0 statement stream
 and statements_stm stream = J.Js_block (label(),statements stream)
 and property_name = parser
-  | [< 'Ident i >] -> i
-  | [< 'String s >] -> s
-  | [< 'Integer i >] -> i
+  | [< 'Ident (_, i) >] -> i
+  | [< 'String (_, s) >] -> s
+  | [< 'Integer (_, i) >] -> i
 and property_assignment = parser
-  | [< p = property_name; 'Colon; e = assignmentexpr >] ->
+  | [< p = property_name; 'Colon _; e = assignmentexpr >] ->
     (p,e)
 
 let code = parser

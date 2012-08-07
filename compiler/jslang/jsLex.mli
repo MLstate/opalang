@@ -27,114 +27,118 @@
    functions provided in jsParse if you want to parse some javascript.
 *)
 
+type pos = FilePos.pos
+
 type doc_comment_elt =
-  | CommentLine of string
-  | CommentTag of string * string
+| CommentLine of pos * string
+| CommentTag of pos * string * string
 
+(* to know what these tokens correspond to, simply look at association
+ * list below *)
 type token =
-  | Yield
-  | With
-  | While
-  | Void
-  | Var
-  | Typeof
-  | Try
-  | True
-  | TimesEqual
-  | Times
-  | Tilda
-  | Throw
-  | This
-  | Switch
-  | Super
-  | String of (string)
-  | Static
-  | Semic
-  | Rparen
-  | Return
-  | Regexp of (string * string)
-  | Rcurly
-  | Rbracket
-  | Question
-  | Public
-  | Protected
-  | Private
-  | PlusPlus
-  | PlusEqual
-  | Plus
-  | PercentEqual
-  | Percent
-  | Package
-  | Null
-  | New
-  | MinusMinus
-  | MinusEqual
-  | Minus
-  | LtLtEqual
-  | LtLt
-  | Lt
-  | Lparen
-  | Let
-  | Le
-  | Lcurly
-  | Lbracket
-  | LT
-  | Interface
-  | Integer of (string)
-  | Instanceof
-  | In
-  | Import
-  | Implements
-  | If
-  | Ident of (string)
-  | GtGtGtEqual
-  | GtGtGt
-  | GtGtEqual
-  | GtGt
-  | Gt
-  | Ge
-  | Function
-  | For
-  | Finally
-  | False
-  | Extends
-  | Export
-  | EqualEqualEqual
-  | EqualEqual
-  | Equal
-  | Enum
-  | Else
-  | EOF
-  | Dot
-  | Do
-  | DivEqual
-  | Div
-  | Delete
-  | Default
-  | Debugger
-  | Continue
-  | Const
-  | Comma
-  | Colon
-  | Class
-  | ChapeauEqual
-  | Chapeau
-  | Catch
-  | Case
-  | Break
-  | BarEqual
-  | BarBar
-  | Bar
-  | BangEqualEqual
-  | BangEqual
-  | Bang
-  | AmperEqual
-  | AmperAmper
-  | Amper
+| Yield of pos
+| With of pos
+| While of pos
+| Void of pos
+| Var of pos
+| Typeof of pos
+| Try of pos
+| True of pos
+| TimesEqual of pos
+| Times of pos
+| Tilda of pos
+| Throw of pos
+| This of pos
+| Switch of pos
+| Super of pos
+| String of pos * string
+| Static of pos
+| Semic of pos
+| Rparen of pos
+| Return of pos
+| Regexp of pos * string * string
+| Rcurly of pos
+| Rbracket of pos
+| Question of pos
+| Public of pos
+| Protected of pos
+| Private of pos
+| PlusPlus of pos
+| PlusEqual of pos
+| Plus of pos
+| PercentEqual of pos
+| Percent of pos
+| Package of pos
+| Null of pos
+| New of pos
+| MinusMinus of pos
+| MinusEqual of pos
+| Minus of pos
+| LtLtEqual of pos
+| LtLt of pos
+| Lt of pos
+| Lparen of pos
+| Let of pos
+| Le of pos
+| Lcurly of pos
+| Lbracket of pos
+| LT of pos
+| Interface of pos
+| Integer of pos * string
+| Instanceof of pos
+| In of pos
+| Import of pos
+| Implements of pos
+| If of pos
+| Ident of pos * string
+| GtGtGtEqual of pos
+| GtGtGt of pos
+| GtGtEqual of pos
+| GtGt of pos
+| Gt of pos
+| Ge of pos
+| Function of pos
+| For of pos
+| Finally of pos
+| False of pos
+| Extends of pos
+| Export of pos
+| EqualEqualEqual of pos
+| EqualEqual of pos
+| Equal of pos
+| Enum of pos
+| Else of pos
+| EOF of pos
+| Dot of pos
+| Do of pos
+| DivEqual of pos
+| Div of pos
+| Delete of pos
+| Default of pos
+| Debugger of pos
+| Continue of pos
+| Const of pos
+| Comma of pos
+| Colon of pos
+| Class of pos
+| ChapeauEqual of pos
+| Chapeau of pos
+| Catch of pos
+| Case of pos
+| Break of pos
+| BarEqual of pos
+| BarBar of pos
+| Bar of pos
+| BangEqualEqual of pos
+| BangEqual of pos
+| Bang of pos
+| AmperEqual of pos
+| AmperAmper of pos
+| Amper of pos
 
-  (* These tokens are used only when parsing comments for bsl files
-     and are not produced in normal lexing*)
-  | DocComment of doc_comment_elt list
+(* These tokens are used only when parsing comments for bsl files
+   and are not produced in normal lexing*)
+| DocComment of pos * doc_comment_elt list
 
 val string_of_token : token -> string
 val init_lexer : unit -> unit

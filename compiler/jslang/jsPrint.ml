@@ -648,9 +648,9 @@ object(self)
             pp f "/**";
             List.iter (fun line ->
                 match line with
-                | JsLex.CommentLine line ->
+                | JsLex.CommentLine (_, line) ->
                     pp f "%s\n" line
-                | JsLex.CommentTag (tag, args) ->
+                | JsLex.CommentTag (_, tag, args) ->
                     pp f "@%s %s\n" tag args
             ) lines
     )

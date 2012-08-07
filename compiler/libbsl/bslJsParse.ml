@@ -28,12 +28,9 @@ module BRS = BslRegisterParserState
 
 open JsLex
 
-(* No source positions for now *)
-let dummy_pos = FilePos.nopos "BslJsParse"
-let label () = Annot.next_label dummy_pos
-
 type tag = string
 type message = string
+type pos = FilePos.pos
 
 let whitespace = Str.regexp "[ \t]*"
 
@@ -73,7 +70,7 @@ let collect_bsl_tags tags =
 
   (* Reads tags with an associated set of strings *)
   let string_set tag update bsl_tags =
-    let aux (tag', args) =
+    let aux (_, tag', args) =
       if tag = tag' then
         let attributes = Str.split whitespace args in
         Some (StringSet.from_list attributes)
@@ -90,7 +87,7 @@ let collect_bsl_tags tags =
     let rec aux tags =
       match tags with
       | [] -> Some bsl_tags
-      | (tag', args) :: rest ->
+      | (_, tag', args) :: rest ->
         if tag <> tag' then
           aux rest
         else if Str.string_match whitespace args 0 then
@@ -130,7 +127,7 @@ let collect_bsl_tags tags =
 type global_read_result = [ `no_occurrences
                           | `wrong_format of message
                           | `multiple_occurrences of tag
-                          | `found of tag * BD.t ]
+                          | `found of pos * tag * BD.t ]
 
 type local_read_result = [ `wrong_format of message
                          | `found of BD.t ]
@@ -138,14 +135,14 @@ type local_read_result = [ `wrong_format of message
 (** Extracts all occurrences of tag [keyword] *)
 let try_read_args tag
     (arg_reader : string -> local_read_result)
-    tags =
+    tags : global_read_result =
   let rec aux acc tags =
     match tags with
     | [] ->
       Option.default_map `no_occurrences
-        (fun dir -> `found (tag, dir))
+        (fun (pos, dir) -> `found (pos, tag, dir))
         acc
-    | (tag', args) :: rest ->
+    | (pos, tag', args) :: rest ->
       if tag <> tag' then
         aux acc rest
       else if Option.is_some acc then
@@ -153,7 +150,7 @@ let try_read_args tag
       else
         match arg_reader args with
         | `wrong_format _ as s -> s
-        | `found directive -> aux (Some directive) rest
+        | `found directive -> aux (Some (pos, directive)) rest
   in
   aux None tags
 
@@ -277,7 +274,7 @@ let readers implementation = [
 type extract_result =
 | NoOccurrences
 | Error of string
-| Found of BslTags.t * BD.t
+| Found of pos * BslTags.t * BD.t
 
 (** Try to extract a bsl directive from a list of tags, *)
 let maybe_extract_directive implementation tags : extract_result =
@@ -289,19 +286,19 @@ let maybe_extract_directive implementation tags : extract_result =
     | [] -> (
       match acc with
       | None -> NoOccurrences
-      | Some (_, d) ->  (
+      | Some (pos, _, d) ->  (
         match collect_bsl_tags tags with
-        | Some bsl_tags -> Found (bsl_tags, d)
+        | Some bsl_tags -> Found (pos, bsl_tags, d)
         | None -> Error "Badly formatted BSL tags"
       )
     )
     | extracted :: rest -> (
       match extracted with
       | `no_occurrences -> aux acc rest
-      | `found (name, directive) -> (
+      | `found (pos, name, directive) -> (
         match acc with
-        | None -> aux (Some (name, directive)) rest
-        | Some (name', _directive') ->
+        | None -> aux (Some (pos, name, directive)) rest
+        | Some (_pos', name', _directive') ->
           Error (
             Printf.sprintf
               "Multiple directives have been found: @%s and @%s"
@@ -320,23 +317,23 @@ let maybe_extract_directive implementation tags : extract_result =
 let filter_lines lines = List.filter_map (fun line ->
   match line with
   | CommentLine _ -> None
-  | CommentTag (tag, args) -> Some (tag, args)
+  | CommentTag (pos, tag, args) -> Some (pos, tag, args)
 ) lines
 
 let rec doc_comment acc = parser
-  | [< 'DocComment lines; stream >] -> (
+  | [< 'DocComment (_, lines); stream >] -> (
     let tags = filter_lines lines in
     let implementation =
       match Stream.npeek 2 stream with
-      | [Function; Ident name] -> Some name
-      | [Var; Ident name] -> Some name
+      | [Function _; Ident (_, name)] -> Some name
+      | [Var _; Ident (_, name)] -> Some name
       | _ -> None
     in
     match maybe_extract_directive implementation tags with
     | NoOccurrences -> doc_comment acc stream
     | Error e -> `error e
-    | Found (bsl_tags, d) ->
-      doc_comment ((dummy_pos, bsl_tags, d) :: acc) stream
+    | Found (pos, bsl_tags, d) ->
+      doc_comment ((pos, bsl_tags, d) :: acc) stream
   )
   | [< _ = Stream.next; stream >] -> doc_comment acc stream
   | [< >] -> `success (List.rev acc)
