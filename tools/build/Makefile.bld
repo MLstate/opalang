@@ -169,6 +169,10 @@ install-tools:
 %.stamp: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $@
 
+.PHONY: *.oppf
+%.oppf: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) $@
+
 .PHONY: *.native
 %.native: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $@
