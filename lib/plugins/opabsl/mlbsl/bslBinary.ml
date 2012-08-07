@@ -78,10 +78,17 @@ let add_uint16_be b i =
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   Buffer.add_char b (Char.chr ( i         land 0xff))
 
+let _0x100000000 =
+  #<Ifstatic:OCAML_WORD_SIZE 64>
+    0x100000000
+  #<Else>
+    0
+  #<End>
+
 ##register add_int32_le : binary, int -> void
 let add_int32_le b i =
   (* if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_le: out of range int %d" i); *)
-  let i = if i < 0 then 0x100000000 + i else i in
+  let i = if i < 0 then _0x100000000 + i else i in
   Buffer.add_char b (Char.chr ( i         land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
@@ -90,7 +97,7 @@ let add_int32_le b i =
 ##register add_int32_be : binary, int -> void
 let add_int32_be b i =
   (* if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_be: out of range int %d" i); *)
-  let i = if i < 0 then 0x100000000 + i else i in
+  let i = if i < 0 then _0x100000000 + i else i in
   Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
@@ -244,6 +251,14 @@ let get_uint16_be b start =
         (Char.code (Buffer.nth b (start + 1)        ) land 0x00ff)
   lor (((Char.code (Buffer.nth b  start     )) lsl 8) land 0xff00)
 
+let _0xff000000 =
+  #<Ifstatic:OCAML_WORD_SIZE 64>
+    0xff000000
+  #<Else>
+    0x7f000000
+  #<End>
+
+
 ##register get_int32_le : binary, int -> int
 let get_int32_le b start =
   if start > Buffer.length b - 4 then error "BslBinary.get_int32_le: insufficient buffer data";
@@ -251,9 +266,13 @@ let get_int32_le b start =
            (Char.code (Buffer.nth b  start              ) land 0x000000ff)
      lor (((Char.code (Buffer.nth b (start + 1))) lsl 8 ) land 0x0000ff00)
      lor (((Char.code (Buffer.nth b (start + 2))) lsl 16) land 0x00ff0000)
-     lor (((Char.code (Buffer.nth b (start + 3))) lsl 24) land 0xff000000)
+     lor (((Char.code (Buffer.nth b (start + 3))) lsl 24) land _0xff000000)
   in
+  #<Ifstatic:OCAML_WORD_SIZE 64>
   if i > 0x7fffffff then i - 0x100000000 else i
+  #<Else>
+  i
+  #<End>
 
 ##register get_int32_be : binary, int -> int
 let get_int32_be b start =
@@ -262,9 +281,13 @@ let get_int32_be b start =
            (Char.code (Buffer.nth b (start + 3)         ) land 0x000000ff)
      lor (((Char.code (Buffer.nth b (start + 2))) lsl 8 ) land 0x0000ff00)
      lor (((Char.code (Buffer.nth b (start + 1))) lsl 16) land 0x00ff0000)
-     lor (((Char.code (Buffer.nth b  start     )) lsl 24) land 0xff000000)
+     lor (((Char.code (Buffer.nth b  start     )) lsl 24) land _0xff000000)
   in
+  #<Ifstatic:OCAML_WORD_SIZE 64>
   if i > 0x7fffffff then i - 0x100000000 else i
+  #<Else>
+  i
+  #<End>
 
 ##register get_uint32_le : binary, int -> int
 let get_uint32_le b start =
@@ -272,7 +295,7 @@ let get_uint32_le b start =
         (Char.code (Buffer.nth b  start              ) land 0x000000ff)
   lor (((Char.code (Buffer.nth b (start + 1))) lsl 8 ) land 0x0000ff00)
   lor (((Char.code (Buffer.nth b (start + 2))) lsl 16) land 0x00ff0000)
-  lor (((Char.code (Buffer.nth b (start + 3))) lsl 24) land 0xff000000)
+  lor (((Char.code (Buffer.nth b (start + 3))) lsl 24) land _0xff000000)
 
 ##register get_uint32_be : binary, int -> int
 let get_uint32_be b start =
@@ -280,7 +303,7 @@ let get_uint32_be b start =
         (Char.code (Buffer.nth b (start + 3)         ) land 0x000000ff)
   lor (((Char.code (Buffer.nth b (start + 2))) lsl 8 ) land 0x0000ff00)
   lor (((Char.code (Buffer.nth b (start + 1))) lsl 16) land 0x00ff0000)
-  lor (((Char.code (Buffer.nth b  start     )) lsl 24) land 0xff000000)
+  lor (((Char.code (Buffer.nth b  start     )) lsl 24) land _0xff000000)
 
 let get_int64_le b p =
   (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buffer.nth b (p+7)))) 56) 0xff00000000000000L)
