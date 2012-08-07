@@ -1055,7 +1055,7 @@ opa_in_braces <- lbrace expr:e rbrace {{ e }}
 *)
 ;/** constant **/
 const      <- float:f {{ CFloat f }}
-            / int:i {{ CInt (Big_int.big_int_of_int i) }}
+            / bint:i {{ CInt i }}
             / string:s {{ CString s }}
 
 (**
@@ -1250,7 +1250,7 @@ _fail <- &. &(!.) . $
 *)
 string <- Opa_lexer.string
 char   <- Opa_lexer.char
-int <- Opa_lexer.int
+bint <- Opa_lexer.bint
 float  <- Opa_lexer.float
 spacing<- Opa_lexer.spacing
 strict_spacing<- Opa_lexer.strict_spacing

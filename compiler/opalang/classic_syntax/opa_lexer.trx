@@ -139,6 +139,7 @@ strfloat <-
    / [-]? decimal_number exponent $_
 
 int      <- Opa_parser.pos:pos strint:s   {{ try int_of_string s with Failure "int_of_string" -> error_int_overflow pos }}
+bint      <- Opa_parser.pos:pos strint:s   {{ Big_int.big_int_of_int64 (Int64.of_string s) }}
 float    <- strfloat {{ float_of_string __1 }}
 
 int3     <- ([2]([5][0-5] $_ / [0-4][0-9] $_) $_ / [0-1][0-9][0-9] $_ / [0-9][0-9]? $_):s {{ s }}
