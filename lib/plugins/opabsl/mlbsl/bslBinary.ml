@@ -44,43 +44,43 @@ let error str = raise (BslBinaryError str)
 
 ##register add_int8 : binary, int -> void
 let add_int8 b i =
-  if (i < -0x80 || i > 0x7f) then error (Printf.sprintf "BslBinary.add_int8: out of range int %d" i);
+  (* if (i < -0x80 || i > 0x7f) then error (Printf.sprintf "BslBinary.add_int8: out of range int %d" i); *)
   Buffer.add_char b (Char.chr (if i < 0 then i+0x100 else i))
 
 ##register add_uint8 : binary, int -> void
 let add_uint8 b i =
-  if (i < 0 || i > 0xff) then error (Printf.sprintf "BslBinary.add_uint8: out of range int %d" i);
+  (* if (i < 0 || i > 0xff) then error (Printf.sprintf "BslBinary.add_uint8: out of range int %d" i); *)
   Buffer.add_char b (Char.chr i)
 
 ##register add_int16_le : binary, int -> void
 let add_int16_le b i =
-  if (i < -0x8000 || i > 0x7fff) then error (Printf.sprintf "BslBinary.add_int16_le: out of range int %d" i);
+  (* if (i < -0x8000 || i > 0x7fff) then error (Printf.sprintf "BslBinary.add_int16_le: out of range int %d" i); *)
   let i = if i < 0 then 0x10000 + i else i in
   Buffer.add_char b (Char.chr ( i         land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff))
 
 ##register add_int16_be : binary, int -> void
 let add_int16_be b i =
-  if (i < -0x8000 || i > 0x7fff) then error (Printf.sprintf "BslBinary.add_int16_be: out of range int %d" i);
+  (* if (i < -0x8000 || i > 0x7fff) then error (Printf.sprintf "BslBinary.add_int16_be: out of range int %d" i); *)
   let i = if i < 0 then 0x10000 + i else i in
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   Buffer.add_char b (Char.chr ( i         land 0xff))
 
 ##register add_uint16_le : binary, int -> void
 let add_uint16_le b i =
-  if (i < 0 || i > 0xffff) then error (Printf.sprintf "BslBinary.add_uint16_le: out of range int %d" i);
+  (* if (i < 0 || i > 0xffff) then error (Printf.sprintf "BslBinary.add_uint16_le: out of range int %d" i); *)
   Buffer.add_char b (Char.chr ( i         land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff))
 
 ##register add_uint16_be : binary, int -> void
 let add_uint16_be b i =
-  if (i < 0 || i > 0xffff) then error (Printf.sprintf "BslBinary.add_uint16_be: out of range int %d" i);
+  (* if (i < 0 || i > 0xffff) then error (Printf.sprintf "BslBinary.add_uint16_be: out of range int %d" i); *)
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   Buffer.add_char b (Char.chr ( i         land 0xff))
 
 ##register add_int32_le : binary, int -> void
 let add_int32_le b i =
-  if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_le: out of range int %d" i);
+  (* if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_le: out of range int %d" i); *)
   let i = if i < 0 then 0x100000000 + i else i in
   Buffer.add_char b (Char.chr ( i         land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
@@ -89,7 +89,7 @@ let add_int32_le b i =
 
 ##register add_int32_be : binary, int -> void
 let add_int32_be b i =
-  if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_be: out of range int %d" i);
+  (* if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_be: out of range int %d" i); *)
   let i = if i < 0 then 0x100000000 + i else i in
   Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
@@ -98,7 +98,7 @@ let add_int32_be b i =
 
 ##register add_uint32_le : binary, int -> void
 let add_uint32_le b i =
-  if (i < 0 || i > 0xffffffff) then error (Printf.sprintf "BslBinary.add_uint32_le: out of range int %d" i);
+  (* if (i < 0 || i > 0xffffffff) then error (Printf.sprintf "BslBinary.add_uint32_le: out of range int %d" i); *)
   Buffer.add_char b (Char.chr ( i         land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
@@ -106,7 +106,7 @@ let add_uint32_le b i =
 
 ##register add_uint32_be : binary, int -> void
 let add_uint32_be b i =
-  if (i < 0 || i > 0xffffffff) then error (Printf.sprintf "BslBinary.add_uint32_be: out of range int %d" i);
+  (* if (i < 0 || i > 0xffffffff) then error (Printf.sprintf "BslBinary.add_uint32_be: out of range int %d" i); *)
   Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
   Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
@@ -136,12 +136,12 @@ let add_uint64_be b i =
 
 ##register add_int53_le : binary, int -> void
 let add_int53_le b i =
-  if (i < -0x20000000000000 || i > 0x1fffffffffffff) then error (Printf.sprintf "BslBinary.add_int53_le: out of range int %d" i);
+  (* if (i < -0x20000000000000 || i > 0x1fffffffffffff) then error (Printf.sprintf "BslBinary.add_int53_le: out of range int %d" i); *)
   add_uint64_le b (Int64.of_int i)
 
 ##register add_int53_be : binary, int -> void
 let add_int53_be b i =
-  if (i < -0x20000000000000 || i > 0x1fffffffffffff) then error (Printf.sprintf "BslBinary.add_int53_be: out of range int %d" i);
+  (* if (i < -0x20000000000000 || i > 0x1fffffffffffff) then error (Printf.sprintf "BslBinary.add_int53_be: out of range int %d" i); *)
   add_uint64_be b (Int64.of_int i)
 
 (* Might not be accurate to the last bit... *)
@@ -150,7 +150,7 @@ let _FLOATMAX32 = 3.402823466e38
 
 ##register add_float_le : binary, float -> void
 let add_float_le b f =
-  if f < _FLOATMIN32 || f > _FLOATMAX32 then error (Printf.sprintf "BslBinary.add_float_le: out of range float %g" f);
+  (* if f < _FLOATMIN32 || f > _FLOATMAX32 then error (Printf.sprintf "BslBinary.add_float_le: out of range float %g" f); *)
   let i = Int32.bits_of_float f in
   Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (                          i   ) 0xffl)));
   Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 8 ) 0xffl)));
@@ -159,7 +159,7 @@ let add_float_le b f =
 
 ##register add_float_be : binary, float -> void
 let add_float_be b f =
-  if f < _FLOATMIN32 || f > _FLOATMAX32 then error (Printf.sprintf "BslBinary.add_float_le: out of range float %g" f);
+  (* if f < _FLOATMIN32 || f > _FLOATMAX32 then error (Printf.sprintf "BslBinary.add_float_le: out of range float %g" f); *)
   let i = Int32.bits_of_float f in
   Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 24) 0xffl)));
   Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 16) 0xffl)));
