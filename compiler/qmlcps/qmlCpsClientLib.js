@@ -11,6 +11,10 @@
 */
 
 /**
+ * @author Quentin Bourgerie
+ */
+
+/**
  * {1 Debugging}
  */
 
@@ -154,7 +158,7 @@ function task_from_application(fun, args) {
  * @implements Task
  */
 function task_from_return(k, args) {
-    return function() {return k.execute(args)};
+    return function() {return execute_(k, args)};
 }
 
 /**
@@ -166,78 +170,71 @@ function task_from_return(k, args) {
  * @param {!Function} payload a 1-argument function
  * @param {?Object=}  context an optional object containing the execution context for [payload]
  * @param {?Object=}  options placeholder for future passing of continuation options, must be [null] for the moment.
- * @constructor
- *///TODO reintroduce options
-function Continuation(payload, context, options) {
-    this._payload = payload;
-    this._context = context;
-    this._options = options;
-    if(context == null)//optimized execute1
-        this.execute1 = this._execute1
-}
-Continuation.prototype = {
-    _payload: null,
-    _context: null,
-    _options: null,
-    _paylexn: null,
-    /**
-     * Apply a continuation to an array of arguments
-     *
-     * @param {?Array} args a possibly empty, possibly [null] array of arguments to pass to the continuation
-     */
-    execute: function(args) {
-        return this._payload.apply(this._context, args)
-    },
-    /**
-     * Non-optimized version of [apply] for exactly one argument.
-     *
-     * Transparently replaced by optimized version when possible (i.e. when context is [null]).
-     */
-    execute1: function(arg) {
-        return this._payload.apply(this._context, [arg]);
-    },
-    /**
-     * Optimized version of [execute1].
-     *
-     * Do not call directly.
-     */
-    _execute1: function(arg) {
-        return this._payload(arg);
-    },
-    /**
-     * Apply a continuation to an exception
-     */
-    executexn: function(exn) {
-        var payload = this._paylexn;
-        (payload ? payload : QmlCpsLib_default_handler_cont(this)._payload)
-        .apply(this._context, [exn]);
-    },
-
-    ccont: function(f) {
-        return new Continuation(f, this._context, this._options);
-    },
-
-    catch_: function(h) {
-        var k = this.ccont(this._payload);
-        k._paylexn = h;
-        return k;
-    }
-
+ * @return {!Continuation}
+ */
+function cont(payload, context, options){
+    return [payload, [context, options, null]]
 }
 
-function QmlCpsLib_callcc_directive(f, k){
-    return f(k, new Continuation(function(){}, k._context));
+/**
+ * Apply a continuation to an array of arguments
+ *
+ * @param {!Continuation}
+ * @param {!Array} args a possibly empty, possibly [null] array of arguments to pass to the continuation
+ */
+function execute_(k, args) {
+    return k[0].apply(k[1][0], args);
 }
 
-function QmlCpsLib_default_handler_cont(k){
-    return new Continuation(function(exn){console.error("Error : uncaught OPA exn", exn)}, k._context, k._options);
+/**
+ * Apply a continuation to an array of arguments
+ *
+ * @param {!Continuation}
+ * @param {*} args a possibly empty, possibly [null] array of arguments to pass to the continuation
+ */
+function execute1(k, arg) {
+    return execute_(k, [arg]);
 }
 
-function QmlCpsLib_handler_cont(k){
-    var paylexn = k._paylexn;
-    return (paylexn ? new Continuation(paylexn, k._context, k._options) : QmlCpsLib_default_handler_cont(k));
+/**
+ * Apply a continuation to an exception
+ */
+function executexn(k, exn) {
+    var payload = k[1][2];
+    (payload ? payload : default_handler_cont(k)[0])
+        .apply(k[1][0], [exn]);
 }
 
+function ccont(k, f) {
+    return [f, k[1]];
+}
+
+function catch_(k, h) {
+    var k = ccont(k, k[0]);
+    k[1][2] = h;
+    return k;
+}
+
+function callcc_directive(f, k){
+    return f(k, cont(function(){}, k[1][0]));
+}
+
+function default_handler_cont(k){
+    return cont(function(exn){console.error("Error : uncaught OPA exn", exn)}, k[1][0], k[1][1]);
+}
+
+function handler_cont(k){
+    var paylexn = k[1][2];
+    return (paylexn ? cont(paylexn, k[1][0], k[1][1]) : default_handler_cont(k));
+}
+
+function with_thread_context(tc, k){
+    return [k[0], [tc, k[1][1], k[1][2]]];
+}
+
+function thread_context(k){
+    return k[1][0];
+}
 
 
 /**
@@ -297,7 +294,7 @@ function loop_schedule()
             } else {
                 task = tasks.shift();
                 var r = task();
-                for(var i=0; i<100 && r; i++) r = r[0].execute1(r[1]);
+                for(var i=0; i<100 && r; i++) r =execute1(r[0], r[1]);
                 if (r) push(task_from_return(r[0], [r[1]]))
             }
         }
@@ -333,7 +330,7 @@ function return_(k, x){
 
 function execute(k, x){
     var r;
-    if (r = k.execute1(x, true)) push(task_from_return(r[0], [r[1]]));
+    if (r = execute1(k, x)) push(task_from_return(r[0], [r[1]]));
 }
 
 /**
@@ -367,7 +364,7 @@ function blocking_wait(barrier){
 function spawn(f) {
     var barrier = new Barrier();
     var task = function(){
-        var k = new Continuation(barrier.release, barrier, null);
+        var k = cont(barrier.release, barrier, null);
         f(js_void, k);
     }
     push(task);
@@ -380,8 +377,8 @@ function spawn(f) {
  */
 function uncps(pk, f, name) {
     return function (){
-        var b = new Barrier(name != undefined ? name : ("uncps : " + f));
-        var k = pk.ccont(function(x){b.release(x)});
+        var b = new Barrier(name);
+        var k = ccont(pk, function(x){b.release(x)});
         var a = Array.prototype.slice.call(arguments);
         a.push(k);
         push(function(){return f.apply(this, a);});
@@ -405,7 +402,7 @@ function cps(f) {
  * Transform an opa cps callback (-> void) to a js_callback
  */
 function opa_cps_callback_to_js_callback0(k, f){
-    return function(){return f(k.ccont(function(){}));};
+    return function(){return f(ccont(k, function(){}));};
 }
 
 /**

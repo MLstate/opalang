@@ -60,23 +60,34 @@ Barrier.prototype = {
  * @param {!Function} payload a 1-argument function
  * @param {?*=}  context an optional object containing the execution context for [payload]
  * @param {?*=}  options placeholder for future passing of continuation options, must be [null] for the moment.
- * @constructor
+ * @return {!Continuation}
  */
-function Continuation(payload, context, options) {}
-Continuation.prototype = {
-    /**
-     * @param {?Array.<!*>} args a possibly empty, possibly [null] array of arguments to pass to the continuation
-     */
-    execute: function(args) {},
-    /**
-     * @param {!*} arg
-     */
-    execute1: function(arg) {},
-    /**
-     * @param {!*} arg
-     */
-    executexn: function(arg) {}
-}
+function cont(payload, context, options){}
+
+/**
+ * Construct a continuation from a parent continuation
+ * @param {!Continuation} k
+ * @param {!Function} payload a 1-argument function
+ */
+function ccont(k, payload){}
+
+/**
+ * @param {!Continuation} k
+ * @param {!*} arg
+ */
+function execute1(k, arg) {}
+
+/**
+ * @param {!Continuation} k
+ * @param {!*} arg
+ */
+function executexn(k, arg) {}
+
+/**
+ * @param {!Continuation} k
+ * @param {!Function} h
+ */
+function catch_(k, h) {}
 
 /**
  * @param {!Function} f
@@ -130,11 +141,16 @@ function cps_debug(s) {}
  */
 function cps_assert(b,s) {}
 
-function QmlCpsLib_callcc_directive(f, k){}
+function callcc_directive(f, k){}
 
-function QmlCpsLib_default_handler_cont(k){}
+function default_handler_cont(k){}
 
-function QmlCpsLib_handler_cont(k){}
+function handler_cont(k){}
+
+function with_thread_context(tc, k){}
+
+function thread_context(tc, k){}
+
 
 /**
  * @param {!Function} f
