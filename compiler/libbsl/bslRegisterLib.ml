@@ -1210,9 +1210,9 @@ let js_validator finalized_t =
       pp_extern_files_list extern_files
       pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
     in
-    Printf.printf "%s\n" command;
+    OManager.verbose "JS VALIDATION : %s\n" command;
     let cwd = Sys.getcwd () in
-    Sys.chdir builddir;
+    if builddir <> "" then Sys.chdir builddir;
     let r = Sys.command command in
     Sys.chdir cwd;
     if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
