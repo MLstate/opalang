@@ -35,8 +35,7 @@ type contents = string
 *)
 
 type js_decorated_file = {
-  directives:
-    (FilePos.pos * BslTags.t * BslDirectives.bypasslang_directive) list;
+  directives: (FilePos.pos * BslTags.t * BslDirectives.Js.t) list;
   contents: contents;
   filename: filename;
 }

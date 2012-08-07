@@ -178,7 +178,7 @@ type opalang_decorated_file =
 (** {6 Bypass files directives} *)
 (**
    Note:
-   There are no position in this AST, because such a directive
+   There are no positions in this AST, because such a directive
    is always wrapped into a [decorated_source_elt] which already
    provides the position.
 *)
@@ -197,6 +197,60 @@ type bypasslang_directive =
 *)
 type bypasslang_decorated_file =
     (BslTags.t, bypasslang_directive) decorated_file
+
+(** Directives in doc-like js syntax *)
+module Js = struct
+
+(** There are two possible ways of defining a bypass. The first one,
+    which corresponds to the use of ##register + ##args in the classic
+    syntax, is by adding a function or variable definition after the
+    register directive.
+
+    Example:
+
+    ##register foo : int -> int
+    ##args(bar)
+    {
+        return bar + 4;
+    }
+
+    ->
+
+    /**
+     * @register {int -> int}
+     */
+    function foo(bar) {
+        return bar + 4;
+    }
+
+    The second one corresponds to inline definitions, which are done
+    by adding the inline definition in the directive itself:
+
+    ##register foo \ my_foo : int -> int
+
+    ->
+
+    /**
+     * @register {int -> int} foo my_foo
+     */
+
+    The former is given by the Regular constructor, while the latter
+    is given by the Inline constructor.
+
+*)
+
+  type definition =
+  | Regular of string
+  | Inline of string
+
+  type t =
+  | ExternalTypeDef of skey * BslTypes.typevar list
+  | OpaTypeDef of skey * BslTypes.typevar list
+  | Module of skey
+  | EndModule
+  | Register of skey * definition * BslTypes.t
+
+end
 
 (**
    {9 ExternTypeDef}

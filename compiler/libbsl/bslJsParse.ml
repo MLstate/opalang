@@ -16,9 +16,13 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+(**
+   @author Arthur Azevedo de Amorim
+*)
+
 module List = BaseList
 module String = BaseString
-module BD = BslDirectives
+module BD = BslDirectives.Js
 module BT = BslTypes
 module BRS = BslRegisterParserState
 
@@ -126,10 +130,10 @@ let collect_bsl_tags tags =
 type global_read_result = [ `no_occurrences
                           | `wrong_format of message
                           | `multiple_occurrences of tag
-                          | `found of tag * BD.bypasslang_directive ]
+                          | `found of tag * BD.t ]
 
 type local_read_result = [ `wrong_format of message
-                         | `found of BD.bypasslang_directive ]
+                         | `found of BD.t ]
 
 (** Extracts all occurrences of tag [keyword] *)
 let try_read_args tag
@@ -208,7 +212,7 @@ let extract_type_declaration =
 
 let extract_extern_type_def =
   extract_type_declaration "externType" (fun ty args ->
-    BD.ExternalTypeDef (ty, args, None)
+    BD.ExternalTypeDef (ty, args)
   )
 
 let extract_opa_type_def =
@@ -219,7 +223,7 @@ let extract_opa_type_def =
 let extract_module =
   try_read_args "module" (fun args ->
     match get_identifier args with
-    | Some i -> `found (BD.Module (i, None))
+    | Some i -> `found (BD.Module i)
     | None -> `wrong_format "Expected identifier in module declaration"
   )
 
@@ -239,9 +243,6 @@ let extract_register implementation =
   ) in
   try_read_args "register" (fun args ->
     if Str.string_match re args 0 then
-      (* TODO:
-         - Find a way of telling apart injected and not injected with
-         different name *)
       let ty = Str.matched_group 1 args in
       let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
       let name =
@@ -249,15 +250,17 @@ let extract_register implementation =
           Some (String.trim (Str.matched_group 2 args))
         with
           Not_found -> implementation in
-      let source =
+      let definition =
         try
-          Some (Str.matched_group 3 args)
+          Some (BD.Inline (Str.matched_group 3 args))
         with
-          Not_found -> implementation in
-      let injected = Option.is_some source in
-      match name with
-      | Some name -> `found (BD.Register (name, source, injected, ty))
-      | None -> `wrong_format "Missing bypass name in @register declaration"
+          Not_found ->
+            Option.map (fun i -> BD.Regular i) implementation in
+      match name, definition with
+      | Some name, Some definition ->
+        `found (BD.Register (name, definition, ty))
+      | Some _, None -> `wrong_format "Missing definition in @register declaration"
+      | None, _ -> `wrong_format "Missing bypass name in @register declaration"
     else
       `wrong_format
         "Format of @register is \"@register {type} key [optional source]\""
@@ -274,7 +277,7 @@ let readers implementation = [
 type extract_result =
 | NoOccurrences
 | Error of string
-| Found of BslTags.t * BD.bypasslang_directive
+| Found of BslTags.t * BD.t
 
 (** Try to extract a bsl directive from a list of tags, *)
 let maybe_extract_directive implementation tags : extract_result =
