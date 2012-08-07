@@ -687,9 +687,9 @@ let plugin_building name =
   let options (* Ocaml libs*) = Tags.fold
     (fun tag options -> match use_tag tag with
      | None -> options
-     | Some dep ->
-         let dir = match mlstate_lib_dir dep with
-           | "." -> "+"^dep
+     | Some d ->
+         let dir = match mlstate_lib_dir d with
+           | "." -> "+"^d
            | dir -> opa_prefix/dir
          in
          A "--ml" :: A "-I" :: A "--ml" :: P dir :: options
@@ -703,7 +703,7 @@ let plugin_building name =
            if is_system_libs dep then
              A "--ml" :: A "-cclib" :: A "--ml" :: A ("-l"^dep) :: options
            else options
-    ) (tags_of_pathname opa_plugin) options
+    ) tags options
   in
   let options (* JavaScript files *) =
     let jsfiles =
@@ -754,15 +754,15 @@ let plugin_building name =
     else options
   in
 
-  let prods = [] in
-
   (* Hack for opabsl *)
+  let postlude = [] in
+  let prods = [] in
   let prods, files, postlude =
     if name = "opabsl" then
       ("serverLib.mli"::prods, path/"serverLib.mli"::files,
-       [(ln_f (path/"serverLib.mli") (opp/"serverLib.mli"))]
+       (ln_f (path/"serverLib.mli") (opp/"serverLib.mli")) :: postlude
       )
-    else (prods, files, [])
+    else (prods, files, postlude)
   in
 
   (* Plugins productions *)
@@ -770,7 +770,8 @@ let plugin_building name =
     Printf.sprintf "%s%s" name suffix
   in
   let prods =
-    if has_ml then prod_suffix "MLRuntime.ml" :: prod_suffix "MLRuntime.mli" :: prods
+    if has_ml then
+      prod_suffix "MLRuntime.ml" :: prod_suffix "MLRuntime.mli" :: prods
     else prods
   in
   let prods =
@@ -790,12 +791,27 @@ let plugin_building name =
     else prods
   in
   let prods = List.map (fun file -> opp/file) prods in
+  let prods = prods in
 
   (* Plugins deps *)
   let deps =
     files @ (tool_deps "jschecker.jar") @ (tool_deps "ppdebug") @
       (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name)
   in
+  let deps (* Ocaml libs*) =
+    let parent s =
+      String.sub s 0 (String.rindex s '/')
+    in
+    Tags.fold
+    (fun tag deps -> match use_tag tag with
+     | None -> deps
+     | Some lib ->
+         match mlstate_lib_dir lib with
+         | "." -> deps
+         | dir -> ((parent dir)/lib^".cmxa") :: deps
+    ) tags deps
+  in
+
   rule (Printf.sprintf "Opa plugin: %s" name)
     ~deps
     ~prods
