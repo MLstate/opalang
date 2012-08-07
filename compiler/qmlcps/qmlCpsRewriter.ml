@@ -61,6 +61,7 @@ let debug fmt =
 (* facilities to generate qmlAst *)
 (* TODO: use the statefull constructor, keep annotation, position and types *)
 module QC = QmlAstCons.UntypedExpr
+module QCW = QmlAstCons.UntypedExprWithLabel
 
 (* Bypass helpers *)
 let cps_id = "cps"
@@ -310,7 +311,7 @@ struct
           let v = IL.fresh_v () in
           let returned = context.kappa v in
           match v, returned with
-          | IL.Value v, IL.ApplyCont (cont, IL.Value v')
+          | IL.Value (_, v), IL.ApplyCont (cont, IL.Value (_, v'))
               when Ident.equal v v' -> of_cont cont
           | _ ->
               let c = IL.fresh_c () in
@@ -335,9 +336,13 @@ module Skip = struct
     match ilexpr with
     | IL.Skip e ->
         begin match e with
-        | Q.Ident (_, i) -> Context.apply context (IL.Value i)
-        | Q.Const (_, c) -> let v = IL.fresh_v () in IL.LetVal (v, IL.Constant c, Context.apply context v)
-        | _ -> let v = IL.fresh_v () in IL.LetVal (v, IL.ValueSkip e, Context.apply context v)
+        | Q.Ident (label, i) -> Context.apply context (IL.value ~label i)
+        | Q.Const (label, c) ->
+            let v = IL.fresh_v ~label () in
+            IL.LetVal (v, IL.Constant c, Context.apply context v)
+        | _ ->
+            let v = IL.fresh_v ~label:(Q.Label.expr e) () in
+            IL.LetVal (v, IL.ValueSkip e, Context.apply context v)
         end
     | _  -> ilexpr
 
@@ -373,7 +378,7 @@ module U = struct
 
   let get_value_il_of_ident = function
       (* cannnot be extended for constant *)
-    | Q.Ident (_, id) -> IL.Value id
+    | Q.Ident (label, id) -> IL.value ~label id
     | _ -> assert false
 
   let rec bp_get_key_and_passid bp = match bp with
@@ -419,13 +424,13 @@ module U = struct
     if is_second_order_bypass bsltags then
       OManager.warning ~wclass:WarningClass.bsl_projection "The bypass %a is second-order and is not a cps-bypass" BslKey.pp key
 
-
+  let label () = Annot.nolabel "Cps.nolabel"
 
   (** cps_apply fcps_id f_args context :
       create the IL application of the CPS function fskip_id with IL TERM arguments under the given context *)
   let cps_apply ?stack_info fcps_id f_args context =
     let args = List.map get_value_il_of_ident f_args in
-    Context.insertLetCont context (fun k -> IL.ApplyNary (IL.CpsVident (IL.Value fcps_id), args, k, stack_info))
+    Context.insertLetCont context (fun k -> IL.ApplyNary (IL.CpsVident (IL.value fcps_id), args, k, stack_info))
 
   (** bp_apply ~cont_as_arg bypass (f_args:QmlAst.expr list)
       create the IL application of the bypass with QML arguments,
@@ -443,16 +448,14 @@ module U = struct
         else IL.ApplyBypass(            IL.Bypass (key, pass_id) , args, k)
     )
 
-  let label () = Annot.nolabel "Cps.nolabel"
-
   (** skipped_apply fskip_id f_args :
       create the IL application of the SKIPPED function fskip_id with QML IDENT arguments *)
-  let skipped_apply ?partial fskip_id f_args =
-    let e = QmlAstUtils.App.from_list (Q.Ident (label (), fskip_id) ::  f_args ) in
+  let skipped_apply ?(alabel=label()) ?partial fskip_id f_args =
+    let e = QmlAstCons.UntypedExprWithLabel.apply ~label:alabel (Q.Ident (label (), fskip_id)) f_args in
     let e =
       match partial with
       | None -> e
-      | Some (more_args, ser) -> Q.Directive (label (), `partial_apply (None,ser), e :: more_args, []) in
+      | Some (more_args, ser) -> Q.Directive (alabel, `partial_apply (None,ser), e :: more_args, []) in
     IL.Skip e
 
   (** same for bypass *)
@@ -467,7 +470,7 @@ module U = struct
 
   (** transform the expression so that the apply has the good property
       gives name to all element in need for cps rewriting *)
-  let normalize_apply_property ?stack_info ?partial penv f f_args =
+  let normalize_apply_property ?(alabel = label ()) ?stack_info ?partial penv f f_args =
     let name_arg (bindings,exprs) e =
       match e with
       | Q.Ident _ when is_stable_ident penv e -> (bindings, e :: exprs)
@@ -499,20 +502,21 @@ module U = struct
       | None -> app
       | Some (rev_more_args, ser) ->
           Q.Directive (label (), `partial_apply (None,ser), (app :: List.rev rev_more_args), []) in
-    Q.LetIn (label (), bindings, app)
+    Q.LetIn (alabel, bindings, app)
 
   let rewrite_apply_partial context f_id f_args =
     let e = IL.Skip (QC.apply (QC.ident f_id) f_args) in
     if Skip.can then e
     else Skip.remove e context
 
-  let rewrite_apply ?stack_info ?partial ~private_env ~expr ~context f_id f_args =
+  let rewrite_apply ?label ?stack_info ?partial ~private_env ~expr ~context f_id f_args =
+    let alabel = label in
     match private_env_get_skipped_fun f_id private_env with
     | Some(real_arity, fskip_id, fcps_id) -> (
         match partial with
         | Some _ ->
             (* skipped version exists but incomplete call *)
-            skipped_apply ?partial fcps_id f_args
+            skipped_apply ?alabel ?partial fcps_id f_args
         | None ->
             (* skipped version exists, complete call *)
             if List.length f_args <> real_arity then (
@@ -520,12 +524,12 @@ module U = struct
                 real_arity (List.length f_args) QmlPrint.pp#expr expr;
               assert false
             );
-            skipped_apply ?partial fskip_id f_args
+            skipped_apply ?alabel ?partial fskip_id f_args
         )
     | None ->
         (* skipped version don t exist *)
         match partial with
-        | Some _ -> skipped_apply ?partial f_id f_args
+        | Some _ -> skipped_apply ?alabel ?partial f_id f_args
         | None -> cps_apply ?stack_info f_id f_args context
 
   let is_const e =
@@ -627,13 +631,13 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
   and aux_lambda ?(can_skip_lambda=false) context label args e =
     let k = IL.fresh_c () in
-    let args = List.map (fun id -> IL.Value id) args in
+    let args = List.map (fun id -> IL.value id) args in
     let cont_e =  (Context.cont context k) in
     let e = aux_can_skip e cont_e in
     (match e with
      | IL.Skip e when can_skip_lambda ->
          (* skip transformations must not be lost -> do not return IL.Skip expr *)
-         `skip (QmlAstCons.UntypedExprWithLabel.lambda ~label (List.map (function IL.Value x -> x) args) e)
+         `skip (QmlAstCons.UntypedExprWithLabel.lambda ~label (List.map (function IL.Value (_, x) -> x) args) e)
      | (* include Skipped and non Skipped *)_ ->
          begin
            `letfun (args, k, Skip.remove e cont_e)
@@ -662,8 +666,8 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
     | Q.Const _ when Skip.can -> IL.Skip expr
 
-    | Q.Const (_, c) ->
-        let x = IL.fresh_v () in
+    | Q.Const (label, c) ->
+        let x = IL.fresh_v ~label () in
         IL.LetVal (x, IL.Constant c, Context.apply context x)
 
     | Q.Ident (label, x) ->
@@ -672,9 +676,9 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
           | Some barrier ->
             (* if option --cps-toplevel-concurrency is set,
                this ident may be unbound, and we have just a barrier instead *)
-              let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call Opacapi.Opabsl.BslCps.wait), [IL.Value barrier], k, None) in
+              let func k = IL.ApplyNary (IL.CpsBypass (il_bycps_call Opacapi.Opabsl.BslCps.wait), [IL.Value (U.label (), barrier)], k, None) in
               Context.insertLetCont context func
-          | None when not(Skip.can) ->  Context.apply context (IL.Value x)
+          | None when not(Skip.can) ->  Context.apply context (IL.Value (U.label (), x))
           | None ->
               match IdentMap.find_opt x private_env.skipped_functions with
               | Some (_, _, fcps_id) -> IL.Skip (Q.Ident (label, fcps_id))
@@ -707,10 +711,10 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
               end
             | `letcont (c, context_for_value, value_il) ->
                 let parent = Context.current_cont context in
-                IL.LetCont ((c, (IL.Value name), Skip.remove sub_expr_il context,
+                IL.LetCont ((c, (IL.value name), Skip.remove sub_expr_il context,
                              Skip.remove value_il context_for_value), parent)
             | `letfun (args,k,body) ->
-                IL.LetFun ([IL.Value name,args,k,body], Skip.remove sub_expr_il context)
+                IL.LetFun ([IL.value name,args,k,body], Skip.remove sub_expr_il context)
           in
           match l with
           | [] -> aux_can_skip e context
@@ -723,9 +727,9 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
           (fun (name, def) ->
              match def with
              | Q.Lambda (_, params, body) ->
-                 let params = List.map (fun id -> IL.Value id) params in
+                 let params = List.map (fun id -> IL.value id) params in
                  let k = IL.fresh_c () in
-                 (IL.Value name, params, k, aux body (Context.cont context k))
+                 (IL.value name, params, k, aux body (Context.cont context k))
              | _ -> error "Recursive definition of a non-function"
           ) defs
         in
@@ -748,9 +752,9 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         aux_can_skip e context
 
     (* Special case of Apply node for stack traces *)
-    | Q.Directive (_, `cps_stack_apply ((cont_opt_ref_opt,name,position) as stack_info), [Q.Apply (_, f, f_args)], _) -> (
+    | Q.Directive (alabel, `cps_stack_apply ((cont_opt_ref_opt,name,position) as stack_info), [Q.Apply (_, f, f_args)], _) -> (
         if not (U.good_apply_property private_env f f_args) then
-          aux_can_skip (U.normalize_apply_property ~stack_info private_env f f_args) context
+          aux_can_skip (U.normalize_apply_property ~alabel ~stack_info private_env f f_args) context
         else
           (* the only difference with the usual apply case is that the case
            * bypass never occurs here (because `cps_stack_apply is never put
@@ -775,24 +779,27 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
     (* BEGIN OF APPLY NODE *)
     (* normalisation of apply node
        to guaranty property : f is a non barrier ident or a bypass, f_args are stable identifiers *)
-    | Q.Apply (_, f, f_args) when not(U.good_apply_property private_env f f_args) ->
-        aux_can_skip (U.normalize_apply_property private_env f f_args) context
-    | Q.Directive (_, `partial_apply (_,ser), Q.Apply (_, f, f_args) :: more_args, _)
+    | Q.Apply (alabel, f, f_args) when not(U.good_apply_property private_env f f_args) ->
+        aux_can_skip (U.normalize_apply_property ~alabel private_env f f_args) context
+    | Q.Directive (alabel, `partial_apply (_,ser), Q.Apply (_, f, f_args) :: more_args, _)
         when not (U.good_apply_property ~more_args private_env f f_args) ->
-        aux_can_skip (U.normalize_apply_property private_env ~partial:(more_args,ser) f f_args) context
-    | Q.Directive (a, ((`full_apply _) as d), [Q.Apply (_, f, f_args)], b)
+        aux_can_skip (U.normalize_apply_property ~alabel private_env ~partial:(more_args,ser) f f_args) context
+    | Q.Directive (l, ((`full_apply _) as d), [Q.Apply (_, f, f_args)], b)
         when not (U.good_apply_property private_env f f_args) ->
         aux_can_skip
-          (match U.normalize_apply_property private_env f f_args with
-           | Q.LetIn (l, bindings, app) -> Q.LetIn (l, bindings, Q.Directive(a, d, [app], b))
+          (match U.normalize_apply_property ~alabel:l private_env f f_args with
+           | Q.LetIn (l, bindings, app) ->
+               Q.LetIn (l, bindings, Q.Directive(U.label (), d, [app], b))
            | _ -> assert false
           ) context
 
     (* guaranteed property : f is a non barrier ident, f_args are stable identifiers *)
-    | Q.Apply (_, Q.Ident (_, f_id), f_args) ->
-        U.rewrite_apply ~private_env ~expr ~context f_id f_args
-    | Q.Directive (_, `partial_apply (_, ser), Q.Apply (_, Q.Ident (_, f_id), f_args) :: more_args, _) ->
-        U.rewrite_apply ~partial:(more_args,ser) ~private_env ~expr ~context f_id f_args
+    | Q.Apply (label, Q.Ident (_, f_id), f_args) ->
+        U.rewrite_apply ~label ~private_env ~expr ~context f_id f_args
+    | Q.Directive (label, `partial_apply (_, ser),
+                   Q.Apply (_, Q.Ident (_, f_id), f_args) :: more_args, _) ->
+        U.rewrite_apply ~partial:(more_args,ser)
+          ~label ~private_env ~expr ~context f_id f_args
 
     (* guaranteed property : f is a bypass, f_args are stable identifiers *)
     | Q.Apply (_, bypass, bp_args) ->
@@ -812,18 +819,29 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         let all_cases_are_skipped = List.for_all Skip.is2 cases in
         let c = IL.fresh_c () in
         let context_for_e = Context.cont context c in
+        let elabel = Q.Label.expr e in
         begin match aux_can_skip e context_for_e with
         | IL.Skip e when all_cases_are_skipped && Skip.can ->
             let map (pat, epat) = (pat, Skip.get epat) in
-            IL.Skip (QmlAstCons.UntypedExprWithLabel.match_ ~label e (List.map map cases))
-        | e ->
+            let qmle =
+              let e =
+                (* FIXME : "Temporary hack" because skipping doesn't propagates
+                   all annotation. We should properly propagates all annotations
+                   but for the moment we just need to propagates annotations on
+                   matched expression (usefull for backend optimizations) *)
+                Q.Label.New.expr e elabel
+              in
+              QmlAstCons.UntypedExprWithLabel.match_ ~label e (List.map map cases)
+            in
+            IL.Skip qmle
+        | t ->
             let cases = List.map (Skip.remove2 context) cases in
-            let e = Skip.remove e context_for_e in
-            let v = IL.fresh_v () in
+            let t = Skip.remove t context_for_e in
+            let v = IL.fresh_v ~label:elabel () in
             let parent = Context.current_cont context in
             IL.LetCont((c,v,
                         IL.Match (v, cases),
-                        e ), parent)
+                        t ), parent)
         end
 
     | Q.Record (label, fields) ->
@@ -1011,7 +1029,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
     | Q.Directive (_, `thread_context, _, _) ->
         let term ((IL.Continuation id) as c) =
-          IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.thread_context, [ IL.Value id ], c)
+          IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.thread_context, [ IL.value id ], c)
         in
         Context.insertLetCont context term
 
@@ -1023,12 +1041,12 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         in
         let c1 = IL.fresh_c () and c2 = IL.fresh_c () and thread_context_id = IL.fresh_v () in
         let (IL.Continuation thread_context_continuation) as c3 = IL.fresh_c () in
-        let v3 = IL.Value thread_context_continuation in
+        let v3 = IL.value thread_context_continuation in
         let term ((IL.Continuation ctop) as parent) =
           let parent = Some parent in
           IL.LetCont((c1, thread_context_id,
                       IL.LetCont((c2, v3, aux alpha (Context.cont context c3),
-                                  IL.ApplyBypass ((il_bycps_call Opacapi.Opabsl.BslCps.with_thread_context), [ thread_context_id ; IL.Value ctop ], c2)
+                                  IL.ApplyBypass ((il_bycps_call Opacapi.Opabsl.BslCps.with_thread_context), [ thread_context_id ; IL.value ctop ], c2)
                                  ), parent),
                       (aux thread_context (Context.cont context c1))
                      ), parent)
@@ -1038,14 +1056,14 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
     | Q.Directive (_, `throw, [exc], _) ->
         let c = IL.fresh_c () and v_exc = IL.fresh_v () in
         let c2 = IL.fresh_c () and v_handler = IL.fresh_v () in
-        let cont_of_val (IL.Value id) = IL.Continuation id in
+        let cont_of_val (IL.Value (_, id)) = IL.Continuation id in
         Context.insertLetCont context
           (fun ((IL.Continuation ctop) as parent) ->
              IL.LetCont
                ((c, v_exc,
                  IL.LetCont
                    ((c2, v_handler, IL.ApplyCont(cont_of_val v_handler, v_exc),
-                     IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.handler_cont, [ IL.Value ctop ], c2)),
+                     IL.ApplyBypass (il_bycps_call Opacapi.Opabsl.BslCps.handler_cont, [ IL.value ctop ], c2)),
                     Some parent),
                  aux exc (Context.cont context c)),
                Some parent))
@@ -1054,7 +1072,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         let (IL.Continuation c1_name) as c1 = IL.fresh_c () in
         let c2 = IL.fresh_c () in
         let (IL.Continuation handler_continuation) as c3 = IL.fresh_c () in
-        let v3 = IL.Value handler_continuation in
+        let v3 = IL.value handler_continuation in
         let handler = aux handler (Context.cont context c1) in
         let catch_bypass =
           let catch =
@@ -1065,13 +1083,13 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         let catch ((IL.Continuation ctop) as parent) handler_id =
           IL.LetCont
             ((c2, v3, aux expr (Context.cont context c3),
-              IL.ApplyBypass (catch_bypass, [ handler_id ; IL.Value ctop ], c2)
+              IL.ApplyBypass (catch_bypass, [ handler_id ; IL.value ctop ], c2)
              ), Some parent)
         in
         (* code simplification for common cases, handler beeing a lambda *)
         match handler with
-        | IL.LetFun ([(IL.Value handler_name) as handler_id, _, _, _] as list,
-                     IL.ApplyCont (IL.Continuation if_c1_name, IL.Value if_handler_name))
+        | IL.LetFun ([(IL.Value (_, handler_name)) as handler_id, _, _, _] as list,
+                     IL.ApplyCont (IL.Continuation if_c1_name, IL.Value (_, if_handler_name)))
             when Ident.equal c1_name if_c1_name && Ident.equal handler_name if_handler_name
               ->
             let term parent =
@@ -1145,28 +1163,35 @@ let il_simplification (env:env) (private_env:private_env) (term:IL.term) =
   private_env, term
 
 (* Convert an IL value to a qml expression.*)
-let qml_of_il_value = function
-  | IL.Constant e -> QC.const e
+let qml_of_il_value ~label = function
+  | IL.Constant e -> QCW.const ~label e
 
   | IL.Record fields ->
-      let fields = List.map (fun (IL.Field s, IL.Value v, _) -> s, (QC.ident v)) fields in
-      QC.record fields
+      let fields =
+        List.map
+          (fun (IL.Field s, IL.Value (label, v), _) -> s, (QCW.ident ~label v))
+          fields
+      in
+      QCW.record ~label fields
 
-  | IL.ExtendRecord (fields, IL.Value v) ->
-      let fold (IL.Field s, IL.Value v) acc = QC.extendrecord s (QC.ident v) acc in
-      List.fold_right fold fields (QC.ident v)
+  | IL.ExtendRecord (fields, IL.Value (label, v)) ->
+      let fold (IL.Field s, IL.Value (label, v)) acc = QC.extendrecord s (QCW.ident ~label v) acc in
+      List.fold_right fold fields (QCW.ident ~label v)
 
   | IL.LazyRecord (fields, info) ->
-      let info = Option.map (fun (IL.Value info) -> QC.ident info) info in
-      let fields = List.map (fun (IL.Field s, IL.Value v, _) -> s, (QC.ident v)) fields in
+      let info = Option.map (fun (IL.Value (label, info)) -> QCW.ident ~label info) info in
+      let fields =
+        List.map
+          (fun (IL.Field s, IL.Value (label, v), _) -> s, (QCW.ident ~label v))
+          fields in
       let record = QC.record fields in
       let exprs = QmlDirectives.create_lazy_record_exprs record info in
       QC.directive `create_lazy_record exprs []
 
   | IL.BasicBypass (IL.Bypass (key, restriction)) -> (
       match restriction with
-      | None -> QC.bypass key
-      | Some pass -> QC.restricted_bypass ~pass key
+      | None -> QCW.bypass ~label key
+      | Some pass -> QCW.restricted_bypass ~label ~pass key
     )
 
   | IL.ValueSkip e -> e
@@ -1219,21 +1244,21 @@ let qml_bypass_of_il_bypass = function
   | IL.Bypass (key, Some pass) -> QC.restricted_bypass ~pass key
 
 let qml_function_of_cps_function = function
-  | IL.CpsVident (IL.Value a) -> QC.ident a
+  | IL.CpsVident (IL.Value (label, a)) -> QCW.ident ~label a
   | IL.CpsBypass il_bypass -> qml_bypass_of_il_bypass il_bypass
 
 let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
   let atomic = ref false in
   let toplevel_done = ref false in
   let rec aux = function
-    | IL.LetVal (IL.Value x, v, term) ->
-        let value = qml_of_il_value v in
+    | IL.LetVal (IL.Value (label, x), v, term) ->
+        let value = qml_of_il_value ~label v in
         QC.letin [x, value] (aux term)
 
-    | IL.LetProj (IL.Value x, (IL.Value record, IL.Field field), term) ->
-       QC.letin [x, QC.dot (QC.ident record) field] (aux term)
+    | IL.LetProj (IL.Value (xlabel, x), (IL.Value (rlabel, record), IL.Field field), term) ->
+       QC.letin [x, QCW.dot ~label:xlabel (QCW.ident ~label:rlabel record) field] (aux term)
 
-    | IL.LetCont ((IL.Continuation k, IL.Value id, t, u), parent) ->
+    | IL.LetCont ((IL.Continuation k, IL.Value (label, id), t, u), parent) ->
         let body =
           let fun_body = aux t in
           let fun_body =
@@ -1243,7 +1268,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
               fun_body
             #<End>
           in
-          let lambda = QC.lambda [id] fun_body in
+          let lambda = QCW.lambda ~label [id] fun_body in
           match parent with
           | None ->
              let make_continuation =
@@ -1262,33 +1287,33 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
 
     | IL.LetRecFun (defs, e) ->
         let defs =
-          let map (IL.Value id, args, IL.Continuation k, body) =
+          let map (IL.Value (label, id), args, IL.Continuation k, body) =
             let body = aux body in
-            let args = List.rev_map (fun (IL.Value v) -> v) args in
+            let args = List.rev_map (fun (IL.Value (_, v)) -> v) args in
             let args = List.rev (k::args) in
-            id, QC.lambda args body in
+            id, QCW.lambda ~label args body in
           List.map map defs in
         QC.letrecin defs (aux e)
 
     | IL.LetFun (defs, e) ->
         let defs =
-          let map (IL.Value id, args, IL.Continuation k, body) =
+          let map (IL.Value (label, id), args, IL.Continuation k, body) =
             let body = aux body in
-            let args = List.rev_map (fun (IL.Value v) -> v) args in
+            let args = List.rev_map (fun (IL.Value (_, v)) -> v) args in
             let args = List.rev (k::args) in
-            id, QC.lambda args body in
+            id, QCW.lambda ~label args body in
           List.map map defs in
         QC.letin defs (aux e)
 
-    | IL.ApplyCont (IL.Continuation k, IL.Value v) ->
+    | IL.ApplyCont (IL.Continuation k, IL.Value (label, v)) ->
         let cpsreturn = qml_bycps_call Opacapi.Opabsl.BslCps.return in
-        QC.apply cpsreturn [ QC.ident k ; QC.ident v ]
+        QC.apply cpsreturn [ QC.ident k ; QCW.ident ~label v ]
 
-    | IL.ApplyExpr (cps_function, IL.Value b, IL.Continuation k) ->
+    | IL.ApplyExpr (cps_function, IL.Value (label, b), IL.Continuation k) ->
         let cps_function =
           match cps_function with
-          | IL.CpsVident (IL.Value a) ->
-              let magic_a = QC.ident a in
+          | IL.CpsVident (IL.Value (label, a)) ->
+              let magic_a = QCW.ident ~label a in
               let magic_a =
                   if env.options.server_side && (not (env.options.qml_closure))
                   then qml_group_app (QC.apply (qml_bycps_call Opacapi.Opabsl.BslCps.magic_func) [magic_a])
@@ -1296,14 +1321,14 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
               in
               #<If:CPS_DEBUG>
                 apply_fun_tracer a [b] magic_a
-                #<Else>
+              #<Else>
                 magic_a
-                #<End>
+              #<End>
           | IL.CpsBypass il_bypass -> qml_bypass_of_il_bypass il_bypass
         in
         (* if !atomic *)
         (* then *)
-          QC.apply cps_function [ QC.ident b ; QC.ident k ]
+          QC.apply cps_function [ QCW.ident ~label b ; QC.ident k ]
         (* else *)
         (*   let cpsapply = qml_bycps_call Opacapi.Opabsl.BslCps.apply in *)
         (*   QC.apply cpsapply [ cps_function ; QC.ident b ; QC.ident k ] *)
@@ -1330,16 +1355,16 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
         in
         let cps_function =
           match id with
-          | IL.CpsVident (IL.Value _a) ->
+          | IL.CpsVident (IL.Value (_label, _a)) ->
               #<If:CPS_DEBUG>
-                let args = List.map (fun (IL.Value id) -> id) args in
+                let args = List.map (fun (IL.Value (_, id)) -> id) args in
                 apply_fun_tracer _a args cps_function
                 #<Else>
                 cps_function
                 #<End>
           | _ -> cps_function
         in
-        let rev_args = List.rev_map (fun (IL.Value id) -> QC.ident id) args in
+        let rev_args = List.rev_map (fun (IL.Value (_, id)) -> QC.ident id) args in
         let k =
           match stack_infos_opt with
           | None -> QC.ident k
@@ -1365,19 +1390,22 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
 
     | IL.ApplyBypass (il_bypass, args, IL.Continuation k) ->
         let qml_bypass = qml_bypass_of_il_bypass il_bypass in
-        let bypass_result = QC.apply qml_bypass (List.map (function (IL.Value x) -> QC.ident x) args) in
+        let bypass_result =
+          QC.apply qml_bypass
+            (List.map (function (IL.Value (label, x)) -> QCW.ident ~label x) args)
+        in
         let v = Ident.next "bypass_result" in
         let cpsreturn = qml_bycps_call Opacapi.Opabsl.BslCps.return in
         QC.letin [v, bypass_result]
           (QC.apply cpsreturn [ QC.ident k ; QC.ident v ])
 
-    | IL.Match (IL.Value v, pat_terms) ->
+    | IL.Match (IL.Value (label, v), pat_terms) ->
         let pat_terms =
           let map (pat, term) = (pat, aux term) in
           List.map map pat_terms in
-        QC.match_ (QC.ident v) pat_terms
+        QC.match_ (QmlAstCons.UntypedExprWithLabel.ident ~label v) pat_terms
 
-    | IL.Done (IL.Value v, _) -> toplevel_done := true ; toplevel_cont v
+    | IL.Done (IL.Value (_label, v), _) -> toplevel_done := true ; toplevel_cont v
 
     | IL.Directive (`spawn, _, _)
     | IL.Directive (`wait , _, _)

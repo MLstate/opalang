@@ -1030,7 +1030,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
           A"--no-warn-error";A"load-import";
           A"--no-warn-error";A"bsl.loading";
           A"--no-warn-error";A"bsl.projection";
-          (* A"--warn"; A"jscompiler" *)
+          A"--warn"; A"jscompiler";
          ] @
            if nodebackend then
              A"--back-end"::A"qmljs"::extra_opt

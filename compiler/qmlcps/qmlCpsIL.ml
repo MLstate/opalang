@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -58,7 +58,7 @@ module IL = struct
 
   (** The name of a value.
       Same remark, (vident, ExprIdent.t) UnionFind.t *)
-  type vident = Value of ident
+  type vident = Value of (Annot.label * ident)
 
   (**The name of a field*)
   type fident = Field of string
@@ -185,9 +185,14 @@ module IL = struct
 
   (** tools for code generation *)
   let fresh_c () = Continuation (Ident.next "cont")
-  let fresh_v () = Value (Ident.next "val")
+  let fresh_v ?(label = Annot.nolabel "CpsIL.fresh_v") () =
+    Value (label, Ident.next "val")
 
-  let fresh_fun () = Value (Ident.next "fun")
+  let fresh_fun ?(label = Annot.nolabel "CpsIL.fresh_fun") () =
+    Value (label, Ident.next "fun")
+
+  let value ?(label = Annot.nolabel "CpsIL.value") v =
+    Value (label, v)
 
 end
 
@@ -295,11 +300,11 @@ end =
 struct
   open IL
 
-  let foldmap_vident tra acc ((Value id) as v) =
+  let foldmap_vident tra acc ((Value (label, id)) as v) =
     let acc, fid = tra acc id in
     acc,
     if id == fid then v else
-      Value fid
+      Value (label, fid)
 
   let foldmap_cident tra acc ((Continuation id) as v) =
     let acc, fid = tra acc id in
@@ -311,21 +316,21 @@ struct
     QmlAstWalk.Expr.foldmap
       (fun acc e ->
          match e with
-         | QmlAst.Ident (_, id) ->
+         | QmlAst.Ident (label, id) ->
              let acc, fid = tra acc id in
              acc,
              if id == fid then e else
-               QmlAstCons.UntypedExpr.ident fid
+               QmlAstCons.UntypedExprWithLabel.ident ~label fid
          | _  -> acc, e
       ) acc e
 
   let foldmap_cps_function tra acc cps =
     match cps with
-    | CpsVident (Value id) ->
+    | CpsVident (Value (label, id)) ->
         let acc, fid = tra acc id in
         acc,
         if id == fid then cps else
-          CpsVident (Value fid)
+          CpsVident (Value (label, fid))
     | _ -> acc, cps
 
   let foldmap_stack_info tra acc stack_info =
@@ -578,11 +583,11 @@ struct
             term
 *)
 
-      | LetCont ((Continuation cident, Value vident, term, applycont), _) ->
+      | LetCont ((Continuation cident, Value (_, vident), term, applycont), _) ->
           begin
             (* traversing local LetVal *)
             let rec find_applycont acc = function
-              | ApplyCont (Continuation cident', (Value vident')) ->
+              | ApplyCont (Continuation cident', (Value (_, vident'))) ->
                   if Ident.compare cident cident' <> 0
                   then None
                   else Some (acc, vident')
