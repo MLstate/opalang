@@ -953,9 +953,7 @@ rule "opa application creator"
       Cmd(S[
         get_tool "opa-bin";
         A"-o"; P opa_create_dst; P opa_create_src;
-        A"--opx-dir";A "stdlib.qmljs";
         A"--no-server";
-        A"-I"; A plugins_dir
       ]));
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
