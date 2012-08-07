@@ -28,13 +28,13 @@
    This implementation works with a cache mechanism.
    You should first store files, and then you can perform some call to the API.
 
-   Originally, these functionnalities was dispesed and diverging in
+   Originally, these functionalities was dispersed and diverging in
 
    + Trx_runtime
    + QmlLoc
    + OpaParser
 
-   This module is there to group once for all, all functionnality related to
+   This module is there to group once for all, all functionality related to
    errors reporting from a source file, with line location, and nice colored citations.
 
    TODO(proposition):
@@ -87,7 +87,7 @@ val line_position : filename -> line_number -> absolute_char_offset * absolute_c
 (** remove a file from the cached files *)
 val uncache : filename -> unit
 
-(** remova all files from the cached files *)
+(** remove all files from the cached files *)
 val clear : unit -> unit
 
 (** {6 Position tracking} *)
@@ -117,7 +117,7 @@ type filerange = {
    Any error at [Builtin] is the result of an internal error and should be treated as a failure.
    + [Files] : This come for at least one file, with at least one range.
 
-   The private cache is used for speeding up some redondant request
+   The private cache is used for speeding up some redundant requests
 *)
 type private_cache
 
@@ -133,13 +133,13 @@ val nopos : string -> pos
 
 (**
    Get at least one of filenames present in a pos.
-   returns ["builtin_pass"] if there is no files
+   returns ["builtin_pass"] if there are no files
 *)
 val get_file : pos -> filename
 
 (**
    Get one location of the pos.
-   returns ["builtin_pass", 0] if there is no files
+   returns ["builtin_pass", 0] if there are no files
 *)
 val get_one_loc : pos -> filename * line_number
 
@@ -211,7 +211,7 @@ val pp_files : Format.formatter -> pos -> unit
 (** {6 Deprecated API} *)
 
 (**
-   Used some how by the old qml, will be delated as soon as we can.
+   Used some how by the old qml, will be deleted as soon as we can.
    DO NOT USE IT IN NEW CODE
 *)
 val to_old_pos_many : pos -> (int*int) StringMap.t
