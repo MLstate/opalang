@@ -992,7 +992,14 @@ let export_to_global_namespace nodejs_code =
       try
         JsParse.String.code ~throw_exn:true contents
       with
-        _ -> OManager.error "Couldn't parse file %s\n" filename
+        JsParse.Exception e ->
+          ignore (File.output "jserror.js" contents);
+          OManager.error
+            ("Couldn't parse file @{<brigth>%s@} after preprocessing\n"^^
+               "Take a look on generated file @{<brigth>jserror.js@}\n%!" ^^
+               "Error : %a")
+            filename
+            JsParse.pp e
     in
     let contents = JsUtils.export_to_global_namespace contents in
     (filename, Format.to_string JsPrint.pp_min#code contents, conf)

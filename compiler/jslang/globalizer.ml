@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -78,7 +78,12 @@ let _ =
         try
           JsParse.String.code ~throw_exn:true content
         with
-          _ -> die "Could not read input"
+          JsParse.Exception e ->
+            OManager.error
+              ("Couldn't parse file @{<brigth>%s@}\n"^^
+                 "Error : %a")
+              filename
+              JsParse.pp e
       in
       (filename, JsUtils.export_to_global_namespace content)
     ) files
