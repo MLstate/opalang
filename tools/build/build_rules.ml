@@ -960,20 +960,19 @@ rule "opa application creator"
 
 let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
   Lazy.force lazy_plugin_rules;
+  let plugins = string_list_of_file (opa_prefix / all_plugins_file) in
+  let plugins = List.map (fun f -> plugins_dir/f/f -.- "oppf") plugins in
   rule name
-    ~deps:[
+    ~deps:(plugins @ [
       opacapi_validation;
       version_buildinfos;
       all_packages_file nodebackend;
       "opacomp.stamp"
-    ]
+    ])
     ~stamp
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
   (fun env build ->
      try
-       let plugins = string_list_of_file all_plugins_file in
-       let plugins = List.map (fun f -> plugins_dir/f/f -.- "oppf") plugins in
-       build_list build plugins;
        let packages = string_list_of_file (all_packages_file nodebackend) in
        let packages =
          if stdlib_only
