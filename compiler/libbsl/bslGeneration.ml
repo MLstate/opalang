@@ -586,13 +586,38 @@ let process opt =
 
   if opt.auto_build && BR.need_makefile finalized_t then (
     OManager.verbose "building plugin...";
+    let cmd = Printf.sprintf "%s -C %s -f %s"
+      Config.makebinary fs.opp_dir
+      (Filename.basename fs.makefile)
+    in
+    let log = Printf.sprintf "%s/compilation.log" fs.opp_dir in
     let ret =
-      Sys.command (Printf.sprintf "%s -C %s -f %s"
-                     Config.makebinary fs.opp_dir
-                     (Filename.basename fs.makefile)) in
+      let system_call cmd =
+        let ic, oc = Unix.open_process cmd in
+        let buf = Buffer.create 16 in
+        (try
+           while true do
+             Buffer.add_channel buf ic 1
+           done
+         with End_of_file -> ());
+        let ret = Unix.close_process (ic, oc) in
+        Buffer.contents buf, ret
+      in
+      let std, ret =
+        system_call cmd
+      in
+      ignore (File.output log std);
+      match ret with
+      | Unix.WSIGNALED _
+      | Unix.WSTOPPED _ ->  1
+      | Unix.WEXITED x -> x
+    in
     if ret <> 0
     then
-      OManager.error "building failure due to error(s) in source files@\n"
+      OManager.error
+        ("Building failure due to error(s) in source files@\n"^^
+           "The command was @{<bright>%s@}, log is in @{<bright>%s@}")
+        cmd log
     else
       OManager.verbose "successful compilation of plugin @{<bright>%s@}"
         opt.bsl_pref
