@@ -5,8 +5,8 @@
 <crypto>: traverse
 <gcharts>: traverse
 <hlnet>: traverse
-<iconv>: traverse, classic_syntax
-<irc>: traverse, classic_syntax
+<iconv>: traverse
+<irc>: traverse
 <mail>: traverse, classic_syntax
 <mongo>: traverse, classic_syntax
 <opabsl>: traverse, static, classic_syntax
