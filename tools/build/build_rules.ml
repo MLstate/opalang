@@ -959,6 +959,7 @@ rule "opa application creator"
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
+        (Sh ("MLSTATELIBS=\""^ Config.prefix ^"\""));
         get_tool "opa-bin";
         A"-o"; P opa_create_dst; P opa_create_src;
         A"--no-server";
