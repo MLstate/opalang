@@ -473,15 +473,17 @@ Pack = {{
 
     /** Encode signed 53-bit big-endian int, failure if out-of-range **/
     longlong_be(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < -0x20000000000000 || i > 0x1fffffffffffff)
-      then {failure="Pack.Encode.ulonglong_be: out of range {i}"}
-      else {success=Binary.add_int53_be(buf, i)}
+      // if (i < -0x20000000000000 || i > 0x1fffffffffffff)
+      // then {failure="Pack.Encode.ulonglong_be: out of range {i}"}
+      // else
+      {success=Binary.add_int53_be(buf, i)}
 
     /** Encode signed 53-bit little-endian int, failure if out-of-range **/
     longlong_le(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < -0x20000000000000 || i > 0x1fffffffffffff)
-      then {failure="Pack.Encode.ulonglong_le: out of range {i}"}
-      else {success=Binary.add_int53_le(buf, i)}
+      // if (i < -0x20000000000000 || i > 0x1fffffffffffff)
+      // then {failure="Pack.Encode.ulonglong_le: out of range {i}"}
+      // else
+      {success=Binary.add_int53_le(buf, i)}
 
     /**
      * Encode 53-bit int, failure if out-of-range
