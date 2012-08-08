@@ -20,9 +20,16 @@
    @author Arthur Azevedo de Amorim
 *)
 
-(** [parse filename] attempts to read a js file [filename] and parse
+(** [parse_file filename] attempts to read a js file [filename] and parse
     its directives according to the doc-like syntax *)
-val parse :
+val parse_file :
+  string ->
+  [ `error   of string
+  | `success of (FilePos.pos * BslTags.t * BslDirectives.Js.t) list ]
+
+(** [parse_string string] attempts to read js code in [string] and parse
+    its directives according to the doc-like syntax *)
+val parse_string :
   string ->
   [ `error   of string
   | `success of (FilePos.pos * BslTags.t * BslDirectives.Js.t) list ]

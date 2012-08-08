@@ -1021,22 +1021,6 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
 
   let s_js_code = finalizing_js_code_conf js_confs s_js_code in
 
-  let ppjs (filename, code, conf) =
-    let ppenv =
-      if BslLanguage.is_nodejs lang then
-        let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
-        let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
-        Pprocess.add_env "OPA_CPS_CLIENT" "1" ppenv
-      else
-        Pprocess.fill_with_sysenv Pprocess.empty_env in
-    let ppopt = Pprocess.default_options ppenv in
-    let code = Pprocess.process ~name:filename
-      Pplang.js_description ppopt code in
-    (filename, code, conf)
-  in
-
-  let s_js_code = List.map ppjs s_js_code in
-
   javascript_env, update_session !session_ref s_js_code
 
 let finalizing_nodejs_package nodejs_code =
@@ -1579,18 +1563,19 @@ let parse_bypass_file pprocess options filename =
     BRParse.parse_bslregisterparser_bypasslang filename in
   ( parsed : BslDirectives.bypasslang_decorated_file )
 
-let parse_js_bypass_file_new filename =
-  match BslJsParse.parse filename with
+let parse_js_bypass_file_new pprocess filename =
+  let contents = pprocess filename (File.content filename) in
+  FilePos.add_file filename contents;
+  match BslJsParse.parse_string contents with
   | `error e -> OManager.error "%s" e
   | `success directives ->
-    let contents = File.content filename in
     { BslJs. filename; contents; directives; }
 
 let parse_js_bypass_file pprocess options filename =
   if options.BI.js_classic_bypass_syntax then
     BslJs.Classic (parse_bypass_file pprocess options filename)
   else
-    BslJs.DocLike (parse_js_bypass_file_new filename)
+    BslJs.DocLike (parse_js_bypass_file_new pprocess filename)
 
 (*
   Main preprocessor
@@ -1636,19 +1621,42 @@ let preprocess_file session filename =
       session
 
 
+  (* FIXME: right now we can't choose a preprocessor to pass bsl
+     files, so we ignore external preprocessors for now and use our
+     own here for JS. We need the PP to read our own bsl files
+     (e.g. server). We need to find a better way of specifying
+     this. *)
   | "js" ->
-      let parsed_file = parse_js_bypass_file session.s_pprocess session.s_options filename in
-      let s_rev_js_parsed_files =
-        parsed_file :: session.s_rev_js_parsed_files in
+    let pp_js filename contents =
+      let ppenv =
+        Pprocess.fill_with_sysenv Pprocess.empty_env in
+      let ppopt = Pprocess.default_options ppenv in
+      let contents = Pprocess.process ~name:filename
+        Pplang.js_description ppopt contents in
+      contents
+    in
+    let parsed_file = parse_js_bypass_file pp_js session.s_options filename in
+    let s_rev_js_parsed_files =
+      parsed_file :: session.s_rev_js_parsed_files in
 
-      let session = {
-        session with
-          s_rev_js_parsed_files ;
-      } in
-      session
+    let session = {
+      session with
+        s_rev_js_parsed_files ;
+    } in
+    session
 
   | "nodejs" ->
-      let parsed_file = parse_js_bypass_file session.s_pprocess session.s_options filename in
+      let pp_nodejs filename contents =
+        let ppenv =
+          let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
+          let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
+          Pprocess.add_env "OPA_CPS_CLIENT" "1" ppenv in
+        let ppopt = Pprocess.default_options ppenv in
+        let contents = Pprocess.process ~name:filename
+          Pplang.js_description ppopt contents in
+        contents
+      in
+      let parsed_file = parse_js_bypass_file pp_nodejs session.s_options filename in
       let s_rev_nodejs_parsed_files =
         parsed_file :: session.s_rev_nodejs_parsed_files in
 

@@ -339,9 +339,17 @@ let rec doc_comment acc code =
   | _ :: rest -> doc_comment acc rest
   | [] -> `success (List.rev acc)
 
-let parse filename =
+let parse_file filename =
   try
     let code = JsParse.File.code ~throw_exn:true filename in
+    doc_comment [] code
+  with
+    JsParse.Exception e ->
+      `error (Format.to_string JsParse.pp e)
+
+let parse_string content =
+  try
+    let code = JsParse.String.code ~throw_exn:true content in
     doc_comment [] code
   with
     JsParse.Exception e ->
