@@ -26,26 +26,36 @@ let merge_pos = FilePos.merge_pos_for_parser
 let label () = Annot.next_label dummy_pos
 let native_ident = JsCons.Ident.native
 
-(* redefining the modules Stream allows us to 'override' the syntax of streams
- * the new peek, junk and empty function look at the first non-newline token
- * (which allows us to write almost the whole parser while implicitely
- * discarding newlines) *)
+(* Redefining the module Stream allows us to 'override' the syntax of
+ * streams. The new peek, junk and empty functions look at the first
+ * non-newline token (which allows us to write almost the whole parser
+ * while implicitely discarding newlines).
+ *
+ * The new module also carries an imperative state to discard comments
+ * implicitely. This has to be set carefully by the various rules. *)
 module Stream =
 struct
 
-  type 'a t = 'a Stream.t
+  type 'a t = bool ref * 'a Stream.t
   exception Failure = Stream.Failure
   exception Error = Stream.Error
-  let from = Stream.from
-  let junk_no_newline = Stream.junk
-  let peek_no_newline = Stream.peek
+  let from f = (ref true, Stream.from f)
+  let junk_no_newline stream = Stream.junk (snd stream)
+  let peek_no_newline stream = Stream.peek (snd stream)
+
+  let wrap stream = (ref true, stream)
+  let parse_comments stream =
+    fst stream := false
+
+  let ignore_comments stream =
+    fst stream := true
 
   let junk stream =
     (* this function is symmetric with peek below *)
-    (match Stream.peek stream with
-    | Some (LT _) -> Stream.junk stream
+    (match Stream.peek (snd stream) with
+    | Some (LT _) -> Stream.junk (snd stream)
     | _ -> ());
-    Stream.junk stream
+    Stream.junk (snd stream)
 
   (*let peek stream =
     match Stream.npeek 2 stream with
@@ -53,14 +63,16 @@ struct
     | [LT] -> None
     | a :: _ -> Some a
     | [] -> None*)
-  let peek stream = (* this Stream.peek makes the parsing really faster *)
-    match Stream.peek stream with
+  let rec peek stream = (* this Stream.peek makes the parsing really faster *)
+    match Stream.peek (snd stream) with
     | Some (LT _) ->
       (* using the invariant that says that you never have two consecutives
        * newlines in the token stream *)
-      (match Stream.npeek 2 stream with
+      (match Stream.npeek 2 (snd stream) with
       | _ :: t :: _ -> Some t
       | _ -> None)
+    | Some (DocComment _) when !(fst stream) ->
+      peek stream
     | o -> o
 
   (* redefining empty because a stream with only a newline must be considered
@@ -227,9 +239,16 @@ let postfixoperator = parser
   | [< 'PlusPlus pos >] -> (pos, J.Ju_add2_post)
   | [< 'MinusMinus pos >] -> (pos, J.Ju_sub2_post)
 
-let rec statement = parser
+let rec statement stream =
+  Stream.parse_comments stream;
+  match stream with parser
   | [< 'DocComment (pos, lines) >] ->
     J.Js_comment (nl pos, J.Jc_doc (nl pos, lines))
+  | [< >] ->
+    Stream.ignore_comments stream;
+    statement_no_comments stream
+
+and statement_no_comments = parser
   | [< 'Function pos1;
        'Ident (_, name) ?? "expected an identifier after 'function' in a statement";
        'Lparen _; params = list0_sep native comma; 'Rparen _;
@@ -545,11 +564,17 @@ and property_assignment : tok_stream -> string * expr = parser
   | [< p = property_name; 'Colon _; e = assignmentexpr >] ->
     (p,e)
 
-let code = parser
+let code stream =
+  let stream = Stream.wrap stream in
+  match stream with parser
   | [< r = statements; _ = Stream.empty >] -> r
-let expr = parser
+let expr stream =
+  let stream = Stream.wrap stream in
+  match stream with parser
   | [< e = expr; _ = Stream.empty >] -> e
-let stm = parser
+let stm stream =
+  let stream = Stream.wrap stream in
+  match stream with parser
   | [< s = statement; _ = Stream.empty >] -> s
 
 type error = (int * int * string * string)
