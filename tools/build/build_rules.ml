@@ -705,7 +705,7 @@ let plugin_building name =
            else options
     ) tags options
   in
-  let options (* JavaScript files *) =
+  let has_node, options (* JavaScript files *) =
     let jsfiles =
       List.filter
         (fun f -> Pathname.check_extension f "js" || Pathname.check_extension f "nodejs")
@@ -724,6 +724,7 @@ let plugin_building name =
       ) options (List.rev jsfiles)
     in
     (* Specify the JavaScript validator *)
+    (List.exists (fun f -> Pathname.check_extension f "nodejs") jsfiles),
     if jsfiles = [] then options
     else match js_checker with
     | [] -> []
@@ -780,6 +781,11 @@ let plugin_building name =
   let prods =
     if has_ml then
       prod_suffix "MLRuntime.ml" :: prod_suffix "MLRuntime.mli" :: prods
+    else prods
+  in
+  let prods =
+    if has_node then
+      prod_suffix "NodeJsPackage.js" :: prods
     else prods
   in
   let prods =
