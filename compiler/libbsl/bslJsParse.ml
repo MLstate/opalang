@@ -235,7 +235,7 @@ let extract_end_module =
 let extract_register implementation =
   let re = Str.regexp (
     "^{\\([^}]*\\)}" ^ (* Type between brackets *)
-    "\\([ \t]+[a-zA-Z][a-zA-Z0-9]*\\)?[ \t]*" ^ (* Optional bypass name *)
+    "\\([ \t]+[a-zA-Z][a-zA-Z0-9_]*\\)?[ \t]*" ^ (* Optional bypass name *)
     "\\([^ \t]+\\)?[ \t]*$" (* Optional source code *)
   ) in
   try_read_args "register" (fun pos args ->
