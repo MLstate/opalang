@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -115,7 +115,7 @@ struct
           Ident.compare id1 id2
       | Q.Ident _, _ -> -1
       | _, Q.Ident _ -> 1
-      | Q.Const (_, c), Q.Const (_, c') -> Pervasives.compare c c'
+      | Q.Const (_, c), Q.Const (_, c') -> QmlAstUtils.Const.compare c c'
       | Q.Const _, _ -> -1
       | _, Q.Const _ -> 1
       | _ -> assert false (* internal error of this module *)
