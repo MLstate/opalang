@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -403,6 +403,7 @@ let print_id = Lang.print_id
 let print_ty = Lang.print_ty
 let print_expr = Lang.print_expr
 let print_const = Lang.print_const
+let compare_const = Lang.compare_const
 
 
 (** printers for internal types *)
@@ -452,7 +453,7 @@ let compare p1 p2 =
   | Or _ , _ -> assert false
   |  _ , Or _ -> assert false
 
-  | Term {pat = Cst x}, Term {pat = Cst y} -> compare x y
+  | Term {pat = Cst x}, Term {pat = Cst y} -> compare_const x y
   | _, Term {pat = Cst _} -> -1
 
   | And { fields = fields1; strict=strict1 }, And { fields = fields2; strict=strict2 }
@@ -681,9 +682,13 @@ module Normalize = struct
       | CRECORD l0, CRECORD l1 -> Pervasives.compare l0 l1
       | CRECORD _ , CST _     -> 1
 
-      | CST c0    , CST c1    -> Pervasives.compare c0 c1
+      | CST c0    , CST c1    -> compare_const c0 c1
 
       | _   -> -1
+
+    let hash = Hashtbl.hash
+
+    let equal p1 p2 = compare p1 p2 = 0
 
     (** non typed strictification *)
     let strictify_record_class strict nonstrict = fields_completion (fun _ ->term()) strict nonstrict []
@@ -844,6 +849,7 @@ let extract_unstrict ol =
 let add_i i l = List.map (fun j->i,j) l
 let add_i_fst i l = List.map (fun j->i,fst j) l
 
+module HashPat = Hashtbl.Make (PatternClass)
 (*
   dispatch pattern by class, no specific order on pattern
   should be call on separate pattern group,
@@ -851,19 +857,19 @@ let add_i_fst i l = List.map (fun j->i,fst j) l
 *)
 let rec class_layer ol =
     let hash_add h (k,v) =
-      let l = try Hashtbl.find h k with Not_found -> [] in
-      Hashtbl.replace h k (v::l)
+      let l = try HashPat.find h k with Not_found -> [] in
+      HashPat.replace h k (v::l)
     in
     let hash_pop h (k,_) =
       try
-        let l = Hashtbl.find h k in
-        Hashtbl.remove h k;
+        let l = HashPat.find h k in
+        HashPat.remove h k;
         Some(k,List.rev l)
       with Not_found -> None
     in
     let class_o = l_map(ol)(fun o->PatternClass.from_pattern o,o) in
-    let classes     = Hashtbl.create (List.length class_o) in
-    l_iter(class_o)(hash_add classes);
+    let classes     = HashPat.create (List.length class_o) in
+    l_iter(class_o)(hash_add (classes));
     let classes_patterns = l_filter_map(class_o)(hash_pop classes) in
     classes_patterns
 
@@ -1033,9 +1039,14 @@ and or_cases ~path ?(recurse_todo=[])  ty new_ident cases =
   let strict = strict@strictified_any in
 
   (* we reorder in each group to get back the initial semantic *)
-  let strict = List.sort Pervasives.compare strict |> List.map snd in
-  let unstrict = List.sort Pervasives.compare unstrict |> List.map snd in
-  let any = List.sort Pervasives.compare any |> List.map snd in
+  let compare (i0, s0) (i1, s1) =
+    match Pervasives.compare i0 i1 with
+    | 0 -> compare s0 s1
+    | x -> x
+  in
+  let strict = List.sort compare strict |> List.map snd in
+  let unstrict = List.sort compare unstrict |> List.map snd in
+  let any = List.sort compare any |> List.map snd in
 
   if debug_flag then (
     debug "\n\nFINAL Strictified Any %a\n\n" (Format.pp_list "|" print) (List.map snd strictified_any);
