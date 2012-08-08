@@ -201,7 +201,7 @@ struct
   let fresh_internal n = ident (Ident.next n)
 
   let const e = Q.Const (a(), e)
-  let int i = const (Q.Int i)
+  let int i = const (Q.Int (Big_int.big_int_of_int i))
   let float f = const (Q.Float f)
   let string s = const (Q.String s)
 
@@ -518,7 +518,7 @@ struct
 
   let int ?pos annotmap x =
     let annotmap, label = typed_label ?pos annotmap ty_int in
-    annotmap, Q.Const (label, Q.Int x)
+    annotmap, Q.Const (label, Q.Int (Big_int.big_int_of_int x))
 
   let float ?pos annotmap x =
     let annotmap, label = typed_label ?pos annotmap ty_float in
@@ -961,7 +961,7 @@ struct
   let fresh_internal ?(label=Annot.next_label nopos) n = ident ~label (Ident.next n)
 
   let const ?(label=Annot.next_label nopos) e = Q.Const (label, e)
-  let int ?(label=Annot.next_label nopos) i = const ~label (Q.Int i)
+  let int ?(label=Annot.next_label nopos) i = const ~label (Q.Int (Big_int.big_int_of_int i))
   let float ?(label=Annot.next_label nopos) f = const ~label (Q.Float f)
   let string ?(label=Annot.next_label nopos) s = const ~label (Q.String s)
 

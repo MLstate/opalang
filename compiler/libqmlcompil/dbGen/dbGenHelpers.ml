@@ -408,18 +408,15 @@ let nolabel = Annot.nolabel "dbgen"
 let expr_unit () = newexpr_annot (Q.Record (nolabel, [])) tyunit
 let patt_unit () = newpatt_annot (Q.PatRecord (nolabel, [], `closed)) tyunit
 
-let const_int i = newexpr_annot (Q.Const (nolabel, (Q.Int i))) tyint
-let patt_const_int i = newpatt_annot (Q.PatConst (nolabel, (Q.Int i))) tyint
+let const_int i = newexpr_annot (Q.Const (nolabel, (Q.Int (Big_int.big_int_of_int i)))) tyint
+let patt_const_int i = newpatt_annot (Q.PatConst (nolabel, (Q.Int  (Big_int.big_int_of_int i)))) tyint
 let const_string s = newexpr_annot (Q.Const (nolabel, (Q.String s))) tystring
 let patt_const_string s = newpatt_annot (Q.PatConst (nolabel, (Q.String s))) tystring
 let expr_true () = const_int 1
 let expr_false () = const_int 0
-let expr_and x y = match x, y with
-  | Q.Const (_, (Q.Int i)), z
-  | z, Q.Const (_, (Q.Int i)) -> if i <> 0 then z else expr_false ()
-  | _ -> make_match x [patt_const_int 0, expr_false(); newpatt_annot (Q.PatAny nolabel) tybool, y]
+
 let make_ifthenelse x ethen eelse = match x with
-  | Q.Const (_, Q.Int i) -> if i <> 0 then ethen else eelse
+  | Q.Const (_, Q.Int i) -> if i <> Big_int.big_int_of_int 0 then ethen else eelse
   | _ -> make_match x [patt_const_int 0, eelse; newpatt_annot (Q.PatAny nolabel) tybool, ethen]
 
 let make_list l ty =

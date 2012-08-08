@@ -1200,9 +1200,9 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
       H.make_match
         (H.apply_lambda (Bypass.is_db_new()) (db_id @: C.Db.t ()))
         [
-          (H.newpatt_annot (QC.patconst (Q.Int 1)) H.tyint,
+          (H.newpatt_annot (QC.patconst (Q.Int (Big_int.big_int_of_int 1))) H.tyint,
           set_init_code serial_sch tr1_id);
-          (H.newpatt_annot (QC.patconst (Q.Int 0)) H.tyint,
+          (H.newpatt_annot (QC.patconst (Q.Int (Big_int.big_int_of_int 0))) H.tyint,
            check_init_code db_id serial_sch tr1_id)
         ]
     in

@@ -1214,17 +1214,20 @@ struct
     let get_missing l =
       let l = List.sort compare_const l |> List.uniq ~cmp:compare_const in
       let between v v'= match v,v' with
-      | Q.Int i, Q.Int i' -> if i+1=i' then [] else [Q.Int( i+1 )]
+      | Q.Int i, Q.Int i' ->
+          let s = Big_int.succ_big_int i in
+          if Big_int.eq_big_int s i' then [] else [Q.Int( s )]
       | Q.Float f, Q.Float f' -> let f'' = (f+.f')/.2.0 in if f<f'' && f''< f' then [Q.Float f''] else []
       | Q.String s, Q.String s' -> [Q.String (s^"_"^s')]
       | Q.String _ , _ | Q.Int _ , _ | Q.Float _,_ -> assert false
       in
       let outside first last = match first,last with
       | Q.Int i, Q.Int i' ->
-          if i= min_int then
-            if i'= max_int then [ Q.String "Nothing" ]
-            else [Q.Int (i'+1)]
-          else [Q.Int (i-1)]
+          if Big_int.eq_big_int i (QmlAstUtils.Const.min_int ()) then
+            if Big_int.eq_big_int i' (QmlAstUtils.Const.max_int ()) then
+              [ Q.String "Nothing" ]
+            else [Q.Int (Big_int.succ_big_int i')]
+          else [Q.Int (Big_int.pred_big_int i)]
       | Q.Float f, Q.Float f' ->
           if f = -. infinity then
             if f' = infinity then [ Q.String "Nothing" ]

@@ -29,5 +29,6 @@
 <qmlEffects.ml>: with_mlstate_debug
 <qmlMoreTypes.ml>: with_mlstate_debug
 <qmlPatternAnalysis.ml>: with_mlstate_debug
+<qmlAstUtils.ml>: with_mlstate_debug
 
 <qml2opa.{byte,native}>: thread, use_unix, use_ulex

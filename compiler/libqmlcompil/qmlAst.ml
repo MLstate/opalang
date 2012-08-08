@@ -60,7 +60,7 @@ module ColVar = QmlTypeVars.ColVar
 *)
 
 type const_expr =
-  | Int of int (** simplify the life in opa / ml code generator *)
+  | Int of Big_int.big_int
   | Float of float
   | String of string
 
@@ -86,7 +86,7 @@ struct
 
   (** Return a human-readable version of a simple value.*)
   let string_of_expr = function
-    | Int i    -> string_of_int i
+    | Int i    -> Big_int.string_of_big_int i
     | Float f  -> string_of_float f
     | String s -> Printf.sprintf "%S" s
 
