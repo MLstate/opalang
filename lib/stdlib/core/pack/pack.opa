@@ -282,7 +282,11 @@ Pack = {{
 #<Ifstatic:OPA_BACKEND_QMLJS>
   @private llsize = 0x001fffffffffffff // 53 bits
 #<Else>
+  #<Ifstatic:OCAML_WORD_SIZE 64>
   @private llsize = 0x3fffffffffffffff // 62 bits
+  #<Else>
+  @private llsize = 0x3fffffff // 30 bits
+  #<End>
 #<End>
 
   /** maximum (unsigned) value for int **/
