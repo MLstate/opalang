@@ -19,7 +19,7 @@
 {
 
 type pos = FilePos.pos
-let dummy_pos = FilePos.nopos "JsLex"
+let dummy_pos = FilePos.make_pos "dummy" 1 1
 
 type doc_comment_elt =
 | CommentLine of pos * string
