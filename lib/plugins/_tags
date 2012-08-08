@@ -1,7 +1,7 @@
 # -*- conf -*- (for emacs)
 
 <badop>: traverse, classic_syntax
-<browser_canvas>: traverse, classic_syntax
+<browser_canvas>: traverse
 <crypto>: traverse, classic_syntax
 <gcharts>: traverse, classic_syntax
 <hlnet>: traverse, classic_syntax
