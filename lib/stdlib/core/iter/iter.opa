@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -81,6 +81,30 @@ Iter = {{
 
   is_empty(s) = to_list(take(1, s)) == []
 
+
+  /**
+   * Returns from an iterator a new iterator where iteration will be cached.
+   *
+   * For each calls to the [next] function the original iteration (from [iter])
+   * is computed, then its cached (the original iteration will never be called).
+   *
+   * @param iter An iterator
+   * @return A cached iterator from [iter]
+   */
+  cache(iter:iter('a)):iter('a) =
+    ref = Reference.create({unevaluated})
+    {next = ->
+      match Reference.get(ref) with
+      | {unevaluated} ->
+        result = iter.next()
+        result = Option.map((a, n) -> (a, cache(n)), result)
+        @atomic(match Reference.get(ref) with /* CAS */
+          | {unevaluated} ->
+            do Reference.set(ref, ~{result})
+            result
+          | ~{result} -> result)
+      | ~{result} -> result
+    }
 
   /**
    * Lazy
