@@ -344,13 +344,15 @@ struct
   let const_expr (const_node, opa_annot) =
     match const_node with
     | SA.CInt i ->
-        (try QA.Int (Big_int.int_of_big_int i)
-         with Failure "int_of_big_int" ->
+        (if QmlAstUtils.Const.check_int i then
+           QA.Int i
+         else
            let context = OpaError.Context.annot opa_annot in
            OpaError.error context
-             "Too big integer literal : %s@\nThe biggest int handled : %d"
+             "Integer literal {@<bright>%s@} is out of range [%s, %s]"
              (Big_int.string_of_big_int i)
-             Pervasives.max_int)
+             (Big_int.string_of_big_int (QmlAstUtils.Const.min_int ()))
+             (Big_int.string_of_big_int (QmlAstUtils.Const.max_int ())))
     | SA.CFloat f -> QA.Float f
     | SA.CString s -> QA.String s
 
