@@ -298,14 +298,45 @@ end
 
 module Const =
 struct
+
+  let limits byte =
+    Big_int.minus_big_int (Big_int.power_int_positive_int 2 byte),
+    Big_int.pred_big_int (Big_int.power_int_positive_int 2 byte)
+
+  let int_js_limits (* -2^53, 2^53 - 1*) =
+    limits 53
+
+  let int_ml_limits (* -2^62, 2^62 - 1*) =
+    #<Ifstatic:OCAML_WORD_SIZE 64>
+    limits 62
+    #<Else>
+    limits 30
+    #<End>
+
+  let int_limits = ref int_js_limits
+
   let compare a b =
     match a, b with
-    | Q.Int a, Q.Int b -> Pervasives.compare a b
+    | Q.Int a, Q.Int b -> Big_int.compare_big_int a b
     | Q.Float a, Q.Float b -> Pervasives.compare a b
     | Q.String a, Q.String b -> String.compare a b
-    | _ -> assert false
+    | _ -> Pervasives.compare a b
 
   let equal a b = compare a b = 0
+
+  let check_int i =
+    let min, max = !int_limits in
+    Big_int.le_big_int i max && Big_int.ge_big_int i min
+
+  let min_int () =
+    fst !int_limits
+
+  let max_int () =
+    snd !int_limits
+
+  let set_limits = function
+    | `js -> int_limits := int_js_limits
+    | `ml -> int_limits := int_ml_limits
 end
 
 module Record =

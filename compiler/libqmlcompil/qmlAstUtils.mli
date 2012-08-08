@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -265,6 +265,27 @@ module Const : sig
      Checks if compare returns 0
   *)
   val equal : QmlAst.const_expr -> QmlAst.const_expr -> bool
+
+  (**
+      Checks if the given integers is on the backend limits
+  *)
+  val check_int : Big_int.big_int -> bool
+
+  (**
+     Get the maximal integer
+  *)
+  val max_int : unit -> Big_int.big_int
+
+  (**
+     Get the minimal integer
+  *)
+  val min_int : unit -> Big_int.big_int
+
+  (**
+      Set the qml integers limits, defaults 53bits
+  *)
+  val set_limits : [`js | `ml] -> unit
+
 end
 
 module Coerce : sig
