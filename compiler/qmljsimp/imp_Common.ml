@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -227,7 +227,7 @@ let maybe_js_false gamma ty =
 let const const =
   match const with
   | Q.Int i ->
-      JsCons.Expr.int i
+      JsCons.Expr.bint i
   | Q.Float f ->
       JsCons.Expr.float f
   | Q.String s ->

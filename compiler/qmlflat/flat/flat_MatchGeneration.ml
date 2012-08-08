@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -246,7 +246,7 @@ struct
   let rec compile_pat = function
     | T_PatConst (_, const) -> (
         match const with
-        | Q.Int i -> Ocaml.Cons.pat_int i
+        | Q.Int i -> Ocaml.Cons.pat_int (Big_int.int_of_big_int i)
         | Q.Float i -> Ocaml.Cons.pat_float i
         | Q.String i -> Ocaml.Cons.pat_string i
       )

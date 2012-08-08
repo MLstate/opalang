@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -113,6 +113,7 @@ let rec is_killed_by p p' =
   | (Q.PatAny _ | Q.PatVar _), _ -> true
 
   | Q.PatRecord _, Q.PatRecord _ -> all_fields_killed_by p p'
+  | Q.PatConst (_, Q.Int i), Q.PatConst (_, Q.Int i') -> Big_int.eq_big_int i i'
   | Q.PatConst (_, c0), Q.PatConst (_, c1) -> c0 = c1
 
   | _ -> false

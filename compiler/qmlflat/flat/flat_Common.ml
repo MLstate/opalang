@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -101,7 +101,7 @@ struct
   type ident = Ident.t
 
   let const = function
-    | Q.Int i -> Ocaml.Int i
+    | Q.Int i -> Ocaml.Int (Big_int.int_of_big_int i)
     | Q.Float f -> Ocaml.Float f
     | Q.String s -> Ocaml.String s
 
