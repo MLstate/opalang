@@ -13,7 +13,7 @@
 <qos>: traverse
 <server>: traverse, classic_syntax
 <session>: traverse, classic_syntax
-<socket>: traverse, classic_syntax
+<socket>: traverse
 <unix>: traverse
 
 <**/*Loader*.{ml,mli,byte,native}>: use_libbsl
