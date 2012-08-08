@@ -125,16 +125,16 @@ let collect_bsl_tags tags =
     if a unique directive was defined or not. *)
 
 type global_read_result = [ `no_occurrences
-                          | `wrong_format of message
+                          | `wrong_format of pos * message
                           | `multiple_occurrences of tag
                           | `found of pos * tag * BD.t ]
 
-type local_read_result = [ `wrong_format of message
+type local_read_result = [ `wrong_format of pos * message
                          | `found of BD.t ]
 
 (** Extracts all occurrences of tag [keyword] *)
 let try_read_args tag
-    (arg_reader : string -> local_read_result)
+    (arg_reader : pos -> string -> local_read_result)
     tags : global_read_result =
   let rec aux acc tags =
     match tags with
@@ -148,7 +148,7 @@ let try_read_args tag
       else if Option.is_some acc then
         `multiple_occurrences tag
       else
-        match arg_reader args with
+        match arg_reader pos args with
         | `wrong_format _ as s -> s
         | `found directive -> aux (Some (pos, directive)) rest
   in
@@ -176,7 +176,7 @@ let extract_type_declaration =
   let split_vars_regexp = Str.regexp "[ \t]*,[ \t]*" in
   let var_regexp = Str.regexp "'[a-z]*" in
   fun tag constructor ->
-    try_read_args tag (fun args ->
+    try_read_args tag (fun pos args ->
       if Str.string_match type_regexp args 0 then
         let name = Str.matched_group 1 args in
         try
@@ -189,7 +189,7 @@ let extract_type_declaration =
             ) vars in
             `found (constructor name vars)
           else
-            `wrong_format (
+            `wrong_format (pos,
               Printf.sprintf
                 "Couldn't read type in @%s directive"
                 tag
@@ -198,7 +198,7 @@ let extract_type_declaration =
           Not_found ->
             `found (constructor name [])
       else
-        `wrong_format (
+        `wrong_format (pos,
           Printf.sprintf
             "Directive @%s requires a type"
             tag
@@ -218,18 +218,18 @@ let extract_opa_type_def =
   )
 
 let extract_module =
-  try_read_args "module" (fun args ->
+  try_read_args "module" (fun pos args ->
     match get_identifier args with
     | Some i -> `found (BD.Module i)
-    | None -> `wrong_format "Expected identifier in module declaration"
+    | None -> `wrong_format (pos, "Expected identifier in module declaration")
   )
 
 let extract_end_module =
-  try_read_args "endModule" (fun args ->
+  try_read_args "endModule" (fun pos args ->
     if args = "" then
       `found BD.EndModule
     else
-      `wrong_format "@endModule takes no arguments"
+      `wrong_format (pos, "@endModule takes no arguments")
   )
 
 let extract_register implementation =
@@ -238,7 +238,7 @@ let extract_register implementation =
     "\\([ \t]+[a-zA-Z][a-zA-Z0-9]*\\)?[ \t]*" ^ (* Optional bypass name *)
     "\\([^ \t]+\\)?[ \t]*$" (* Optional source code *)
   ) in
-  try_read_args "register" (fun args ->
+  try_read_args "register" (fun pos args ->
     if Str.string_match re args 0 then
       let ty = Str.matched_group 1 args in
       let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
@@ -256,11 +256,11 @@ let extract_register implementation =
       match name, definition with
       | Some name, Some definition ->
         `found (BD.Register (name, definition, ty))
-      | Some _, None -> `wrong_format "Missing definition in @register declaration"
-      | None, _ -> `wrong_format "Missing bypass name in @register declaration"
+      | Some _, None -> `wrong_format (pos, "Missing definition in @register declaration")
+      | None, _ -> `wrong_format (pos, "Missing bypass name in @register declaration")
     else
       `wrong_format
-        "Format of @register is \"@register {type} key [optional source]\""
+        (pos, "Format of @register is \"@register {type} key [optional source]\"")
   )
 
 let readers implementation = [
@@ -305,7 +305,8 @@ let maybe_extract_directive implementation tags : extract_result =
               name name'
           )
       )
-      | `wrong_format message -> Error message
+      | `wrong_format (pos, message) ->
+        Error (Format.sprintf "%a%s" FilePos.pp_citation pos message)
       | `multiple_occurrences name ->
         Error (
           Printf.sprintf "Multiple occurrences of tag @%s" name

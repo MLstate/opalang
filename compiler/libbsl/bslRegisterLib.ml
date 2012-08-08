@@ -1581,9 +1581,7 @@ let parse_bypass_file pprocess options filename =
 
 let parse_js_bypass_file_new filename =
   match BslJsParse.parse filename with
-  | `error e ->
-    OManager.error "Error while reading file %s: %s"
-      filename e
+  | `error e -> OManager.error "%s" e
   | `success directives ->
     let contents = File.content filename in
     { BslJs. filename; contents; directives; }
