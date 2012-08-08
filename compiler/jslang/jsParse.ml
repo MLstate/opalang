@@ -612,13 +612,21 @@ let global_expr ?(globalize=false) expr =
 
 module String =
 struct
-  let code ?throw_exn str = build_parser ?throw_exn code (JsLex.stream_of_string str)
-  let expr ?throw_exn ?globalize str = build_parser ?throw_exn ~globalize:(global_expr ?globalize) expr (JsLex.stream_of_string str)
-  let stm ?throw_exn str = build_parser ?throw_exn stm (JsLex.stream_of_string str)
+  let code ?throw_exn str =
+    build_parser ?throw_exn code (JsLex.stream_of_string str)
+  let expr ?throw_exn ?globalize str =
+    build_parser ?throw_exn ~globalize:(global_expr ?globalize)
+      expr (JsLex.stream_of_string ~lex_comments:true str)
+  let stm ?throw_exn str =
+    build_parser ?throw_exn stm (JsLex.stream_of_string ~lex_comments:true str)
 end
 module File =
 struct
-  let code ?throw_exn file = build_parser ?throw_exn code (JsLex.stream_of_file file)
-  let expr ?throw_exn ?globalize file = build_parser ?throw_exn ~globalize:(global_expr ?globalize) expr (JsLex.stream_of_file file)
-  let stm ?throw_exn file = build_parser ?throw_exn stm (JsLex.stream_of_file file)
+  let code ?throw_exn file =
+    build_parser ?throw_exn code (JsLex.stream_of_file ~lex_comments:true file)
+  let expr ?throw_exn ?globalize file =
+    build_parser ?throw_exn ~globalize:(global_expr ?globalize) expr
+      (JsLex.stream_of_file ~lex_comments:true file)
+  let stm ?throw_exn file =
+    build_parser ?throw_exn stm (JsLex.stream_of_file ~lex_comments:true file)
 end

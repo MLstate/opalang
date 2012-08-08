@@ -20,13 +20,13 @@
    @author Arthur Azevedo de Amorim
 *)
 
+module Format = BaseFormat
 module List = BaseList
 module String = BaseString
 module BD = BslDirectives.Js
 module BT = BslTypes
 module BRS = BslRegisterParserState
-
-open JsLex
+module J = JsAst
 
 type tag = string
 type message = string
@@ -276,7 +276,7 @@ type extract_result =
 | Error of string
 | Found of pos * BslTags.t * BD.t
 
-(** Try to extract a bsl directive from a list of tags, *)
+(** Try to extract a bsl directive from a list of tags *)
 let maybe_extract_directive implementation tags : extract_result =
   let extracted_directives = List.map (fun extract ->
     extract tags
@@ -316,28 +316,32 @@ let maybe_extract_directive implementation tags : extract_result =
 
 let filter_lines lines = List.filter_map (fun line ->
   match line with
-  | CommentLine _ -> None
-  | CommentTag (pos, tag, args) -> Some (pos, tag, args)
+  | JsLex.CommentLine _ -> None
+  | JsLex.CommentTag (pos, tag, args) -> Some (pos, tag, args)
 ) lines
 
-let rec doc_comment acc = parser
-  | [< 'DocComment (_, lines); stream >] -> (
+let rec doc_comment acc code =
+  match code with
+  | J.Js_comment (_, J.Jc_doc (_, lines)) :: rest -> (
     let tags = filter_lines lines in
-    let implementation =
-      match Stream.npeek 2 stream with
-      | [Function _; Ident (_, name)] -> Some name
-      | [Var _; Ident (_, name)] -> Some name
-      | _ -> None
-    in
+    let implementation, rest = match rest with
+      | J.Js_function (_, ident, _, _) :: rest
+      | J.Js_var (_, ident, _) :: rest ->
+        Some (JsIdent.to_string ident), rest
+      | _ -> None, rest in
     match maybe_extract_directive implementation tags with
-    | NoOccurrences -> doc_comment acc stream
+    | NoOccurrences -> doc_comment acc rest
     | Error e -> `error e
     | Found (pos, bsl_tags, d) ->
-      doc_comment ((pos, bsl_tags, d) :: acc) stream
+      doc_comment ((pos, bsl_tags, d) :: acc) rest
   )
-  | [< _ = Stream.next; stream >] -> doc_comment acc stream
-  | [< >] -> `success (List.rev acc)
+  | _ :: rest -> doc_comment acc rest
+  | [] -> `success (List.rev acc)
 
 let parse filename =
-  let stream, _lexbuf = JsLex.stream_of_file ~lex_comments:true filename in
-  doc_comment [] stream
+  try
+    let code = JsParse.File.code ~throw_exn:true filename in
+    doc_comment [] code
+  with
+    JsParse.Exception e ->
+      `error (Format.to_string JsParse.pp e)
