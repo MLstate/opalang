@@ -66,6 +66,7 @@ sig
   val ident : ?label:Annot.label -> JsAst.ident -> JsAst.expr
   val in_ : ?label:Annot.label -> JsAst.expr -> JsAst.expr -> JsAst.expr
   val int : ?label:Annot.label -> int -> JsAst.expr
+  val bint : ?label:Annot.label -> Big_int.big_int -> JsAst.expr
   val int_as_string : ?label:Annot.label -> string -> JsAst.expr
   val land_ : ?label:Annot.label -> JsAst.expr -> JsAst.expr -> JsAst.expr
   val list : ?label:Annot.label -> JsAst.expr list -> JsAst.expr

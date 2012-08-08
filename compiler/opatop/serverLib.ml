@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -238,7 +238,7 @@ let unwrap_float = function
 
 let wrap_int c = V.Proj.t_int c
 let unwrap_int = function
-  | V.V_const (_, Q.Int i) -> i
+  | V.V_const (_, Q.Int i) -> Big_int.int_of_big_int i
   | t ->
       fail t "SL.unwrap_int, expecting an int@\n"
 

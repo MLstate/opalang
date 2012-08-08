@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -205,11 +205,11 @@ module Proj =
 struct
   module B = BslTypes
 
-  let t_int ?(pos=nopos) i    = V_const  (pos, Q.Int i)
+  let t_int ?(pos=nopos) i    = V_const  (pos, Q.Int (Big_int.big_int_of_int i))
   let t_float ?(pos=nopos) f  = V_const  (pos, Q.Float f)
   let t_string ?(pos=nopos) s = V_const  (pos, Q.String s)
   let t_void ?(pos=nopos) ()  = V_record (pos, StringMap.empty, ref None)
-  let t_int64 ?(pos=nopos) i  = V_const  (pos, Q.Int (Int64.to_int i))
+  let t_int64 ?(pos=nopos) i  = V_const  (pos, Q.Int (Big_int.big_int_of_int64 i))
 
   let shared_void = t_void ()
   let shared_lazy_void = Lazy.lazy_from_val shared_void

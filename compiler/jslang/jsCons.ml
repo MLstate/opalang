@@ -147,6 +147,9 @@ struct
   let int ?(label=def_label()) int =
     J.Je_num (label, string_of_int int)
 
+  let bint ?(label=def_label()) int =
+    J.Je_num (label, Big_int.string_of_big_int int)
+
   let int_as_string ?(label=def_label()) int =
     J.Je_num (label, int)
 
