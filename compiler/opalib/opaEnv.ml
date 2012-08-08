@@ -314,8 +314,12 @@ struct
         | Some back_end -> back_end in
       back_end_wanted := back_end;
       match back_end with
-      | `qmlflat -> js_serialize := `adhoc
-      | _ -> ()
+      | `qmlflat ->
+          js_serialize := `adhoc;
+          QmlAstUtils.Const.set_limits `ml
+      | `qmljs ->
+          js_serialize := `ast;
+          QmlAstUtils.Const.set_limits `js
     let js_back_end_wanted_name = "qmljsimp"
     let js_back_end_wanted = ref (available_js_back_end_of_string js_back_end_wanted_name)
     let js_back_end s =
