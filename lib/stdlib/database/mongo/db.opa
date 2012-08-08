@@ -890,11 +890,11 @@ DbSet = {{
               {some = (opa, {next=->aux(size, dbset, i+1)})}
             end
         end
-      {next = ->
+      Iter.cache({next = ->
          nb = MongoCommon.reply_numberReturned(dbset.reply)
          nb = if dbset.limit != 0 then min(nb, dbset.limit) else nb
          if nb == 0 then none
-         else aux(nb, dbset, 0)}
+         else aux(nb, dbset, 0)})
 
   @private fold(init, dbset, f) =
     Iter.fold(f, iterator(dbset), init)
