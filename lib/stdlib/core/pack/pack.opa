@@ -432,29 +432,38 @@ Pack = {{
       | ({false},{true}) -> short_be(buf, s)
       | ({true},{true}) -> short_le(buf, s)
 
+    // TODO - Make safe and unsafe Encode module. Safe Encode mode allows to
+    // check integers boundaries but slower the stuff (check + success report).
+    // Moreover breaks the 32 bits compilation => 32bits don't needs this
+    // (bellow test) indeed it's an assertion
+
     /** Encode signed 32-bit big-endian int, failure if out-of-range **/
     long_be(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < -0x80000000 || i > 0x7fffffff)
-      then {failure="Pack.Encode.long_be: out of range {i}"}
-      else {success=Binary.add_int32_be(buf, i)}
+      // if (i < -0x80000000 || i > 0x7fffffff)
+      // then {failure="Pack.Encode.long_be: out of range {i}"}
+      // else
+      {success=Binary.add_int32_be(buf, i)}
 
     /** Encode signed 32-bit little-endian int, failure if out-of-range **/
     long_le(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < -0x80000000 || i > 0x7fffffff)
-      then {failure="Pack.Encode.long_le: out of range {i}"}
-      else {success=Binary.add_int32_le(buf, i)}
+      // if (i < -0x80000000 || i > 0x7fffffff)
+      // then {failure="Pack.Encode.long_le: out of range {i}"}
+      // else
+      {success=Binary.add_int32_le(buf, i)}
 
     /** Encode unsigned 32-bit big-endian int, failure if out-of-range **/
     ulong_be(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < 0 || i > 0xffffffff)
-      then {failure="Pack.Encode.ulong_be: out of range {i}"}
-      else {success=Binary.add_uint32_be(buf, i)}
+      // if (i < 0 || i > 0xffffffff)
+      // then {failure="Pack.Encode.ulong_be: out of range {i}"}
+      // else
+      {success=Binary.add_uint32_be(buf, i)}
 
     /** Encode unsigned 32-bit little-endian int, failure if out-of-range **/
     ulong_le(buf:Pack.t, i:int) : outcome(void,string) =
-      if (i < 0 || i > 0xffffffff)
-      then {failure="Pack.Encode.ulong_le: out of range {i}"}
-      else {success=Binary.add_uint32_le(buf, i)}
+      // if (i < 0 || i > 0xffffffff)
+      // then {failure="Pack.Encode.ulong_le: out of range {i}"}
+      // else
+      {success=Binary.add_uint32_le(buf, i)}
 
     /**
      * Encode 32-bit int, failure if out-of-range

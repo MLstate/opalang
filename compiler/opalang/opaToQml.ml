@@ -349,7 +349,7 @@ struct
          else
            let context = OpaError.Context.annot opa_annot in
            OpaError.error context
-             "Integer literal {@<bright>%s@} is out of range [%s, %s]"
+             "Integer literal @{<bright>%s@} is out of range [%s, %s]"
              (Big_int.string_of_big_int i)
              (Big_int.string_of_big_int (QmlAstUtils.Const.min_int ()))
              (Big_int.string_of_big_int (QmlAstUtils.Const.max_int ())))
