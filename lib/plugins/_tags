@@ -3,8 +3,8 @@
 <badop>: traverse
 <browser_canvas>: traverse
 <crypto>: traverse
-<gcharts>: traverse, classic_syntax
-<hlnet>: traverse, classic_syntax
+<gcharts>: traverse
+<hlnet>: traverse
 <iconv>: traverse, classic_syntax
 <irc>: traverse, classic_syntax
 <mail>: traverse, classic_syntax
