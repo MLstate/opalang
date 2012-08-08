@@ -280,17 +280,20 @@ Pack = {{
   sizesize(s:Pack.s): int = match s with | {B} -> 1 | {S} -> 2 | {L} -> 4 | {Ll} -> 8
 
 #<Ifstatic:OPA_BACKEND_QMLJS>
+  @private lsize = 0xffffffff
   @private llsize = 0x001fffffffffffff // 53 bits
 #<Else>
   #<Ifstatic:OCAML_WORD_SIZE 64>
+  @private lsize = 0xffffffff
   @private llsize = 0x3fffffffffffffff // 62 bits
   #<Else>
   @private llsize = 0x3fffffff // 30 bits
+  @private lsize = llsize
   #<End>
 #<End>
 
   /** maximum (unsigned) value for int **/
-  sizemax(s:Pack.s) : int = match s with | {B} -> 0xff | {S} -> 0xffff | {L} -> 0xffffffff | {Ll} -> llsize
+  sizemax(s:Pack.s) : int = match s with | {B} -> 0xff | {S} -> 0xffff | {L} -> lsize | {Ll} -> llsize
 
   /** names of the sizes, eg. [{B}] is "byte" **/
   sizename(s:Pack.s) : string = match s with | {B} -> "byte" | {S} -> "short" | {L} -> "long" | {Ll} -> "longlong"
@@ -300,7 +303,7 @@ Pack = {{
     match s with
     | {B} -> if i < 0 || i > 0xff then {failure="Pack.mksize: int {i} too big for byte size"} else {success={Byte=i}}
     | {S} -> if i < 0 || i > 0xffff then {failure="Pack.mksize: int {i} too big for short size"} else {success={Short=i}}
-    | {L} -> if i < 0 || i > 0xffffffff then {failure="Pack.mksize: int {i} too big for long size"} else {success={Long=i}}
+    | {L} -> if i < 0 || i > lsize then {failure="Pack.mksize: int {i} too big for long size"} else {success={Long=i}}
     | {Ll} -> {success={Longlong=i}}
 
   /** recover size from item, failure if not an integer type **/
