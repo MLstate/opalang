@@ -142,12 +142,12 @@ type token =
 
 val string_of_token : token -> string
 val init_lexer : unit -> unit
-val lex : bool -> Lexing.lexbuf -> token
-val stream : bool -> Lexing.lexbuf -> token Stream.t
+val lex : string -> bool -> Lexing.lexbuf -> token
+val stream : string -> bool -> Lexing.lexbuf -> token Stream.t
 
 (**
    These high level functions automatically init the lexer
    when called
 *)
 val stream_of_file : ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf
-val stream_of_string : ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf
+val stream_of_string : ?filename:string -> ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf

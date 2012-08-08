@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    copyright © 2011 MLstate
 
     This file is part of Opa.
 
@@ -19,7 +19,10 @@
 {
 
 type pos = FilePos.pos
-let dummy_pos = FilePos.make_pos "dummy" 1 1
+let mp filename lexbuf =
+  FilePos.make_pos filename
+    (Lexing.lexeme_start lexbuf)
+    (Lexing.lexeme_end lexbuf)
 
 type doc_comment_elt =
 | CommentLine of pos * string
@@ -299,133 +302,155 @@ let string_of_token = function
   (* using a single buffer to store the result of parsing string literals, regexp literals, etc. *)
   let b = Buffer.create 1000
 
-  let get_doc_comment_elt () =
+  let get_doc_comment_elt file start =
     let re = Str.regexp "[ \t\\*]*@\\([a-zA-Z0-9]*\\)[ \t]*\\(.*\\)" in
     let line = Buffer.contents b in
     Buffer.clear b;
+    let pos = FilePos.make_pos file start (start + String.length line) in
     if Str.string_match re line 0 then
       let tag = Str.matched_group 1 line in
       let args = Str.matched_group 2 line in
-      CommentTag (dummy_pos, tag, args)
+      CommentTag (pos, tag, args)
     else
-      CommentLine (dummy_pos, line)
+      CommentLine (pos, line)
 }
 
 let identifier_part = ['a'-'z''A'-'Z''_''$''0'-'9']
 let identifier = ['a'-'z''A'-'Z''_''$'] identifier_part*
 let hexa = ['0'-'9''a'-'f''A'-'F']
 
-rule main lex_comments = parse
-| ['\t''\012''\013'' ']+ { main lex_comments lexbuf }
+rule main file lex_comments = parse
+| ['\t''\012''\013'' ']+ { main file lex_comments lexbuf }
 
 (* beware that we must not throw newlines to be able to implement semicolon
  * insertions *)
-| ['\n' '\r']+ { LT dummy_pos }
+| ['\n' '\r']+ { LT (mp file lexbuf) }
 
-| "//" [^'\n''\r']* { main lex_comments lexbuf }
+| "//" [^'\n''\r']* { main file lex_comments lexbuf }
 
-| "/**/" { main lex_comments lexbuf }
+| "/**/" { main file lex_comments lexbuf }
 
 | "/**" {
-  if lex_comments then doc_comment [] lexbuf
-  else multiline_comment false lexbuf
+  let start = Lexing.lexeme_start lexbuf in
+  if lex_comments then
+    doc_comment file start [] lexbuf
+  else multiline_comment file start false lexbuf
 }
 
 (* beware that if a newline appears in a multi line comment
  * then we _must_ generate a newline token *)
-| "/*" { multiline_comment false lexbuf }
+| "/*" {
+  let start = Lexing.lexeme_start lexbuf in
+  multiline_comment file start false lexbuf
+}
 
 | '/' {
   if !can_have_a_division then
-    Div dummy_pos
+    Div (mp file lexbuf)
   else (
     Buffer.clear b;
-    regexp_body lexbuf
+    let start = Lexing.lexeme_start lexbuf in
+    regexp_body file start lexbuf
   )
 }
 | "/=" {
   if !can_have_a_division then
-    DivEqual dummy_pos
+    DivEqual (mp file lexbuf)
   else (
     Buffer.clear b;
     Buffer.add_char b '=';
-    regexp_body lexbuf
+    let start = Lexing.lexeme_start lexbuf in
+    regexp_body file start lexbuf
   )
 }
-| '{' { Lcurly dummy_pos }
-| '}' { Rcurly dummy_pos }
-| '[' { Lbracket dummy_pos }
-| ']' { Rbracket dummy_pos }
-| '(' { Lparen dummy_pos }
-| ')' { Rparen dummy_pos }
-| '.' { Dot dummy_pos }
-| ';' { Semic dummy_pos }
-| ',' { Comma dummy_pos }
-| '<' { Lt dummy_pos }
-| '>' { Gt dummy_pos }
-| "<=" { Le dummy_pos }
-| ">=" { Ge dummy_pos }
-| "==" { EqualEqual dummy_pos }
-| "!="  { BangEqual dummy_pos }
-| "===" { EqualEqualEqual dummy_pos }
-| "!==" { BangEqualEqual dummy_pos }
-| "+" { Plus dummy_pos }
-| "-" { Minus dummy_pos }
-| "*" { Times dummy_pos }
-| "%" { Percent dummy_pos }
-| "++" { PlusPlus dummy_pos }
-| "--" { MinusMinus dummy_pos }
-| "<<" { LtLt dummy_pos }
-| ">>" { GtGt dummy_pos }
-| ">>>" { GtGtGt dummy_pos }
-| "&" { Amper dummy_pos }
-| "|" { Bar dummy_pos }
-| "^" { Chapeau dummy_pos }
-| "!" { Bang dummy_pos }
-| "~" { Tilda dummy_pos }
-| "&&" { AmperAmper dummy_pos }
-| "||" { BarBar dummy_pos }
-| "?" { Question dummy_pos }
-| ":" { Colon dummy_pos }
-| "=" { Equal dummy_pos }
-| "+=" { PlusEqual dummy_pos }
-| "-=" { MinusEqual dummy_pos }
-| "*=" { TimesEqual dummy_pos }
-| "%=" { PercentEqual dummy_pos }
-| "<<=" { LtLtEqual dummy_pos }
-| ">>=" { GtGtEqual dummy_pos }
-| ">>>=" { GtGtGtEqual dummy_pos }
-| "&=" { AmperEqual dummy_pos }
-| "|=" { BarEqual dummy_pos }
-| "^=" { ChapeauEqual dummy_pos }
+| '{' { Lcurly (mp file lexbuf) }
+| '}' { Rcurly (mp file lexbuf) }
+| '[' { Lbracket (mp file lexbuf) }
+| ']' { Rbracket (mp file lexbuf) }
+| '(' { Lparen (mp file lexbuf) }
+| ')' { Rparen (mp file lexbuf) }
+| '.' { Dot (mp file lexbuf) }
+| ';' { Semic (mp file lexbuf) }
+| ',' { Comma (mp file lexbuf) }
+| '<' { Lt (mp file lexbuf) }
+| '>' { Gt (mp file lexbuf) }
+| "<=" { Le (mp file lexbuf) }
+| ">=" { Ge (mp file lexbuf) }
+| "==" { EqualEqual (mp file lexbuf) }
+| "!="  { BangEqual (mp file lexbuf) }
+| "===" { EqualEqualEqual (mp file lexbuf) }
+| "!==" { BangEqualEqual (mp file lexbuf) }
+| "+" { Plus (mp file lexbuf) }
+| "-" { Minus (mp file lexbuf) }
+| "*" { Times (mp file lexbuf) }
+| "%" { Percent (mp file lexbuf) }
+| "++" { PlusPlus (mp file lexbuf) }
+| "--" { MinusMinus (mp file lexbuf) }
+| "<<" { LtLt (mp file lexbuf) }
+| ">>" { GtGt (mp file lexbuf) }
+| ">>>" { GtGtGt (mp file lexbuf) }
+| "&" { Amper (mp file lexbuf) }
+| "|" { Bar (mp file lexbuf) }
+| "^" { Chapeau (mp file lexbuf) }
+| "!" { Bang (mp file lexbuf) }
+| "~" { Tilda (mp file lexbuf) }
+| "&&" { AmperAmper (mp file lexbuf) }
+| "||" { BarBar (mp file lexbuf) }
+| "?" { Question (mp file lexbuf) }
+| ":" { Colon (mp file lexbuf) }
+| "=" { Equal (mp file lexbuf) }
+| "+=" { PlusEqual (mp file lexbuf) }
+| "-=" { MinusEqual (mp file lexbuf) }
+| "*=" { TimesEqual (mp file lexbuf) }
+| "%=" { PercentEqual (mp file lexbuf) }
+| "<<=" { LtLtEqual (mp file lexbuf) }
+| ">>=" { GtGtEqual (mp file lexbuf) }
+| ">>>=" { GtGtGtEqual (mp file lexbuf) }
+| "&=" { AmperEqual (mp file lexbuf) }
+| "|=" { BarEqual (mp file lexbuf) }
+| "^=" { ChapeauEqual (mp file lexbuf) }
 
 | identifier as s {
+  let pos = mp file lexbuf in
   try
-    Hashtbl.find keywords s dummy_pos
-  with Not_found -> Ident (dummy_pos, s)
+    Hashtbl.find keywords s pos
+  with Not_found -> Ident (pos, s)
 }
 | ('0' | ['1'-'9'] ['0'-'9']*) '.' ['0'-'9']* (['e''E'] ['-''+']? ['0'-'9']+)?
 | '.' ['0'-'9']+ (['e''E'] ['-''+']? ['0'-'9']+)?
 | ('0' | ['1'-'9'] ['0'-'9']*) (['e''E'] ['-''+']? ['0'-'9']+)?
 | '0' ['x''X'] hexa*
- as s { Integer (dummy_pos, s) }
-| "'" { Buffer.clear b; string false lexbuf }
-| '"' { Buffer.clear b; string true lexbuf }
-| eof { EOF dummy_pos }
+ as s { Integer ((mp file lexbuf), s) }
+| "'" {
+  let start = Lexing.lexeme_start lexbuf in
+  Buffer.clear b; string file start false lexbuf
+}
+| '"' {
+  let start = Lexing.lexeme_start lexbuf in
+  Buffer.clear b; string file start true lexbuf
+}
+| eof { EOF (mp file lexbuf) }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in main lexing" c)) }
 
 (* regular expression are not really parsed, you simply interpret them enough
  * so that you can find the end of the regexp
  * in particular, escapes are *not* interpreted, and so the string in the regexp
  * node and token should not be escaped when printed *)
-and regexp_body = parse
+and regexp_body file start = parse
 | ['\r''\n'] { raise (Stream.Error "Line terminator inside a regexp literal") }
-| '\\' _ as s { Buffer.add_string b s; regexp_body lexbuf }
-| '[' as c { Buffer.add_char b c; character_class lexbuf; regexp_body lexbuf }
-| [^'\\''\r''\n''[' '/']+ as s { Buffer.add_string b s; regexp_body lexbuf }
+| '\\' _ as s { Buffer.add_string b s; regexp_body file start lexbuf }
+| '[' as c {
+  Buffer.add_char b c;
+  character_class lexbuf;
+  regexp_body file start lexbuf
+}
+| [^'\\''\r''\n''[' '/']+ as s {
+  Buffer.add_string b s;
+  regexp_body file start lexbuf
+}
 | '/' { let s = Buffer.contents b in
         Buffer.clear b;
-        regexp_flags s lexbuf }
+        regexp_flags file start s lexbuf }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in regexp body" c)) }
 | eof { raise (Stream.Error "unterminated regexp body ") }
 and character_class = parse
@@ -434,68 +459,89 @@ and character_class = parse
 | [^'\\' ']']+ as s { Buffer.add_string b s; character_class lexbuf }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in character class" c)) }
 | eof { raise (Stream.Error "unterminated character class ") }
-and regexp_flags s1 = parse
-| identifier_part* as s2 { Regexp (dummy_pos,s1,s2) }
+and regexp_flags file start s1 = parse
+| identifier_part* as s2 {
+  let pos = FilePos.make_pos file start (Lexing.lexeme_end lexbuf) in
+  Regexp (pos,s1,s2)
+}
 
 (* [double] is true when the string is enclosed in double quotes
  * and false when it is enclosed in single quotes *)
-and string double = parse
+and string file start double = parse
 | "'" {
   if double then (
     Buffer.add_char b '\'';
-    string double lexbuf
+    string file start double lexbuf
   ) else (
     let s = Buffer.contents b in
+    let pos = FilePos.make_pos file start (Lexing.lexeme_end lexbuf) in
     Buffer.clear b;
-    String (dummy_pos, s)
+    String (pos, s)
   )
 }
 | '"' {
   if double then (
     let s = Buffer.contents b in
+    let pos = FilePos.make_pos file start (Lexing.lexeme_end lexbuf) in
     Buffer.clear b;
-    String (dummy_pos, s)
+    String (pos, s)
   ) else (
     Buffer.add_char b '"';
-    string double lexbuf
+    string file start double lexbuf
   )
  }
-| [^'\'' '"' '\\''\n''\r']+ as s { Buffer.add_string b s; string double lexbuf }
+| [^'\'' '"' '\\''\n''\r']+ as s { Buffer.add_string b s; string file start double lexbuf }
 | ['\n' '\r'] { raise (Stream.Error "Line terminator inside a single string literal") }
-| "\\" (['0'-'7'] ['0'-'7']? ['0'-'7']? as s) { Buffer.add_char b (Char.chr (int_of_string s)); string double lexbuf }
-| "\\b" { Buffer.add_char b '\008'; string double lexbuf }
-| "\\t" { Buffer.add_char b '\t'; string double lexbuf }
-| "\\n" { Buffer.add_char b '\n'; string double lexbuf }
-| "\\v" { Buffer.add_char b '\011'; string double lexbuf }
-| "\\f" { Buffer.add_char b '\012'; string double lexbuf }
-| "\\r" { Buffer.add_char b '\r'; string double lexbuf }
-| "\\\\" { Buffer.add_char b '\\'; string double lexbuf }
-| "\\" (['"''\''] as c) { Buffer.add_char b c; string double lexbuf }
-| "\\u" (hexa hexa hexa hexa as s) { Buffer.add_string b (Scanf.sscanf s "%x" (fun d -> Cactutf.cons d)); string double lexbuf }
-| "\\x" (hexa hexa as s) { Buffer.add_string b (Scanf.sscanf s "%x" (fun d -> Cactutf.cons d)); string double lexbuf }
+| "\\" (['0'-'7'] ['0'-'7']? ['0'-'7']? as s) {
+  Buffer.add_char b (Char.chr (int_of_string s));
+  string file start double lexbuf
+}
+| "\\b" { Buffer.add_char b '\008'; string file start double lexbuf }
+| "\\t" { Buffer.add_char b '\t'; string file start double lexbuf }
+| "\\n" { Buffer.add_char b '\n'; string file start double lexbuf }
+| "\\v" { Buffer.add_char b '\011'; string file start double lexbuf }
+| "\\f" { Buffer.add_char b '\012'; string file start double lexbuf }
+| "\\r" { Buffer.add_char b '\r'; string file start double lexbuf }
+| "\\\\" { Buffer.add_char b '\\'; string file start double lexbuf }
+| "\\" (['"''\''] as c) { Buffer.add_char b c; string file start double lexbuf }
+| "\\u" (hexa hexa hexa hexa as s) {
+  Buffer.add_string b (Scanf.sscanf s "%x" (fun d -> Cactutf.cons d));
+  string file start double lexbuf
+}
+| "\\x" (hexa hexa as s) {
+  Buffer.add_string b (Scanf.sscanf s "%x" (fun d -> Cactutf.cons d));
+  string file start double lexbuf
+}
 | eof { raise (Stream.Error "unterminated string literal comment") }
-| "\\" { Buffer.add_char b '\\'; string double lexbuf }
+| "\\" { Buffer.add_char b '\\'; string file start double lexbuf }
 | _ as c { raise (Stream.Error (Printf.sprintf "unexpected character %C in a string literal" c)) }
 
 (* [newline] is true when a newline has been parsed in the comment *)
-and multiline_comment newline = parse
-| [^'*''\n''\r']* { multiline_comment newline lexbuf }
-| ['\r''\n'] { multiline_comment true lexbuf }
-| "*/" { if newline then LT dummy_pos else main false lexbuf }
-| '*' { multiline_comment newline lexbuf }
+and multiline_comment file start newline = parse
+| [^'*''\n''\r']* { multiline_comment file start newline lexbuf }
+| ['\r''\n'] { multiline_comment file start true lexbuf }
+| "*/" {
+  if newline then
+    let pos = FilePos.make_pos file start (Lexing.lexeme_end lexbuf) in
+    LT pos
+  else
+    main file false lexbuf
+}
+| '*' { multiline_comment file start newline lexbuf }
 | eof { raise (Stream.Error "unterminated multiline comment") }
 
-and doc_comment elts = parse
+and doc_comment file start elts = parse
 | "*/" {
-  let elt = get_doc_comment_elt () in
-  DocComment (dummy_pos, List.rev (elt :: elts))
+  let elt = get_doc_comment_elt file start in
+  let pos = FilePos.make_pos file start (Lexing.lexeme_end lexbuf) in
+  DocComment (pos, List.rev (elt :: elts))
 }
-| "\\\n" { Buffer.add_char b ' '; doc_comment elts lexbuf }
+| "\\\n" { Buffer.add_char b ' '; doc_comment file start elts lexbuf }
 | ['\r''\n'] {
-  let elt = get_doc_comment_elt () in
-  doc_comment (elt :: elts) lexbuf
+  let elt = get_doc_comment_elt file start in
+  doc_comment file start (elt :: elts) lexbuf
 }
-| _ as c { Buffer.add_char b c; doc_comment elts lexbuf }
+| _ as c { Buffer.add_char b c; doc_comment file start elts lexbuf }
 | eof { raise (Stream.Error "unterminated multiline comment") }
 
 {
@@ -507,13 +553,13 @@ let just_parsed_a_line_terminator = ref true
 
 (* the main lexing function: called the actual lexer, and updates the global
  * state *)
-let rec lex lex_comments lexbuf =
-  match main lex_comments lexbuf with
+let rec lex file lex_comments lexbuf =
+  match main file lex_comments lexbuf with
   | LT _ when !just_parsed_a_line_terminator ->
     (* INVARIANT: there is never two consecutive LT in the token stream *)
     (* can have a division doesn't change *)
     (* just_parsed_a_line_terminator is still true *)
-    lex lex_comments lexbuf
+    lex file lex_comments lexbuf
   | LT _ as r ->
     (* can have a division doesn't change *)
     just_parsed_a_line_terminator := true;
@@ -639,10 +685,10 @@ let init_lexer () =
   can_have_a_division := false;
   just_parsed_a_line_terminator := true
 
-let stream lex_comments lexbuf =
+let stream filename lex_comments lexbuf =
   Stream.from (
     fun _ ->
-      match lex lex_comments lexbuf with
+      match lex filename lex_comments lexbuf with
       | EOF _ -> None
       | t -> Some t
   )
@@ -650,16 +696,16 @@ let stream lex_comments lexbuf =
 let stream_of_file ?(lex_comments=false) file =
   init_lexer ();
   try
-    let ic_ = open_in file in
-    Gc.finalise close_in ic_; (* garbage collecting the input channel *)
-    let lexbuf = Lexing.from_channel ic_ in
-    stream lex_comments lexbuf, lexbuf
+    let content = File.content file in
+    FilePos.add_file file content;
+    let lexbuf = Lexing.from_string content in
+    stream file lex_comments lexbuf, lexbuf
   with Sys_error diagnostic ->
     Printf.printf "Couldn't open file %s: %s\n%!" file diagnostic;
     exit 1
 
-let stream_of_string ?(lex_comments=false) string =
+let stream_of_string ?(filename="nofile") ?(lex_comments=false) string =
   init_lexer ();
   let lexbuf = Lexing.from_string string in
-  stream lex_comments lexbuf, lexbuf
+  stream filename lex_comments lexbuf, lexbuf
 }
