@@ -8,9 +8,9 @@
 <iconv>: traverse
 <irc>: traverse
 <mail>: traverse
-<mongo>: traverse, classic_syntax
+<mongo>: traverse
 <opabsl>: traverse, static, classic_syntax
-<qos>: traverse, classic_syntax
+<qos>: traverse
 <server>: traverse, classic_syntax
 <session>: traverse, classic_syntax
 <socket>: traverse, classic_syntax
