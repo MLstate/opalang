@@ -1,0 +1,571 @@
+# -*- conf -*-
+tools/build/Config
+ocamllib/libbase/Mlstate_platform
+ocamllib/libbase/PathTransform
+ocamllib/libbase/Option
+ocamllib/libbase/ConsoleParser
+ocamllib/libbase/ConsoleAnim
+ocamllib/libbase/Base
+ocamllib/libbase/TopologicSort
+ocamllib/libbase/FilePos
+ocamllib/libbase/BaseObj
+ocamllib/libbase/BaseMarshal
+ocamllib/libbase/BaseArg
+ocamllib/libbase/BaseArray
+ocamllib/libbase/BaseChar
+ocamllib/libbase/BaseHashtbl
+ocamllib/libbase/BaseFormat
+ocamllib/libbase/BaseLazy
+ocamllib/libbase/BaseList
+ocamllib/libbase/BaseRandom
+ocamllib/libbase/BaseString
+ocamllib/libbase/BaseSys
+ocamllib/libbase/Date
+ocamllib/libbase/BaseUnix
+ocamllib/libbase/BaseUtf8
+ocamllib/libbase/BaseInt64
+ocamllib/libbase/ResArray
+ocamllib/libbase/Reader
+ocamllib/libbase/StringReader
+ocamllib/libbase/FileReader
+ocamllib/libbase/File
+ocamllib/libbase/BaseFilename
+ocamllib/libbase/OrderedTypeSig
+ocamllib/libbase/OrderedTypeDebugableSig
+ocamllib/libbase/IterSig
+ocamllib/libbase/BaseMapSig
+ocamllib/libbase/BaseSetSig
+ocamllib/libbase/ListMapSig
+ocamllib/libbase/SetMapSig
+ocamllib/libbase/BaseSet
+ocamllib/libbase/BaseMap
+ocamllib/libbase/IntSet
+ocamllib/libbase/IntMap
+ocamllib/libbase/CharMap
+ocamllib/libbase/StringListMap
+ocamllib/libbase/StringMap
+ocamllib/libbase/StringSet
+ocamllib/libbase/InfixOperator
+ocamllib/libbase/Order
+ocamllib/libbase/ListMap
+ocamllib/libbase/SetMap
+ocamllib/libbase/DebugMap
+ocamllib/libbase/Chrono
+ocamllib/libbase/ListHashtbl
+ocamllib/libbase/Loop
+ocamllib/libbase/MutableList
+ocamllib/libbase/SortHashtbl
+ocamllib/libbase/Fresh
+ocamllib/libbase/DependenciesOrdering
+ocamllib/libbase/DebugPrint
+ocamllib/libbase/Return
+ocamllib/libbase/BaseStringSlice
+# the following libs can be split into 2 libs for_compiler & for_server
+ocamllib/libbase/Uchar
+ocamllib/libbase/Heap
+ocamllib/libbase/Xml
+ocamllib/libbase/Abstr
+ocamllib/libbase/FBuffer
+ocamllib/libbase/DebugTracer
+ocamllib/libbase/Sed
+ocamllib/libbase/TraverseInterface
+ocamllib/libbase/Traverse
+ocamllib/libbase/Tree
+ocamllib/libbase/Indexer
+ocamllib/libbase/Cactutf
+ocamllib/libbase/JsonTypes
+ocamllib/libbase/JsonLex
+ocamllib/libbase/JsonParse
+ocamllib/libbase/Json_utils
+ocamllib/libbase/JsonPrint
+ocamllib/libbase/BslServerLib
+ocamllib/libbase/DebugVariables
+ocamllib/libbase/UnionFind
+ocamllib/libbase/SRope
+ocamllib/libbase/HdList
+ocamllib/libbase/RAList
+ocamllib/libbase/IdentGenerator
+ocamllib/libbase/File_mimetype
+# From weblib
+ocamllib/libbase/Ansi
+ocamllib/libbase/Sgzip
+ocamllib/libbase/Time
+ocamllib/libbase/ImperativeScope
+ocamllib/libbase/Cps
+ocamllib/libbase/WeakHashtbl
+ocamllib/libbase/Xmlm
+ocamllib/libbase/Counter
+ocamllib/libbase/WeakResArray
+ocamllib/libbase/Charf
+ocamllib/libbase/Encodings
+ocamllib/libbase/Rcontent
+ocamllib/libbase/Terminal
+ocamllib/libbase/Wsdl2mlCommon
+# Bson
+ocamllib/libbase/Buf
+ocamllib/libbase/Bson
+ocamllib/libbase/Mongo
+# Buffer Pool
+ocamllib/libbase/Pool
+ocamllib/libbase/Egg
+
+ocamllib/libruntime/Logger
+ocamllib/libruntime/ServerArg
+
+# # low_level Io
+# ocamllib/database/db3/io/FileIo
+# ocamllib/database/db3/io/IoMmap
+# ocamllib/database/db3/io/IoUnix
+# ocamllib/database/db3/io/DbIoSig
+# ocamllib/database/db3/io/DbIo
+# ocamllib/database/db3/io/IoSig
+# ocamllib/database/db3/io/DbTypes
+# # Db3 low-level
+# ocamllib/database/db3/IoManager
+# ocamllib/database/db3/Keys
+# ocamllib/database/db3/Path
+# ocamllib/database/DataImpl
+# ocamllib/database/db3/Datas
+# ocamllib/database/db3/Common
+# ocamllib/database/db3/Eid
+# ocamllib/database/db3/EidMap
+# ocamllib/database/db3/Uid
+# ocamllib/database/db3/UidMap
+# ocamllib/database/db3/Revision
+# ocamllib/database/db3/RevisionMap
+# ocamllib/database/db3/KeyMap
+# ocamllib/database/db3/KeyRecMap
+# ocamllib/database/db3/Node
+# ocamllib/database/db3/Hldb
+# ocamllib/database/db3/QueryMap
+# ocamllib/database/db3/Unwind
+# ocamllib/database/db3/Transaction
+# ocamllib/database/db3/RevisionMachine
+# ocamllib/database/db3/Dot
+# ocamllib/database/db3/Session
+# # Migration machinery (binary changes)
+# ocamllib/database/db3/migration/Init
+# ocamllib/database/db3/migration/Migration_18
+# ocamllib/database/db3/migration/Migration_19
+# ocamllib/database/db3/migration/Migration_20
+# ocamllib/database/db3/migration/Migration_21
+# ocamllib/database/db3/migration/Migration_22
+# ocamllib/database/db3/migration/Migration_23
+# ocamllib/database/db3/migration/Migration_24
+# ocamllib/database/db3/migration/Migration_25
+# ocamllib/database/db3/migration/Migration_26
+# ocamllib/database/db3/migration/Migration
+# # Badop interface generic
+# ocamllib/database/badop/Badop_structure
+# ocamllib/database/badop/Badop_lib
+# ocamllib/database/Badop
+# # Badop backends: database
+# ocamllib/database/Badop_local
+# ocamllib/database/Badop_sync
+# ocamllib/database/Badop_trans
+# # Badop backends: client-server
+# ocamllib/database/Badop_protocol
+# ocamllib/database/Badop_server
+# ocamllib/database/Badop_client
+# ocamllib/database/Badop_locator
+# ocamllib/database/Badop_dispatcher
+# # Badop more functor fun
+# ocamllib/database/Badop_wrapper_template
+# ocamllib/database/Badop_stash
+# ocamllib/database/Badop_cache
+# ocamllib/database/Badop_debug
+# ocamllib/database/Badop_stats
+# ocamllib/database/Badop_workaround
+# ocamllib/database/Badop_check
+# # support for run-time choice of backend (Ocaml 3.12)
+# ocamllib/database/Badop_meta
+# # high-level run-time schema support
+# ocamllib/database/Gml_parser
+# ocamllib/database/Dbgraph
+# ocamllib/database/Xml_dump
+# #ocamllib/database/Xml_import
+# #Internal structs
+# ocamllib/database/db3/structs/SigListMap
+# ocamllib/database/db3/structs/RaListMap
+# ocamllib/database/db3/structs/SimpleListMap
+# ocamllib/database/db3/structs/TabMap
+
+ocamllib/appruntime/Scheduler
+ocamllib/appruntime/TestSchedulerKer
+ocamllib/appruntime/NetAddr
+ocamllib/appruntime/Connection
+ocamllib/appruntime/NetStats
+ocamllib/appruntime/scheduler/SchedulerKer
+ocamllib/appruntime/scheduler/SchedulerJob
+ocamllib/appruntime/scheduler/SchedulerLog
+ocamllib/appruntime/scheduler/SchedulerExc
+ocamllib/appruntime/Epoll
+ocamllib/appruntime/Iocp
+ocamllib/appruntime/ResourceTracker
+
+# -*- conf -*-
+# ocamllib/libnet/Network
+# ocamllib/libnet/Http_dialog
+# ocamllib/libnet/HttpType
+# ocamllib/libnet/Http_client
+# ocamllib/libnet/SmtpClient
+# ocamllib/libnet/SmtpClientCore
+# ocamllib/libnet/SmtpClientCore_parse
+# ocamllib/libnet/ImapClient
+# ocamllib/libnet/ImapClientCore
+# ocamllib/libnet/ImapClientCore_parse
+# ocamllib/libnet/Hlnet
+# ocamllib/libnet/Http_common
+# ocamllib/libnet/HttpTools
+# ocamllib/libnet/http/Rp_typ
+# ocamllib/libnet/http/Rp_hdr
+# ocamllib/libnet/http/Rp_brow
+# ocamllib/libnet/http/Accept
+# ocamllib/libnet/http/UserCompat
+# ocamllib/libnet/http/UserCompatType
+# ocamllib/libnet/Requestdef
+# ocamllib/libnet/http/Cookie
+# ocamllib/libnet/http/Compression
+# ocamllib/libnet/http/Mime
+# ocamllib/libnet/http/Mimes
+# ocamllib/libnet/http/RequestType
+# ocamllib/libnet/http/Request_old
+# ocamllib/libnet/http/Request
+# ocamllib/libnet/http/RequestLex
+# ocamllib/libnet/http/RequestUlex
+# ocamllib/libnet/http/RequestParse
+# ocamllib/libnet/http/RequestRaw
+# ocamllib/libnet/http/Url
+# ocamllib/libnet/Directory
+# ocamllib/libnet/Folder
+# ocamllib/libnet/Cookie2
+# ocamllib/libnet/CookieLong
+# ocamllib/libnet/HttpDialog
+# ocamllib/libnet/HttpServerCommon
+# ocamllib/libnet/HttpServer
+# ocamllib/libnet/HttpServerCore
+# ocamllib/libnet/HttpServerTypes
+# ocamllib/libnet/HttpServerCore_parse
+# ocamllib/libnet/FtpServer
+# ocamllib/libnet/FtpServerType
+# ocamllib/libnet/FtpServerCore
+# ocamllib/libnet/FtpServerCore_parse
+# ocamllib/libnet/FtpClient
+# ocamllib/libnet/FtpClientCore
+# ocamllib/libnet/FtpClientCore_parse
+# ocamllib/libnet/SmtpServer
+# ocamllib/libnet/SmtpServerType
+# ocamllib/libnet/SmtpServerCore
+# ocamllib/libnet/SmtpServerCore_parse
+# ocamllib/libnet/Runtime
+# ocamllib/libnet/RuntimeSig
+# ocamllib/libnet/RuntimeType
+# ocamllib/libnet/RuntimeMain
+# ocamllib/libnet/Watchdog
+# ocamllib/libnet/email/Mailerror
+# ocamllib/libnet/email/Email
+# ocamllib/libnet/dns/Dig
+# ocamllib/libnet/Cluster
+# ocamllib/libnet/ClusterComm
+# #ocamllib/libnet/Responsetypes
+# #ocamllib/libnet/Ec2types
+# #ocamllib/libnet/AmazonEC2
+# #ocamllib/libnet/Ec2serviceamazonec2
+# ocamllib/libsession/Llsession
+# ocamllib/libsession/SessionUtils
+# ocamllib/libsession/Channel
+# ocamllib/libtools/Process
+# ocamllib/libtools/ProcessUtils
+#
+# ocamllib/oparuntime/QmlClosureRuntime
+# ocamllib/oparuntime/PingRegister
+# ocamllib/oparuntime/JsMinify
+#
+# ocamllib/libsecurity/SslAS
+# ocamllib/libsecurity/Ssl_ext
+# ocamllib/libsecurity/CryptoLib
+# ocamllib/libsecurity/LicenseLib
+
+compiler/buildinfos/BuildInfos
+compiler/compilerlib/Annot
+compiler/compilerlib/AnnotMap
+compiler/compilerlib/AnnotSet
+compiler/compilerlib/Ident
+compiler/compilerlib/IdentMap
+compiler/compilerlib/IdentSet
+compiler/compilerlib/IdentTable
+compiler/compilerlib/InstallDir
+compiler/compilerlib/OManager
+compiler/compilerlib/WarningClass
+compiler/compilerlib/LangAst
+compiler/compilerlib/LangUtils
+compiler/compilerlib/LangPrint
+compiler/compilerlib/Template
+compiler/compilerlib/HintUtils
+compiler/compilerlib/ObjectFiles
+compiler/compilerlib/GraphUtils
+compiler/compilerlib/BslKey
+compiler/compilerlib/BslKeyMap
+compiler/compilerlib/BslKeySet
+compiler/compilerlib/BslKeyTable
+
+compiler/opacapi/Opacapi
+
+compiler/passlib/PassHandler
+compiler/passlib/PassTracker
+compiler/passlib/PassError
+
+compiler/libqmlcompil/QmlLoc
+compiler/libqmlcompil/QmlTypeVars
+compiler/libqmlcompil/QmlTypeVarsScope
+compiler/libqmlcompil/QmlAst
+compiler/libqmlcompil/QmlAstSort
+compiler/libqmlcompil/QmlAstCons
+compiler/libqmlcompil/QmlAstWalk
+compiler/libqmlcompil/QmlAstWatch
+compiler/libqmlcompil/QmlAlphaConv
+compiler/libqmlcompil/QmlPrint
+compiler/libqmlcompil/QmlDirectives
+compiler/libqmlcompil/QmlGenericScheme
+compiler/libqmlcompil/QmlTypes
+compiler/libqmlcompil/QmlTypesCompare
+compiler/libqmlcompil/QmlMoreTypes
+compiler/libqmlcompil/QmlTypesUtils
+compiler/libqmlcompil/QmlAnnotMap
+compiler/libqmlcompil/QmlAnnotCheckup
+compiler/libqmlcompil/QmlMakeTyper
+compiler/libqmlcompil/QmlTyper
+compiler/libqmlcompil/QmlTyperException
+compiler/libqmlcompil/QmlTyperErrHandling
+compiler/libqmlcompil/QmlTyperWarnings
+compiler/libqmlcompil/QmlAstUtils
+compiler/libqmlcompil/QmlCheck
+compiler/libqmlcompil/QmlError
+compiler/libqmlcompil/QmlTracker
+compiler/libqmlcompil/QmlDependencies
+compiler/libqmlcompil/QmlDbGen
+compiler/libqmlcompil/dbGen/DbGen_common
+compiler/libqmlcompil/dbGen/DbGenByPass
+compiler/libqmlcompil/dbGen/DbGenHelpers
+compiler/libqmlcompil/dbGen/DbGen_private
+compiler/libqmlcompil/dbGen/GraphLib
+compiler/libqmlcompil/dbGen/SchemaGraphLib
+compiler/libqmlcompil/dbGen/Schema_private
+compiler/libqmlcompil/dbGen/Schema_io
+compiler/libqmlcompil/QmlBlender
+compiler/libqmlcompil/QmlRenamingMap
+compiler/libqmlcompil/QmlPatternAnalysisSig
+compiler/libqmlcompil/QmlPatternAnalysis
+compiler/libqmlcompil/QmlEffects
+compiler/libqmlcompil/typer_w/W_Algebra
+compiler/libqmlcompil/typer_w/W_CoreTypes
+compiler/libqmlcompil/typer_w/W_PrintTypes
+compiler/libqmlcompil/typer_w/W_Unify
+compiler/libqmlcompil/typer_w/W_PatternsProcessing
+compiler/libqmlcompil/typer_w/W_PublicExport
+compiler/libqmlcompil/typer_w/W_Infer
+compiler/libqmlcompil/typer_w/W_AnnotMap
+compiler/libqmlcompil/typer_w/W_TypingEnv
+compiler/libqmlcompil/typer_w/W_SchemeGenAndInst
+compiler/libqmlcompil/typer_w/W_ReportErrors
+compiler/libqmlcompil/typer_w/W_TypeAbbrevs
+compiler/libqmlcompil/typer_w/W_TypeInfo
+compiler/libqmlcompil/typer_w/W_SubTerms
+compiler/libqmlcompil/typer_w/W_Misc
+compiler/libqmlcompil/typer_w/W_InferErrors
+compiler/libqmlcompil/typer_w/W_Exceptions
+compiler/libqmlcompil/Typer_w
+compiler/libqmlcompil/typer_w/W_OpenSumsDirective
+compiler/libqmlcompil/typer_w/W_OpenRecordDirective
+compiler/libqmlcompil/QmlRefresh
+
+compiler/jslang/JsAst
+compiler/jslang/JsWalk
+compiler/jslang/JsPrint
+compiler/jslang/JsCons
+compiler/jslang/JsIdent
+compiler/jslang/JsIdentSet
+compiler/jslang/JsIdentMap
+compiler/jslang/JsIdentTbl
+compiler/jslang/JsLex
+compiler/jslang/JsParse
+compiler/jslang/JsUtils
+compiler/jslang/JsAstRuntime
+
+# -*- conf -*-
+compiler/libtrx/Tgrammar
+compiler/libtrx/Trx_runtime
+compiler/libtrx/Trxparse
+compiler/libtrx/Trxparse_functor
+compiler/libtrx/Trxparse_auto
+compiler/libtrx/Trx_auto_ast
+compiler/libtrx/Pgrammar
+compiler/libtrx/Xparse
+
+compiler/ocamllang/Ocaml
+compiler/ocamllang/Ocaml_parser
+compiler/ocamllang/OcamlPrint
+compiler/ocamllang/OcamlTrack
+compiler/ocamllang/OcamlUtils
+compiler/ocamllang/OcamlWalk
+
+compiler/pplib/Pprocess
+compiler/pplib/Pplang
+
+compiler/libbsl/BslTypes
+compiler/libbsl/BslTypesMap
+compiler/libbsl/BslTypesNormalizedMap
+compiler/libbsl/BslTypesGeneration
+compiler/libbsl/BslRegisterParser
+compiler/libbsl/BslLanguage
+compiler/libbsl/BslLanguageMap
+compiler/libbsl/BslInterface
+compiler/libbsl/BslPluginInterface
+compiler/libbsl/BslPluginTable
+compiler/libbsl/BslLib
+compiler/libbsl/BslOpa
+compiler/libbsl/BslJs
+compiler/libbsl/BslJsConf
+compiler/libbsl/BslConf
+compiler/libbsl/BslOcaml
+# compiler/libbsl/BslC
+compiler/libbsl/BslConvention
+compiler/libbsl/BslRegisterLib
+compiler/libbsl/BslTinyShell
+compiler/libbsl/BslMarshalPlugin
+compiler/libbsl/BslDynlink
+compiler/libbsl/BslTags
+compiler/libbsl/BslDirectives
+compiler/libbsl/BslIncludeFormats
+compiler/libbsl/BslRegisterParserState
+compiler/libbsl/BslError
+compiler/libbsl/BslArgs
+compiler/libbsl/BslTracker
+compiler/libbsl/BslGeneration
+compiler/libbsl/BslJsParse
+
+compiler/qmlpasses/Pass_CodingDirectives
+compiler/qmlpasses/Pass_DbSchemaGeneration
+compiler/qmlpasses/Pass_DbPathCoercion
+compiler/qmlpasses/Pass_WarnCoerce
+compiler/qmlpasses/Pass_DbAccessorsGeneration
+compiler/qmlpasses/Pass_DbCodeGeneration
+compiler/qmlpasses/Pass_Uncurry
+compiler/qmlpasses/Pass_Closure
+compiler/qmlpasses/Pass_ConstantSharing
+compiler/qmlpasses/Pass_Undot
+compiler/qmlpasses/Pass_LiftDeepRecords
+compiler/qmlpasses/Pass_SimplifyMagic
+compiler/qmlpasses/Pass_SimplifyEquality
+compiler/qmlpasses/Pass_LambdaLifting
+compiler/qmlpasses/Pass_ExplicitInstantiation
+compiler/qmlpasses/Pass_GenerateServerAst
+compiler/qmlpasses/pass_CompileRecursiveValues
+compiler/qmlpasses/pass_Assertion
+compiler/qmlpasses/pass_CleanLambdaLiftingDirectives
+compiler/qmlpasses/pass_BypassApply
+compiler/qmlpasses/pass_Purge
+compiler/qmlpasses/pass_RewriteAsyncLambda
+compiler/qmlpasses/pass_InstrumentForClosureSerialization
+
+compiler/opalang/SurfaceAst
+compiler/opalang/SurfaceAstHelper
+compiler/opalang/SurfaceAstCons
+compiler/opalang/SurfaceAstDecons
+compiler/opalang/SurfaceAstConsSig
+compiler/opalang/SurfaceAstTraversal
+compiler/opalang/OpaPrint
+compiler/opalang/OpaTracker
+compiler/opalang/OpaWalk
+compiler/opalang/OpaToQml
+compiler/opalang/OpaError
+compiler/opalang/OpaCheck
+compiler/opalang/OpaParser
+compiler/opalang/OpaParserUtils
+compiler/opalang/OpaSyntax
+compiler/opalang/classic_syntax/Opa_classic_parser
+compiler/opalang/classic_syntax/Parser_utils
+compiler/opalang/classic_syntax/OpaParserVersion
+compiler/opalang/js_syntax/Opa_js_parser
+compiler/opalang/OpaMapToIdent
+compiler/opalang/Trx_ast
+
+compiler/qml2ocaml/Qml2ocaml
+compiler/qml2ocaml/Qml2ocamlOptions
+
+compiler/qml2js/LaunchHelper
+
+compiler/qml2js/Qml2jsOptions
+compiler/qml2js/Qml2js
+compiler/qml2js/Qml2jsBackendOptions
+compiler/qml2js/qmljs_Serializer
+
+compiler/qmljsimp/Imp_Warnings
+compiler/qmljsimp/Imp_Bsl
+compiler/qmljsimp/Imp_Code
+compiler/qmljsimp/Imp_Common
+compiler/qmljsimp/Imp_Compiler
+compiler/qmljsimp/Imp_Env
+compiler/qmljsimp/Imp_MatchGeneration
+compiler/qmljsimp/Imp_PatternAnalysis
+compiler/qmljsimp/Imp_SumCase
+compiler/qmljsimp/Imp_Renaming
+compiler/qmljsimp/Imp_CleanUp
+compiler/qmljsimp/Imp_Inlining
+compiler/qmljsimp/Imp_SimpleRenaming
+
+compiler/qmlcps/QmlCpsIL
+compiler/qmlcps/QmlCpsRewriter
+
+# private modules
+compiler/qmlflat/flat/Flat_Bsl
+compiler/qmlflat/flat/Flat_BypassGeneration
+compiler/qmlflat/flat/Flat_Common
+compiler/qmlflat/flat/Flat_DotGeneration
+compiler/qmlflat/flat/Flat_Env
+compiler/qmlflat/flat/Flat_ExprGeneration
+compiler/qmlflat/flat/Flat_Field
+compiler/qmlflat/flat/Flat_MatchGeneration
+compiler/qmlflat/flat/Flat_Opabsl
+compiler/qmlflat/flat/Flat_Options
+compiler/qmlflat/flat/Flat_RecordGeneration
+compiler/qmlflat/flat/Flat_Shared
+compiler/qmlflat/flat/Flat_Simple
+compiler/qmlflat/flat/Flat_VTable
+compiler/qmlflat/flat/Flat_Warnings
+# Public module
+compiler/qmlflat/Flat_Compiler
+
+compiler/protocols/Tools
+compiler/protocols/Reorder_functions
+compiler/protocols/Rewrite_funs
+compiler/protocols/Gen_trx
+compiler/protocols/Mkrp
+compiler/protocols/Gen_rp
+compiler/protocols/Gen_printer
+compiler/protocols/Gen_raw_printer
+compiler/protocols/Gen_compare
+compiler/protocols/Grammar
+
+compiler/qmlslicer/QmlSimpleSlicer
+compiler/qmlslicer/QmlFakeSlicer
+
+compiler/opalib/OpaEnv
+compiler/opalib/StaticsInclude
+compiler/opalib/OpaWalker
+# TODO, missing modules of lang design
+compiler/qmlflat/Flat_Runtime
+compiler/qmlflat/ServerLib
+compiler/qmlflat/QmlFlatServerLib
+
+compiler/passes/SurfaceAstPasses
+compiler/passes/SurfaceAstPassesTypes
+compiler/passes/SurfaceAstRenaming
+compiler/passes/SurfaceAstDependencies
+compiler/passes/SurfaceAstTrx
+compiler/passes/SurfaceAstXmlPattern
+compiler/passes/SurfaceAstStaticInclude
+compiler/passes/pass_CheckOptionsConsistency
+compiler/passes/I18nAndComputedString
+compiler/passes/pass_ServerDeclaration
+compiler/passes/pass_CompileTimeDirective

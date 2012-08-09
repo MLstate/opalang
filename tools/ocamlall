@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rlwrap _build/tools/ocamlall.top \
+    -I _build/compiler/jslang \
+    -I _build/compiler/libbsl
