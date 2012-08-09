@@ -12,7 +12,6 @@ hello_bindings
 
 ref_core_language
 ref_web_language
-ref_internationalization
 ref_database
 ref_mongodb
 ref_execution
