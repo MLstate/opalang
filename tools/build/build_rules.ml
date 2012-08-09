@@ -748,6 +748,10 @@ let plugin_building name =
        ) options (List.rev mlfiles)
     )
   in
+  let options (* Opa files *) =
+    List.map (fun p -> P p) (List.filter (fun f -> Pathname.check_extension f "opa") files)
+    @ options
+  in
   let is_static = Tags.mem "static" (tags_of_pathname path) in
   let options =
     if is_static then
