@@ -289,8 +289,8 @@ SearchUtils = {{
   @private
   parse_exact(query: string) =
     p = parser
-    | "\"" s=Rule.alphanum_string "\"" -> (s, true)
-    | s=Rule.alphanum_string -> (s, false)
+    | "\"" s=(.*) "\"" -> (Text.to_string(s), true)
+    | s=(.*) -> (Text.to_string(s), false)
   Parser.parse(p, query)
 
   parse_query(query: string) =
