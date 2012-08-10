@@ -510,7 +510,7 @@ and string s start double = parse
 | '"' {
   if double then (
     let str = Buffer.contents b in
-    let pos = FilePos.make_pos str start (Lexing.lexeme_end lexbuf) in
+    let pos = FilePos.make_pos s.filename start (Lexing.lexeme_end lexbuf) in
     Buffer.clear b;
     String (pos, str)
   ) else (
