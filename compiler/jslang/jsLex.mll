@@ -132,6 +132,10 @@ type token =
    whether the comment contains a line terminator or not. *)
 | DocComment of pos * doc_comment_elt list * bool
 
+(* The lexer keeps the following invariant: any consecutive sequence
+   of new lines and comments will have at most one new line at the
+   beginning followed by a sequence of comments. This makes the
+   parsing a little bit easier. *)
 type state = {
   filename: string;
 
@@ -145,14 +149,16 @@ type state = {
    * previous token (see function lex) *)
   mutable can_have_a_division: bool;
 
-  (* this variable is used to ensure that the lexer never returns two
-   * consecutive new lines, which is useful in the parser, because if
-   * you want to look at the first non newline token, you need a
-   * lookahead of 2 with this (otherwise the lookahead would be
-   * unbounded) *)
+  (* true whenever the lexer has produced an LT token and read only
+     LTs and comments afterwards *)
   mutable just_parsed_a_line_terminator: bool;
 
-  mutable waiting_comment: token option;
+  (* This queue holds back comments with no newlines, and possibly in
+     the end a comment with a newline or a non-comment token. It is
+     used to satisfy the lexer invariant mentioned above *)
+  mutable waiting_tokens: token Queue.t;
+
+  mutable flush_tokens: bool;
 }
 
 let mp s lexbuf =
@@ -577,149 +583,171 @@ and doc_comment s start newline elts = parse
 
 {
 
+let rec consume_token s lexbuf =
+  let send_token token =
+    if Queue.is_empty s.waiting_tokens then
+      token
+    else (
+      s.flush_tokens <- true;
+      flush s lexbuf
+    )
+  in
+
+  match main s lexbuf with
+  | LT _ when s.just_parsed_a_line_terminator ->
+    (* can_have_a_division doesn't change *)
+    (* just_parsed_a_line_terminator and flush_tokens is still true *)
+    consume_token s lexbuf
+  | LT _ as r ->
+    (* can_have_a_division doesn't change *)
+    s.just_parsed_a_line_terminator <- true;
+    r
+  | DocComment (pos, _, contains_newline) as r ->
+    if s.just_parsed_a_line_terminator then (
+      r
+    ) else if contains_newline then (
+      (* We must produce a newline in this case *)
+      s.just_parsed_a_line_terminator <- true;
+      s.flush_tokens <- true;
+      Queue.add r s.waiting_tokens;
+      LT pos
+    ) else (
+      Queue.add r s.waiting_tokens;
+      consume_token s lexbuf
+    )
+
+  (* these symbols cannot be followed by a division *)
+  | Lbracket _
+  | Lcurly _
+  | Rcurly _
+  | Lparen _
+  | Dot _
+  | Semic _
+  | Comma _
+  | Lt _
+  | Gt _
+  | Le _
+  | Ge _
+  | EqualEqual _
+  | BangEqual _
+  | EqualEqualEqual _
+  | BangEqualEqual _
+  | Plus _
+  | Minus _
+  | Times _
+  | Percent _
+  | LtLt _
+  | GtGt _
+  | GtGtGt _
+  | Amper _
+  | Bar _
+  | Chapeau _
+  | Bang _
+  | Tilda _
+  | AmperAmper _
+  | BarBar _
+  | Question _
+  | Colon _
+  | Equal _
+  | PlusEqual _
+  | MinusEqual _
+  | TimesEqual _
+  | PercentEqual _
+  | LtLtEqual _
+  | GtGtEqual _
+  | GtGtGtEqual _
+  | AmperEqual _
+  | BarEqual _
+  | ChapeauEqual _
+  | Div _
+  | DivEqual _
+  | Break _
+  | Case _
+  | Catch _
+  | Continue _
+  | Debugger _
+  | Default _
+  | Delete _
+  | Do _
+  | Else _
+  | Finally _
+  | For _
+  | Function _
+  | If _
+  | In _
+  | Instanceof _
+  | New _
+  | Return _
+  | Switch _
+  | This _
+  | Throw _
+  | Typeof _
+  | Try _
+  | Var _
+  | Void _
+  | While _
+  | With _
+  | Class _
+  | Const _
+  | Enum _
+  | Export _
+  | Extends _
+  | Import _
+  | Super _
+  | Implements _
+  | Interface _
+  | Let _
+  | Package _
+  | Private _
+  | Protected _
+  | Public _
+  | Static _
+  | Yield _
+      as r ->
+    s.just_parsed_a_line_terminator <- false;
+    s.can_have_a_division <- false;
+    send_token r
+
+  (* these symbols can be followed by a division *)
+  | EOF _ (* don't care *)
+  | Rbracket _
+  | PlusPlus _
+  | MinusMinus _
+  | Rparen _
+  | Ident _
+  | False _
+  | True _
+  | Null _
+  | Regexp _
+  | String _
+  | Integer _
+      as r ->
+    s.just_parsed_a_line_terminator <- false;
+    s.can_have_a_division <- true;
+    send_token r
+
 (* the main lexing function: called the actual lexer, and updates the global
  * state *)
-let rec lex s lexbuf =
-  match s.waiting_comment with
-  | Some comment -> comment
-  | None ->
-    match main s lexbuf with
-    | LT _ when s.just_parsed_a_line_terminator ->
-      (* INVARIANT: there is never two consecutive LT in the token stream *)
-      (* can have a division doesn't change *)
-      (* just_parsed_a_line_terminator is still true *)
-      lex s lexbuf
-    | LT _ as r ->
-      (* can have a division doesn't change *)
-      s.just_parsed_a_line_terminator <- true;
-      r
-    | DocComment (pos, _, contains_newline) as r ->
-      if not contains_newline || s.just_parsed_a_line_terminator then
-        r
-      else (
-        (* In this case, we must send an LT token before sending the
-           actual comment *)
-        s.waiting_comment <- Some r;
-        s.just_parsed_a_line_terminator <- true;
-        LT pos
-      )
+and flush s lexbuf =
+  try
+    Queue.take s.waiting_tokens
+  with Queue.Empty ->
+    s.flush_tokens <- false;
+    consume_token s lexbuf
 
-    (* these symbols cannot be followed by a division *)
-    | Lbracket _
-    | Lcurly _
-    | Rcurly _
-    | Lparen _
-    | Dot _
-    | Semic _
-    | Comma _
-    | Lt _
-    | Gt _
-    | Le _
-    | Ge _
-    | EqualEqual _
-    | BangEqual _
-    | EqualEqualEqual _
-    | BangEqualEqual _
-    | Plus _
-    | Minus _
-    | Times _
-    | Percent _
-    | LtLt _
-    | GtGt _
-    | GtGtGt _
-    | Amper _
-    | Bar _
-    | Chapeau _
-    | Bang _
-    | Tilda _
-    | AmperAmper _
-    | BarBar _
-    | Question _
-    | Colon _
-    | Equal _
-    | PlusEqual _
-    | MinusEqual _
-    | TimesEqual _
-    | PercentEqual _
-    | LtLtEqual _
-    | GtGtEqual _
-    | GtGtGtEqual _
-    | AmperEqual _
-    | BarEqual _
-    | ChapeauEqual _
-    | Div _
-    | DivEqual _
-    | Break _
-    | Case _
-    | Catch _
-    | Continue _
-    | Debugger _
-    | Default _
-    | Delete _
-    | Do _
-    | Else _
-    | Finally _
-    | For _
-    | Function _
-    | If _
-    | In _
-    | Instanceof _
-    | New _
-    | Return _
-    | Switch _
-    | This _
-    | Throw _
-    | Typeof _
-    | Try _
-    | Var _
-    | Void _
-    | While _
-    | With _
-    | Class _
-    | Const _
-    | Enum _
-    | Export _
-    | Extends _
-    | Import _
-    | Super _
-    | Implements _
-    | Interface _
-    | Let _
-    | Package _
-    | Private _
-    | Protected _
-    | Public _
-    | Static _
-    | Yield _
-        as r ->
-      s.just_parsed_a_line_terminator <- false;
-      s.can_have_a_division <- false;
-      r
-
-    (* these symbols can be followed by a division *)
-    | EOF _ (* don't care *)
-    | Rbracket _
-    | PlusPlus _
-    | MinusMinus _
-    | Rparen _
-    | Ident _
-    | False _
-    | True _
-    | Null _
-    | Regexp _
-    | String _
-    | Integer _
-        as r ->
-      s.just_parsed_a_line_terminator <- false;
-      s.can_have_a_division <- true;
-      r
+and lex s lexbuf =
+  if s.flush_tokens then
+    flush s lexbuf
+  else
+    consume_token s lexbuf
 
 let initial_state filename lex_comments = {
   filename;
   lex_comments;
   can_have_a_division = false;
   just_parsed_a_line_terminator = true;
-  waiting_comment = None;
+  waiting_tokens = Queue.create ();
+  flush_tokens = false;
 }
 
 let stream filename lex_comments lexbuf =
