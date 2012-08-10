@@ -32,51 +32,124 @@ let native_ident = JsCons.Ident.native
  * while implicitely discarding newlines).
  *
  * The new module also carries an imperative state to discard comments
- * implicitely. This has to be set carefully by the various rules. *)
+ * implicitely. This has to be set carefully by the various rules. Note
+ * that, since we parse comments as statements and discard them
+ * otherwise, we must keep them in a queue before throwing them away.
+ *
+ * The parser relies on the lexer invariant: a LT never occurs right
+ * after a comment.  *)
 
 module OriginalStream = Stream
 
 module Stream =
 struct
 
-  type 'a t = bool ref * 'a Stream.t
+  type 'a t = {
+    stream: 'a Stream.t;
+    waiting_comments: 'a Queue.t;
+    mutable waiting_newline: JsLex.token option;
+    mutable ignore_comments: bool;
+  }
+
   exception Failure = Stream.Failure
   exception Error = Stream.Error
-  let from f = (ref true, Stream.from f)
-  let junk_no_newline stream = Stream.junk (snd stream)
-  let peek_no_newline stream = Stream.peek (snd stream)
+  let from f = {
+    stream = Stream.from f;
+    waiting_comments = Queue.create ();
+    waiting_newline = None;
+    ignore_comments = true;
+  }
 
-  let wrap stream = (ref true, stream)
+  let wrap stream = {
+    stream;
+    waiting_comments = Queue.create ();
+    waiting_newline = None;
+    ignore_comments = true;
+  }
+
   let parse_comments stream =
-    fst stream := false
+    stream.ignore_comments <- false
 
   let ignore_comments stream =
-    fst stream := true
+    stream.ignore_comments <- true
 
-  let junk stream =
-    (* this function is symmetric with peek below *)
-    (match Stream.peek (snd stream) with
-    | Some (LT _) -> Stream.junk (snd stream)
-    | _ -> ());
-    Stream.junk (snd stream)
+  (* The *no_newline_ignore variants do not skip newlines *)
 
-  (*let peek stream =
-    match Stream.npeek 2 stream with
-    | [LT; a] -> Some a
-    | [LT] -> None
-    | a :: _ -> Some a
-    | [] -> None*)
-  let rec peek stream = (* this Stream.peek makes the parsing really faster *)
-    match Stream.peek (snd stream) with
-    | Some (LT _) ->
-      (* using the invariant that says that you never have two consecutives
-       * newlines in the token stream *)
-      (match Stream.npeek 2 (snd stream) with
-      | _ :: t :: _ -> Some t
-      | _ -> None)
-    | Some (DocComment _) when !(fst stream) ->
-      peek stream
-    | o -> o
+  let peek_no_newline_ignore stream =
+    match stream.waiting_newline with
+    | Some _ as token -> token
+    | None ->
+      if stream.ignore_comments then
+        let rec loop () =
+          match Stream.peek stream.stream with
+          | Some (DocComment _ as token) ->
+            Queue.add token stream.waiting_comments;
+            Stream.junk stream.stream;
+            loop ()
+          | o -> o
+        in loop ()
+      else
+        try Some (Queue.peek stream.waiting_comments)
+        with Queue.Empty -> Stream.peek stream.stream
+
+  let peek stream =
+    if stream.ignore_comments then (
+      let rec loop () =
+        match Stream.peek stream.stream with
+        | Some (LT _ as s) ->
+          stream.waiting_newline <- Some s;
+          Stream.junk stream.stream;
+          loop ()
+        | Some (DocComment _ as token) ->
+          Queue.add token stream.waiting_comments;
+          Stream.junk stream.stream;
+          loop ()
+        | o -> o
+      in loop ()
+    ) else if Queue.is_empty stream.waiting_comments then (
+      let rec loop () =
+        match Stream.peek stream.stream with
+        | Some (LT _ as s) ->
+          stream.waiting_newline <- Some s;
+          Stream.junk stream.stream;
+          loop ()
+        | o -> o
+      in loop ()
+    ) else (
+      try Some (Queue.peek stream.waiting_comments)
+      with Queue.Empty -> Stream.peek stream.stream
+    )
+
+  let junk_no_newline_ignore stream =
+    match stream.waiting_newline with
+    | Some _ -> stream.waiting_newline <- None
+    | None ->
+      if stream.ignore_comments then (
+        Queue.clear stream.waiting_comments;
+        let rec loop () =
+          match Stream.peek stream.stream with
+          | Some (DocComment _) ->
+            Stream.junk stream.stream;
+            loop ()
+          | _ ->
+            Stream.junk stream.stream
+        in loop ()
+      ) else (
+        try ignore (Queue.take stream.waiting_comments)
+        with Queue.Empty -> Stream.junk stream.stream
+      )
+
+  let rec junk stream =
+    match Stream.peek stream.stream with
+    | Some (LT _ as s) ->
+      stream.waiting_newline <- Some s;
+      Stream.junk stream.stream;
+      junk stream
+    | Some (DocComment _ as s) when stream.ignore_comments ->
+      Queue.add s stream.waiting_comments;
+      Stream.junk stream.stream;
+      junk stream
+    | _ -> Stream.junk stream.stream
 
   (* redefining empty because a stream with only a newline must be considered
    * as empty *)
@@ -165,16 +238,16 @@ let option_default default parser_ = parser
  *                   2]
  * which is parsed as [return; 2] and not [return 2] *)
 let option_no_newline parser_ stream =
-  match Stream.peek_no_newline stream with
+  match Stream.peek_no_newline_ignore stream with
   | Some (LT _)-> None
   | _ -> option parser_ stream
 
 let semic stream =
-  match Stream.peek_no_newline stream with
-  | None -> None
-  | Some (Semic pos | LT pos) ->
-    Stream.junk_no_newline stream; Some pos
-  | Some (Rcurly pos) -> Some pos (* do not discard the bracket! *)
+  match Stream.peek_no_newline_ignore stream with
+  | None -> ()
+  | Some (Semic _ | LT _) ->
+    Stream.junk_no_newline_ignore stream
+  | Some (Rcurly _) -> () (* do not discard the bracket! *)
   | _ -> raise Stream.Failure
 let ident = parser
   | [< 'Ident (pos, i) >] -> (pos, i)
@@ -264,12 +337,8 @@ and statement_no_comments = parser
     let pos = merge_pos pos1 pos2 in
     J.Js_block (nl pos, block)
   | [< 'Semic _; stream >] -> statement stream
-  | [< 'Var pos1; l = list1_sep vardeclaration comma; pos2 = semic >] -> (
-    let pos2 = match pos2 with
-      | Some pos2 -> pos2
-      | None ->
-        let (pos2, _, _) = List.last l in pos2
-    in
+  | [< 'Var pos1; l = list1_sep vardeclaration comma; _ = semic >] -> (
+    let (pos2, _, _) = List.last l in
     let pos = merge_pos pos1 pos2 in
     match l with
     | [(_,i,o)] -> J.Js_var (nl pos, i, o)
@@ -285,11 +354,7 @@ and statement_no_comments = parser
         Some s2, merge_pos pos1 (J.JPos.stm s2)
       | [< >] -> None, merge_pos pos1 (J.JPos.stm s1) in
     J.Js_if (nl pos,e,s1,o)
-  | [< 'Do pos1; s = statement; 'While _; 'Lparen _; e = expr; 'Rparen pos21; pos22 = semic >] ->
-    let pos2 =
-      match pos22 with
-      | Some pos2 -> pos2
-      | None -> pos21 in
+  | [< 'Do pos1; s = statement; 'While _; 'Lparen _; e = expr; 'Rparen pos2; _ = semic >] ->
     let pos = merge_pos pos1 pos2 in
     J.Js_dowhile (nl pos, s, e)
   | [< 'While pos1; 'Lparen _; e = expr; 'Rparen _; s = statement >] ->
@@ -350,34 +415,25 @@ and statement_no_comments = parser
             J.Js_for (nl pos_for, o1, e2, e3, s)
       )
   )
-  | [< 'Continue pos1; o = option_no_newline ident; pos2 = semic >] ->
+  | [< 'Continue pos1; o = option_no_newline ident; _ = semic >] ->
     let pos2 =
-      match pos2 with
-      | Some pos2 -> pos2
-      | None ->
-        match o with
-        | Some (pos2, _) -> pos2
-        | None -> pos1 in
+      match o with
+      | Some (pos2, _) -> pos2
+      | None -> pos1 in
     let pos = merge_pos pos1 pos2 in
     J.Js_continue (nl pos, Option.map snd o)
-  | [< 'Break pos1; o = option_no_newline ident; pos2 = semic >] ->
+  | [< 'Break pos1; o = option_no_newline ident; _ = semic >] ->
     let pos2 =
-      match pos2 with
-      | Some pos2 -> pos2
-      | None ->
-        match o with
-        | Some (pos2, _) -> pos2
-        | None -> pos1 in
+      match o with
+      | Some (pos2, _) -> pos2
+      | None -> pos1 in
     let pos = merge_pos pos1 pos2 in
     J.Js_break (nl pos, Option.map snd o)
-  | [< 'Return pos1; o = option_no_newline expr; pos2 = semic >] ->
+  | [< 'Return pos1; o = option_no_newline expr; _ = semic >] ->
     let pos2 =
-      match pos2 with
-      | Some pos2 -> pos2
-      | None ->
-        match o with
-        | Some expr -> J.JPos.expr expr
-        | None -> pos1 in
+      match o with
+      | Some expr -> J.JPos.expr expr
+      | None -> pos1 in
     let pos = merge_pos pos1 pos2 in
     J.Js_return (nl pos, o)
   | [< 'With pos1; 'Lparen _; e = expr; 'Rparen _; s = statement >] ->
@@ -388,11 +444,8 @@ and statement_no_comments = parser
        'Rcurly pos2 >] ->
     let pos = merge_pos pos1 pos2 in
     J.Js_switch (nl pos,e,clauses,default)
-  | [< 'Throw pos1; e = expr; pos2 = semic >] ->
-    let pos2 =
-      match pos2 with
-      | Some pos2 -> pos2
-      | None -> J.JPos.expr e in
+  | [< 'Throw pos1; e = expr; _ = semic >] ->
+    let pos2 = J.JPos.expr e in
     let pos = merge_pos pos1 pos2 in
     J.Js_throw (nl pos,e)
   (* the specification seems crazy, where is the problem with a newline here? *)
