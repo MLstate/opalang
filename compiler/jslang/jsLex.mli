@@ -19,9 +19,8 @@
 (**
    The javascript lexer
 
-   Beware that the lexer is stateful, so it should not be used
-   by several threads simultaneously, nor should you try to intersperse
-   the lexing of several inputs
+   The lexer is stateful. Thus, after creating a token stream, only
+   one thread can access it.
 
    This module is not meant to be called directly, use instead the high level
    functions provided in jsParse if you want to parse some javascript.
@@ -138,11 +137,14 @@ type token =
 
 (* These tokens are used only when parsing comments for bsl files
    and are not produced in normal lexing*)
-| DocComment of pos * doc_comment_elt list
+| DocComment of pos * doc_comment_elt list * bool
 
 val string_of_token : token -> string
-val init_lexer : unit -> unit
-val lex : string -> bool -> Lexing.lexbuf -> token
+
+type state
+
+val initial_state : (* filename *) string -> (* lex_comments *) bool -> state
+val lex : state -> Lexing.lexbuf -> token
 val stream : string -> bool -> Lexing.lexbuf -> token Stream.t
 
 (**

@@ -245,7 +245,7 @@ let postfixoperator = parser
 let rec statement stream =
   Stream.parse_comments stream;
   match stream with parser
-  | [< 'DocComment (pos, lines) >] ->
+  | [< 'DocComment (pos, lines, _) >] ->
     J.Js_comment (nl pos, J.Jc_doc (nl pos, lines))
   | [< >] ->
     Stream.ignore_comments stream;
