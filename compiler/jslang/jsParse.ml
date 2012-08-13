@@ -88,9 +88,10 @@ struct
             loop ()
           | o -> o
         in loop ()
+      else if Queue.is_empty stream.waiting_comments then
+        Stream.peek stream.stream
       else
-        try Some (Queue.peek stream.waiting_comments)
-        with Queue.Empty -> Stream.peek stream.stream
+        Some (Queue.peek stream.waiting_comments)
 
   let peek stream =
     if stream.ignore_comments then (
@@ -116,8 +117,7 @@ struct
         | o -> o
       in loop ()
     ) else (
-      try Some (Queue.peek stream.waiting_comments)
-      with Queue.Empty -> Stream.peek stream.stream
+      Some (Queue.peek stream.waiting_comments)
     )
 
   let junk_no_newline_ignore stream =
@@ -134,9 +134,10 @@ struct
           | _ ->
             Stream.junk stream.stream
         in loop ()
+      ) else if Queue.is_empty stream.waiting_comments then (
+        Stream.junk stream.stream
       ) else (
-        try ignore (Queue.take stream.waiting_comments)
-        with Queue.Empty -> Stream.junk stream.stream
+        ignore (Queue.take stream.waiting_comments)
       )
 
   let junk stream =
