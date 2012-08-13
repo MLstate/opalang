@@ -156,6 +156,15 @@ struct
       | _ -> Stream.junk stream.stream
     in loop ()
 
+  let junk_no_comment_ignore stream =
+    match stream.waiting_newline with
+    | Some _ -> stream.waiting_newline <- None
+    | None ->
+      if Queue.is_empty stream.waiting_comments then
+        Stream.junk stream.stream
+      else
+        ignore (Queue.take stream.waiting_comments)
+
   (* redefining empty because a stream with only a newline must be considered
    * as empty *)
   let empty s =
@@ -247,6 +256,16 @@ let option_no_newline parser_ stream =
   | Some (LT _)-> None
   | _ -> option parser_ stream
 
+let doc_comment stream =
+  Stream.parse_comments stream;
+  match Stream.peek stream with
+  | Some (DocComment (pos, lines, _)) ->
+    Stream.junk_no_comment_ignore stream;
+    Stream.ignore_comments stream;
+    (pos, lines)
+  | _ ->
+    Stream.ignore_comments stream;
+    raise Stream.Failure
 let semic stream =
   match Stream.peek_no_newline_ignore stream with
   | None -> ()
@@ -323,13 +342,8 @@ let postfixoperator = parser
 let rec statement stream =
   Stream.parse_comments stream;
   match stream with parser
-  | [< 'DocComment (pos, lines, _) >] ->
+  | [< (pos, lines) = doc_comment >] ->
     J.Js_comment (nl pos, J.Jc_doc (nl pos, lines))
-  | [< >] ->
-    Stream.ignore_comments stream;
-    statement_no_comments stream
-
-and statement_no_comments = parser
   | [< 'Function pos1;
        'Ident (_, name) ?? "expected an identifier after 'function' in a statement";
        'Lparen _; params = list0_sep native comma; 'Rparen _;
