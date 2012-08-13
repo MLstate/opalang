@@ -155,7 +155,7 @@ let try_read_args tag
   aux None tags
 
 let identifier_regexp =
-  Str.regexp "^[ \t]*\\([a-zA-Z][a-zA-Z0-9]*\\)[ \t]*$"
+  Str.regexp "^[ \t]*\\([a-zA-Z_][a-zA-Z0-9_]*\\)[ \t]*$"
 
 let get_identifier string =
   if Str.string_match identifier_regexp string 0 then
