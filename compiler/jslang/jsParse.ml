@@ -413,7 +413,7 @@ and statement_no_comments = parser
         )
         | _ ->
           match stream with parser
-          | [< _ = semic; e2 = option expr; _ = semic; e3 = option expr;
+          | [< 'Semic _; e2 = option expr; 'Semic _; e3 = option expr;
                'Rparen _; s = statement >] ->
             let pos_for = merge_pos pos1 (J.JPos.stm s) in
             J.Js_for (nl pos_for, o1, e2, e3, s)
