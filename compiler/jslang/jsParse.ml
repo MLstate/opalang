@@ -139,17 +139,21 @@ struct
         with Queue.Empty -> Stream.junk stream.stream
       )
 
-  let rec junk stream =
-    match Stream.peek stream.stream with
-    | Some (LT _ as s) ->
-      stream.waiting_newline <- Some s;
-      Stream.junk stream.stream;
-      junk stream
-    | Some (DocComment _ as s) when stream.ignore_comments ->
-      Queue.add s stream.waiting_comments;
-      Stream.junk stream.stream;
-      junk stream
-    | _ -> Stream.junk stream.stream
+  let junk stream =
+    (* At junk, we assume that all tokens that have been ignored and
+       held can be discarded *)
+    stream.waiting_newline <- None;
+    Queue.clear stream.waiting_comments;
+    let rec loop () =
+      match Stream.peek stream.stream with
+      | Some (LT _) ->
+        Stream.junk stream.stream;
+        loop ()
+      | Some (DocComment _) when stream.ignore_comments ->
+        Stream.junk stream.stream;
+        loop ()
+      | _ -> Stream.junk stream.stream
+    in loop ()
 
   (* redefining empty because a stream with only a newline must be considered
    * as empty *)
