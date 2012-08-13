@@ -165,13 +165,23 @@ type Pack.u =
  / {String:string; size:Pack.s}
  / {String:string; le:bool}
  / {String:string; le:bool; size:Pack.s}
+ / {String:string; payload:Pack.data} // to insert data between the prefix and the string
+                                      // payloads are not currently integrated into the context
+ / {String:string; payload:Pack.data; size:Pack.s}
+ / {String:string; payload:Pack.data; le:bool}
+ / {String:string; payload:Pack.data; le:bool; size:Pack.s}
  / {Float32:float}
  / {Float:float}
  / {Coded:Pack.codes}
  / {List:(Pack.data,list(Pack.data))}
  / {Array:(Pack.data,llarray(Pack.data))}
+ / {Pack:Pack.data} // to include other pack data without copying
+ / {Fixed:(int,string)} // fixed length string
+ / {Binary:(int,binary)} // fixed length binary
 // Other possibilities...
 // / {Record:list((field_name,field_type,data))} // <-- problem, type vars
+// / {Empty} // <-- placeholder for items to be added later
+// / {Reference:Server.reference(Pack.data)} // <-- updatable entity in the pack data
 
 /**
  * [Pack.data] is the main specification type but it is just a list of the [Pack.u]
@@ -186,15 +196,14 @@ type Pack.data = list(Pack.u)
 type Pack.input = { binary:Pack.t; pos:int }
 
 /**
+ * [Pack.result] is the result type for the Unser module.
+ **/
+type Pack.result('a) = outcome((Pack.input,'a),string)
+ /*
  * [Pack.options] is the type of options which is used by the main [pack] and
  * [unpack] functions.
  */
 type Pack.options = {signed : bool; endian : bool; size : Pack.s}
-
-/**
- * [Pack.result] is the result type for the Unser module.
- **/
-type Pack.result('a) = outcome((Pack.input,'a),string)
 
 /**
  * {1 Interface}
@@ -203,6 +212,11 @@ Pack = {{
 
   // For debugging buffer contents
   @private memdump = (%% BslPervasives.memdump %%: string -> string)
+  #<Ifstatic:OPA_PACK_DEBUG>
+    debug = true
+  #<Else>
+    debug = false
+  #<End>
 
   /** Convenience value for little Endian values **/
   littleEndian = true
@@ -350,16 +364,38 @@ Pack = {{
     | {Coded=_} -> true
     | {List=_} -> true
     | {Array=_} -> true
+    | {Pack=_} -> true
+    | {Fixed=_} -> true
+    | {Binary=_} -> true
 
   /** Debug, memdump first 32-bytes of current input
    * @param name string to prefix the output
    * @param input the current Pack.input value
    **/
-  @expand pinput(_name:string, _input:Pack.input) =
+  @expand pinput(name:string, input:Pack.input) =
     #<Ifstatic:OPA_PACK_DEBUG>
       data = Binary.get_string(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
-      Log.debug("{name}: input=\n{memdump(data)}")
+      //Log.debug("{name}: input=\n{memdump(data)}") // Can't find Log
+      jlog("{name}: input=\n{memdump(data)}")
     #<Else>
+      _ = (name, input)
+      void
+    #<End>
+
+  /** Debug, memdump the last 32-bytes of current output
+   * @param name string to prefix the output
+   * @param output the current Pack.t value
+   **/
+  @expand poutput(name:string, output:Pack.t) =
+    #<Ifstatic:OPA_PACK_DEBUG>
+      data =
+        if Binary.length(output) <= 32
+        then Binary.get_string(output, 0, Binary.length(output))
+        else Binary.get_string(output,Binary.length(output)-32,32)
+      //Log.debug("{name}: output=\n{memdump(data)}")
+      jlog("{name}: output=\n{memdump(data)}")
+    #<Else>
+      _ = (name, output)
       void
     #<End>
 
@@ -579,7 +615,7 @@ Pack = {{
      * @param size the width of the size prefix
      * @param str string
      **/
-    string(buf:Pack.t, le:bool, size:Pack.s, str:string): outcome(void,string) =
+    string(buf:Pack.t, le:bool, size:Pack.s, payload:Pack.data, str:string): outcome(void,string) =
       len = String.length(str)
       if len > sizemax(size)
       then {failure="Pack.Encode.string: string too long for {sizename(size)} length \"{String.sub(0,30,str)^"..."}\""}
@@ -592,43 +628,96 @@ Pack = {{
           | {Ll} -> if le then longlong_le(buf, len) else longlong_be(buf, len)
         with
         | {~failure} -> {~failure}
-        | {success=_} -> {success=Binary.add_string(buf, str)}
+        | {success=_} ->
+           if payload != []
+           then
+             (match pack_data(buf, default_options.endian, default_options.signed, default_options.size, payload) with
+              | (_,_,_,{success=_}) -> {success=Binary.add_string(buf, str)}
+              | (_,_,_,{~failure}) -> {~failure})
+           else
+             {success=Binary.add_string(buf, str)}
 
     /** Encode byte-prefixed string **/
-    string_b(buf:Pack.t, str:string) : outcome(void,string) = string(buf, noEndian, {B}, str)
+    string_b(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, noEndian, {B}, payload, str)
 
     /** Encode short-prefixed string.
      * @param le endianness of prefix
      **/
-    string_s(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {S}, str)
+    string_s(buf:Pack.t, le:bool, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, le, {S}, payload, str)
 
     /** Encode little-endian short-prefixed string **/
-    string_s_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {S}, str)
+    string_s_le(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, littleEndian, {S}, payload, str)
 
     /** Encode big-endian short-prefixed string **/
-    string_s_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {S}, str)
+    string_s_be(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, bigEndian, {S}, payload, str)
 
     /** Encode long-prefixed string.
      * @param le endianness of prefix
      **/
-    string_l(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {L}, str)
+    string_l(buf:Pack.t, le:bool, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, le, {L}, payload, str)
 
     /** Encode little-endian long-prefixed string **/
-    string_l_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {L}, str)
+    string_l_le(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, littleEndian, {L}, payload, str)
 
     /** Encode big-endian long-prefixed string **/
-    string_l_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {L}, str)
+    string_l_be(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, bigEndian, {L}, payload, str)
 
     /* Encode longlong-prefixed string.
      * @param le endianness of prefix
      **/
-    string_ll(buf:Pack.t, le:bool, str:string) : outcome(void,string) = string(buf, le, {Ll}, str)
+    string_ll(buf:Pack.t, le:bool, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, le, {Ll}, payload, str)
 
     /** Encode little-endian longlong-prefixed string **/
-    string_ll_le(buf:Pack.t, str:string) : outcome(void,string) = string(buf, littleEndian, {Ll}, str)
+    string_ll_le(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, littleEndian, {Ll}, payload, str)
 
     /** Encode big-endian longlong-prefixed string **/
-    string_ll_be(buf:Pack.t, str:string) : outcome(void,string) = string(buf, bigEndian, {Ll}, str)
+    string_ll_be(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
+      string(buf, bigEndian, {Ll}, payload, str)
+
+    /** Encode fixed length string
+     * If the string is less than len it is padded (on the right) with nulls.
+     * if the string is longer than len it is truncated.
+     *
+     * @param buf the binary object to pack into
+     * @param len the fixed length of the string
+     * @param str the string to pack
+     **/
+    fixed(buf:Pack.t, len:int, str:string) : outcome(void,string) =
+      str =
+        match Int.ordering(len,String.length(str)) with
+        | {eq} -> str
+        | {lt} -> String.sub(0, len, str)
+        | {gt} -> str^String.repeat(len - String.length(str), String.of_byte_unsafe(0))
+     {success=Binary.add_string(buf, str)}
+
+    /** Encode fixed length binary
+     * If the binary is less than len it is padded (on the right) with nulls.
+     * if the binary is longer than len it is truncated.
+     *
+     * @param buf the binary object to pack into
+     * @param len the fixed length of the string
+     * @param bin the binary to pack
+     **/
+    binary(buf:Pack.t, len:int, bin:binary) : outcome(void,string) =
+      bin =
+        (match Int.ordering(len,Binary.length(bin)) with
+         | {eq} -> bin
+         | {lt} -> Binary.get_binary(bin, 0, len)
+         | {gt} ->
+            b = Binary.create(len)
+            do Binary.add_binary(b, bin)
+            do Binary.add_fill(b, len - Binary.length(bin), 0)
+            b)
+     {success=Binary.add_binary(buf, bin)}
 
     /** Encode big-endian 32-bit float **/
     float_be(buf:Pack.t, f:float) : outcome(void,string) =
@@ -715,11 +804,20 @@ Pack = {{
       | ({String=_; size=s1},{String=_; size=s2}) -> s1 == s2
       | ({String=_; le=le1},{String=_; le=le2}) -> le1 == le2
       | ({String=_; le=le1; size=s1},{String=_; le=le2; size=s2}) -> le1 == le2 && s1 == s2
+      | ({String=_; payload=p1},{String=_; payload=p2}) -> same_data(p1,p2)
+      | ({String=_; payload=p1; size=s1},{String=_; payload=p2; size=s2}) -> same_data(p1,p2) && s1 == s2
+      | ({String=_; payload=p1; le=le1},{String=_; payload=p2; le=le2}) -> same_data(p1,p2) && le1 == le2
+      | ({String=_; payload=p1; le=le1; size=s1},{String=_; payload=p2; le=le2; size=s2}) ->
+         leseq = le1 == le2 && s1 == s2 // non-lazy semantic???
+         leseq && same_data(p1,p2)
       | ({Float32=_},{Float32=_}) -> true
       | ({Float=_},{Float=_}) -> true
       | ({Coded=_},{Coded=_}) -> true
       | ({List=_},{List=_}) -> true
       | ({Array=_},{Array=_}) -> true
+      | ({Pack=data1},{Pack=data2}) -> same_data(data1,data2)
+      | ({Fixed=_},{Fixed=_}) -> true
+      | ({Binary=_},{Binary=_}) -> true
       | (_,_) -> false
 
     // same data type
@@ -795,6 +893,12 @@ Pack = {{
       | {Void} -> (s,1,0)
       | {Bool=_} -> (s,1,0)
       | {Cstring=str} -> (s,String.length(str)+1,0)
+      | {String=str; ~payload; ~size; ...} ->
+         (_,payload_size) = packdatasize(size,payload)
+         (s,sizesize(size)+payload_size+String.length(str),0)
+      | {String=str; ~payload; ...} ->
+         (_,payload_size) = packdatasize(s,payload)
+         (s,sizesize(s)+payload_size+String.length(str),0)
       | {String=str; ~size; ...} -> (s,sizesize(size)+String.length(str),0)
       | {String=str; ...} -> (s,sizesize(s)+String.length(str),0)
       | {Float32=_} -> (s,4,0)
@@ -808,6 +912,11 @@ Pack = {{
       | {List=(_,l)} -> List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(s),0))
       | {Array=(_,a)} ->
          LowLevelArray.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),a,(s,sizesize(s),0))
+      | {Pack=data} ->
+         (match packdatasize(s, data) with
+          | (s, cnt) -> (s, cnt, 0))
+      | {Fixed=(cnt,_)} -> (s, cnt, 0)
+      | {Binary=(cnt,_)} -> (s, cnt, 0)
 
     // predict pack length
     @private packdatasize(s:Pack.s, data:Pack.data) : (Pack.s, int) =
@@ -823,10 +932,12 @@ Pack = {{
      * @param data the data to be sized
      * @return the size in bytes of the resulting packing
      **/
-    packlen(data:Pack.data) : int =
+    packlen(data:Pack.data) : int = packlen_with(data, default_options)
+
+    packlen_with(data:Pack.data, options:Pack.options) : int =
       (List.fold((u, (s, len) ->
                   match packitemsize(s, u) with
-                  | (s,size,bnd) -> (s,len+size+bound(len,bnd))), data, (default_options.size,0))).f2
+                  | (s,size,bnd) -> (s,len+size+bound(len,bnd))), data, (options.size,0))).f2
 
     // missing from LowLevelArray?
     @private a2l(a:llarray('a)) : list('a) =
@@ -838,13 +949,14 @@ Pack = {{
                          actual_le:bool, return_le:bool,
                          signed:bool,
                          actual_size:Pack.s, return_size:Pack.s,
+                         payload:Pack.data,
                          str:string)
                          : (bool, bool, Pack.s, outcome(void,string)) =
       match actual_size with
-      | {B} -> (return_le, signed, return_size, string_b(buf, str))
-      | {S} -> (return_le, signed, return_size,  string_s(buf, actual_le, str))
-      | {L} -> (return_le, signed, return_size,  string_l(buf, actual_le, str))
-      | {Ll} -> (return_le, signed, return_size, string_ll(buf, actual_le, str))
+      | {B} -> (return_le, signed, return_size, string_b(buf, payload, str))
+      | {S} -> (return_le, signed, return_size,  string_s(buf, actual_le, payload, str))
+      | {L} -> (return_le, signed, return_size,  string_l(buf, actual_le, payload, str))
+      | {Ll} -> (return_le, signed, return_size, string_ll(buf, actual_le, payload, str))
 
     @private pack_int(buf:Pack.t,
                       actual_le:bool, return_le:bool,
@@ -902,10 +1014,15 @@ Pack = {{
       | {Void} -> (le, signed, size, pad(buf))
       | {~Bool} -> (le, signed, size, bool(buf, Bool))
       | {~Cstring} -> (le, signed, size, cstring(buf, Cstring))
-      | {String=str} -> pack_string(buf, le, le, signed, size, size, str)
-      | {String=str; size=actual_size} -> pack_string(buf, le, le, signed, actual_size, size, str)
-      | {String=str; le=actual_le} -> pack_string(buf, actual_le, le, signed, size, size, str)
-      | {String=str; le=actual_le; size=actual_size} -> pack_string(buf, actual_le, le, signed, actual_size, size, str)
+      | {String=str} -> pack_string(buf, le, le, signed, size, size, [], str)
+      | {String=str; size=actual_size} -> pack_string(buf, le, le, signed, actual_size, size, [], str)
+      | {String=str; le=actual_le} -> pack_string(buf, actual_le, le, signed, size, size, [], str)
+      | {String=str; le=actual_le; size=actual_size} -> pack_string(buf, actual_le, le, signed, actual_size, size, [], str)
+      | {String=str; ~payload} -> pack_string(buf, le, le, signed, size, size, payload, str)
+      | {String=str; ~payload; size=actual_size} -> pack_string(buf, le, le, signed, actual_size, size, payload, str)
+      | {String=str; ~payload; le=actual_le} -> pack_string(buf, actual_le, le, signed, size, size, payload, str)
+      | {String=str; ~payload; le=actual_le; size=actual_size} ->
+         pack_string(buf, actual_le, le, signed, actual_size, size, payload, str)
       | {~Float32} -> (le, signed, size, float(buf, le, Float32))
       | {~Float} -> (le, signed, size, double(buf, le, Float))
       | {Coded=[]} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has no codes"})
@@ -916,6 +1033,9 @@ Pack = {{
       | {Coded=_} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has multiple codes"})
       | {List=(t,l)} -> list(buf, le, signed, size, t, l)
       | {Array=(t,a)} -> list(buf, le, signed, size, t, a2l(a))
+      | {Pack=data} -> pack_data(buf, le, signed, size, data)
+      | {Fixed=(len,str)} -> (le, signed, size, fixed(buf, len, str))
+      | {Binary=(len,bin)} -> (le, signed, size, binary(buf, len, bin))
 
     /** Pack data into binary data.
      *
@@ -934,7 +1054,7 @@ Pack = {{
       List.fold((u, (le, signed, size, res) ->
                  match res with
                  | {~failure} -> (le, signed, size, {~failure})
-                 | {success=_} -> pack_u(buf, le, signed, size, u)
+                 | {success=_} -> res = pack_u(buf, le, signed, size, u) do poutput("Encode.pack",buf) res
                 ), data, (le, signed, size, {success:void}))
 
     /** Create binary and pack with given data.
@@ -944,8 +1064,9 @@ Pack = {{
      * @param data the data value to pack into the binary
      * @return the binary data
      **/
-    pack(data:Pack.data) : outcome(Pack.t,string) =
-      pack_with(data, default_options)
+     pack(data:Pack.data) : outcome(Pack.t,string) =
+       pack_with(data, default_options)
+
     /**
      * As [Pack.Decode.pack] but with custom [options].
      */
@@ -955,7 +1076,7 @@ Pack = {{
                                       options.signed,
                                       options.size, data)
       match res with
-      | {success=_} -> {success=buf}
+      | {success=_} -> do poutput("Encode.pack",buf) {success=buf}
       | {~failure} -> {~failure}
 
   }}
@@ -1358,105 +1479,86 @@ Pack = {{
       | {none} ->
         {failure="Pack.Decode.cstring: can't find null"}
 
+    @private get_payload(payload:Pack.data, data:Pack.t, pos:int) : outcome((int,Pack.data),string) =
+      match payload with
+      | [] -> {success=(pos,[])}
+      | _ -> unpack(payload, data, pos)
+
+    /** Decode generalised string
+     * @param payload data between prefix and string (can be empty)
+     * @param le endianness
+     * @param size integer width
+     **/
+    string(payload:Pack.data, le:bool, size:Pack.s, data:Pack.t, pos:int) : outcome((Pack.data,string),string) =
+      do pinput("Pack.Decode.string",{binary=data; ~pos})
+      match
+        match (le, size) with
+        | (_, {B}) -> uoctet(data, pos)
+        | ({false}, {S}) -> short_be(data, pos)
+        | ({true}, {S}) -> short_le(data, pos)
+        | ({false}, {L}) -> long_be(data, pos)
+        | ({true}, {L}) -> long_le(data, pos)
+        | ({false}, {Ll}) -> longlong_be(data, pos)
+        | ({true}, {Ll}) -> longlong_le(data, pos)
+      with
+      | {success=len} ->
+         (match get_payload(payload, data, pos) with
+          | {success=(pos,payload)} ->
+             if Binary.length(data) > pos + len
+             then {success=(payload,Binary.get_string(data, pos + 1, len))}
+             else {failure="Pack.Decode.string: not enough data for string"}
+          | {~failure} -> {~failure})
+      | {~failure} -> {~failure}
+
     /** Decode 8-bit integer size-prefixed string */
-    string_b(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_b",{binary=data; ~pos})
-      match uoctet(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 1, len)}
-        else {failure="Pack.Decode.string_b: not enough data for string"}
-      | {~failure} -> {~failure}
+    string_b = string(_, false, {B}, _, _)
 
     /** Decode 16-bit big-endian integer size-prefixed string */
-    string_s_be(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_s_be",{binary=data; ~pos})
-      match short_be(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 2, len)}
-        else {failure="Pack.Decode.string_s_be: not enough data for string"}
-      | {~failure} -> {~failure}
+    string_s_be = string(_, false, {S}, _, _)
 
     /** Decode 16-bit big-endian integer size-prefixed string */
-    string_s_le(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_s_le",{binary=data; ~pos})
-      match short_le(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 2, len)}
-        else {failure="Pack.Decode.string_s_le: not enough data for string"}
-      | {~failure} -> {~failure}
+    string_s_le = string(_, true, {S}, _, _)
 
     /** Decode 16-bit integer size-prefixed string
      * @param le endianness
      **/
-    string_s(le:bool, data:Pack.t, pos:int) : outcome(string,string) =
-      if le then string_s_le(data, pos) else string_s_be(data, pos)
+    string_s = string(_, _, {S}, _, _)
 
     /** Decode 32-bit big-endian integer size-prefixed string */
-    string_l_be(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_l_be",{binary=data; ~pos})
-      match long_be(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 4, len)}
-        else {failure="Pack.Decode.string_l_be: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
-      | {~failure} -> {~failure}
+    string_l_be = string(_, false, {L}, _, _)
 
     /** Decode 32-bit little-endian integer size-prefixed string */
-    string_l_le(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_l_le",{binary=data; ~pos})
-      match long_le(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 4, len)}
-        else {failure="Pack.Decode.string_l_le: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
-      | {~failure} -> {~failure}
+    string_l_le = string(_, true, {L}, _, _)
 
     /** Decode 32-bit integer size-prefixed string
      * @param le endianness
      **/
-    string_l(le:bool, data:Pack.t, pos:int) : outcome(string,string) =
-      if le then string_l_le(data, pos) else string_l_be(data, pos)
+    string_l = string(_, _, {L}, _, _)
 
     /** Decode 64-bit big-endian integer size-prefixed string */
-    string_ll_be(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_ll_be",{binary=data; ~pos})
-      match longlong_be(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 8, len)}
-        else {failure="Pack.Decode.string_ll_be: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
-      | {~failure} -> {~failure}
+    string_ll_be = string(_, false, {Ll}, _, _)
 
     /** Decode 64-bit little-endian integer size-prefixed string */
-    string_ll_le(data:Pack.t, pos:int) : outcome(string,string) =
-      do pinput("Pack.Decode.string_ll_le",{binary=data; ~pos})
-      match longlong_le(data, pos) with
-      | {success=len} ->
-        if Binary.length(data) > pos + len
-        then {success=Binary.get_string(data, pos + 8, len)}
-        else {failure="Pack.Decode.string_ll_le: not enough data for string ({Binary.length(data)}:{data} > ({pos} + {len})"}
-      | {~failure} -> {~failure}
+    string_ll_le = string(_, true, {Ll}, _, _)
 
     /** Decode 64-bit integer size-prefixed string
      * @param le endianness
      **/
-    string_ll(le:bool, data:Pack.t, pos:int) : outcome(string,string) =
-      if le then string_ll_le(data, pos) else string_ll_be(data, pos)
+    string_ll = string(_, _, {Ll}, _, _)
 
-    /** Decode generalised string
-     * @param le endianness
-     * @param size integer width
+    /** Decode fixed length string
      **/
-    // generalised string
-    string(le:bool, size:Pack.s, data:Pack.t, pos:int) : outcome(string,string) =
-      match size with
-      | {B} -> string_b(data, pos)
-      | {S} -> string_s(le, data, pos)
-      | {L} -> string_l(le, data, pos)
-      | {Ll} -> string_ll(le, data, pos)
+    fixed(data:Pack.t, pos:int, len:int) : outcome(string,string) =
+      if Binary.length(data) > pos + len
+      then {success=Binary.get_string(data, pos, len)}
+      else {failure="Pack.Decode.fixed: not enough data for string"}
+
+    /** Decode fixed length binary
+     **/
+    binary(data:Pack.t, pos:int, len:int) : outcome(binary,string) =
+      if Binary.length(data) > pos + len
+      then {success=Binary.get_binary(data, pos, len)}
+      else {failure="Pack.Decode.binary: not enough data for binary"}
 
     /** Decode 32-bit little-endian float */
     float_le(data:Pack.t, pos:int) : outcome(float,string) =
@@ -1609,24 +1711,22 @@ Pack = {{
                            actual_le:option(bool), return_le:bool,
                            signed:bool,
                            actual_size:option(Pack.s), return_size:Pack.s,
-                           bin:binary, pos:int)
+                           payload:Pack.data, bin:Pack.t, pos:int)
                           : outcome((bool, bool, Pack.s, int, Pack.data),string) =
       real_le = Option.default(return_le, actual_le)
       real_size = Option.default(return_size, actual_size)
-      match
-        match real_size with
-        | {B} -> string_b(bin, pos)
-        | {L} -> string_l(real_le, bin, pos)
-        | {S} -> string_s(real_le, bin, pos)
-        | {Ll} -> string_ll(real_le, bin, pos)
-      with
-      | {success=s} ->
+      match string(payload, real_le, real_size, bin, pos) with
+      | {success=(payload,s)} ->
          {success=(return_le, signed, return_size, pos+String.length(s)+sizesize(real_size),
-                   [(match (actual_le, actual_size) with
-                     | ({some=actual_le},{some=actual_size}) -> {String=s; le=actual_le; size=actual_size}
-                     | ({some=actual_le},{none}) -> {String=s; le=actual_le}
-                     | ({none},{some=actual_size}) -> {String=s; size=actual_size}
-                     | ({none},{none}) -> {String=s}
+                   [(match (payload, actual_le, actual_size) with
+                     | ([],{some=actual_le},{some=actual_size}) -> {String=s; le=actual_le; size=actual_size}
+                     | ([],{some=actual_le},{none}) -> {String=s; le=actual_le}
+                     | ([],{none},{some=actual_size}) -> {String=s; size=actual_size}
+                     | ([],{none},{none}) -> {String=s}
+                     | ([_|_],{some=actual_le},{some=actual_size}) -> {String=s; ~payload; le=actual_le; size=actual_size}
+                     | ([_|_],{some=actual_le},{none}) -> {String=s; ~payload; le=actual_le}
+                     | ([_|_],{none},{some=actual_size}) -> {String=s; ~payload; size=actual_size}
+                     | ([_|_],{none},{none}) -> {String=s; ~payload}
                     )|data])}
       | {~failure} -> {~failure}
 
@@ -1708,11 +1808,18 @@ Pack = {{
             (match cstring(bin, pos) with
              | {success=s} -> {success=(le, signed, size, pos+String.length(s)+1, [{Cstring=s}|data])}
              | {~failure} -> {~failure})
-         | {String=_} -> unpack_string(data, {none}, le, signed, {none}, size, bin, pos)
-         | {String=_; size=actual_size} -> unpack_string(data, {none}, le, signed, {some=actual_size}, size, bin, pos)
-         | {String=_; le=actual_le} -> unpack_string(data, {some=actual_le}, le, signed, {none}, size, bin, pos)
+         | {String=_} -> unpack_string(data, {none}, le, signed, {none}, size, [], bin, pos)
+         | {String=_; size=actual_size} -> unpack_string(data, {none}, le, signed, {some=actual_size}, size, [], bin, pos)
+         | {String=_; le=actual_le} -> unpack_string(data, {some=actual_le}, le, signed, {none}, size, [], bin, pos)
          | {String=_; le=actual_le; size=actual_size} ->
-            unpack_string(data, {some=actual_le}, le, signed, {some=actual_size}, size, bin, pos)
+            unpack_string(data, {some=actual_le}, le, signed, {some=actual_size}, size, [], bin, pos)
+         | {String=_; ~payload} -> unpack_string(data, {none}, le, signed, {none}, size, payload, bin, pos)
+         | {String=_; ~payload; size=actual_size} ->
+            unpack_string(data, {none}, le, signed, {some=actual_size}, size, payload, bin, pos)
+         | {String=_; ~payload; le=actual_le} ->
+            unpack_string(data, {some=actual_le}, le, signed, {none}, size, payload, bin, pos)
+         | {String=_; ~payload; le=actual_le; size=actual_size} ->
+            unpack_string(data, {some=actual_le}, le, signed, {some=actual_size}, size, payload, bin, pos)
          | {Float32=_} ->
             (match float(le, bin, pos) with
              | {success=Float32} -> {success=(le, signed, size, pos+4, [{~Float32}|data])}
@@ -1723,7 +1830,20 @@ Pack = {{
              | {~failure} -> {~failure})
          | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
          | {List=(typ,_)} -> unpack_list(true, le, signed, size, typ, bin, pos, data)
-         | {Array=(typ,_)} -> unpack_list(false, le, signed, size, typ, bin, pos, data))
+         | {Array=(typ,_)} -> unpack_list(false, le, signed, size, typ, bin, pos, data)
+         | {Pack=data} ->
+            (match unpack_data(le, signed, size, bin, pos, data) with
+             | {success=(le,signed,size,pos,Pack)} -> {success=(le, signed, size, pos, [{~Pack}|data])}
+             | {~failure} -> {~failure})
+         | {Fixed=(len,_)} ->
+            (match fixed(bin, pos, len) with
+             | {success=s} -> {success=(le, signed, size, pos+len, [{Fixed=(len,s)}|data])}
+             | {~failure} -> {~failure})
+         | {Binary=(len,_)} ->
+            (match binary(bin, pos, len) with
+             | {success=b} -> {success=(le, signed, size, pos+len, [{Binary=(len,b)}|data])}
+             | {~failure} -> {~failure})
+        )
 
     /** Decode single item.
      *
@@ -1748,6 +1868,15 @@ Pack = {{
       | {success=(_, _, _, _, _)} -> {failure="Pack.Decode.unpack_u: multiple items"}
       | {~failure} -> {~failure}
 
+    @private unpack_data(le:bool, signed:bool, size:Pack.s, bin:Pack.t, pos:int, data:Pack.data)
+                        : outcome((bool, bool, Pack.s, int, Pack.data),string) =
+      if data == []
+      then {success=(le, signed, size, pos, [])}
+      else
+        match List.fold(unpack_item(bin, _, _), data, {success=(le, signed, size, pos, [])}) with
+        | {success=(le,signed,size,pos,data)} -> {success=(le,signed,size,pos,List.rev(data))}
+        | {~failure} -> {~failure}
+
     /** Decode data.
      *
      * Read in data starting with the default endianness, signedness and size from
@@ -1767,20 +1896,12 @@ Pack = {{
      */
     unpack_with(data:Pack.data, bin:Pack.t, pos:int, options:Pack.options) : outcome((int,Pack.data),string) =
       do pinput("Pack.Decode.unpack",{binary=bin; ~pos})
-      if data == []
-      then {success=(pos,[])}
-      else
-        match
-          List.fold(unpack_item(bin, _, _),
-                    data, {success=(options.endian,
-                                    options.signed,
-                                    options.size, pos, [])})
-        with
-        | {success=(_,_,_,pos,data)} -> {success=(pos,List.rev(data))}
-        | {~failure} -> {~failure}
+      match unpack_data(options.endian, options.signed, options.size, bin, pos, data) with
+      | {success=(_,_,_,pos,data)} -> {success=(pos,data)}
+      | {~failure} -> {~failure}
 
     // meaningful entities
-    @private has_data(u:Pack.u) : option(Pack.u) =
+    @private has_data(u:Pack.u) : option(Pack.data) =
       match u with
       | {Be} -> none
       | {Le} -> none
@@ -1790,32 +1911,39 @@ Pack = {{
       | {S} -> none
       | {L} -> none
       | {Ll} -> none
-      | {Char=_} -> {some=u}
-      | {Byte=_} -> {some=u}
-      | {Short=_} -> {some=u}
-      | {Long=_} -> {some=u}
-      | {Longlong=_} -> {some=u}
-      | {~Int; ...} -> {some={~Int}}
-      | {Int64=_} -> {some=u}
+      | {Char=_} -> {some=[u]}
+      | {Byte=_} -> {some=[u]}
+      | {Short=_} -> {some=[u]}
+      | {Long=_} -> {some=[u]}
+      | {Longlong=_} -> {some=[u]}
+      | {~Int; ...} -> {some=[{~Int}]}
+      | {Int64=_} -> {some=[u]}
       | {Pad} -> none
       | {Padn=_} -> none
       | {Bound=_} -> none
-      | {Void} -> {some=u}
-      | {Bool=_} -> {some=u}
-      | {Cstring=_} -> {some=u}
-      | {~String; ...} -> {some={~String}}
-      | {Float32=_} -> {some=u}
-      | {Float=_} -> {some=u}
-      | {Coded=_} -> {some=u}
-      | {List=_} -> {some=u}
-      | {Array=_} -> {some=u}
+      | {Void} -> {some=[u]}
+      | {Bool=_} -> {some=[u]}
+      | {Cstring=_} -> {some=[u]}
+      | {~String; ...} -> {some=[{~String}]}
+      | {Float32=_} -> {some=[u]}
+      | {Float=_} -> {some=[u]}
+      | {Coded=_} -> {some=[u]}
+      | {List=_} -> {some=[u]}
+      | {Array=_} -> {some=[u]}
+      | {~Pack} ->
+         (match clean(Pack) with
+          | [] -> none
+          | data -> {some=data})
+      | {Fixed=_} -> {some=[u]}
+      | {Binary=_} -> {some=[u]}
 
     /** Cleanup elements with no data
      *
      * All directives, padding and non-data items are filtered out.
-     * Note that in situ directives (eg. {Int=1; size={S}}) are also removed.
+     * Note that in situ directives (eg. {Int=1; size={S}}) including payloads are also removed and that
+     * Pack items are flattened.
      **/
-    clean(data:Pack.data) = List.filter_map(has_data, data)
+    clean(data:Pack.data) = List.flatten(List.filter_map(has_data, data))
 
   }}
 
@@ -1836,6 +1964,12 @@ Pack = {{
    **/
   Unser = {{
 
+    skip(input:Pack.input, n:int) : Pack.result(void) =
+      do pinput("Pack.Unser.skip({n})", input)
+      if input.pos + n <= Binary.length(input.binary)
+      then {success=({input with pos=input.pos+n},void)}
+      else {failure="Pack.Unser.skip({n}): insufficient data"}
+
     /** Unpack char **/
     char(input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.char", input)
@@ -1853,7 +1987,7 @@ Pack = {{
      * @return an int Pack.result
      **/
     int(le:bool, signed:bool, size:Pack.s, input:Pack.input) : Pack.result(int) =
-      do pinput("Pack.Unser.int", input)
+      //do pinput("Pack.Unser.int", input)
       match Decode.int(le, signed, size, input.binary, input.pos) with
       | {success=i} -> {success=({input with pos=input.pos+sizesize(size)},i)}
       | {~failure} -> {~failure}
@@ -1964,11 +2098,28 @@ Pack = {{
       | {success=f} -> {success=({input with pos=input.pos+8},f)}
       | {~failure} -> {~failure}
 
+    float_le(input:Pack.input) : Pack.result(float) = float(true, input)
+    float_be(input:Pack.input) : Pack.result(float) = float(false, input)
+
     /** Unpack null-terminated string **/
     cstring(input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.cstring", input)
       match Decode.cstring(input.binary, input.pos) with
       | {success=s} -> {success=({input with pos=input.pos+1+String.length(s)},s)}
+      | {~failure} -> {~failure}
+
+    /** Unpack fixed-length string **/
+    fixed(input:Pack.input, len:int) : Pack.result(string) =
+      do pinput("Pack.Unser.fixed", input)
+      match Decode.fixed(input.binary, input.pos, len) with
+      | {success=s} -> {success=({input with pos=input.pos+len},s)}
+      | {~failure} -> {~failure}
+
+    /** Unpack fixed-length binary **/
+    binary(input:Pack.input, len:int) : Pack.result(binary) =
+      do pinput("Pack.Unser.binary", input)
+      match Decode.binary(input.binary, input.pos, len) with
+      | {success=b} -> {success=({input with pos=input.pos+len},b)}
       | {~failure} -> {~failure}
 
     /** Unpack size-prefixed string.
@@ -1980,8 +2131,8 @@ Pack = {{
      **/
     string(le:bool, size:Pack.s, input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.string", input)
-      match Decode.string(le, size, input.binary, input.pos) with
-      | {success=s} -> {success=({input with pos=input.pos+sizesize(size)+String.length(s)},s)}
+      match Decode.string([], le, size, input.binary, input.pos) with
+      | {success=(_,s)} -> {success=({input with pos=input.pos+sizesize(size)+String.length(s)},s)}
       | {~failure} -> {~failure}
 
     /** Unpack 8-bit int-prefixed string **/
@@ -2145,6 +2296,42 @@ Pack = {{
              end
          aux(input, 0)
       | {~failure} -> {~failure}
+
+    unser_to_none(ao:Pack.input -> Pack.result(option('a)), input:Pack.input) : Pack.result(list('a)) =
+      rec aux(input) =
+        match ao(input) with
+        | {success=(input,{some=e})} ->
+           match aux(input) with
+           | {success=(input,l)} -> {success=(input,[e|l])}
+           | {~failure} -> {~failure}
+           end
+        | {success=(input,{none})} -> {success=(input,[])}
+        | {~failure} -> {~failure}
+      aux(input)
+
+    unser_to_end(a:Pack.input -> Pack.result('a), input:Pack.input) : Pack.result(list('a)) =
+      rec aux(input) =
+        match Int.ordering(input.pos,Binary.length(input.binary)) with
+        | {gt} -> {failure="Pack.Unser.unser_to_end: overrun"}
+        | {eq} -> {success=(input,[])}
+        | {lt} ->
+           (match a(input) with
+            | {success=(input,e)} ->
+               match aux(input) with
+               | {success=(input,l)} -> {success=(input,[e|l])}
+               | {~failure} -> {~failure}
+               end
+            | {~failure} -> {~failure})
+      aux(input)
+
+    unser_optional_at_end(a:Pack.input -> Pack.result('a), input:Pack.input) : Pack.result(option('a)) =
+      match Int.ordering(input.pos,Binary.length(input.binary)) with
+      | {gt} -> {failure="Pack.Unser.unser_optional_at_end: overrun"}
+      | {eq} -> {success=(input,none)}
+      | {lt} ->
+         (match a(input) with
+          | {success=(input,e)} -> {success=(input,{some=e})}
+          | {~failure} -> {~failure})
 
     /** Unpack 2-tuple of values.
      * @param input the input value
@@ -2316,7 +2503,7 @@ Pack = {{
      * @param use_all_data when true then all the data in the binary must be used or en error is returned
      * @result an outcome of the value extracted or a string error message
      **/
-    unser(a:Pack.input -> Pack.result('a), binary:Pack.t, use_all_data:bool) : outcome('a,string) =
+    unser_pos(a:Pack.input -> Pack.result('a), binary:Pack.t, use_all_data:bool) : outcome((Pack.input,'a),string) =
       input = {~binary; pos=0}
       do pinput("Pack.Unser.unser", input)
       match a(input) with
@@ -2326,7 +2513,12 @@ Pack = {{
          then
            unused = len - input.pos
            {failure="Pack.Unser.unser: {unused} unused byte{if unused == 1 then "" else "s"} at end of data"}
-         else {success=a}
+         else {success=(input,a)}
+      | {~failure} -> {~failure}
+
+    unser(a:Pack.input -> Pack.result('a), binary:Pack.t, use_all_data:bool) : outcome('a,string) =
+      match unser_pos(a, binary, use_all_data) with
+      | {success=(_,a)} -> {success=a}
       | {~failure} -> {~failure}
 
     /** Same as Pack.Unser.unser, except that the binary data is copied from a string **/

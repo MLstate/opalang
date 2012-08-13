@@ -38,12 +38,14 @@ import stdlib.io.socket
 import stdlib.crypto
 import stdlib.system
 
+@private WP = WireProtocol
+
 /** Some external types **/
 
-type Mongo.mongo_buf = external
-type Mongo.cursorID = external
-type Mongo.mailbox = external
-type Mongo.reply = external
+type Mongo.mongo_buf = list(WireProtocol.Message) //external
+type Mongo.cursorID = int64 //external
+type Mongo.mailbox = Mailbox.t //external
+type Mongo.reply = WireProtocol.Message //external
 
 /**
  * Main connection type.
@@ -107,94 +109,96 @@ MongoDriver = {{
   /** The MongoDB default port number **/
   default_port = 27017
 
-  /* Allocate new buffer of given size */
-  @private create_ = (%% BslMongo.Mongo.create %%: int -> Mongo.mongo_buf)
-
-  /* Build OP_INSERT message in buffer */
-  @private insert_ = (%% BslMongo.Mongo.insert %%: Mongo.mongo_buf, int, string, 'a -> void)
-
-  /* Build OP_INSERT message in buffer */
-  @private insert_batch_ = (%% BslMongo.Mongo.insert_batch %%: Mongo.mongo_buf, int, string, list('a) -> void)
-
-  /* Build OP_UPDATE message in buffer */
-  @private update_ = (%% BslMongo.Mongo.update %%: Mongo.mongo_buf, int, string, 'a, 'a -> void)
-
-  /* Build OP_QUERY message in buffer */
-  @private query_ = (%% BslMongo.Mongo.query %%: Mongo.mongo_buf, int, string, int, int, 'a, option('a) -> void)
-
-  /* Update OP_QUERY flags */
-  @private set_query_flags_ = (%% BslMongo.Mongo.set_query_flags %%: Mongo.mongo_buf, int -> void)
-
-  /* Get buffer opCode */
-  @private get_opCode_ = (%% BslMongo.Mongo.get_opCode %%: Mongo.mongo_buf -> int)
-
-  /* Build OP_GET_MORE message in buffer */
-  @private get_more_ = (%% BslMongo.Mongo.get_more %%: Mongo.mongo_buf, string, int, Mongo.cursorID -> void)
-
-  /* Build OP_DELETE message in buffer */
-  @private delete_ = (%% BslMongo.Mongo.delete %%: Mongo.mongo_buf, int, string, 'a -> void)
-
-  /* Build OP_KILL_CURSORS message in buffer */
-  @private kill_cursors_ = (%% BslMongo.Mongo.kill_cursors %%: Mongo.mongo_buf, list('a) -> void)
-
-  /* Build OP_MSG message in buffer */
-  @private msg_ = (%% BslMongo.Mongo.msg %%: Mongo.mongo_buf, string -> void)
-
-  /* Copies string out of buffer. */
-  @private get_ = (%% BslMongo.Mongo.get %%: Mongo.mongo_buf -> string)
-
-  /* Access the raw string and length */
-  @private export_ = (%% BslMongo.Mongo.export %%: Mongo.mongo_buf -> (string, int))
-
-  /* Create a (finished) buffer from string */
-  @private import_ = (%% BslMongo.Mongo.import %%: string -> Mongo.mongo_buf)
-
-  /* Make a copy of a buffer */
-  @private copy_ = (%% BslMongo.Mongo.copy %%: Mongo.mongo_buf -> Mongo.mongo_buf)
-
-  /* Concatenate two buffers */
-  @private concat_ = (%% BslMongo.Mongo.concat %%: Mongo.mongo_buf, Mongo.mongo_buf -> Mongo.mongo_buf)
-
-  /* Append two buffers */
-  @private append_ = (%% BslMongo.Mongo.append %%: Mongo.mongo_buf, Mongo.mongo_buf -> void)
-
-  /* Length of a buffer */
-  @private length_ = (%% BslMongo.Mongo.length %%: Mongo.mongo_buf -> int)
-
-  /* Truncate a buffer */
-  @private clip_ = (%% BslMongo.Mongo.clip %%: Mongo.mongo_buf, int -> void)
-
-  /* Clear out any data in the buffer, leave buffer allocated */
-  @private clear_ = (%% BslMongo.Mongo.clear %%: Mongo.mongo_buf -> void)
-
-  /* Reset the buffer, unallocate storage */
-  @private reset_ = (%% BslMongo.Mongo.reset %%: Mongo.mongo_buf -> void)
-
-  /* Free the buffer, return buffer for later use */
-  @private free_ = (%% BslMongo.Mongo.free %%: Mongo.mongo_buf -> void)
-
-  /* Mailbox so we can use the streaming parser */
-  @private new_mailbox_ = (%% BslMongo.Mongo.new_mailbox %%: int -> Mongo.mailbox)
-  @private reset_mailbox_ = (%% BslMongo.Mongo.reset_mailbox %%: Mongo.mailbox -> void)
-
-  /*
-   * Specialised read, read until the size equals the (little endian)
-   * 4-byte int at the start of the reply.
-   */
-  @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, int, Mongo.mailbox -> outcome(Mongo.reply,string))
-
-  /* Support for logging routines */
-  @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
-  @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : Mongo.reply -> string)
-
-  /* Get requestId from Mongo.mongo_buf */
-  @private mongo_buf_requestId = (%% BslMongo.Mongo.mongo_buf_requestId %%: Mongo.mongo_buf -> int)
-
-  /* Refresh requestId in Mongo.mongo_buf */
-  @private mongo_buf_refresh_requestId = (%% BslMongo.Mongo.mongo_buf_refresh_requestId %%: Mongo.mongo_buf -> void)
-
-  /* Get responseTo from Mongo.mongo_buf */
-  @private mongo_buf_responseTo = (%% BslMongo.Mongo.mongo_buf_responseTo %%: Mongo.mongo_buf -> int)
+//  /* Allocate new buffer of given size */
+//  @private create_ = (%% BslMongo.Mongo.create %%: int -> Mongo.mongo_buf)
+//
+//  /* Build OP_INSERT message in buffer */
+//  @private insert_ = (%% BslMongo.Mongo.insert %%: Mongo.mongo_buf, int, string, 'a -> void)
+//
+//  /* Build OP_INSERT message in buffer */
+//  @private insert_batch_ = (%% BslMongo.Mongo.insert_batch %%: Mongo.mongo_buf, int, string, list('a) -> void)
+//
+//  /* Build OP_UPDATE message in buffer */
+//  @private update_ = (%% BslMongo.Mongo.update %%: Mongo.mongo_buf, int, string, 'a, 'a -> void)
+//
+//  /* Build OP_QUERY message in buffer */
+//  @private query_ = (%% BslMongo.Mongo.query %%: Mongo.mongo_buf, int, string, int, int, 'a, option('a) -> void)
+//
+//  /* Update OP_QUERY flags */
+//  @private set_query_flags_ = (%% BslMongo.Mongo.set_query_flags %%: Mongo.mongo_buf, int -> void)
+//
+//  /* Get buffer opCode */
+//  @private get_opCode_ = (%% BslMongo.Mongo.get_opCode %%: Mongo.mongo_buf -> int)
+//
+//  /* Build OP_GET_MORE message in buffer */
+//  @private get_more_ = (%% BslMongo.Mongo.get_more %%: Mongo.mongo_buf, string, int, Mongo.cursorID -> void)
+//
+//  /* Build OP_DELETE message in buffer */
+//  @private delete_ = (%% BslMongo.Mongo.delete %%: Mongo.mongo_buf, int, string, 'a -> void)
+//
+//  /* Build OP_KILL_CURSORS message in buffer */
+//  @private kill_cursors_ = (%% BslMongo.Mongo.kill_cursors %%: Mongo.mongo_buf, list('a) -> void)
+//
+//  /* Build OP_MSG message in buffer */
+//  @private msg_ = (%% BslMongo.Mongo.msg %%: Mongo.mongo_buf, string -> void)
+//
+//  /* Copies string out of buffer. */
+//  @private get_ = (%% BslMongo.Mongo.get %%: Mongo.mongo_buf -> string)
+//
+//  /* Access the raw string and length */
+//  @private export_ = (%% BslMongo.Mongo.export %%: Mongo.mongo_buf -> (string, int))
+//
+//  /* Create a (finished) buffer from string */
+//  @private import_ = (%% BslMongo.Mongo.import %%: string -> Mongo.mongo_buf)
+//
+//  /* Make a copy of a buffer */
+//  @private copy_ = (%% BslMongo.Mongo.copy %%: Mongo.mongo_buf -> Mongo.mongo_buf)
+//
+//  /* Concatenate two buffers */
+//  @private concat_ = (%% BslMongo.Mongo.concat %%: Mongo.mongo_buf, Mongo.mongo_buf -> Mongo.mongo_buf)
+//
+//  /* Append two buffers */
+//  @private append_ = (%% BslMongo.Mongo.append %%: Mongo.mongo_buf, Mongo.mongo_buf -> void)
+//
+//  /* Length of a buffer */
+//  @private length_ = (%% BslMongo.Mongo.length %%: Mongo.mongo_buf -> int)
+//
+//  /* Truncate a buffer */
+//  @private clip_ = (%% BslMongo.Mongo.clip %%: Mongo.mongo_buf, int -> void)
+//
+//  /* Clear out any data in the buffer, leave buffer allocated */
+//  @private clear_ = (%% BslMongo.Mongo.clear %%: Mongo.mongo_buf -> void)
+//
+//  /* Reset the buffer, unallocate storage */
+//  @private reset_ = (%% BslMongo.Mongo.reset %%: Mongo.mongo_buf -> void)
+//
+//  /* Free the buffer, return buffer for later use */
+//  @private free_ = (%% BslMongo.Mongo.free %%: Mongo.mongo_buf -> void)
+  @private free_(_) = void
+//
+//  /* Mailbox so we can use the streaming parser */
+//  @private new_mailbox_ = (%% BslMongo.Mongo.new_mailbox %%: int -> Mongo.mailbox)
+//  @private reset_mailbox_ = (%% BslMongo.Mongo.reset_mailbox %%: Mongo.mailbox -> void)
+//
+//  /*
+//   * Specialised read, read until the size equals the (little endian)
+//   * 4-byte int at the start of the reply.
+//   */
+//  @private read_mongo_ = (%% BslMongo.Mongo.read_mongo %%: Socket.connection, int, Mongo.mailbox -> outcome(Mongo.reply,string))
+//
+//  /* Support for logging routines */
+//  @private string_of_message = (%% BslMongo.Mongo.string_of_message %% : string -> string)
+//  @private string_of_message_reply = (%% BslMongo.Mongo.string_of_message_reply %% : Mongo.reply -> string)
+    @private string_of_message_reply = WP.string_of_Message
+//
+//  /* Get requestId from Mongo.mongo_buf */
+//  @private mongo_buf_requestId = (%% BslMongo.Mongo.mongo_buf_requestId %%: Mongo.mongo_buf -> int)
+//
+//  /* Refresh requestId in Mongo.mongo_buf */
+//  @private mongo_buf_refresh_requestId = (%% BslMongo.Mongo.mongo_buf_refresh_requestId %%: Mongo.mongo_buf -> void)
+//
+//  /* Get responseTo from Mongo.mongo_buf */
+//  @private mongo_buf_responseTo = (%% BslMongo.Mongo.mongo_buf_responseTo %%: Mongo.mongo_buf -> int)
 
   do_authenticate_ll(db:outcome(Mongo.db,Mongo.failure)) =
     match db with
@@ -285,42 +289,62 @@ MongoDriver = {{
     | _ -> @fail
 
   /*@private
-  print_mbuf(txt,mbuf) =
+  print_mbuf(txt,mbuf:Mongo.mongo_buf) =
     (str, len) = export_(mbuf)
     s = String.substring(0,len,str)
     ML.debug(txt,"\n{string_of_message(s)}",void)*/
 
+@private memdump = (%% BslPervasives.memdump %%: string -> string)
+
   @private
-  send_no_reply_(m,mbuf,name,reply_expected): bool =
+  send_no_reply_(m,mbuf:Mongo.mongo_buf,name,reply_expected): bool =
+do jlog("send_no_reply_: {name}")
     match m.conn with
     | {some=conn} ->
-       (str, len) = export_(mbuf)
-       s = String.substring(0,len,str)
-       do if m.log then ML.debug("MongoDriver.send({name})","\n{string_of_message(s)}",void)
-       (match Socket.write_len_with_err_cont(conn,m.comms_timeout,s,len) with
-        | {success=cnt} ->
-           do if not(reply_expected) then free_(mbuf) else void
-           (cnt==len)
-        | {failure=_} ->
-           false)
+//       (match WP.export(mbuf) with
+//        | {success=(s, len)} ->
+//do jlog("send_no_reply_: s=\n{memdump(s)}")
+       (match WP.binary_export(mbuf) with
+        | {success=binary} ->
+do jlog("send_no_reply_: s=\n{memdump(string_of_binary(binary))}")
+           len = Binary.length(binary)
+           //s = string_of_binary(binary)
+           //s = String.substring(0,len,str)
+           //do if m.log then ML.debug("MongoDriver.send({name})","\n{string_of_message(s)}",void) // TODO: string_of_message
+           //(match Socket.binary_write_with_err_cont(conn,m.comms_timeout,binary) with
+           //(match Socket.write_with_err_cont(conn,m.comms_timeout,string_of_binary(binary)) with
+           (match Socket.binary_write_len_with_err_cont(conn,m.comms_timeout,binary,len) with
+            | {success=cnt} ->
+do jlog("send_no_reply_: cnt={cnt}")
+               do if not(reply_expected) then free_(mbuf) else void
+do jlog("send_no_reply_: cnt==len={cnt==len}")
+               (cnt==len)
+            | {failure=_} ->
+               false)
+        | {failure=_} -> ML.error("MongoDriver.send({name})","Pack failure",false))
     | {none} ->
        ML.error("MongoDriver.send({name})","No socket",false)
 
   @private
-  send_no_reply(m,mbuf,name): bool = send_no_reply_(m,mbuf,name,false)
+  send_no_reply(m,mbuf:Mongo.mongo_buf,name): bool = send_no_reply_(m,mbuf,name,false)
 
   @private
-  send_with_reply(m,mbuf,name): option(Mongo.reply) =
-    mrid = mongo_buf_requestId(mbuf)
+  send_with_reply(m,mbuf:Mongo.mongo_buf,name): option(Mongo.reply) =
+do jlog("send_with_reply: {name}")
+    mbuf = refresh_requestId(mbuf)
+    mrid = reply_requestId(mbuf)
+do jlog("send_with_reply: mrid={mrid}")
     match m.conn with
     | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
        then
-         mailbox = new_mailbox_(m.bufsize)
-         (match read_mongo_(conn,m.comms_timeout,mailbox) with
-          | {success=reply} ->
-             rrt = C.reply_responseTo(reply)
-             do reset_mailbox_(mailbox)
+do jlog("send_with_reply: sent message")
+         mailbox = Mailbox.create(m.bufsize)
+         (match WP.read_mongo(conn,m.comms_timeout,mailbox) with
+          | {success=(mailbox,reply)} ->
+do jlog("send_with_reply: reply={reply}")
+             rrt = WP.reply_responseTo(reply)
+             _ = Mailbox.reset(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.receive({name})","\n{string_of_message_reply(reply)}",void)
              if mrid != rrt
@@ -328,7 +352,7 @@ MongoDriver = {{
              else {some=reply}
           | {~failure} ->
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
-             do reset_mailbox_(mailbox)
+             _ = Mailbox.reset(mailbox)
              {none})
        else
          {none}
@@ -336,24 +360,26 @@ MongoDriver = {{
        ML.error("MongoDriver.receive({name})","No socket",{none})
 
   @private
-  send_with_error(m,mbuf,name,ns,slaveok): option(Mongo.reply) =
+  send_with_error(m,mbuf:Mongo.mongo_buf,name,ns,slaveok): option(Mongo.reply) =
     match m.conn with
     | {some=conn} ->
-       mbuf2 = create_(m.bufsize)
-       do query_(mbuf2,0,ns^".$cmd",0,1,[H.i32("getlasterror",1)],{none})
-       do if slaveok then set_query_flags_(mbuf2,MongoCommon.SlaveOkBit) else void
-       mrid = mongo_buf_requestId(mbuf2)
-       len = length_(mbuf)
-       do append_(mbuf,mbuf2)
-       do free_(mbuf2)
-       if send_no_reply_(m,mbuf,name,true)
+       //mbuf2 = create_(m.bufsize)
+       //do query_(mbuf2,0,ns^".$cmd",0,1,[H.i32("getlasterror",1)],{none})
+       //do if slaveok then set_query_flags_(mbuf2,MongoCommon.SlaveOkBit) else void
+       mbuf2 = [WP.Query(0,if slaveok then MongoCommon.SlaveOkBit else 0,ns^".$cmd",[H.i32("getlasterror",1)],0,1,none)]
+       mbuf2 = refresh_requestId(mbuf2)
+       mrid = reply_requestId(mbuf2)
+       //len = length_(mbuf)
+       //do append_(mbuf,mbuf2)
+       //do free_(mbuf2)
+       if send_no_reply_(m,List.append(mbuf,mbuf2),name,true)
        then
-         do clip_(mbuf,len) // We have to take off the getlasterror in case we reconnect
-         mailbox = new_mailbox_(m.bufsize)
-         (match read_mongo_(conn,m.comms_timeout,mailbox) with
-          | {success=reply} ->
-             rrt = C.reply_responseTo(reply)
-             do reset_mailbox_(mailbox)
+         //do clip_(mbuf,len) // We have to take off the getlasterror in case we reconnect
+         mailbox = Mailbox.create(m.bufsize)
+         (match WP.read_mongo(conn,m.comms_timeout,mailbox) with
+          | {success=(mailbox,reply)} ->
+             rrt = WP.reply_responseTo(reply)
+             _ = Mailbox.reset(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.send_with_error({name})","\n{string_of_message_reply(reply)}",void)
              if mrid != rrt
@@ -364,27 +390,28 @@ MongoDriver = {{
              else {some=reply}
           | {~failure} ->
              do if m.log then ML.info("send_with_error","failure={failure}",void)
-             do reset_mailbox_(mailbox)
+             _ = Mailbox.reset(mailbox)
              {none})
        else
-         do clip_(mbuf,len)
+         //do clip_(mbuf,len)
          {none}
     | {none} ->
        ML.error("MongoDriver.send_with_error({name})","No socket",{none})
 
 
   @private
-  sr_snr(m,mbuf,name) =
+  sr_snr(m,mbuf:Mongo.mongo_buf,name) =
     sr = send_no_reply(m,mbuf,name)
     if sr then {sendresult=sr} else {reconnect}
 
   @private
-  sr_swr(m,mbuf,name) =
+  sr_swr(m,mbuf:Mongo.mongo_buf,name) =
+do jlog("sr_swr: {name}")
     swr = send_with_reply(m,mbuf,name)
     if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect}
 
   @private
-  sr_swe(m,mbuf,name,ns,slaveok) =
+  sr_swe(m,mbuf:Mongo.mongo_buf,name,ns,slaveok) =
     swe = send_with_error(m,mbuf,name,ns,slaveok)
     if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect}
 
@@ -393,14 +420,21 @@ MongoDriver = {{
     | ~{failure} -> ~{failure}
     | {success=(_,c)} -> do SocketPool.release(m.pool, c) {success = m}
 
+  @private appmbuf(mbuf:Mongo.mongo_buf,f) : Mongo.mongo_buf = match mbuf with | [h|t] -> [f(h)|t] | _ -> @fail
+  @private getmbuf(mbuf:Mongo.mongo_buf,f:WireProtocol.Message->'a) : 'a = match mbuf with | [h|_] -> f(h) | _ -> @fail
+  @private set_query_flags(mbuf:Mongo.mongo_buf,flags) = appmbuf(mbuf,WP.set_query_flags(_,flags))
+  @private refresh_requestId(mbuf:Mongo.mongo_buf) = appmbuf(mbuf,WP.refresh_requestId)
+  @private get_opCode(mbuf:Mongo.mongo_buf) = getmbuf(mbuf,WP.get_opCode)
+  @private reply_requestId(mbuf:Mongo.mongo_buf) = getmbuf(mbuf,WP.reply_requestId)
+
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =
+do jlog("srpool")
     match SocketPool.get(m.pool) with
     | {success=(slaveok,connection)} ->
+do jlog("srpool: got connection")
        conn = {some=connection}
-       ssok(mbuf) =
-         do if slaveok then set_query_flags_(mbuf,MongoCommon.SlaveOkBit) else void
-         mbuf
+       ssok(mbuf) = if slaveok then set_query_flags(mbuf,MongoCommon.SlaveOkBit) else mbuf
        result =
          (match msg with
           | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},ssok(mbuf),name)
@@ -416,15 +450,15 @@ MongoDriver = {{
        else {reconnect}
 
   @private
-  snd(m,mbuf,name) =
+  snd(m,mbuf:Mongo.mongo_buf,name) =
     recon() =
-      mbuf2 = copy_(mbuf)
+      mbuf2 = mbuf//copy_(mbuf)
       (slaveok,connectok) = reconnect("send_no_reply",m)
       if connectok
       then
-        if not(slaveok) || (get_opCode_(mbuf2) == MongoCommon._OP_QUERY)
+        if not(slaveok) || (get_opCode(mbuf2) == MongoCommon._OP_QUERY)
         then
-          do mongo_buf_refresh_requestId(mbuf2) // Probably not necessary but we don't want unnecessary confusion
+          mbuf2 = refresh_requestId(mbuf2) // Probably not necessary but we don't want unnecessary confusion
           snd(m,mbuf2,name)
         else false
       else ML.fatal("MongoDriver.snd({name}):","comms error (Can't reconnect)",-1)
@@ -436,15 +470,16 @@ MongoDriver = {{
     | _ -> @fail
 
   @private
-  sndrcv(m,mbuf,name) =
+  sndrcv(m,mbuf:Mongo.mongo_buf,name) =
+do jlog("sndrcv")
     recon() =
-      mbuf2 = copy_(mbuf)
+      mbuf2 = mbuf//copy_(mbuf) // TODO: check this
       (slaveok,connectok) = reconnect("send_with_reply",m)
       if connectok
       then
-        if not(slaveok) || (get_opCode_(mbuf2) == MongoCommon._OP_QUERY)
+        if not(slaveok) || (get_opCode(mbuf2) == MongoCommon._OP_QUERY)
         then
-          do mongo_buf_refresh_requestId(mbuf2)
+          mbuf2 = refresh_requestId(mbuf2)
           sndrcv(m,mbuf2,name)
         else none
       else ML.fatal("MongoDriver.sndrcv({name}):","comms error (Can't reconnect)",-1)
@@ -456,15 +491,15 @@ MongoDriver = {{
     | _ -> @fail
 
   @private
-  snderr(m,mbuf,name,ns) =
+  snderr(m,mbuf:Mongo.mongo_buf,name,ns) =
     recon() =
-      mbuf2 = copy_(mbuf)
+      mbuf2 = mbuf//copy_(mbuf)
       (slaveok,connectok) = reconnect("send_with_error",m)
       if connectok
       then
-        if not(slaveok) || (get_opCode_(mbuf2) == MongoCommon._OP_QUERY)
+        if not(slaveok) || (get_opCode(mbuf2) == MongoCommon._OP_QUERY)
         then
-          do mongo_buf_refresh_requestId(mbuf2)
+          mbuf2 = refresh_requestId(mbuf2)
           snderr(m,mbuf2,name,ns)
         else none
       else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
@@ -581,16 +616,18 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
-    mbuf = create_(m.bufsize)
-    do insert_(mbuf,flags,ns,documents)
+  //  mbuf = create_(m.bufsize)
+  //  do insert_(mbuf,flags,ns,documents)
+    mbuf = [WP.Insert(0, flags, ns, [documents])]
     snd(m,mbuf,"insert")
 
   /**
    * Same as insert but piggyback a getlasterror command.
    **/
   inserte(m:Mongo.db, flags:int, ns:string, dbname:string, documents:Bson.document): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do insert_(mbuf,flags,ns,documents)
+    //mbuf = create_(m.bufsize)
+    //do insert_(mbuf,flags,ns,documents)
+    mbuf = [WP.Insert(0, flags, ns, [documents])]
     snderr(m,mbuf,"insert",dbname)
 
   /**
@@ -605,18 +642,20 @@ MongoDriver = {{
    *  Same parameters as for [insert].
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
-    mbuf = create_(m.bufsize)
-    do insert_batch_(mbuf,flags,ns,documents)
-    do if m.log then
-      (str, len) = export_(mbuf)
-      s = String.substring(0,len,str)
-      ML.debug("MongoDriver.send(insert_batch)","\n{string_of_message(s)}",void)
+    //mbuf = create_(m.bufsize)
+    //do if m.log then
+    //  (str, len) = export_(mbuf)
+    //  s = String.substring(0,len,str)
+    //  ML.debug("MongoDriver.send(insert_batch)","\n{string_of_message(s)}",void)
+    //do insert_batch_(mbuf,flags,ns,documents)
+    mbuf = [WP.Insert(0, flags, ns, documents)]
     snd(m,mbuf,"insert")
 
   /** insert_batch with added getlasterror query **/
   insert_batche(m:Mongo.db, flags:int, ns:string, dbname:string, documents:list(Bson.document)): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do insert_batch_(mbuf,flags,ns,documents)
+    //mbuf = create_(m.bufsize)
+    //do insert_batch_(mbuf,flags,ns,documents)
+    mbuf = [WP.Insert(0, flags, ns, documents)]
     snderr(m,mbuf,"insert",dbname)
 
   /**
@@ -633,14 +672,16 @@ MongoDriver = {{
    *  provide a [select] document.
    **/
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
-    mbuf = create_(m.bufsize)
-    do update_(mbuf,flags,ns,selector,update)
+    //mbuf = create_(m.bufsize)
+    //do update_(mbuf,flags,ns,selector,update)
+    mbuf =  [WP.Update(0,flags,ns,selector,update)]
     snd(m,mbuf,"update")
 
   /** update with added getlasterror query **/
   updatee(m:Mongo.db, flags:int, ns:string, dbname, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do update_(mbuf,flags,ns,selector,update)
+    //mbuf = create_(m.bufsize)
+    //do update_(mbuf,flags,ns,selector,update)
+    mbuf =  [WP.Update(0,flags,ns,selector,update)]
     snderr(m,mbuf,"update",dbname)
 
   /**
@@ -658,8 +699,10 @@ MongoDriver = {{
    **/
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do query_(mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
+    //mbuf = create_(m.bufsize)
+    //do query_(mbuf,flags,ns,numberToSkip,numberToReturn,query,returnFieldSelector_opt)
+    do jlog("MongoDriver.query: ns={ns} numberToSkip={numberToSkip} numberToReturn={numberToReturn} query={query}")
+    mbuf = [WP.Query(0,flags,ns,query,numberToSkip,numberToReturn,returnFieldSelector_opt)]
     sndrcv(m,mbuf,"query")
 
   /**
@@ -677,8 +720,9 @@ MongoDriver = {{
    *  @return Exactly the same as [query].
    **/
   get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:Mongo.cursorID): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do get_more_(mbuf,ns,numberToReturn,cursorID)
+    //mbuf = create_(m.bufsize)
+    //do get_more_(mbuf,ns,numberToReturn,cursorID)
+    mbuf = [WP.GetMore(0,ns,numberToReturn,cursorID)]
     sndrcv(m,mbuf,"getmore")
 
   /**
@@ -687,14 +731,16 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
-    mbuf = create_(m.bufsize)
-    do delete_(mbuf,flags,ns,selector)
+    //mbuf = create_(m.bufsize)
+    //do delete_(mbuf,flags,ns,selector)
+    mbuf = [WP.Delete(0,flags,ns,selector)]
     snd(m,mbuf,"delete")
 
   /** delete with added getlasterror query **/
   deletee(m:Mongo.db, flags:int, ns:string, dbname:string, selector:Bson.document): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do delete_(mbuf,flags,ns,selector)
+    //mbuf = create_(m.bufsize)
+    //do delete_(mbuf,flags,ns,selector)
+    mbuf = [WP.Delete(0,flags,ns,selector)]
     snderr(m,mbuf,"delete",dbname)
 
   /**
@@ -709,14 +755,16 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   kill_cursors(m:Mongo.db, cursors:list(Mongo.cursorID)): bool =
-    mbuf = create_(m.bufsize)
-    do kill_cursors_(mbuf,cursors)
+    //mbuf = create_(m.bufsize)
+    //do kill_cursors_(mbuf,cursors)
+    mbuf = [WP.KillCursors(0,cursors)]
     snd(m,mbuf,"kill_cursors")
 
   /** kill_cursors with added getlasterror query **/
   kill_cursorse(m:Mongo.db, dbname:string, cursors:list(Mongo.cursorID)): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do kill_cursors_(mbuf,cursors)
+    //mbuf = create_(m.bufsize)
+    //do kill_cursors_(mbuf,cursors)
+    mbuf = [WP.KillCursors(0,cursors)]
     snderr(m,mbuf,"kill_cursors",dbname)
 
   /**
@@ -724,14 +772,16 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   msg(m:Mongo.db, msg:string): bool =
-    mbuf = create_(m.bufsize)
-    do msg_(mbuf,msg)
+    //mbuf = create_(m.bufsize)
+    //do msg_(mbuf,msg)
+    mbuf = [WP.Msg(0,msg)]
     snd(m,mbuf,"msg")
 
   /** kill_cursors with added getlasterror query **/
   msge(m:Mongo.db, dbname:string, msg:string): option(Mongo.reply) =
-    mbuf = create_(m.bufsize)
-    do msg_(mbuf,msg)
+    //mbuf = create_(m.bufsize)
+    //do msg_(mbuf,msg)
+    mbuf = [WP.Msg(0,msg)]
     snderr(m,mbuf,"msg",dbname)
 
   @private get_index_opts(options:int): Bson.document =

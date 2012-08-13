@@ -88,7 +88,9 @@ let max_int _ = Int64.max_int
 ##register shift_right \ `Int64.shift_right` : int64, int -> int64
 ##register shift_right_logical \ `Int64.shift_right_logical` : int64, int -> int64
 ##register of_int \ `Int64.of_int` : int -> int64
+##register of_int_signed \ `Int64.of_int` : int -> int64
 ##register to_int \ `Int64.to_int` : int64 -> int
+##register to_int_signed \ `Int64.to_int` : int64 -> int
 ##register of_string \ `Int64.of_string` : string -> int64
 exception Not_implemented of string
 ##register of_string_radix : string, int -> int64
@@ -299,6 +301,11 @@ let unembed_int64_be s i =
 ##register unembed_float_be: string, int -> float
 let unembed_float_be s i =
   Int64.float_of_bits(unembed_int64_be s i)
+
+##register dump : string -> string
+let dump _ = raise (Not_implemented "dump")
+
+##register is_int_NaN   \ `(fun _ -> false)`        : int -> bool
 
 ##endmodule
 

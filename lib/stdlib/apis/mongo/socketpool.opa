@@ -99,7 +99,7 @@ SocketPool = {{
             do if state.log then ML.debug("SocketPool.handler","queue caller",void)
             {set={state with queue=Queue.add(k, state.queue)}}
           else
-            (match Socket.connect_with_err_cont(state.host.f1,state.host.f2) with
+            (match Socket.binary_connect_with_err_cont(state.host.f1,state.host.f2) with
              | {success=conn} ->
                 state = {state with open_connections=IntSet.add(Socket.conn_id(conn),state.open_connections)}
                 do if state.log then ML.debug("SocketPool.handler","successfully opened socket {Socket.conn_id(conn)}",void)

@@ -148,4 +148,7 @@ Int64 = {{
   /** Less than or equal to predicate for int64 **/
   op_le = %%BslNumber.BslInt64.op_le%% : int64, int64 -> bool
 
+  /** Zero **/
+  zero = of_int(0)
+
 }}

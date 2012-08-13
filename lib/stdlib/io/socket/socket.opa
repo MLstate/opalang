@@ -13,6 +13,14 @@ import-plugin socket
 
 type Socket.connection = external
 
+type Mailbox.t = {
+  buf : binary;
+  start : int;
+  len : int;
+  min : int;
+  hint : int;
+}
+
 /**
     {1 About this module}
 
@@ -28,6 +36,60 @@ type Socket.connection = external
 
     {b Warning:} This module is still experimental.
 */
+
+@private memdump = (%% BslPervasives.memdump %%: string -> string)
+
+Mailbox = {{
+
+  // TODO: get_buf, free_buf
+
+  create(hint:int) : Mailbox.t = {buf=Binary.create(hint); start=0; len=0; min=128; ~hint}
+
+  reset(mb:Mailbox.t) : Mailbox.t =
+    do Binary.reset(mb.buf)
+    {mb with start=0; len=0}
+
+  add_string(mb:Mailbox.t, str:string) : Mailbox.t =
+    do Binary.add_string(mb.buf, str)
+    {mb with len=mb.len+String.length(str)}
+
+  add_binary(mb:Mailbox.t, bin:binary) : Mailbox.t =
+    do Binary.add_binary(mb.buf, bin)
+    {mb with len=mb.len+Binary.length(bin)}
+
+  string_contents(mb:Mailbox.t) : string = Binary.get_string(mb.buf, mb.start, mb.len)
+
+  binary_contents(mb:Mailbox.t) : binary = Binary.get_binary(mb.buf, mb.start, mb.len)
+
+  check(mb:Mailbox.t) : Mailbox.t =
+    if mb.start > 0 && mb.len < mb.min
+    then
+      if mb.len > 0
+      then
+        data = binary_contents(mb)
+        mb = reset(mb)
+        add_binary(mb, data)
+      else
+        reset(mb)
+    else mb
+
+  sub(mb:Mailbox.t, len:int) : outcome((Mailbox.t,binary),string) =
+    if len <= mb.len
+    then
+      data = Binary.get_binary(mb.buf, mb.start, len)
+      {success=(check({mb with start=mb.start+len; len=mb.len-len}),data)}
+    else
+      {failure="Mailbox.sub: Not enough data for {len} bytes (currently {mb.len})"}
+
+  skip(mb:Mailbox.t, len:int) : outcome(Mailbox.t,string) =
+    if len <= mb.len
+    then {success=(check({mb with start=mb.start+len; len=mb.len-len}))}
+    else {failure="Mailbox.skip: Not enough data for {len} bytes (currently {mb.len})"}
+
+  print(name:string, mb:Mailbox.t) : void = jlog("{name}: {memdump(string_contents(mb))}")
+
+}}
+
 Socket = {{
     /**
      * Connect to a server without any encryption.
@@ -42,6 +104,9 @@ Socket = {{
 
     connect_with_err_cont: string, int -> outcome(Socket.connection,string) =
       %%BslSocket.connect_with_err_cont%%
+
+    binary_connect_with_err_cont: string, int -> outcome(Socket.connection,string) =
+      %%BslSocket.binary_connect_with_err_cont%%
 
     /**
      * Connect to a server over an SSL encryption.
@@ -71,6 +136,9 @@ Socket = {{
     write_with_err_cont: Socket.connection, int, string -> outcome(int,string) =
       %%BslSocket.write_with_err_cont%%
 
+    binary_write_with_err_cont: Socket.connection, int, binary -> outcome(int,string) =
+      %%BslSocket.binary_write_with_err_cont%%
+
     /**
      * Write partial data to a connection.
      *
@@ -80,6 +148,9 @@ Socket = {{
       %%BslSocket.write_len%%
 
     write_len_with_err_cont: Socket.connection, int, string, int -> outcome(int,string) =
+      %%BslSocket.write_len_with_err_cont%%
+
+    binary_write_len_with_err_cont: Socket.connection, int, binary, int -> outcome(int,string) =
       %%BslSocket.write_len_with_err_cont%%
 
     /**
@@ -93,6 +164,19 @@ Socket = {{
     read_with_err_cont: Socket.connection, int -> outcome(string,string) =
       %%BslSocket.read_with_err_cont%%
 
+    binary_read_with_err_cont: Socket.connection, int -> outcome(binary,string) =
+      %%BslSocket.binary_read_with_err_cont%%
+
     conn_id: Socket.connection -> int = %%BslSocket.conn_id%%
+
+    read_fixed(conn:Socket.connection, timeout:int, len:int, mb:Mailbox.t) : outcome(Mailbox.t,string) =
+      if mb.len >= len
+      then {success=mb}
+      else
+        match binary_read_with_err_cont(conn, timeout) with
+        | {success=data} ->
+           do jlog("read_fixed: data=\n{memdump(string_of_binary(data))}")
+           read_fixed(conn,timeout,len,Mailbox.add_binary(mb, data))
+        | {~failure} -> {~failure}
 
 }}

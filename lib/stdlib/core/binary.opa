@@ -149,6 +149,16 @@ Binary = {{
   reset : binary -> void = %%BslBinary.reset%%
 
   /**
+   * Add bytes to end of data.
+   *
+   * @param b The binary data.
+   * @param len The number of bytes to add
+   * @param v The value of the bytes (0-255)
+   * @return void
+   */
+  add_fill : binary, int, int -> void = %%BslBinary.add_fill%%
+
+  /**
    * Add a string to the end of the data.
    *
    * @param b The binary data.

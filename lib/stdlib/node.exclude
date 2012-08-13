@@ -1,4 +1,4 @@
-stdlib.apis.mongo$
+stdlib.apis.mongo.node
 stdlib.apis.irc
 stdlib.components.chat
 stdlib.core.rpc.hlnet

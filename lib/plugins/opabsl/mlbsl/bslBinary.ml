@@ -32,6 +32,12 @@ let trim b =
 
 ##register reset\ `Buf.reset`: binary -> void
 
+##register add_fill : binary, int, int -> void
+let add_fill b len v =
+  for i = 0 to len-1 do
+    Buf.add_char b (Char.chr v)
+  done
+
 ##register add_string\ `Buf.add_string`: binary, string -> void
 
 ##register add_binary : binary, binary -> void

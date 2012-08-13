@@ -14,6 +14,9 @@ module BslNativeLib = BslUtils
 
 module C = QmlCpsServerLib
 open C.Ops
+open OpabslgenMLRuntime
+
+##opa-type outcome('a, 'b)
 
 ##property [mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
@@ -23,7 +26,7 @@ open C.Ops
 ##extern-type Socket.connection = Scheduler.connection_info
 
 let create_outcome outcome k =
-  QmlCpsServerLib.return k (BslUtils.create_outcome outcome)
+  QmlCpsServerLib.return k (wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome outcome)))
 
 let private_connect ?(secure_mode = Network.Unsecured) (addr: string) port
                     (cont: Scheduler.connection_info -> unit) =
@@ -53,6 +56,10 @@ let private_connect_with_err_cont ?(secure_mode = Network.Unsecured) addr port c
                                  continuation(outcome(Socket.connection,string)) -> void
 let connect_with_err_cont addr port cont = private_connect_with_err_cont addr port cont
 
+##register [cps-bypass] binary_connect_with_err_cont: string, int,\
+                                 continuation(outcome(Socket.connection,string)) -> void
+let binary_connect_with_err_cont addr port cont = private_connect_with_err_cont addr port cont
+
 ##register [cps-bypass] secure_connect_with_err_cont: string, int, SSL.secure_type,\
                                  continuation(outcome(Socket.connection,string)) -> void
 let secure_connect_with_err_cont addr port secure_type cont =
@@ -74,14 +81,23 @@ let write_with_err_cont connection_info timeout data cont =
                   ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
                   (fun cnt -> create_outcome (`success cnt) cont)
 
+##register [cps-bypass] binary_write_with_err_cont: Socket.connection, int, 'a,\
+                               continuation(outcome(int,string)) -> void
+let binary_write_with_err_cont connection_info timeout data cont =
+  let data = Obj.magic data in
+  Scheduler.write Scheduler.default connection_info ~timeout:(Time.milliseconds timeout) (Buffer.contents data)
+                  ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
+                  (fun cnt -> create_outcome (`success cnt) cont)
+
 ##register [cps-bypass] write_len: Socket.connection, string, int,\
                                continuation(int) -> void
 let write_len connection_info data len k =
   Scheduler.write Scheduler.default connection_info data ~len (fun i -> i |> k)
 
-##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, string, int,\
+##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, 'a, int,\
                                continuation(outcome(int,string)) -> void
 let write_len_with_err_cont connection_info timeout data len cont =
+  let (data:string) = Obj.magic data in
   Scheduler.write Scheduler.default connection_info ~timeout:(Time.milliseconds timeout) data ~len
                   ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
                   (fun cnt -> create_outcome (`success cnt) cont)
@@ -92,6 +108,13 @@ let read connection_info k =
 
 ##register [cps-bypass] read_with_err_cont : Socket.connection, int, continuation(outcome(string,string)) -> void
 let read_with_err_cont connection_info timeout cont =
+  Scheduler.read Scheduler.default connection_info ~timeout:(Time.milliseconds timeout)
+                 ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
+                 (fun (_,str) -> create_outcome (`success str) cont)
+
+##register [cps-bypass] binary_read_with_err_cont : Socket.connection, int, continuation(outcome('a,string)) -> void
+let binary_read_with_err_cont connection_info timeout cont =
+  let cont = Obj.magic(cont) in
   Scheduler.read Scheduler.default connection_info ~timeout:(Time.milliseconds timeout)
                  ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
                  (fun (_,str) -> create_outcome (`success str) cont)
