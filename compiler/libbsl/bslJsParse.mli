@@ -30,6 +30,7 @@ val parse_file :
 (** [parse_string string] attempts to read js code in [string] and parse
     its directives according to the doc-like syntax *)
 val parse_string :
+  ?filename:string ->
   string ->
   [ `error   of string
   | `success of (FilePos.pos * BslTags.t * BslDirectives.Js.t) list ]

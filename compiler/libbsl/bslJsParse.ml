@@ -347,9 +347,9 @@ let parse_file filename =
     JsParse.Exception e ->
       `error (Format.to_string JsParse.pp e)
 
-let parse_string content =
+let parse_string ?filename content =
   try
-    let code = JsParse.String.code ~throw_exn:true content in
+    let code = JsParse.String.code ?filename ~throw_exn:true content in
     doc_comment [] code
   with
     JsParse.Exception e ->

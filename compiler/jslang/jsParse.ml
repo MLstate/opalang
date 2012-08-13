@@ -704,14 +704,15 @@ let stream_of_file lex_comments file =
 
 module String =
 struct
-  let code ?throw_exn str =
+  let code ?filename ?throw_exn str =
     build_parser ?throw_exn code
-      (JsLex.stream_of_string ~lex_comments:true str)
-  let expr ?throw_exn ?globalize str =
+      (JsLex.stream_of_string ?filename ~lex_comments:true str)
+  let expr ?filename ?throw_exn ?globalize str =
     build_parser ?throw_exn ~globalize:(global_expr ?globalize)
-      expr (JsLex.stream_of_string ~lex_comments:true str)
-  let stm ?throw_exn str =
-    build_parser ?throw_exn stm (JsLex.stream_of_string ~lex_comments:true str)
+      expr (JsLex.stream_of_string ?filename ~lex_comments:true str)
+  let stm ?filename ?throw_exn str =
+    build_parser ?throw_exn stm
+      (JsLex.stream_of_string ?filename ~lex_comments:true str)
 end
 module File =
 struct

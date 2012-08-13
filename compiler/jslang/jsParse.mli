@@ -47,9 +47,9 @@ val pp : Format.formatter -> error -> unit
 
 module String :
 sig
-  val code : ?throw_exn:bool -> string -> JsAst.code
-  val expr : ?throw_exn:bool -> ?globalize:bool -> string -> JsAst.expr
-  val stm : ?throw_exn:bool -> string -> JsAst.statement
+  val code : ?filename:string -> ?throw_exn:bool -> string -> JsAst.code
+  val expr : ?filename:string -> ?throw_exn:bool -> ?globalize:bool -> string -> JsAst.expr
+  val stm :  ?filename:string -> ?throw_exn:bool -> string -> JsAst.statement
 end
 
 module File :
