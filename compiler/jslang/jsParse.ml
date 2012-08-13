@@ -336,7 +336,7 @@ and statement_no_comments = parser
        'Rcurly pos2 ?? "expected a closing curly brace" >] ->
     let pos = merge_pos pos1 pos2 in
     J.Js_block (nl pos, block)
-  | [< 'Semic _; stream >] -> statement stream
+  | [< 'Semic pos >] -> J.Js_empty (nl pos)
   | [< 'Var pos1; l = list1_sep vardeclaration comma; _ = semic >] -> (
     let (pos2, _, _) = List.last l in
     let pos = merge_pos pos1 pos2 in
