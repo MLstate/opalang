@@ -11,8 +11,7 @@
 <mongo>: traverse
 <opabsl>: traverse, static, classic_syntax
 <qos>: traverse
-<server>: traverse, classic_syntax
-<session>: traverse, classic_syntax
+<server>: traverse
 <socket>: traverse
 <unix>: traverse
 
