@@ -255,6 +255,9 @@ let foldmapB traB traA acc e =
       if stmt == fstmt then e else
         J.Js_label (label, string, fstmt)
 
+  | J.Js_empty _ ->
+      acc, e
+
   | J.Js_comment (_, _) ->
       acc, e
 

@@ -111,7 +111,8 @@ let occurrence_analysis params code =
     | J.Js_while _
     | J.Js_dowhile _
     | J.Js_for _
-    | J.Js_forin _ ->
+    | J.Js_forin _
+    | J.Js_empty _ ->
         tra_s true (env,acc,safe_vars) stm
   and aux_assign tra_e tra_s need_value (env,acc,safe_vars) i e =
       let env, acc, safe_vars = aux_e tra_e tra_s true (env,acc,safe_vars) e in

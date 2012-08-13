@@ -330,6 +330,8 @@ and compare_stm s1 s2 =
     )
   | J.Js_label _, _ -> -1
   | _, J.Js_label _ -> 1
+  | J.Js_empty _, _ -> -1
+  | _, J.Js_empty _ -> 1
   | J.Js_comment _, J.Js_comment _ -> 0
 
 (* a simple peep hole pass

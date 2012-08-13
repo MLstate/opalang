@@ -291,6 +291,9 @@ let build_control_flow_graph ?name params body =
     | J.Js_dowhile _ ->
         (* this one is just lazyness, because nobody uses it *)
         raise NotImplemented
+    | J.Js_empty _ ->
+        let dummy = node_of_stm "empty" orig_stm in
+        dummy, dummy
     | J.Js_comment _ ->
         let dummy = node_of_stm "comment" orig_stm in
         dummy, dummy

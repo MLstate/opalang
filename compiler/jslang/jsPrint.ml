@@ -638,6 +638,9 @@ object(self)
           label
           self#statement stmt
 
+    | J.Js_empty _ ->
+        pp f ";\n"
+
     | J.Js_comment (_, comment) -> (
         match comment with
         | J.Jc_one_line (_, string) ->

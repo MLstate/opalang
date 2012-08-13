@@ -211,6 +211,7 @@ type expr =
    | J.Js_block (_, body) ->
    | J.Js_with (_, expr, body) ->
    | J.Js_label (_, label, stmt) ->
+   | J.Js_empty _ ->
    | J.Js_comment (_, comment) ->
    ]}
 
@@ -249,6 +250,7 @@ and statement =
   | Js_block of      loc * statement list
   | Js_with of       loc * expr * statement
   | Js_label of      loc * string * statement
+  | Js_empty of      loc
   | Js_comment of    loc * comment
 
 and comment =
