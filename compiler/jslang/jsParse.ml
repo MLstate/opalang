@@ -31,10 +31,9 @@ let native_ident = JsCons.Ident.native
  * non-newline token (which allows us to write almost the whole parser
  * while implicitely discarding newlines).
  *
- * The new module also carries an imperative state to discard comments
- * implicitely. This has to be set carefully by the various rules. Note
- * that, since we parse comments as statements and discard them
- * otherwise, we must keep them in a queue before throwing them away.
+ * The new module also ignores comments by default. Since some
+ * lookahead is needed when parsing JS, these ignored comments are put
+ * in a queue to be fetched later if necessary.
  *
  * The parser relies on the lexer invariant: a LT never occurs right
  * after a comment.  *)
@@ -48,7 +47,6 @@ struct
     stream: 'a Stream.t;
     waiting_comments: 'a Queue.t;
     mutable waiting_newline: JsLex.token option;
-    mutable ignore_comments: bool;
   }
 
   exception Failure = Stream.Failure
@@ -57,88 +55,79 @@ struct
     stream = Stream.from f;
     waiting_comments = Queue.create ();
     waiting_newline = None;
-    ignore_comments = true;
   }
 
   let wrap stream = {
     stream;
     waiting_comments = Queue.create ();
     waiting_newline = None;
-    ignore_comments = true;
   }
 
-  let parse_comments stream =
-    stream.ignore_comments <- false
-
-  let ignore_comments stream =
-    stream.ignore_comments <- true
-
-  (* The *no_newline_ignore variants do not skip newlines *)
+  (* The *no_*_ignore variants do not skip newlines or comments *)
 
   let peek_no_newline_ignore stream =
     match stream.waiting_newline with
     | Some _ as token -> token
     | None ->
-      if stream.ignore_comments then
-        let rec loop () =
-          match Stream.peek stream.stream with
-          | Some (DocComment _ as token) ->
-            Queue.add token stream.waiting_comments;
-            Stream.junk stream.stream;
-            loop ()
-          | o -> o
-        in loop ()
-      else if Queue.is_empty stream.waiting_comments then
-        Stream.peek stream.stream
-      else
-        Some (Queue.peek stream.waiting_comments)
-
-  let peek stream =
-    if stream.ignore_comments then (
       let rec loop () =
         match Stream.peek stream.stream with
-        | Some (LT _ as s) ->
-          stream.waiting_newline <- Some s;
-          Stream.junk stream.stream;
-          loop ()
         | Some (DocComment _ as token) ->
           Queue.add token stream.waiting_comments;
           Stream.junk stream.stream;
           loop ()
         | o -> o
       in loop ()
-    ) else if Queue.is_empty stream.waiting_comments then (
+
+  let peek_no_comment_ignore stream =
+    if Queue.is_empty stream.waiting_comments then
       let rec loop () =
         match Stream.peek stream.stream with
-        | Some (LT _ as s) ->
-          stream.waiting_newline <- Some s;
+        | Some (LT _) as o ->
+          stream.waiting_newline <- o;
           Stream.junk stream.stream;
-          loop ()
+          Stream.peek stream.stream (* Using the invariant *)
         | o -> o
       in loop ()
-    ) else (
+    else
       Some (Queue.peek stream.waiting_comments)
-    )
+
+  let peek stream =
+    let rec loop () =
+      match Stream.peek stream.stream with
+      | Some (LT _ as token) ->
+        stream.waiting_newline <- Some token;
+        Stream.junk stream.stream;
+        loop ()
+      | Some (DocComment _ as token) ->
+        Queue.add token stream.waiting_comments;
+        Stream.junk stream.stream;
+        loop ()
+      | o -> o
+    in loop ()
 
   let junk_no_newline_ignore stream =
     match stream.waiting_newline with
     | Some _ -> stream.waiting_newline <- None
     | None ->
-      if stream.ignore_comments then (
-        Queue.clear stream.waiting_comments;
-        let rec loop () =
-          match Stream.peek stream.stream with
-          | Some (DocComment _) ->
-            Stream.junk stream.stream;
-            loop ()
-          | _ ->
-            Stream.junk stream.stream
-        in loop ()
-      ) else if Queue.is_empty stream.waiting_comments then (
-        Stream.junk stream.stream
-      ) else (
-        ignore (Queue.take stream.waiting_comments)
-      )
+      Queue.clear stream.waiting_comments;
+      let rec loop () =
+        match Stream.peek stream.stream with
+        | Some (DocComment _) ->
+          Stream.junk stream.stream;
+          loop ()
+        | _ ->
+          Stream.junk stream.stream
+      in loop ()
+
+  let junk_no_comment_ignore stream =
+    begin match stream.waiting_newline with
+    | Some _ -> stream.waiting_newline <- None
+    | None -> ()
+    end;
+    if Queue.is_empty stream.waiting_comments then
+      Stream.junk stream.stream
+    else
+      ignore (Queue.take stream.waiting_comments)
 
   let junk stream =
     (* At junk, we assume that all tokens that have been ignored and
@@ -147,28 +136,17 @@ struct
     Queue.clear stream.waiting_comments;
     let rec loop () =
       match Stream.peek stream.stream with
-      | Some (LT _) ->
-        Stream.junk stream.stream;
-        loop ()
-      | Some (DocComment _) when stream.ignore_comments ->
+      | Some (LT _ | DocComment _) ->
         Stream.junk stream.stream;
         loop ()
       | _ -> Stream.junk stream.stream
     in loop ()
 
-  let junk_no_comment_ignore stream =
-    match stream.waiting_newline with
-    | Some _ -> stream.waiting_newline <- None
-    | None ->
-      if Queue.is_empty stream.waiting_comments then
-        Stream.junk stream.stream
-      else
-        ignore (Queue.take stream.waiting_comments)
 
   (* redefining empty because a stream with only a newline must be considered
    * as empty *)
   let empty s =
-    match peek s with
+    match peek_no_comment_ignore s with
     | None -> ()
     | Some _ -> raise Stream.Failure
 end
@@ -257,15 +235,11 @@ let option_no_newline parser_ stream =
   | _ -> option parser_ stream
 
 let doc_comment stream =
-  Stream.parse_comments stream;
-  match Stream.peek stream with
+  match Stream.peek_no_comment_ignore stream with
   | Some (DocComment (pos, lines, _)) ->
     Stream.junk_no_comment_ignore stream;
-    Stream.ignore_comments stream;
     (pos, lines)
-  | _ ->
-    Stream.ignore_comments stream;
-    raise Stream.Failure
+  | _ -> raise Stream.Failure
 let semic stream =
   match Stream.peek_no_newline_ignore stream with
   | None -> ()
@@ -340,7 +314,6 @@ let postfixoperator = parser
   | [< 'MinusMinus pos >] -> (pos, J.Ju_sub2_post)
 
 let rec statement stream =
-  Stream.parse_comments stream;
   match stream with parser
   | [< (pos, lines) = doc_comment >] ->
     J.Js_comment (nl pos, J.Jc_doc (nl pos, lines))
