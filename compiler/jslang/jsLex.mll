@@ -589,6 +589,7 @@ let rec consume_token s lexbuf =
       token
     else (
       s.flush_tokens <- true;
+      Queue.add token s.waiting_tokens;
       flush s lexbuf
     )
   in
@@ -726,15 +727,16 @@ let rec consume_token s lexbuf =
     s.can_have_a_division <- true;
     send_token r
 
-(* the main lexing function: called the actual lexer, and updates the global
- * state *)
 and flush s lexbuf =
-  try
-    Queue.take s.waiting_tokens
-  with Queue.Empty ->
+  if Queue.is_empty s.waiting_tokens then (
     s.flush_tokens <- false;
     consume_token s lexbuf
+  ) else (
+    Queue.take s.waiting_tokens
+  )
 
+(* the main lexing function: called the actual lexer, and updates the global
+ * state *)
 and lex s lexbuf =
   if s.flush_tokens then
     flush s lexbuf
