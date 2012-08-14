@@ -240,7 +240,7 @@ module Js = struct
 *)
 
   type definition =
-  | Regular of string
+  | Regular of JsIdent.t
   | Inline of string
 
   type t =

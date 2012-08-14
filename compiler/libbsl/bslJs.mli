@@ -36,7 +36,7 @@ type contents = string
 
 type js_decorated_file = {
   directives: (FilePos.pos * BslTags.t * BslDirectives.Js.t) list;
-  contents: contents;
+  contents: JsAst.code;
   filename: filename;
 }
 

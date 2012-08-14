@@ -43,4 +43,6 @@
 <bslOcaml.ml>       : with_mlstate_debug
 <bslConf.ml>        : with_mlstate_debug
 
-<bslJsParse.ml>: use_jslang
+<bslJsParse.ml*>: use_jslang
+<bslJs.ml*>: use_jslang
+<bslDirectives.ml*>: use_jslang

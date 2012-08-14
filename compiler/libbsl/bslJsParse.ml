@@ -32,6 +32,11 @@ type tag = string
 type message = string
 type pos = FilePos.pos
 
+type parsed_file = {
+  directives: (FilePos.pos * BslTags.t * BslDirectives.Js.t) list;
+  code: JsAst.code;
+}
+
 let whitespace = Str.regexp "[ \t]*"
 
 (** When trying to interpret a comment as a bsl directive, we do the
@@ -244,7 +249,8 @@ let extract_register implementation =
       let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
       let name =
         try
-          `success (String.trim (Str.matched_group 2 args))
+          `success (JsCons.Ident.native
+                      (String.trim (Str.matched_group 2 args)))
         with
           Not_found ->
             match implementation with
@@ -278,7 +284,7 @@ let extract_register implementation =
       in
       match name, definition with
       | `success name, `success definition ->
-        `found (BD.Register (name, definition, ty))
+        `found (BD.Register (JsIdent.to_string name, definition, ty))
       | `success _, `error message
       | `error message, `success _ -> `wrong_format (pos, message)
       | `error m1, `error m2 -> `wrong_format (pos, Printf.sprintf "%s, %s" m1 m2)
@@ -345,30 +351,35 @@ let filter_lines lines = List.filter_map (fun line ->
   | JsLex.CommentTag (pos, tag, args) -> Some (pos, tag, args)
 ) lines
 
-let rec doc_comment acc code =
+let rec analyze_comments directives code =
   match code with
   | J.Js_comment (_, J.Jc_doc (_, lines)) :: rest -> (
     let tags = filter_lines lines in
     let implementation, rest = match rest with
       | J.Js_function (_, ident, args, _) :: rest
       | J.Js_var (_, ident, Some (J.Je_function (_, _, args, _))) :: rest ->
-        `func (JsIdent.to_string ident, args), rest
+        `func (ident, args), rest
       | J.Js_var (_, ident, _) :: rest ->
-        `var (JsIdent.to_string ident), rest
+        `var ident, rest
       | _ -> `none, rest in
     match maybe_extract_directive implementation tags with
-    | NoOccurrences -> doc_comment acc rest
+    | NoOccurrences -> analyze_comments directives rest
     | Error e -> `error e
     | Found (pos, bsl_tags, d) ->
-      doc_comment ((pos, bsl_tags, d) :: acc) rest
+      analyze_comments ((pos, bsl_tags, d) :: directives) rest
   )
-  | _ :: rest -> doc_comment acc rest
-  | [] -> `success (List.rev acc)
+  | _ :: rest -> analyze_comments directives rest
+  | [] -> `success (List.rev directives)
+
+let process code =
+  match analyze_comments [] code with
+  | `error e -> `error e
+  | `success directives -> `success {directives; code}
 
 let parse_file filename =
   try
     let code = JsParse.File.code ~throw_exn:true filename in
-    doc_comment [] code
+    process code
   with
     JsParse.Exception e ->
       `error (Format.to_string JsParse.pp e)
@@ -376,7 +387,7 @@ let parse_file filename =
 let parse_string ?filename content =
   try
     let code = JsParse.String.code ?filename ~throw_exn:true content in
-    doc_comment [] code
+    process code
   with
     JsParse.Exception e ->
       `error (Format.to_string JsParse.pp e)

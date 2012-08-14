@@ -35,6 +35,7 @@ let (|>) = InfixOperator.(|>)
 module BPI = BslPluginInterface
 module D = BslDirectives
 module DJ = D.Js
+module J = JsAst
 
 type filename = string
 type contents = string
@@ -47,7 +48,7 @@ type js_file = FBuffer.t
 
 type js_decorated_file = {
   directives: (FilePos.pos * BslTags.t * DJ.t) list;
-  contents: contents;
+  contents: J.code;
   filename: filename;
 }
 
@@ -542,9 +543,8 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
   in
   env, js_file
 
-let env_add_file_line ~filename env js_file =
-  let js_file = FBuffer.printf js_file "// file %S, line 1@\n" filename in
-  js_file, env
+let add_file_line ~filename js_file =
+  FBuffer.printf js_file "// file %S, line 1@\n" filename
 
 let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
   let filename = decorated_file.D.filename in
@@ -554,7 +554,7 @@ let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
   let env = env_add_module nopos implementation None env in
   (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
   let js_file = fbuffer () in
-  let js_file, env = env_add_file_line ~filename env js_file in
+  let js_file = add_file_line ~filename js_file in
 
   let env, js_file =
     List.fold_left (fold_source_elt_classic ~dynloader_interface ~filename ~lang) (env, js_file) source
@@ -584,7 +584,7 @@ let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
    updated map of bypasses that have been defined in this file, so
    they can be bound later *)
 let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
-    (env, local_defs) (pos, tags, directive) =
+    (env, renaming) (pos, tags, directive) =
   match directive with
   | DJ.OpaTypeDef (skey, params) ->
     if not tags.BslTags.opaname then
@@ -637,7 +637,7 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     BslPluginInterface.apply_register_type
       dynloader_interface.BslPluginInterface.register_type rt;
     let env = { env with ty_spec_map; } in
-    env, local_defs
+    env, renaming
 
   | DJ.ExternalTypeDef (skey, params) ->
     let rt_ks = env_rp_ks env skey in
@@ -678,30 +678,30 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     BslPluginInterface.apply_register_type
       dynloader_interface.BslPluginInterface.register_type rt;
     let env = { env with ty_spec_map; } in
-    env, local_defs
+    env, renaming
 
   | DJ.Module skey ->
-    env_add_module pos skey None env, local_defs
+    env_add_module pos skey None env, renaming
 
   | DJ.EndModule ->
-    env_add_endmodule pos env, local_defs
+    env_add_endmodule pos env, renaming
 
   | DJ.Register (skey, implementation, bslty) ->
     let rp_ks = env_rp_ks env skey in
     let rp_ty = env_map_ty_reference_for_opa env pos skey bslty in
     let parsed_t = BslTags.parsed_t tags in
     let key = BslKey.normalize (String.concat "." rp_ks) |> BslKey.to_string in
-    let keyed_implementation, local_defs =
+    let keyed_implementation, renaming =
       (* For now, we try to export the bypasses in code with the same
          name as they would have using the classic syntax, just to make
          sure that nothing will go wrong *)
       match implementation with
       | DJ.Regular name ->
-        let ki = env_rp_implementation env skey in
-        ki, StringMap.add key (ki, name) local_defs
+        let ki = JsCons.Ident.native (env_rp_implementation env skey) in
+        JsIdent.to_string ki, JsIdentMap.add name ki renaming
       | DJ.Inline source ->
         (* Since it is just an alias in this case, we don't need to bind it *)
-        source, local_defs
+        source, renaming
     in
     let rp_ips = [ lang, filename, parsed_t, keyed_implementation ] in
     let rp = { BslPluginInterface.
@@ -716,7 +716,35 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     } in
     BslPluginInterface.apply_register_primitive
       dynloader_interface.BslPluginInterface.register_primitive rp;
-    env, local_defs
+    env, renaming
+
+let rename renaming code =
+  List.map (fun stm ->
+    JsWalk.TStatement.map
+      (fun stm ->
+        match stm with
+        | J.Js_function (pos, ident, args, body) -> (
+          match JsIdentMap.find_opt ident renaming with
+          | Some ident' -> J.Js_function (pos, ident', args, body)
+          | None -> stm
+        )
+        | J.Js_var (pos, ident, def) -> (
+          match JsIdentMap.find_opt ident renaming with
+          | Some ident' -> J.Js_var (pos, ident', def)
+          | None -> stm
+        )
+        | _ -> stm
+      )
+      (fun expr ->
+        match expr with
+        | J.Je_ident (pos, ident) -> (
+          match JsIdentMap.find_opt ident renaming with
+          | Some ident' -> J.Je_ident (pos, ident')
+          | None -> expr
+        )
+        | _ -> expr
+      ) stm
+  ) code
 
 let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
   let filename = decorated_file.filename in
@@ -725,16 +753,15 @@ let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
 
   (* we add a module for each file *)
   let env = env_add_module nopos implementation None env in
+  let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
+  let init_state = (env, JsIdentMap.empty) in
+  let env, renaming = List.fold_left fold init_state directives in
+
   (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
   let js_file = fbuffer () in
-  let js_file, env = env_add_file_line ~filename env js_file in
-  let js_file = FBuffer.add js_file decorated_file.contents in
-  let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
-  let init_state = (env, StringMap.empty) in
-  let env, local_defs = List.fold_left fold init_state directives in
-  let js_file = StringMap.fold (fun _key (lhs, rhs) js_file ->
-    FBuffer.printf js_file "var %s = %s;\n" lhs rhs
-  ) local_defs js_file in
+  let js_file = add_file_line ~filename js_file in
+  let contents = rename renaming decorated_file.contents in
+  let js_file = FBuffer.printf js_file "%a" JsPrint.pp#code contents in
   let js_code = FBuffer.contents js_file in
   let file_js_code = filename, js_code in
   let rev_files_js_code = file_js_code :: env.rev_files_js_code in
