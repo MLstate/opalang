@@ -244,20 +244,44 @@ let extract_register implementation =
       let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
       let name =
         try
-          Some (String.trim (Str.matched_group 2 args))
-        with
-          Not_found -> implementation in
-      let definition =
-        try
-          Some (BD.Inline (Str.matched_group 3 args))
+          `success (String.trim (Str.matched_group 2 args))
         with
           Not_found ->
-            Option.map (fun i -> BD.Regular i) implementation in
+            match implementation with
+            | `func (ident, args1) -> (
+              (* Check if arities match *)
+              match ty with
+              | BT.Fun (_, args2, _) ->
+                let l1 = List.length args1 in
+                let l2 = List.length args2 in
+                if l1 <> l2 then
+                  `error (Printf.sprintf (
+                    "Function definition takes %d arguments, "^^
+                    "but its registred type expects %d"
+                  ) l1 l2)
+                else
+                  `success ident
+              | _ -> `success ident
+            )
+            | `var ident -> `success ident
+            | `none -> `error "Missing bypass name in @register declaration"
+      in
+      let definition =
+        try
+          `success (BD.Inline (Str.matched_group 3 args))
+        with
+          Not_found ->
+            match implementation with
+            | `func (ident, _)
+            | `var ident -> `success (BD.Regular ident)
+            | `none -> `error "Missing definition in @register declaration"
+      in
       match name, definition with
-      | Some name, Some definition ->
+      | `success name, `success definition ->
         `found (BD.Register (name, definition, ty))
-      | Some _, None -> `wrong_format (pos, "Missing definition in @register declaration")
-      | None, _ -> `wrong_format (pos, "Missing bypass name in @register declaration")
+      | `success _, `error message
+      | `error message, `success _ -> `wrong_format (pos, message)
+      | `error m1, `error m2 -> `wrong_format (pos, Printf.sprintf "%s, %s" m1 m2)
     else
       `wrong_format
         (pos, "Format of @register is \"@register {type} key [optional source]\"")
@@ -326,10 +350,12 @@ let rec doc_comment acc code =
   | J.Js_comment (_, J.Jc_doc (_, lines)) :: rest -> (
     let tags = filter_lines lines in
     let implementation, rest = match rest with
-      | J.Js_function (_, ident, _, _) :: rest
+      | J.Js_function (_, ident, args, _) :: rest
+      | J.Js_var (_, ident, Some (J.Je_function (_, _, args, _))) :: rest ->
+        `func (JsIdent.to_string ident, args), rest
       | J.Js_var (_, ident, _) :: rest ->
-        Some (JsIdent.to_string ident), rest
-      | _ -> None, rest in
+        `var (JsIdent.to_string ident), rest
+      | _ -> `none, rest in
     match maybe_extract_directive implementation tags with
     | NoOccurrences -> doc_comment acc rest
     | Error e -> `error e
