@@ -52,7 +52,7 @@ let process env =
       modular_plugins = false;
       unsafe_js = false;
       unsafe_opa = false;
-      js_classic_bypass_syntax = true;
+      js_classic_bypass_syntax = env.PH.options.O.js_classic_bypass_syntax;
     } in
 
     let session = BR.create ~options in
