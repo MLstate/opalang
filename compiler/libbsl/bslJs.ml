@@ -68,7 +68,7 @@ type env = {
   (* accumulating files in a fold *)
   rev_files_js_code   : (filename * contents) list ;
 
-  rev_path            :  ( skey * module_name * pos ) list ;
+  rev_path            : (skey * module_name * pos) list ;
 
   ty_spec_map         : ty_spec_map ;
   renaming            : renaming ;
