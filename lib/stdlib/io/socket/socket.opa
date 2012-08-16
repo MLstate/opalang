@@ -37,7 +37,7 @@ type Mailbox.t = {
     {b Warning:} This module is still experimental.
 */
 
-@private memdump = (%% BslPervasives.memdump %%: string -> string)
+@private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
 Mailbox = {{
 
@@ -86,7 +86,7 @@ Mailbox = {{
     then {success=(check({mb with start=mb.start+len; len=mb.len-len}))}
     else {failure="Mailbox.skip: Not enough data for {len} bytes (currently {mb.len})"}
 
-  print(name:string, mb:Mailbox.t) : void = jlog("{name}: {memdump(string_contents(mb))}")
+  print(name:string, mb:Mailbox.t) : void = jlog("{name}: {bindump(binary_contents(mb))}")
 
 }}
 
@@ -175,7 +175,7 @@ Socket = {{
       else
         match binary_read_with_err_cont(conn, timeout) with
         | {success=data} ->
-           do jlog("read_fixed: data=\n{memdump(string_of_binary(data))}")
+           do jlog("read_fixed: data=\n{bindump(data)}")
            read_fixed(conn,timeout,len,Mailbox.add_binary(mb, data))
         | {~failure} -> {~failure}
 

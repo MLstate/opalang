@@ -112,7 +112,7 @@ type WireProtocol.Message = {
 @private U = Pack.Unser
 @private zero64 = Int64.of_int(0)
 
-@private memdump = (%% BslPervasives.memdump %%: string -> string)
+@private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
 WireProtocol = {{
 
@@ -256,12 +256,17 @@ WireProtocol = {{
     (11+codesize+String.length(name)+docsize,
      [{Byte=el_codewscope}, {Cstring=name}, {Long=codesize+docsize+9}, {Long=codesize+1}, {Cstring=code}, {Pack=doc}])
 
-  binary(name,typ,str) =
-    strsize = String.length(str)
+  binary(name,typ,bin) =
+    strsize = Binary.length(bin)
     size = 7+String.length(name)+strsize
     if typ == st_bin_binary_old
-    then (size+4,[{Byte=el_bindata}, {Cstring=name}, {Long=strsize+4}, {Byte=typ}, {String=str; le=true; size={L}}])
-    else (size,[{Byte=el_bindata}, {Cstring=name}, {String=str; payload=[{Byte=typ}]; le=true; size={L}}])
+    then (size+4,[{Byte=el_bindata}, {Cstring=name}, {Long=strsize+4}, {Byte=typ}, {Binary=bin; le=true; size={L}}])
+    else (size,[{Byte=el_bindata}, {Cstring=name}, {Binary=bin; payload=[{Byte=typ}]; le=true; size={L}}])
+//    strsize = String.length(str)
+//    size = 7+String.length(name)+strsize
+//    if typ == st_bin_binary_old
+//    then (size+4,[{Byte=el_bindata}, {Cstring=name}, {Long=strsize+4}, {Byte=typ}, {String=str; le=true; size={L}}])
+//    else (size,[{Byte=el_bindata}, {Cstring=name}, {String=str; payload=[{Byte=typ}]; le=true; size={L}}])
 
   new_oid =
     counter = ServerReference.create(0)
@@ -275,7 +280,7 @@ WireProtocol = {{
       do Binary.add_int32_be(b, cnt)
       b)
 
-  oid(name,oid) = (14+String.length(name),[{Byte=el_oid}, {Cstring=name}, {Binary=(12,oid)}])
+  oid(name,oid) = (14+String.length(name),[{Byte=el_oid}, {Cstring=name}, {FixedBinary=(12,oid)}])
 
   oid_of_string(_str:string) : string = @fail // TODO
     //let oid = S.create 12 in
@@ -390,9 +395,9 @@ WireProtocol = {{
                | {~failure} -> {~failure})
             | /*el_oid*/7 ->
               do if (Pack.debug) then jlog("el_oid")
-              (match U.binary(input, 12) with
+              (match U.fixed_binary(input, 12) with
                | {success=(input,oid)} ->
-                  {success=(input,{some={~name; value={ObjectID=string_of_binary(oid)}}})} // <-- this will be binary, one day
+                  {success=(input,{some={~name; value={ObjectID=string_of_binary8(oid)}}})} // <-- this will be binary, one day
                | {~failure} -> {~failure})
             | /*el_bool*/8 ->
               do if (Pack.debug) then jlog("el_bool")
@@ -842,16 +847,15 @@ WireProtocol = {{
     data = List.flatten(List.map(packMessage,msgs))
     match E.pack(data) with
     | {success=binary} ->
-       //s = string_of_binary(binary)
-       //do jlog("export: s=\n{memdump(s)}")
-       {success=(string_of_binary(binary),Binary.length(binary))}
+       //do jlog("export: s=\n{bindump(binary)}")
+       {success=(string_of_binary8(binary),Binary.length(binary))}
     | {~failure} -> {~failure}
 
   binary_export(msgs:list(WireProtocol.Message)) : outcome(binary,string) =
     data = List.flatten(List.map(packMessage,msgs))
     match E.pack(data) with
     | {success=binary} ->
-       do jlog("binary_export: s=\n{memdump(string_of_binary(binary))}")
+       do jlog("binary_export: s=\n{bindump(binary)}")
        {success=binary}
     | {~failure} -> {~failure}
 
@@ -896,7 +900,7 @@ do jlog("read_mongo: read 4")
 do jlog("read_mongo: len={len}")
        (match Socket.read_fixed(conn, timeout, len-4, mailbox) with
         | {success=mailbox} ->
-do jlog("read_mongo:reply=\n{memdump(Binary.get_string(mailbox.buf,mailbox.start,len))}")
+do jlog("read_mongo:reply=\n{bindump(Binary.get_binary(mailbox.buf,mailbox.start,len))}")
            (match unser_message({binary=mailbox.buf; pos=mailbox.start}) with
             | {success=(_,~{MsgHeader; MsgBody={~Reply}})} ->
                (match Mailbox.skip(mailbox, len) with
@@ -914,14 +918,14 @@ do jlog("read_mongo: reply={~{MsgHeader; MsgBody={~Reply}}}")
 /*
 @private E = Pack.Encode
 @private WP = WireProtocol
-@private memdump = (%% BslPervasives.memdump %%: string -> string)
+@private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
 bindump(txt,message) =
   do jlog("{txt}: message={message}")
   match E.pack(message) with
   | {success=binary} ->
      do jlog("string_of_message_binary:\n{WP.string_of_message_binary(binary)}")
-     do jlog("{txt}:\n{memdump(string_of_binary(binary))}")
+     do jlog("{txt}:\n{bindump(binary)}")
      match WP.unser_message({~binary; pos=0}) with
      | {success=(_,msg)} -> jlog("{txt}: msg={msg}")
      | {~failure} -> jlog("{txt}: failure={failure}")

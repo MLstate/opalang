@@ -78,6 +78,14 @@ type binary = external
 binary_of_string : string -> binary = %%BslBinary.binary_of_string%%
 
 /**
+ * As for string_of_binary but makes an attempt to split multi-byte
+ * characters into separate 8-bit characters.  This routine should be
+ * used with caution, it is slow and makes assumptions about the
+ * behaviour of the backend.
+ */
+binary_of_string8 : string -> binary = %%BslBinary.binary_of_string8%%
+
+/**
  * Turns binary data back into a string.
  *
  * As for binary_of_string this function copies the entire string.
@@ -88,6 +96,12 @@ binary_of_string : string -> binary = %%BslBinary.binary_of_string%%
  * @return A string of 8-bit characters.
  */
 string_of_binary : binary -> string = %%BslBinary.string_of_binary%%
+
+/**
+ * As for string_of_binary but uses the *deprecated* binary encoding
+ * for javascript backends.  Use with caution.
+ */
+string_of_binary8 : binary -> string = %%BslBinary.string_of_binary%%
 
 @opacapi
 bin_of_base64(x:string):binary = %%bslPervasivesServer.bin_of_base64%%(x)

@@ -295,6 +295,7 @@ MongoDriver = {{
     ML.debug(txt,"\n{string_of_message(s)}",void)*/
 
 @private memdump = (%% BslPervasives.memdump %%: string -> string)
+@private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
   @private
   send_no_reply_(m,mbuf:Mongo.mongo_buf,name,reply_expected): bool =
@@ -306,7 +307,7 @@ do jlog("send_no_reply_: {name}")
 //do jlog("send_no_reply_: s=\n{memdump(s)}")
        (match WP.binary_export(mbuf) with
         | {success=binary} ->
-do jlog("send_no_reply_: s=\n{memdump(string_of_binary(binary))}")
+do jlog("send_no_reply_: s=\n{bindump(binary)}")
            len = Binary.length(binary)
            //s = string_of_binary(binary)
            //s = String.substring(0,len,str)

@@ -13,6 +13,8 @@
 
 ##extern-type int32 = Int32.t
 
+exception Not_implemented of string
+
 ##module Int \ bsl_int
 
 ##register max_int : int

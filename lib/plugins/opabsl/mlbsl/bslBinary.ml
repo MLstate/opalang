@@ -8,9 +8,19 @@
 
 ##register binary_of_string : string -> binary
 let binary_of_string s =
-  Buf.of_string s
+  let b = Buf.create (String.length s) in
+  Buf.add_string b s;
+  b
+
+##register binary_of_string8 : string -> binary
+let binary_of_string8 s =
+  let b = Buf.create (String.length s) in
+  Buf.add_string b s;
+  b
 
 ##register string_of_binary\ `Buf.contents`: binary -> string
+
+##register string_of_binary8\ `Buf.contents`: binary -> string
 
 ##register resize : binary, int -> void
 let resize b size =

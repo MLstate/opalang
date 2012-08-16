@@ -139,7 +139,7 @@ SocketPool = {{
   make(host:Mongo.mongo_host, max:int, _log:bool): SocketPool.t =
     do ML.debug("SocketPool.make","{host}",void)
     Session.make(({~host; ~max; log=true; cnt=0; sockets=[]; allocated=[]; queue=Queue.empty;
-                   slaveok=false; open_connections=IntSet.empty; monitor_connections=false}:SocketPool.state),
+                   slaveok=false; open_connections=IntSet.empty; monitor_connections=true}:SocketPool.state),
                  pool_handler)
 
   get(pool:SocketPool.t) : SocketPool.result =
