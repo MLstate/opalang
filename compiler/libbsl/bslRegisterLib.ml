@@ -1505,6 +1505,26 @@ let parse_file_factory pprocess process_directive set_last_directive options par
 
   parsed_file
 
+(* Add some tags for the "register" directive based on its type *)
+let add_register_tags bslty tags =
+  let tags =
+    if tags.BslTags.cps_bypass then
+      { tags with
+        BslTags.no_projection =
+          let set =
+            Option.default StringSet.empty tags.BslTags.no_projection in
+          Some (StringSet.add "cps" set)
+      }
+    else tags
+  in
+  let second_order = tags.BslTags.second_order in
+  let second_order = second_order || BslTypes.is_second_order bslty in
+  let tags =
+    { tags with
+      BslTags.second_order = second_order ;
+    }
+  in
+  tags
 
 (*
   Feature: in some cases, you may want to add automatically some tags when
@@ -1512,25 +1532,7 @@ let parse_file_factory pprocess process_directive set_last_directive options par
 *)
 let bypass_auto_tags directive tags =
   match directive with
-  | BDir.Register (_, _, _, bslty) ->
-      let tags =
-        if tags.BslTags.cps_bypass then
-          { tags with
-              BslTags.no_projection =
-              let set =
-                Option.default StringSet.empty tags.BslTags.no_projection in
-              Some (StringSet.add "cps" set)
-          }
-        else tags
-      in
-      let second_order = tags.BslTags.second_order in
-      let second_order = second_order || BslTypes.is_second_order bslty in
-      let tags =
-        { tags with
-            BslTags.second_order = second_order ;
-        }
-      in
-      tags
+  | BDir.Register (_, _, _, bslty) -> add_register_tags bslty tags
   | _ ->
       tags
 
@@ -1569,6 +1571,14 @@ let parse_js_bypass_file_new pprocess filename =
   match BslJsParse.parse_string ~filename contents with
   | `error e -> OManager.error "%s" e
   | `success {BslJsParse. directives; code = contents} ->
+    let add_tags ((pos, tags, directive) as p) =
+      match directive with
+      | BDir.Js.Register (_, _, bslty) ->
+        let tags = add_register_tags bslty tags in
+        (pos, tags, directive)
+      | _ -> p
+    in
+    let directives = List.map add_tags directives in
     { BslJs. filename; contents; directives; }
 
 let parse_js_bypass_file pprocess options filename =
