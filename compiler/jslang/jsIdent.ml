@@ -62,3 +62,10 @@ let hash = function
 let stident = function
   | Native (_, s) -> s
   | ExprIdent s -> Ident.stident s
+let inspect = function
+  | Native (`global b, s) -> Printf.sprintf "Native (`global %B, %S)" b s
+  | Native (`local, s) -> Printf.sprintf "Native (`local, %S)" s
+  | ExprIdent s -> Printf.sprintf "ExprIdent %S" (Ident.to_string s)
+let is_native_global = function
+  | Native (`global _, _) -> true
+  | _ -> false

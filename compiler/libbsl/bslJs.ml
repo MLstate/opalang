@@ -697,10 +697,13 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
          sure that nothing will go wrong *)
       match implementation with
       | DJ.Regular name ->
-        let ki = JsCons.Ident.native (env_rp_implementation env skey) in
-        JsIdent.to_string ki, JsIdentMap.add name ki renaming
+        let ki = JsCons.Ident.native_global (env_rp_implementation env skey) in
+        JsIdent.to_string ki,
+        StringMap.add (JsIdent.to_string name) ki renaming
       | DJ.Inline source ->
-        (* Since it is just an alias in this case, we don't need to bind it *)
+        (* Since it is just an alias in this case, we don't need to
+           bind it.  FIXME: This will break if the source fragment
+           contains an identifier which will be renamed. *)
         source, renaming
     in
     let rp_ips = [ lang, filename, parsed_t, keyed_implementation ] in
@@ -719,17 +722,23 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     env, renaming
 
 let rename renaming code =
+  let code = List.map JsUtils.globalize_native_ident code in
+  let new_name ident =
+    if JsIdent.is_native_global ident then
+      StringMap.find_opt (JsIdent.to_string ident) renaming
+    else
+      None in
   List.map (fun stm ->
     JsWalk.TStatement.map
       (fun stm ->
         match stm with
         | J.Js_function (pos, ident, args, body) -> (
-          match JsIdentMap.find_opt ident renaming with
+          match new_name ident with
           | Some ident' -> J.Js_function (pos, ident', args, body)
           | None -> stm
         )
         | J.Js_var (pos, ident, def) -> (
-          match JsIdentMap.find_opt ident renaming with
+          match new_name ident with
           | Some ident' -> J.Js_var (pos, ident', def)
           | None -> stm
         )
@@ -738,7 +747,7 @@ let rename renaming code =
       (fun expr ->
         match expr with
         | J.Je_ident (pos, ident) -> (
-          match JsIdentMap.find_opt ident renaming with
+          match new_name ident with
           | Some ident' -> J.Je_ident (pos, ident')
           | None -> expr
         )
@@ -754,7 +763,7 @@ let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
   (* we add a module for each file *)
   let env = env_add_module nopos implementation None env in
   let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
-  let init_state = (env, JsIdentMap.empty) in
+  let init_state = (env, StringMap.empty) in
   let env, renaming = List.fold_left fold init_state directives in
 
   (* For each file, we create a FBuffer, updated in a fold on decorated lines *)

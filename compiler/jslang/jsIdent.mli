@@ -34,3 +34,9 @@ val equal : t -> t -> bool
 val to_string : t -> string
 val hash : t -> int
 val stident : t -> string
+
+(** Returns a detailed representation of the identifier *)
+val inspect : t -> string
+
+(** Returns true iff the identifier is global *)
+val is_native_global : t -> bool
