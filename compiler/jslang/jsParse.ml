@@ -33,6 +33,9 @@ let native_ident = JsCons.Ident.native
  *
  * The new module also carries an imperative state to discard comments
  * implicitely. This has to be set carefully by the various rules. *)
+
+module OriginalStream = Stream
+
 module Stream =
 struct
 
@@ -577,25 +580,36 @@ let stm stream =
   match stream with parser
   | [< s = statement; _ = Stream.empty >] -> s
 
-type error = (int * int * string * string)
-exception Exception of error
-let pp f (start,end_,lexem,s) =
-  Format.fprintf f "Parse error at %d-%d on %S%s"
-    start
-    end_
-    lexem
-    (if s = "" then s else ": " ^ s)
+type error =
+(** Error while actually trying to parse file *)
+| ParseError of int * int * string * string
+(** IO error (i.e. couldn't open file) *)
+| FileError of string
 
-let build_parser ?(throw_exn=false) ?(globalize=fun x -> x) parser_ (stream,lexbuf) =
+exception Exception of error
+let pp f = function
+  | ParseError (start, end_, lexem, s) ->
+    Format.fprintf f "Parse error at %d-%d on %S%s"
+      start
+      end_
+      lexem
+      (if s = "" then s else ": " ^ s)
+  | FileError filename ->
+    Format.fprintf f "Could not open file %s" filename
+
+let build_parser ?(throw_exn=false) ?(globalize=fun x -> x)
+    (parser_ : JsLex.token OriginalStream.t -> 'a) (stream,lexbuf) : 'a =
   try
     let code = parser_ stream in
     globalize code
   with Stream.Error s ->
-    let tuple = (Lexing.lexeme_start lexbuf,Lexing.lexeme_end lexbuf,Lexing.lexeme lexbuf,s) in
+    let error = ParseError
+      (Lexing.lexeme_start lexbuf, Lexing.lexeme_end lexbuf,
+       Lexing.lexeme lexbuf, s) in
     if throw_exn then
-      raise (Exception tuple)
+      raise (Exception error)
     else (
-      Format.eprintf "%a@." pp tuple;
+      Format.eprintf "%a@." pp error;
       exit 1
     )
 
@@ -610,6 +624,12 @@ let global_expr ?(globalize=false) expr =
   else
     expr
 
+let stream_of_file lex_comments file =
+  try
+    JsLex.stream_of_file ~lex_comments:lex_comments file
+  with
+  | Unix.Unix_error _ -> raise (Exception (FileError file))
+
 module String =
 struct
   let code ?throw_exn str =
@@ -623,10 +643,10 @@ end
 module File =
 struct
   let code ?throw_exn file =
-    build_parser ?throw_exn code (JsLex.stream_of_file ~lex_comments:true file)
+    build_parser ?throw_exn code (stream_of_file true file)
   let expr ?throw_exn ?globalize file =
     build_parser ?throw_exn ~globalize:(global_expr ?globalize) expr
-      (JsLex.stream_of_file ~lex_comments:true file)
+      (stream_of_file true file)
   let stm ?throw_exn file =
-    build_parser ?throw_exn stm (JsLex.stream_of_file ~lex_comments:true file)
+    build_parser ?throw_exn stm (stream_of_file true file)
 end
