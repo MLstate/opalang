@@ -59,13 +59,14 @@ type options = {
   bypass_plugins: BslDynlink.bypass_plugin_file list;
   files: string list;
   package_version: string;
-  spec_process: (string, string) Hashtbl.t;
+  spec_process: string StringMap.t;
   ml_flags: string list;
   mlopt_flags: string list;
   js_validator: string option;
   js_validator_files: string list;
   js_validator_options: string list;
   pprocess: string option;
+  js_classic_bypass_syntax: bool;
 }
 
 val default_opts : options
