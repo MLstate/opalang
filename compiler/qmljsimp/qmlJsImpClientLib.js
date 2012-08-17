@@ -358,9 +358,15 @@ function type_option(key,value) {
     size(value) == 1 && ('none' in value || 'some' in value) || typeerror(key,"type option vs value "+value)
 }
 
-// special case: we accept the js_void, in case of a double projection
+/* special case: we accept the js_void, in case of a double projection
+ *
+ * FIXME: do we really need to accept this?
+ */
 function type_native_void(key,value) {
-    value == null || value === js_void || typeerror(key, "type native void vs value "+value)
+    typeof (value) == 'undefined' ||
+    value == null ||
+    value === js_void ||
+    typeerror(key, "type native void vs value "+value);
 }
 
 function type_native_option(key,value) {
