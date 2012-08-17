@@ -100,13 +100,17 @@ let counting_ending n =
   else if n = 3 then "rd"
   else "th"
 
+let eqType t1 t2 =
+  try W_Unify.unify_simple_type W_TypingEnv.empty_typing_env t1 t2; true
+  with _ -> false
+
 let rec __hint_compare_fun_arguments ppf (real_args, tmp_args, n) =
   match (real_args, tmp_args) with 
    | ([], []) -> ()
    | (real_ty::real_tys, applied_ty::applied_tys) ->
       let real_ty = W_CoreTypes.simple_type_repr real_ty in
       let applied_ty = W_CoreTypes.simple_type_repr applied_ty in
-      if (real_ty = applied_ty)
+      if (eqType real_ty applied_ty)
          then __hint_compare_fun_arguments ppf (real_tys, applied_tys, n+1)
          else Format.fprintf ppf 
               ("@\n@[<2>@{<bright>Hint@}:@\nFunction expects a %d%s-argument " ^^
