@@ -83,14 +83,18 @@ struct
        | Some ret -> ret)
 
   let function_projection
+      ~level (* The recursion level, to avoid parameter shadowing *)
       ?(more=None)
       ?(cps=`no)
-      ?(check=false) ~inputs ~outputs ~bsltags _env ~key private_env type_params type_return id =
+      ?(check=false) ~inputs ~outputs ~bsltags _env ~key private_env
+      type_params type_return id =
     let cps = if BslTags.do_projection bsltags "cps" then cps else `no in
     let initial_local_vars = private_env.local_vars in
     (* 1 - Projection of inputs *)
     let private_env = {local_vars = []} in
-    let params = List.mapi (fun i _ -> param (Printf.sprintf "p%d" i)) type_params in
+    let params = List.mapi (fun i _ ->
+      param (Printf.sprintf "p%d_%d" level i)
+    ) type_params in
     let proj_input (private_env,projected) typ x =
       match inputs private_env typ (JsCons.Expr.ident x) with
       | Some (private_env, ast) -> (private_env, true), ast
@@ -218,7 +222,9 @@ struct
 
   (* when the relevant option is activated, inserting type checks that the js
    * object received correspond to the type declared in the bsl *)
-  let rec aux_qml_of_js ~bsltags key env private_env typ (id:JsAst.expr) : (private_env * JsAst.expr) option =
+  let rec aux_qml_of_js ~level ~bsltags key env private_env typ
+      (id:JsAst.expr) :
+      (private_env * JsAst.expr) option =
     match typ with
     | B.Const (_, c) ->
         if env.options.Qml2jsOptions.check_bsl_types then
@@ -252,7 +258,8 @@ struct
           None (* same representation for booleans *)
 
     | B.Option (_, o) ->
-        aux_option ~check:env.options.Qml2jsOptions.check_bsl_types (aux_qml_of_js ~bsltags) key env private_env o id
+        aux_option ~check:env.options.Qml2jsOptions.check_bsl_types
+          (aux_qml_of_js ~level ~bsltags) key env private_env o id
 
     | B.OpaValue (_, t) ->
         if env.options.Qml2jsOptions.check_bsl_types then
@@ -278,7 +285,7 @@ struct
 
     | B.External (_, _, p) ->
         aux_external ~check:env.options.Qml2jsOptions.check_bsl_types
-          (aux_qml_of_js ~bsltags) key env private_env p id
+          (aux_qml_of_js ~level ~bsltags) key env private_env p id
 
     | B.Fun (_, inputs, output) ->
         let cps =
@@ -287,16 +294,16 @@ struct
           | false, true -> `from
           | true, true | false, false -> `no
         in
-        function_projection ~cps ~bsltags env ~key
+        function_projection ~level ~cps ~bsltags env ~key
           ~check:env.options.Qml2jsOptions.check_bsl_types
-          ~inputs:(aux_js_of_qml ~bsltags key env)
-          ~outputs:(aux_qml_of_js ~bsltags key env)
+          ~inputs:(aux_js_of_qml ~level:(level + 1) ~bsltags key env)
+          ~outputs:(aux_qml_of_js ~level:(level + 1) ~bsltags key env)
           private_env
           inputs output id
 
   (* in the projection qml -> js, there is no check since the typer
    * already checks that the input of bypasses are right *)
-  and aux_js_of_qml ~bsltags key env private_env typ (id:JsAst.expr) =
+  and aux_js_of_qml ~level ~bsltags key env private_env typ (id:JsAst.expr) =
     match typ with
     | B.Const _ ->
         None
@@ -313,13 +320,13 @@ struct
         None
 
     | B.Option (_, o) ->
-        aux_option (aux_js_of_qml ~bsltags) key env private_env o id
+        aux_option (aux_js_of_qml ~level ~bsltags) key env private_env o id
 
     | B.OpaValue _ ->
         None
 
     | B.External (_,_,p) ->
-        aux_external (aux_js_of_qml ~bsltags) key env private_env p id
+        aux_external (aux_js_of_qml ~level ~bsltags) key env private_env p id
 
     | B.Fun (_, inputs, output) ->
         let cps, more =
@@ -332,9 +339,9 @@ struct
                                          [fun_])
           | false, false -> `no, None
         in
-        function_projection ~more ~cps ~bsltags env ~key
-          ~inputs:(aux_qml_of_js ~bsltags key env)
-          ~outputs:(aux_js_of_qml ~bsltags key env)
+        function_projection ~level ~more ~cps ~bsltags env ~key
+          ~inputs:(aux_qml_of_js ~level:(level + 1) ~bsltags key env)
+          ~outputs:(aux_js_of_qml ~level:(level + 1) ~bsltags key env)
           private_env
           inputs output id
 
@@ -346,13 +353,13 @@ struct
   let initial_private_env = {local_vars = []}
 
   let qml_of_js ~bslkey:key ~bsltags typ ~env (BI.MetaIdent meta_ident) =
-    let o = aux_qml_of_js key ~bsltags env initial_private_env typ
+    let o = aux_qml_of_js ~level:0 key ~bsltags env initial_private_env typ
       (JsCons.Expr.ident (JsCons.Ident.native meta_ident)) in
     let o = wrap_return_of_aux o in
     env, o
 
   let js_of_qml ~bslkey:key ~bsltags typ ~env (BI.MetaIdent meta_ident) =
-    let o = aux_js_of_qml ~bsltags key env initial_private_env typ
+    let o = aux_js_of_qml ~level:0 ~bsltags key env initial_private_env typ
       (JsCons.Expr.ident (JsCons.Ident.native meta_ident)) in
     let o = wrap_return_of_aux o in
     env, o
