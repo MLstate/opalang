@@ -9,6 +9,10 @@ Opa is an advanced framework for JavaScript, made of two parts:
 
 This repository contains all the sources of both the Opa compiler and the Opa library.
 
+## Getting Started ##
+
+Check out the dedicated guide here: https://github.com/MLstate/opalang/wiki/Getting-Started
+
 ## Quick build instructions ##
 
     $ ./configure
