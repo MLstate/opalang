@@ -1,6 +1,6 @@
 Bug fixes:
 
-  * Fix import plugin extraction script on Fedora (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
+  * Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
    
 2012.07.30, Version 1.0.5 (stable), v2988
 
