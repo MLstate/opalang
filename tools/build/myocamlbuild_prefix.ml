@@ -342,7 +342,7 @@ let _ = dispatch begin function
               for increased compatibility with GNU sed. Since FreeBSD still
               supports 7.x that does not has -r, so use -E instead. The -r
               does not exist in MacOS X sed either. *)
-           if is_fbsd && is_mac then
+           if is_fbsd || is_mac then
              Cmd(S[sed; A"-E"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")])
            else
              Cmd(S[sed; A"-r"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
