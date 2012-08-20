@@ -22,6 +22,24 @@ module BI = BslInterface
 module List = Base.List
 module Format = Base.Format
 
+(** When projecting, we want to translate between "normal" JS values
+    (e.g. null, undefined, objects...) and values that follow the Opa
+    API (e.g. {none}, {some: val}...). The correspondence goes as follows:
+
+    {none} <-> null
+    {some = a} <-> a
+    void <-> undefined
+
+    Notice that there is an ambiguity when projecting e.g. nested
+    options. Indeed, it would be impossible to distinguish between
+    [{none}] and [{some = t}], if [t] can also be represented as
+    null. We avoid this by imposing some restrictions on native
+    options: there can only be native options of types for which we're
+    able to determine that they don't contain nulls. This excludes
+    extern types, native options and type variables.
+
+*)
+
 module JS_CTrans =
 struct
   type env = {
@@ -34,17 +52,21 @@ struct
 
   let label = Annot.nolabel "imp_Bsl"
 
-  (* checks if a value of the type can evaluate to false
-   * in a 'if' for instance *)
-  let can_be_false = function
-    | B.Const _
-    | B.Bool _
-    | B.TypeVar _
-    | B.OpaValue _
-    | B.External _ -> true
-    | B.Void _
-    | B.Option _
-    | B.Fun _ -> false
+  (* Checks if a value of this type can evaluate to null. The case for
+     options depends on whether they are an Opa value or not *)
+  let can_be_null t =
+    let rec aux null_option = function
+      | B.Const _
+      | B.Void _
+      | B.Bool _
+      | B.Fun _ -> false
+      | B.TypeVar _
+      | B.External _ -> true
+      | B.Option _ -> null_option
+      | B.OpaValue (_, t) -> aux false t
+    in
+    aux true t
+
 
   (*
     The bsl projection will be globalized
@@ -167,38 +189,55 @@ struct
     else
       None
 
-  let aux_option ?(check=false) caller key env private_env typ (id:JsAst.expr) =
-    (* no projection for options *)
-    ignore id;
-    ignore check;
+  (* Convert from a JS nullable type to an Opa value *)
+  let aux_option_qml_of_js caller key env private_env typ (id:JsAst.expr) =
+    let private_env, x = fresh_var private_env "js" in
+    let proj = caller key env private_env typ (JsCons.Expr.ident x) in
+    let private_env, ast = match proj with
+      | None ->
+        private_env,
+        (* id === null ? js_none : {some: id} *)
+        JsCons.Expr.cond
+          (JsCons.Expr.strict_equality id (JsCons.Expr.null ()))
+          Imp_Common.ClientLib.none
+          (JsCons.Expr.obj ["some", id])
+      | Some (private_env, ast) ->
+        private_env,
+        (* id === null ? js_none : (x = id, {some: ast}) *)
+        JsCons.Expr.cond
+          (JsCons.Expr.strict_equality id (JsCons.Expr.null ()))
+          Imp_Common.ClientLib.none
+          (JsCons.Expr.comma
+             [JsCons.Expr.assign_ident x id]
+             (JsCons.Expr.obj ["some", ast])) in
+    let ast =
+      if env.options.Qml2jsOptions.check_bsl_types then
+        call_typer ~key Imp_Common.ClientLib.type_native_option
+          id ~ret:ast
+      else
+        ast in
+    Some (private_env, ast)
+
+  (* The inverse conversion: take an Opa value and produce a JS value,
+     where [null] represents [{none}] *)
+  let aux_option_js_of_qml caller key env private_env typ (id:JsAst.expr) =
     let private_env, x = fresh_var private_env "js" in
     match caller key env private_env typ (JsCons.Expr.ident x) with
     | None -> None
     | Some (private_env, ast) ->
-        (* let ast = *)
-        (*   if can_be_false typ then *)
-        (*     (\* 'some' in id ? (x = id.some, {some = ast}) : id *\) *)
-        (*     JsCons.Expr.cond *)
-        (*       (JsCons.Expr.in_ (JsCons.Expr.string "some") (JsCons.Expr.ident ret)) *)
-        (*       (JsCons.Expr.comma *)
-        (*          [JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some")] *)
-        (*          (JsCons.Expr.obj ["some", ast])) *)
-        (*       (JsCons.Expr.ident ret) *)
-        (*   else *)
-        (*     (\* (x = id.some) ? {some = ast} : id (\* none *\) *\) *)
-        (*     JsCons.Expr.cond *)
-        (*       (JsCons.Expr.assign_ident x (JsCons.Expr.dot (JsCons.Expr.ident ret) "some")) *)
-        (*       (JsCons.Expr.obj ["some", ast]) *)
-        (*       (JsCons.Expr.ident ret) in *)
-        (* let ast = *)
-        (*   let assign = JsCons.Expr.assign_ident ret ast in *)
-        (*   JsCons.Expr.comma [assign] ast *)
-        (* in *)
-        (* let ast = *)
-        (*   if check then *)
-        (*     call_typer ~key Imp_Common.ClientLib.type_option id ~ret:ast *)
-        (*   else *)
-        (*     ast in *)
+      let ast =
+          (* 'some' in id ? (x = id.some, {some: ast}) : null *)
+          JsCons.Expr.cond
+            (JsCons.Expr.in_ (JsCons.Expr.string "some") id)
+            (JsCons.Expr.comma
+               [JsCons.Expr.assign_ident x (JsCons.Expr.dot id "some")]
+               (JsCons.Expr.obj ["some", ast]))
+            (JsCons.Expr.null ()) in
+        let ast =
+          if env.options.Qml2jsOptions.check_bsl_types then
+            call_typer ~key Imp_Common.ClientLib.type_option id ~ret:ast
+          else
+            ast in
         Some (private_env, ast)
 
 
@@ -219,6 +258,11 @@ struct
       Some (private_env, call_typer ~key Imp_Common.ClientLib.type_extern id)
     else
       None
+
+  let nested_null_error () =
+    OManager.error
+      ("Cannot have options of types that can be null. " ^^
+       "Please use Opa options instead.")
 
   (* when the relevant option is activated, inserting type checks that the js
    * object received correspond to the type declared in the bsl *)
@@ -258,8 +302,10 @@ struct
           None (* same representation for booleans *)
 
     | B.Option (_, o) ->
-        aux_option ~check:env.options.Qml2jsOptions.check_bsl_types
-          (aux_qml_of_js ~level ~bsltags) key env private_env o id
+        (* We always project options *)
+        if can_be_null o then nested_null_error ();
+        aux_option_qml_of_js (aux_qml_of_js ~level ~bsltags)
+          key env private_env o id
 
     | B.OpaValue (_, t) ->
         if env.options.Qml2jsOptions.check_bsl_types then
@@ -320,7 +366,9 @@ struct
         None
 
     | B.Option (_, o) ->
-        aux_option (aux_js_of_qml ~level ~bsltags) key env private_env o id
+        if can_be_null o then nested_null_error ();
+        aux_option_js_of_qml (aux_js_of_qml ~level ~bsltags)
+          key env private_env o id
 
     | B.OpaValue _ ->
         None
