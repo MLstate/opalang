@@ -119,8 +119,9 @@ case "$1" in
         then OPT="--name $1"
         else OPT="$1"
         fi
+        shift
         export NODE_PATH="$NODE_PATH:'$STATIC_PREFIX':'$STDLIB_PREFIX':'$STDLIB_QMLJS_PREFIX'"
-        opa-create $OPT
+        opa-create $OPT $@
         ;;
     *)
         exec '$source' "$@"
