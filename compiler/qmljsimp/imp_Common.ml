@@ -64,6 +64,8 @@ struct
   let size = !! "size"
 
   let void = !! "js_void"
+  let none = !! "js_none"
+  let some = !! "js_some"
 
   let type_string = !! "type_string"
   let type_char = !! "type_char"

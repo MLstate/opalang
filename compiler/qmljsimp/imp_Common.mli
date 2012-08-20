@@ -47,6 +47,8 @@ sig
   val size : JsAst.expr
 
   val void : JsAst.expr
+  val none : JsAst.expr
+  val some : JsAst.expr
 
   val type_string : JsAst.expr
   val type_char : JsAst.expr
