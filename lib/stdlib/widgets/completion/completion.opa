@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -67,6 +67,10 @@ type WCompletion.config('item) = {
      open_class     : string                       /** Name of the class used to mark the widget as open (when the date picker is shown) */
 }
 
+@private
+@public_env
+on_X_void(_:string) = void
+
 WCompletion =
 {{
 
@@ -114,8 +118,8 @@ WCompletion =
     element_style  = default_element_style
     selected_style = default_selected_style
 
-    on_open        = _ -> void
-    on_close       = _ -> void
+    on_open = on_X_void
+    on_close = on_X_void
     open_class   = "wcompletion_open"
   }
 
