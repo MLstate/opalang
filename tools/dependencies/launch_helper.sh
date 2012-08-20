@@ -12,7 +12,31 @@
 
 node=`which node 2>&1`
 if [ $? -ne 0 ] || [ ! -x "$node" ]; then
-    echo "--> node.js missing, please install nodejs from: http://nodejs.org"
+
+    # Detect OS
+    IS_LINUX=""
+    IS_MAC=""
+    IS_WINDOWS=""
+    IS_FREEBSD=""
+    case $(uname) in
+	CYGWIN*) IS_WINDOWS=1;;
+	Darwin*) IS_MAC=1;;
+	Linux*|GNU/kFreeBSD) IS_LINUX=1;;
+	FreeBSD) IS_FREEBSD=1;;
+	*)
+            echo "Error: could not detect OS. Defaulting to Linux" >&2
+            IS_LINUX=1
+    esac
+
+    if [ -n "$IS_MAC" ]; then
+	echo "--> node.js missing, downloading nodejs v0.8.7..."
+	curl http://nodejs.org/dist/v0.8.7/node-v0.8.7.pkg > /tmp/node.pkg
+	open /tmp/node.pkg
+	echo "--> Node installer should be open, please install nodejs and then relaunch this application"
+    else
+	echo "--> node.js missing, please install nodejs from: http://nodejs.org"
+    fi
+
     exit 1
 fi;
 
