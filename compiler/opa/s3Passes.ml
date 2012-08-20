@@ -1797,7 +1797,6 @@ let pass_JavascriptCompilation =
       ) IdentSet.empty (Opa_Roots.roots_for_s3 ~no_server:false) in
       (* instrumented closure should not be cleaned *)
       let client_roots = IdentSet.fold (fun id set ->
-        let id = QmlRenamingMap.new_from_original client_finalenv.P.newFinalCompile_renaming_client id in
         IdentSet.add id set
       ) (pass_InstrumentForClosureSerialization_instrumented()) client_roots
       in

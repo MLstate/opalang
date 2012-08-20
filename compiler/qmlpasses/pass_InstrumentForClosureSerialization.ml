@@ -318,9 +318,9 @@ let rewrite_identifiers always_serialize env annotmap code =
 let process_code gamma annotmap code =
   let always_serialize, code = detect_candidate_def code in
   let need_instrumentation, need_rewrite = detect_candidate_call always_serialize code in
-  if not(need_rewrite) then (*return*) gamma, annotmap, code, IdentSet.empty  else
+  let need_client_code = IdentSet.union need_instrumentation always_serialize in
   let (gamma, annotmap, env), code = if not(IdentSet.is_empty need_instrumentation)
     then generate_instrumented_functions need_instrumentation gamma annotmap code
     else (gamma, annotmap, empty), code in
-  let annotmap, code = rewrite_identifiers always_serialize env annotmap code in
-  gamma, annotmap, code, need_instrumentation
+  let annotmap, code = if need_rewrite then rewrite_identifiers env annotmap code else (annotmap,code) in
+  gamma, annotmap, code, need_client_code
