@@ -498,7 +498,7 @@ compiler/qml2js/LaunchHelper
 compiler/qml2js/Qml2jsOptions
 compiler/qml2js/Qml2js
 compiler/qml2js/Qml2jsBackendOptions
-compiler/qml2js/qmljs_Serializer
+compiler/qml2js/Qmljs_Serializer
 
 compiler/qmljsimp/Imp_Warnings
 compiler/qmljsimp/Imp_Bsl

@@ -2,4 +2,7 @@
 
 rlwrap _build/tools/ocamlall.top \
     -I _build/compiler/jslang \
-    -I _build/compiler/libbsl
+    -I _build/compiler/libbsl \
+    -I _build/compiler/qml2js \
+    -I _build/compiler/compilerlib \
+    -I _build/ocamllib/libbase
