@@ -47,7 +47,7 @@ The following piece of code declares a database named `my_db` and defines :
 Database backend depends on presence and value of `db_options`:
 - `@mongo`: selects MongoDb backend
 - `@db3` value selects Db3 backend
-- If the db_options is omitted, the selected backend depends on the compiler '--database' command line option, with `Db3` being the default (soon to be changed to MongoDB).
+- If the db_options is omitted, the selected backend depends on the compiler '--database' command line option, with `MongoDB` being the default.
 
 ### Initializing database
 
