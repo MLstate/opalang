@@ -509,7 +509,7 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
                   assert (not injected);
                   env_rp_implementation env skey
             in
-            let rp_ips = [ lang, filename, parsed_t, implementation ] in
+            let rp_ips = [ lang, filename, parsed_t, rp_ty, implementation ] in
             let rp = { BslPluginInterface.
               rp_ks  = rp_ks ;
               rp_ty  = rp_ty ;
@@ -713,7 +713,7 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
            contains an identifier which will be renamed. *)
         source, renaming
     in
-    let rp_ips = [ lang, filename, parsed_t, keyed_implementation ] in
+    let rp_ips = [ lang, filename, parsed_t, rp_ty, keyed_implementation ] in
     let rp = { BslPluginInterface.
                rp_ks  = rp_ks ;
                rp_ty  = rp_ty ;

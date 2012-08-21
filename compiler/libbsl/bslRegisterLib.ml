@@ -112,6 +112,7 @@ type identification = {
 type rp_impl = {
   c_rpi_filename               : filename ;
   c_rpi_tags                   : BslTags.parsed_t ;
+  c_rpi_type                   : BslTypes.t ;
   c_rpi_implementation         : implementation ;
 }
 
@@ -119,7 +120,7 @@ type collecting_rp_ips         = rp_impl BslLanguageMap.t
 
 type rp_call = {
   c_rp_ks                      : skey list ;
-  c_rp_ty                      : BslTypes.t ;
+  c_rp_ty                      : BslTypes.t ; (* purged from opa values *)
   c_rp_ips                     : collecting_rp_ips ;
   c_rp_obj                     : implementation option ;
 }
@@ -574,8 +575,7 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
               (* checking the type *)
               (* We do not take opa value declarations into account *)
               let purged_ty = BslTypes.purge_opavalue ty in
-              let purged_c_rp_ty = BslTypes.purge_opavalue c_rp_ty in
-              if (BslTypes.compare ~normalize:true purged_ty purged_c_rp_ty) <> 0
+              if (BslTypes.compare ~normalize:true purged_ty c_rp_ty) <> 0
               then (
                 OManager.printf "%a" FilePos.pp_citation pos ;
                 OManager.error "##register: @{<bright>conflicting primitive definitions@} for key '@{<brigth>%a@}'@\n" BslKey.pp key
@@ -585,7 +585,7 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
               let c_rp_ty = BslTypes.reset_pos c_rp_ty pos in
 
               let c_rp_ips = List.fold_left
-                (fun c_rp_ips (lang, filename, parsed_t, implementation) ->
+                (fun c_rp_ips (lang, filename, parsed_t, type_, implementation) ->
                    (* redefinition in the same language is not allowed *)
                    match BslLanguageMap.find_opt lang c_rp_ips with
                    | Some _ -> (
@@ -598,6 +598,7 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
                        let rp_impl = {
                          c_rpi_filename = filename ;
                          c_rpi_tags = parsed_t ;
+                         c_rpi_type = type_ ;
                          c_rpi_implementation = implementation ;
                        }
                        in
@@ -610,7 +611,7 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
                 | Some _ -> c_rp_obj
                 | None ->
                     List.find_map
-                      (fun (ml, _, _, imp) -> if BslLanguage.is_ml ml then Some imp else None) ips
+                      (fun (ml, _, _, _, imp) -> if BslLanguage.is_ml ml then Some imp else None) ips
               in
 
               let rp_call = {
@@ -634,13 +635,14 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
         | None ->
             (* This is the first time this primitive is defined, collect it *)
             let c_rp_obj = List.find_map
-              (fun (ml, _, _, imp) -> if BslLanguage.is_ml ml then Some imp else None) ips
+              (fun (ml, _, _, _, imp) -> if BslLanguage.is_ml ml then Some imp else None) ips
             in
             let c_rp_ips = List.fold_left
-              (fun c_rp_ips (lang, filename, parsed_t, implementation) ->
+              (fun c_rp_ips (lang, filename, parsed_t, type_, implementation) ->
                  let rp_impl = {
                    c_rpi_filename = filename ;
                    c_rpi_tags = parsed_t ;
+                   c_rpi_type = type_ ;
                    c_rpi_implementation = implementation ;
                  }
                  in
@@ -649,7 +651,7 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
             in
             let rp_call = {
               c_rp_ks = ks ;
-              c_rp_ty = ty ;
+              c_rp_ty = BslTypes.purge_opavalue ty ;
               c_rp_ips = c_rp_ips ;
               c_rp_obj = c_rp_obj ;
             }
@@ -758,9 +760,10 @@ let f_collecting_rp_ips c_rp_ips =
   let fold lang rp_impl acc =
     let filename              = rp_impl.c_rpi_filename in
     let tags                  = rp_impl.c_rpi_tags in
+    let type_                 = rp_impl.c_rpi_type in
     let implementation        = rp_impl.c_rpi_implementation in
     let item =
-      lang, filename, tags, implementation
+      lang, filename, tags, type_, implementation
     in
     item :: acc
   in

@@ -70,29 +70,34 @@ type ocaml_env
 
    + [ks] the hieararchy path until this primitive. The final bslkey will be
    built by lowercase all the path, and separated items with an underscore.
-   + [ty] the type of the primitive
+   + [ty] the type of the primitive, purged from opa value tags.
    + [ips] all informations about the implementations in all target languages
    + [language] the extension of the language
    + [filename] the complete filname with dirname where is the file
    + [parsed_t] the row tags.
+   + [t] the type of this implementation, which can differ from the
+     others on the subtypes tagged as "opa[]".
    + [implementation] the complete identifier for the implementation.
    ["OpabslMLRuntime.Foo.Bar.function"]
    + [obj] optional, a pointer to the function (in this case, the code is linked
    with the runtime, this is no more just a plugin, but a loader for the interpreter)
+
+   Notice that we don't check whether the types of each implementation
+   are compatible with the main type.
 *)
 type register_primitive =
   ks:skey list ->
   ty:BslTypes.t ->
-  ips:(language * filename *  BslTags.parsed_t * implementation) list ->
+  ips:(language * filename * BslTags.parsed_t * BslTypes.t * implementation) list ->
   ?obj:Obj.t ->
   unit -> unit
 
 
 type register_primitive_arguments = {
-  rp_ks                                : skey list ;
-  rp_ty                                : BslTypes.t ;
-  rp_ips                               : ( language * filename * BslTags.parsed_t * implementation ) list ;
-  rp_obj                               : Obj.t option ;
+  rp_ks  : skey list;
+  rp_ty  : BslTypes.t;
+  rp_ips : (language * filename * BslTags.parsed_t * BslTypes.t * implementation) list;
+  rp_obj : Obj.t option;
 }
 
 
@@ -143,9 +148,13 @@ let meta_register_primitive buf ~ks ~ty ~ips ?obj () =
   let b = ~>b "~ty:(%a) " BslTypes.pp_meta ty in
   let b =
     let pp_impl fmt impl =
-      let lang, filename, parsed_t, implementation = impl in
-      Format.fprintf fmt "(%a, %S, %a, %S)"
-        BslLanguage.pp_meta lang filename BslTags.pp_meta parsed_t implementation
+      let lang, filename, parsed_t, ty, implementation = impl in
+      Format.fprintf fmt "(%a, %S, %a, %a, %S)"
+        BslLanguage.pp_meta lang
+        filename
+        BslTags.pp_meta parsed_t
+        BslTypes.pp_meta ty
+        implementation
     in
     ~>b "~ips:[ %a ] " (pp_ml_list pp_impl) ips
   in

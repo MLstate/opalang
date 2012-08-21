@@ -1141,12 +1141,12 @@ struct
         let fold_bypass key bypass ((building, map) as env) =
           if not (filter bypass) then env
           else
-            let input, output =
-              match bypass.ByPass.def_type with
-              | BslTypes.Fun (_, input, output) -> Some input, output
-              | t -> None, t
-            in
             let fold_map building impl =
+              let input, output =
+                match Implementation.trans_type impl with
+                | BslTypes.Fun (_, input, output) -> Some input, output
+                | t -> None, t
+              in
               match impl with
               | Compiled compiled ->
                   begin
@@ -1398,14 +1398,13 @@ struct
         | [] -> assert false
         | last::tl -> Some (List.rev tl, last)
       in
-      let type_ = ty in
       let impl = ips in
       let do_obj = true in (* remove if not needed *)
       let skey = String.concat_map "_" BslKey.normalize_string ks in
       let key = BslKey.normalize skey in
       (* END OF HACK *)
       let ml_dirtags = ref BslTags.default in
-      let fold_impl (accu, langs) (lang, file, dirtags, impl_fun) =
+      let fold_impl (accu, langs) (lang, file, dirtags, type_, impl_fun) =
         let dirtags =
           try
             BslTags.parse dirtags
@@ -1444,7 +1443,7 @@ struct
         | false, _
         | _, None -> maped_impl
         | _, Some obj ->
-            let interpretedML = { i_lang = BslLanguage.mli; obj = obj; i_type = type_ ; i_tags = !ml_dirtags } in
+            let interpretedML = { i_lang = BslLanguage.mli; obj = obj; i_type = ty ; i_tags = !ml_dirtags } in
             (Interpreted interpretedML)::maped_impl in
       let name =
         (
@@ -1454,7 +1453,7 @@ struct
             | Some (lk, sk) -> lk, sk
           in
           let strlink = String.concat "." link in
-          let infos = Format.sprintf "link=%S@ key=%a@ fun=%S@ type=%a" strlink BslKey.pp key short_key BslTypes.pp type_ in
+          let infos = Format.sprintf "link=%S@ key=%a@ fun=%S@ type=%a" strlink BslKey.pp key short_key BslTypes.pp ty in
           (* #<< debug browserstructure (Printf.sprintf "imperative_module_table : %s" infos); >>#; *)
           (* If there is a previous binding of this key, we will produce an error *)
           (
@@ -1463,17 +1462,17 @@ struct
             else ()
           );
           try
-            inspection_register_type type_ ;
+            inspection_register_type ty ;
             register_imperative_hierarchy _imperative_module_table link (short_key, key);
             short_key
           with
-          | RegisterError e -> error (List [e; FailureKeyType (key, type_)])
+          | RegisterError e -> error (List [e; FailureKeyType (key, ty)])
         ) in
       (* We add the register in the table *)
       let bypass = { ByPass.
         key      = key;
         name     = name;
-        def_type = type_;
+        def_type = ty;
         impl     = maped_impl ;
         plugin_name = !current_plugin_name ;
       } in
