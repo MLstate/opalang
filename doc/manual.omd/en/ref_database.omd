@@ -26,8 +26,7 @@ The following piece of code declares a database named `my_db` and defines :
 - 1 path containing a list of strings
 - 1 path to a map from integers (`intmap`) to values of type `stored`.
 - 1 path to a set of `stored` records, where the primary key of the declared set is `x`.
-- 1 path to a set of more complex records where the primary key of
-  the set is `id`. This most complex records contain embedded maps and lists.
+- 1 path to a set of more complex records where the primary key of the set is `id`. This most complex records contain embedded maps and lists.
 
     type stored = {int x, int y, string v, list(string) lst}
 
