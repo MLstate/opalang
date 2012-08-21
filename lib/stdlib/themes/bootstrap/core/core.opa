@@ -155,6 +155,6 @@ Bootstrap = {{
   /**
    * Latest version of Bootstrap included in Opa
    */
-  latest = "2.0.4"
+  latest = "2.1.0"
 
 }}
