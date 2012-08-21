@@ -110,7 +110,7 @@ Barrier.prototype = {
             var k      = waiters[i];
             return_(k, result);
         }
-        this._waiters = undefined;
+        delete this._waiters;
     },
 
     /**

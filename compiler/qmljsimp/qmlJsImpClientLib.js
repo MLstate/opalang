@@ -47,6 +47,7 @@ function bool2obj(x) {
 }
 
 function unsafe_dot(r,f) {
+    var undefined;
     switch (f) {
     case "true": r = dot_true(r); break
     case "false": r = dot_false(r); break
@@ -58,6 +59,7 @@ function unsafe_dot(r,f) {
 }
 
 function dot(r,f) {
+    var undefined;
     switch (f) {
     case "true": r = dot_true(r); break
     case "false": r = dot_false(r); break
@@ -72,7 +74,7 @@ function udot(r,f) {
     switch (f) {
     case "true": return dot_true(r)
     case "false": return dot_false(r)
-    case _size: return undefined
+    case _size: return;
     default: return r[f];
     }
 }
@@ -195,7 +197,7 @@ function extendrecord() {
 
 function list2js(opalist) {
     var result = [], tl;
-    while ((tl = opalist.tl) !== undefined) {
+    while (typeof (tl = opalist.tl) != 'undefined') {
         result.push(opalist.hd);
         opalist = tl;
     }
@@ -257,8 +259,8 @@ function compare_raw(a,b) {
             field_name  = sorted_fields[sorted_fields_index];
             var field_a = a[field_name];
             var field_b = b[field_name];
-            if(field_a === undefined) return -1;
-            if(field_b === undefined) return  1;
+            if(typeof field_a == 'undefined') return -1;
+            if(typeof field_b == 'undefined') return  1;
             var sorting = compare_raw(field_a, field_b);
             if(sorting != 0) return sorting;
         }
@@ -304,7 +306,7 @@ var _size = "size`"
 function size(x) {
     if (x === true || x === false) return 1;
     var i, s ;
-    if (s = x[_size], s != undefined) return s;
+    if (s = x[_size], typeof s != 'undefined') return s;
     s = 0;
     for (i in x) s++;
     x[_size] = s;
@@ -403,7 +405,8 @@ function type_opavalue(key,value) {
 function assert_length(args) {
     var n = args.length;
     while (--n >= 0) {
-        args[n] === undefined && error("arity error, "+n+"th argument is undefined")
+        typeof args[n] == 'undefined' &&
+          error("arity error, "+n+"th argument is undefined");
     }
 }
 
@@ -429,7 +432,7 @@ function patterns_indexes(patterns) {
 function compare_structure_same(fields,r) {
    for (var i=0;i<fields.length;i++){
      var field = fields[i];
-     if (udot(r,field)==undefined) return false;
+     if (typeof udot(r,field) == 'undefined') return false;
    };
    return true;
 }
