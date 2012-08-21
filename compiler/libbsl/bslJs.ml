@@ -52,6 +52,9 @@ type js_decorated_file = {
   filename: filename;
 }
 
+(* Actually, we process either files in the classic syntax only or in
+   the doc-like one. However, tagging each file avoids changing lots
+   of code. *)
 type decorated_file =
 | Classic of D.bypasslang_decorated_file
 | DocLike of js_decorated_file
@@ -582,7 +585,11 @@ let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
 
 (* Process a directive, returning an updated environment and an
    updated map of bypasses that have been defined in this file, so
-   they can be bound later *)
+   they can be bound later
+
+   FIXME: env contains a renaming map already, maybe we should merge
+   both.
+*)
 let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     (env, renaming) (pos, tags, directive) =
   match directive with
@@ -755,7 +762,9 @@ let rename renaming code =
       ) stm
   ) code
 
-let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
+(** Process directives in a decorated file, updating the renaming map *)
+let process_directives_doc_like
+    ~dynloader_interface ~lang (env, renaming) decorated_file =
   let filename = decorated_file.filename in
   let directives = decorated_file.directives in
   let implementation = js_module_of_filename filename in
@@ -763,18 +772,7 @@ let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
   (* we add a module for each file *)
   let env = env_add_module nopos implementation None env in
   let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
-  let init_state = (env, StringMap.empty) in
-  let env, renaming = List.fold_left fold init_state directives in
-
-  (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
-  let js_file = fbuffer () in
-  let js_file = add_file_line ~filename js_file in
-  let contents = rename renaming decorated_file.contents in
-  let js_file = FBuffer.printf js_file "%a" JsPrint.pp#code contents in
-  let js_code = FBuffer.contents js_file in
-  let file_js_code = filename, js_code in
-  let rev_files_js_code = file_js_code :: env.rev_files_js_code in
-  let env = { env with rev_files_js_code } in
+  let env, renaming = List.fold_left fold (env, renaming) directives in
   let env = env_add_endmodule nopos env in
   let _ =
     match env.rev_path with
@@ -790,14 +788,40 @@ let fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file =
           "Add the corresponding @{<bright>##endmodule@}@]@\n"
         ) filename
   in
+  env, renaming
+
+(** Use the renaming map built in the previous stage to rename
+    bypasses in all files, and serialize the resulting ASTs, updating
+    the environment *)
+let build_file_doc_like renaming env decorated_file =
+  (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
+  let filename = decorated_file.filename in
+  let js_file = fbuffer () in
+  let js_file = add_file_line ~filename js_file in
+  let contents = rename renaming decorated_file.contents in
+  let js_file = FBuffer.printf js_file "%a" JsPrint.pp#code contents in
+  let js_code = FBuffer.contents js_file in
+  let file_js_code = filename, js_code in
+  let rev_files_js_code = file_js_code :: env.rev_files_js_code in
+  let env = { env with rev_files_js_code } in
   env
 
-let fold_decorated_file ~dynloader_interface ~lang env decorated_file =
+let process_file ~dynloader_interface ~lang (env, renaming) decorated_file =
   match decorated_file with
   | Classic decorated_file ->
-    fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file
+    fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file,
+    renaming
   | DocLike decorated_file ->
-    fold_decorated_file_doc_like ~dynloader_interface ~lang env decorated_file
+    process_directives_doc_like ~dynloader_interface
+      ~lang (env, renaming) decorated_file
+
+let build_file renaming env file =
+  match file with
+  | Classic _ ->
+    (* In classic syntax, renaming is already done *)
+    env
+  | DocLike decorated_file ->
+    build_file_doc_like renaming env decorated_file
 
 let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang decorated_files =
   let env = empty in
@@ -810,8 +834,11 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang decorated_f
       ty_spec_map ;
       renaming ;
   } in
-  let env =
-    List.fold_left (fold_decorated_file ~dynloader_interface ~lang) env decorated_files in
+
+  let env, renaming =
+    List.fold_left (process_file ~dynloader_interface ~lang)
+      (env, StringMap.empty) decorated_files in
+  let env = List.fold_left (build_file renaming) env decorated_files in
   let files_js_code = List.rev env.rev_files_js_code in
 
   check ~options ~depends files_js_code ;
