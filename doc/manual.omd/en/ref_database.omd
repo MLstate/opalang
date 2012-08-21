@@ -18,7 +18,7 @@ remove data.
 A database is named and consists of a set of declared paths. Moreover Opa handles several
 database backends; currently:
 - *MongoDb*: The popular MongoDB database ([http://www.mongodb.org/](http://www.mongodb.org/));
-- *Db3*: The native Opa database which allows for rapid prototyping of applications.
+- *Db3*: The native Opa database which allows rapid prototyping of applications.
 
 The following piece of code declares a database named `my_db` and defines :
 - 3 paths containing basic values (/i, /f, /s)
