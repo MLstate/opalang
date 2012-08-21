@@ -130,15 +130,15 @@ Bootstrap = {{
       "http://twitter.github.com/bootstrap/assets/css/bootstrap.css"
 
   @package
-  import_css(v:string) =
+  import_css(v:string) = // css, no icons, no responsive
     import_bs("{bs_resources_path}/{v}/css/bootstrap-css.min.css")
 
   @package
-  import_responsive_css(v:string) =
+  import_responsive_css(v:string) = // responsive only
     import_bs("{bs_resources_path}/{v}/css/bootstrap-responsive.min.css")
 
   @package
-  import_icons(v:string) =
+  import_icons(v:string) = // icons only
     if String.lt(v, "2.0.0") then import_opa_icons()
     else
       do import_bs("{bs_resources_path}/{v}/css/bootstrap-glyphicons.min.css")
@@ -148,7 +148,7 @@ Bootstrap = {{
   /**
    * Import a specific version of Bootstrap, with its icons
    */
-  import(v:string) =
+  import(v:string) = // css, icons
     Map.get("{bs_resources_path}/{v}/css/bootstrap.min.css", uri_bs) ?
     fallback_url(v) // fallback to github
     |> Resource.register_external_css(_)
