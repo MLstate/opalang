@@ -142,7 +142,6 @@ Bootstrap = {{
     if String.lt(v, "2.0.0") then import_opa_icons()
     else
       do import_bs("{bs_resources_path}/{v}/css/bootstrap-glyphicons.min.css")
-      do import_bs("{bs_resources_path}/{v}/css/glyphicons-halflings-white.min.css")
       void
 
   /**
