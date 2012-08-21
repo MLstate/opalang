@@ -417,7 +417,7 @@ moving the mouse (event `mousemove`) or the user loading the page
 
 In Opa, an event handler always has type `Dom.event -> void`.
 
-You can find more informations about event handlers in [online Opa API documentation](http://api.opalang.org)
+You can find more informations about event handlers in [online Opa API documentation](http://doc.opalang.org/api)
 by searching for entry `Dom.event`.
 {block}
 
