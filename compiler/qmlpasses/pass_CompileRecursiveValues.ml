@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -99,7 +99,7 @@ let is_a_val_binding idents (_i, e) =
     | Q.Coerce (_, e, _)
     (* BEWARE before editing: keep this set of directive in sync with the one
      * in remove_toplevel_directives *)
-    | Q.Directive (_, (#Q.type_directive | #Q.binding_directive), [e], _) -> is_a_val e
+    | Q.Directive (_, (#Q.type_directive | #Q.binding_directive | #Q.closure_instrumentation_directive ), [e], _) -> is_a_val e
     | _ -> raise InvalidRecursion in
   is_a_val e
 
