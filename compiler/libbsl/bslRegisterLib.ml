@@ -572,7 +572,10 @@ let register_primitive session ~ks ~ty ~ips ?obj:_ () =
 
             if equal_ks ks c_rp_ks then (
               (* checking the type *)
-              if (BslTypes.compare ~normalize:true ty c_rp_ty) <> 0
+              (* We do not take opa value declarations into account *)
+              let purged_ty = BslTypes.purge_opavalue ty in
+              let purged_c_rp_ty = BslTypes.purge_opavalue c_rp_ty in
+              if (BslTypes.compare ~normalize:true purged_ty purged_c_rp_ty) <> 0
               then (
                 OManager.printf "%a" FilePos.pp_citation pos ;
                 OManager.error "##register: @{<bright>conflicting primitive definitions@} for key '@{<brigth>%a@}'@\n" BslKey.pp key
