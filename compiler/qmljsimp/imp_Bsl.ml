@@ -259,10 +259,11 @@ struct
     else
       None
 
-  let nested_null_error () =
+  let nested_null_error key =
     OManager.error
       ("Cannot have options of types that can be null. " ^^
-       "Please use Opa options instead.")
+       "Please use Opa options instead. (bypass key: %s)")
+      (BslKey.to_string key)
 
   (* when the relevant option is activated, inserting type checks that the js
    * object received correspond to the type declared in the bsl *)
@@ -303,7 +304,7 @@ struct
 
     | B.Option (_, o) ->
         (* We always project options *)
-        if can_be_null o then nested_null_error ();
+        if can_be_null o then nested_null_error key;
         aux_option_qml_of_js (aux_qml_of_js ~level ~bsltags)
           key env private_env o id
 
@@ -366,7 +367,7 @@ struct
         None
 
     | B.Option (_, o) ->
-        if can_be_null o then nested_null_error ();
+        if can_be_null o then nested_null_error key;
         aux_option_js_of_qml (aux_js_of_qml ~level ~bsltags)
           key env private_env o id
 
