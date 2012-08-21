@@ -1058,6 +1058,7 @@ Bson = {{
       | {TyName_args=[]; TyName_ident="Bson.binary"} ->
         (match element with
          | {value={Binary=bin} ...} -> {some=@unsafe_cast(bin)}
+         | {value={String=str} ...} -> {some=@unsafe_cast(binary_of_string(str))} // TODO: Why do we need this?
          | element -> error("expected binary, got {element}"))
       | {TyName_args=[]; TyName_ident="Bson.oid"} ->
         (match element with

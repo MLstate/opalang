@@ -222,7 +222,7 @@ WireProtocol = {{
          if requestID == 0
          then nextrid()
          else requestID
-      [{Le}, {Unsigned}, {Long=messageLength}, {Long=requestID}, {Long=responseTo}, {Long=opCode}])
+      [{Le}, {Unsigned}, {Long=messageLength}, {Long=requestID}, {Long=responseTo}, {Long=opCode}, {Signed}])
 
   string_of_MsgHeader(hdr) =
     "messageLength = {hdr.messageLength}\nrequestId = 0x{hex8(hdr.requestID)}\nresponseTo = 0x{hex8(hdr.responseTo)}\nopCode = {string_of_opcode(hdr.opCode)}\n"
@@ -307,7 +307,7 @@ WireProtocol = {{
 
   timestamp(name,(i,t)) = (10+String.length(name),[{Byte=el_timestamp}, {Cstring=name}, {Long=i}, {Long=t}])
 
-  date(name,millis) = (6+String.length(name),[{Byte=el_date}, {Cstring=name}, {Longlong=millis}])
+  date(name,millis) = (10+String.length(name),[{Byte=el_date}, {Cstring=name}, {Longlong=millis}])
 
   time_t(name,t) = date(name,Date.in_milliseconds(t))
 
@@ -632,12 +632,12 @@ WireProtocol = {{
 
   get_more(rid:int, ns:string, numberToReturn:int, cursorID:int64) : Pack.data =
     nssize = String.length(ns) + 1
-    head = make_header(33+nssize,rid,0,_OP_GET_MORE)
+    head = make_header(32+nssize,rid,0,_OP_GET_MORE)
     [{Pack=head}, {Long=0}, {Cstring=ns}, {Long=numberToReturn}, {Int64=cursorID}]
 
   packGetMore(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.GetMore) : Pack.data =
     nssize = String.length(bdy.fullCollectionName) + 1
-    head = make_header(33+nssize,hdr.requestID,hdr.responseTo,_OP_GET_MORE)
+    head = make_header(32+nssize,hdr.requestID,hdr.responseTo,_OP_GET_MORE)
     [{Pack=head}, {Long=0}, {Cstring=bdy.fullCollectionName}, {Long=bdy.numberToReturn}, {Int64=bdy.cursorID}]
 
   GetMore(rid:int, fullCollectionName:string, numberToReturn:int, cursorID:int64) : WireProtocol.Message =
@@ -675,7 +675,7 @@ WireProtocol = {{
   packDelete(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Delete) : Pack.data =
     (selectorsize,selectordata) = packDocument(bdy.selector)
     nssize = String.length(bdy.fullCollectionName) + 1
-    head = make_header(25+nssize+selectorsize,hdr.requestID,hdr.responseTo,_OP_DELETE)
+    head = make_header(24+nssize+selectorsize,hdr.requestID,hdr.responseTo,_OP_DELETE)
     [{Pack=head}, {Long=0}, {Cstring=bdy.fullCollectionName}, {Long=bdy.flags}, {Pack=selectordata}]
 
   Delete(rid:int, flags:int, fullCollectionName:string, selector:Bson.document) : WireProtocol.Message =
@@ -853,9 +853,10 @@ WireProtocol = {{
 
   binary_export(msgs:list(WireProtocol.Message)) : outcome(binary,string) =
     data = List.flatten(List.map(packMessage,msgs))
+    //do jlog("binary_export: data={data}")
     match E.pack(data) with
     | {success=binary} ->
-       do jlog("binary_export: s=\n{bindump(binary)}")
+       //do jlog("binary_export: s=\n{bindump(binary)}")
        {success=binary}
     | {~failure} -> {~failure}
 
