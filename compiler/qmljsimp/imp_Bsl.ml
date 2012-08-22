@@ -244,10 +244,14 @@ struct
   let aux_external ?(check=false) caller key env private_env p (id:JsAst.expr) =
     List.iter
       (fun ty ->
-         (* this is just a check that the inner
-          * types don't need a projection *)
-         let fake_env = {(*env with*) options = {env.options with Qml2jsOptions.check_bsl_types = false}} in
-         (* we must deactive check_bsl_types or else we always have a projection :/ *)
+         (* This is just a check that the inner types don't need a projection *)
+
+         (* We must deactivate check_bsl_types or else we always have a
+            projection :/ *)
+         let fake_env = {
+           options = {env.options with Qml2jsOptions.check_bsl_types = false}
+         } in
+
          match caller key fake_env private_env ty id with
          | None -> ()
          | Some _ ->
