@@ -598,28 +598,23 @@ OpaSerializeClosure = {{
         aux_rec_unoptimized(js_lst,fields)
 
     and aux_rec_unoptimized(js_lst, fields) =
-        res =
-          List.foldr(
-            ((name, json), (acc, fields, err) ->
-              if err then (acc, [], err)
-              else
-                match fields with
-                | [] ->
-                  error_ret("Superfluous field '{name}' in json", (acc, fields, err))
-                | [hd | tl] ->
-                  if not(@toplevel.String.equals(hd.label,name)) then
-                     if name < hd.label then error_ret("Superfluous field {name} in json", (acc, fields, err) )
-                     else error_ret("Missing field {name} in json", (acc, fields, true))
-                  else match aux(json, hd.ty) with
-                  | {none} ->
-                    error_ret("Unserialization of field {hd.label} with json {json} and with type {OpaType.to_pretty(hd.ty)} fail", (acc, [], true))
-                  | {some = value} ->
-                    match Record.field_of_name(name) with
-                    | {none} -> error_ret("No field are named " ^ name,
-                                (acc, [], true))
-                    | {some = field} ->
-                      (Record.add_field(acc, field, value), tl, err)
-            ), js_lst, (Record.empty_constructor(), fields, false))
+        res = (List.foldr(_,js_lst, (Record.empty_constructor(), fields, false))){
+           (name, json), (acc, fields, err) ->
+           if err then (acc, [], err)
+           else match fields with
+           | [] -> error_ret("Superfluous field '{name}' in json", (acc, fields, err))
+           | [hd | tl] ->
+             if not(@toplevel.String.equals(hd.label,name)) then
+               if name < hd.label then error_ret("Superfluous field {name} in json", (acc, fields, err) )
+               else error_ret("Missing field {name} in json", (acc, fields, true))
+             else match aux(json, hd.ty) with
+             | {none} ->
+               error_ret("Unserialization of field {hd.label} with json {json} and with type {OpaType.to_pretty(hd.ty)} fail", (acc, [], true))
+             | {some = value} ->
+               match Record.field_of_name(name) with
+               | {none} -> error_ret("No field are named " ^ name, (acc, [], true))
+               | {some = field} -> (Record.add_field(acc, field, value), tl, err)
+          }
         match res.f2 with
         | [_ | _] as fields ->
           error_ret("Missing fields in json : {OpaType.to_pretty_fields(fields)}", none)
