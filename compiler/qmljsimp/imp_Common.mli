@@ -50,6 +50,9 @@ sig
   val none : JsAst.expr
   val some : JsAst.expr
 
+  val option2js : JsAst.expr
+  val js2option : JsAst.expr
+
   val type_string : JsAst.expr
   val type_char : JsAst.expr
   val type_int : JsAst.expr

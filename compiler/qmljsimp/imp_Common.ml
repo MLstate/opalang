@@ -67,6 +67,9 @@ struct
   let none = !! "js_none"
   let some = !! "js_some"
 
+  let option2js = !! "option2js"
+  let js2option = !! "js2option"
+
   let type_string = !! "type_string"
   let type_char = !! "type_char"
   let type_int = !! "type_int"
