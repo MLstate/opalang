@@ -373,7 +373,7 @@ let _ =
   close_out oc;
   if !unused_bypass > 0 then
     OManager.printf (
-      "@{<yellow>Warning@}: opabsl contains %f %% of unused bypass: (%d / %d)@\n"^^
+      "@{<yellow>Warning@}: opabsl contains %f %% of unused bypasses: (%d / %d)@\n"^^
       "  %d both@\n"^^
       "  %d client@\n"^^
       "  %d server@\n"^^
