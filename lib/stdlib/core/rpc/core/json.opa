@@ -170,15 +170,15 @@ type ll_json_record_repr = external
    * Sort JSON records as the order specifies.
    */
   sort(json:RPC.Json.json, order:order(string, 'a)):RPC.Json.json =
-    sort = sort(_, order)
+    sort_field_content( (name,json) ) = (name,sort(json,order))
+    cmp_field( (name1, _), (name2, _) ) = Order.compare(name1, name2, order)
     match json with
-    | { List = list } -> { List = List.map(sort, list) }
+    | { List = list } -> { List = List.map(sort(_,order), list) }
     | { Record = rc } ->
       { Record =
-        List.sort_with(
-          (name1, _), (name2, _) -> Order.compare(name1, name2, order)
-          , rc
-        )
+        rc
+        |> List.map(sort_field_content, _)
+        |> List.sort_with(cmp_field, _)
       }
     | _ -> json
 
