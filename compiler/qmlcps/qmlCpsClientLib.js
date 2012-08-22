@@ -293,8 +293,8 @@ function loop_schedule()
             } else {
                 task = tasks.shift();
                 var r = task();
-                for(var i=0; i<100 && r; i++) r =execute1(r[0], r[1]);
-                if (r) push(task_from_return(r[0], [r[1]]))
+                for(var i=0; i<100 && r && r !== js_void; i++) r =execute1(r[0], r[1]);
+                if (r && r !== js_void) push(task_from_return(r[0], [r[1]]));
             }
         }
     } catch(e) {
