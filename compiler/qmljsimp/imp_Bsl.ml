@@ -66,12 +66,12 @@ struct
     J.ExprIdent (Ident.next name)
   let fresh_var private_env name =
     let ident = fresh_param name in
-    let private_env = {(*private_env with*) local_vars = ident :: private_env.local_vars} in
+    let private_env = {local_vars = ident :: private_env.local_vars} in
     private_env, ident
 
   let declare_local_vars private_env =
     let local_vars = private_env.local_vars in
-    let private_env = {(*private_env with*) local_vars = []} in
+    let private_env = {local_vars = []} in
     let declarations = List.map (fun i -> JsCons.Statement.var i) local_vars in
     private_env, declarations
 
