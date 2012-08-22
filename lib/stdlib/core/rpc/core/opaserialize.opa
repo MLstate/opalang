@@ -1,3 +1,4 @@
+
 /*
     Copyright © 2011, 2012 MLstate
 
@@ -604,13 +605,12 @@ OpaSerializeClosure = {{
               else
                 match fields with
                 | [] ->
-                  error_ret("Type of field " ^ name ^ " is not found",
-                            (acc, [], true))
+                  error_ret("Superfluous field '{name}' in json", (acc, fields, err))
                 | [hd | tl] ->
-                  // We doesn't check the field equality in Opa is an invariant.
-                  // With the external world we should provides a tools for
-                  // checking the field equality.
-                  match aux(json, hd.ty) with
+                  if not(@toplevel.String.equals(hd.label,name)) then
+                     if name < hd.label then error_ret("Superfluous field {name} in json", (acc, fields, err) )
+                     else error_ret("Missing field {name} in json", (acc, fields, true))
+                  else match aux(json, hd.ty) with
                   | {none} ->
                     error_ret("Unserialization of field {hd.label} with json {json} and with type {OpaType.to_pretty(hd.ty)} fail", (acc, [], true))
                   | {some = value} ->
@@ -622,8 +622,7 @@ OpaSerializeClosure = {{
             ), js_lst, (Record.empty_constructor(), fields, false))
         match res.f2 with
         | [_ | _] as fields ->
-          error_ret("The following fields are not consumed : {OpaType.to_pretty_fields(fields)}"
-                    , none)
+          error_ret("Missing fields in json : {OpaType.to_pretty_fields(fields)}", none)
         | _ ->
           if res.f3 then
             do Log.error("Failed to deserialize with fields {OpaType.to_pretty_fields(fields)}",
