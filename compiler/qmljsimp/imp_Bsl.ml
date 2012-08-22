@@ -244,7 +244,25 @@ struct
   let aux_external ?(check=false) caller key env private_env p (id:JsAst.expr) =
     List.iter
       (fun ty ->
-         (* This is just a check that the inner types don't need a projection *)
+         (* This is just a check that the inner types don't need a projection.
+            Since we don't project inner values in an external type, if the
+            inner types do need a projection, then we must throw an error.
+            Consider what should happen in the following case:
+
+                /** @externType Wrap.t('a) */
+
+                /** @register {Wrap.t(option(string))} */
+                var foo = null;
+
+                /** @register {Wrap.t(opa[option(string)])} */
+                var bar = js_none;
+
+                /** @register {Wrap.t('a) -> 'a} */
+                function unwrap(x) { return x; }
+
+            In Opa code, if we applied [unwrap] to [foo] and [bar], we'd end
+            up with two values that have the same Opa type but different
+            representations, which would result in a runtime error. *)
 
          (* We must deactivate check_bsl_types or else we always have a
             projection :/ *)
@@ -255,8 +273,11 @@ struct
          match caller key fake_env private_env ty id with
          | None -> ()
          | Some _ ->
-             Format.printf "Proj of %a@." BslKey.pp key;
-             assert false (* TODO: proper error *)
+             OManager.error
+               ("(projection of %a) don't know how to handle types that need " ^^
+                "projections when given as arguments to external types. " ^^
+                "Please use the Opa representation instead.")
+               BslKey.pp key
       ) p;
     if check then
       Some (private_env, call_typer ~key Imp_Common.ClientLib.type_extern id)
