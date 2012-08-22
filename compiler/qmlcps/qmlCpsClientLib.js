@@ -276,7 +276,6 @@ var loop_level = 0;
  */
 function loop_schedule()
 {
-    var i;
     var fatal_error   = false;//[true] if we stopped scheduling because of a fatal error, [false] otherwise
     var nothing_to_do = false;//[true] if we stopped scheduling because there's nothing left to do
     var tasks         = ready;//Keep a local copy. In most JS VMs, this will speed-up code.
