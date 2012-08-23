@@ -990,6 +990,14 @@ let collect_exports bymap nodejs_code =
   let exports = Format.to_string JsPrint.pp_min#code exports in
   nodejs_code @ [("exports", exports, BslJsConf.default)]
 
+let js_error_after_pp filename contents message =
+  ignore (File.output "jserror.js" contents);
+  OManager.error
+    ("Couldn't parse file @{<brigth>%s@} after preprocessing\n"^^
+        "Take a look on generated file @{<brigth>jserror.js@}\n%!" ^^
+        "Error: %s")
+    filename message
+
 let export_to_global_namespace nodejs_code =
   (* When not exporting identifiers as modules, we need to export them
      globally *)
@@ -999,13 +1007,8 @@ let export_to_global_namespace nodejs_code =
         JsParse.String.code ~throw_exn:true contents
       with
         JsParse.Exception e ->
-          ignore (File.output "jserror.js" contents);
-          OManager.error
-            ("Couldn't parse file @{<brigth>%s@} after preprocessing\n"^^
-               "Take a look on generated file @{<brigth>jserror.js@}\n%!" ^^
-               "Error : %a")
-            filename
-            JsParse.pp e
+          js_error_after_pp filename contents
+            (Format.to_string JsParse.pp e)
     in
     let contents = JsUtils.export_to_global_namespace contents in
     (filename, Format.to_string JsPrint.pp_min#code contents, conf)
@@ -1575,7 +1578,7 @@ let parse_js_bypass_file_new pprocess filename =
   let contents = pprocess filename (File.content filename) in
   FilePos.add_file filename contents;
   match BslJsParse.parse_string ~filename contents with
-  | `error e -> OManager.error "%s: %s" filename e
+  | `error e -> js_error_after_pp filename contents e
   | `success {BslJsParse. directives; code = contents} ->
     let add_tags ((pos, tags, directive) as p) =
       match directive with
