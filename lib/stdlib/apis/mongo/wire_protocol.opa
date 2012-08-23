@@ -893,20 +893,21 @@ WireProtocol = {{
     | {~failure} -> "WireProtocol.string_of_message_binary: bad binary (\"{failure}\")"
 
   read_mongo(conn:Socket.connection, timeout:int, mailbox:Mongo.mailbox) : outcome((Mailbox.t,Mongo.reply),string) =
-do jlog("read_mongo: start={mailbox.start} len={mailbox.len}")
+//do jlog("read_mongo: start={mailbox.start} len={mailbox.len}")
     match Socket.read_fixed(conn, timeout, 4, mailbox) with
     | {success=mailbox} ->
-do jlog("read_mongo: read 4")
+//do jlog("read_mongo: read 4")
        len = Binary.get_uint32_le(mailbox.buf, mailbox.start)
-do jlog("read_mongo: len={len}")
+//do jlog("read_mongo: len={len}")
        (match Socket.read_fixed(conn, timeout, len-4, mailbox) with
         | {success=mailbox} ->
-do jlog("read_mongo:reply=\n{bindump(Binary.get_binary(mailbox.buf,mailbox.start,len))}")
+_ = bindump
+//do jlog("read_mongo:reply=\n{bindump(Binary.get_binary(mailbox.buf,mailbox.start,len))}")
            (match unser_message({binary=mailbox.buf; pos=mailbox.start}) with
             | {success=(_,~{MsgHeader; MsgBody={~Reply}})} ->
                (match Mailbox.skip(mailbox, len) with
                 | {success=mailbox} ->
-do jlog("read_mongo: reply={~{MsgHeader; MsgBody={~Reply}}}")
+//do jlog("read_mongo: reply={~{MsgHeader; MsgBody={~Reply}}}")
                    {success=(mailbox, ~{MsgHeader; MsgBody={~Reply}})}
                 | {~failure} -> {~failure})
             | {success=_} -> {failure="WireProtocol.read_mongo: message is not a reply"}

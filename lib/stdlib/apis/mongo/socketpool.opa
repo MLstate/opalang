@@ -136,10 +136,10 @@ SocketPool = {{
        _state = List.fold(Socket_close,state.allocated,state)
        {stop}
 
-  make(host:Mongo.mongo_host, max:int, _log:bool): SocketPool.t =
-    do ML.debug("SocketPool.make","{host}",void)
-    Session.make(({~host; ~max; log=true; cnt=0; sockets=[]; allocated=[]; queue=Queue.empty;
-                   slaveok=false; open_connections=IntSet.empty; monitor_connections=true}:SocketPool.state),
+  make(host:Mongo.mongo_host, max:int, log:bool): SocketPool.t =
+    do if log then ML.debug("SocketPool.make","{host}",void)
+    Session.make(({~host; ~max; log=log; cnt=0; sockets=[]; allocated=[]; queue=Queue.empty;
+                   slaveok=false; open_connections=IntSet.empty; monitor_connections=false}:SocketPool.state),
                  pool_handler)
 
   get(pool:SocketPool.t) : SocketPool.result =

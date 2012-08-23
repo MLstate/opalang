@@ -245,15 +245,19 @@ MongoReplicaSet = {{
       | [] -> {failure={Error="MongoReplicaSet.connect: No connecting seeds"}}
     match aux(m, m.seeds) with
     | {success=(m,hosts)} ->
+       do if m.log then ML.info("MongoReplicaSet.connect","got hosts {hosts}",void)
        rec aux2(m, hosts) =
          (match hosts with
           | [host|rest] ->
             (match MongoDriver.connect(m, host.f1, host.f2) with
              | {success=m} ->
+                do if m.log then ML.info("MongoReplicaSet.connect","connected to host {host}\nm={m}",void)
                 (match isMasterLL(m) with
                  | {success=doc} ->
+                    do if m.log then ML.info("MongoReplicaSet.connect","isMasterLL: doc={doc}",void)
                     (match (Bson.find_bool(doc,"ismaster"),Bson.find_string(doc,"setName")) with
                      | ({some=ismaster},setName) ->
+                        do if m.log then ML.info("MongoReplicaSet.connect","ismaster={ismaster} setName={setName}",void)
                         if ismaster && (Option.default("...",setName) == m.name)
                         then
                           do_authenticate(false,m)

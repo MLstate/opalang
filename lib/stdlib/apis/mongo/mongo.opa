@@ -304,10 +304,11 @@ do jlog("send_no_reply_: {name}")
     | {some=conn} ->
 //       (match WP.export(mbuf) with
 //        | {success=(s, len)} ->
-//do jlog("send_no_reply_: s=\n{memdump(s)}")
+// do jlog("send_no_reply_: s=\n{memdump(s)}")
        (match WP.binary_export(mbuf) with
         | {success=binary} ->
-do jlog("send_no_reply_: s=\n{bindump(binary)}")
+//do jlog("send_no_reply_: s=\n{bindump(binary)}")
+do jlog("send_no_reply_: s=\n{memdump(string_of_binary(binary))}")
            len = Binary.length(binary)
            //s = string_of_binary(binary)
            //s = String.substring(0,len,str)
