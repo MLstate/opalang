@@ -1,3 +1,9 @@
+New features:
+
+  * opa bundle: added a new CLI to `opa` to bundle the JS, depends and stdlib of an app
+    		for an easy deployment on a clean server.
+		`opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
+
 Improvements:
 
   * improved the launch script on Mac: download and open node installer if necessary
