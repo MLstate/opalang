@@ -32,33 +32,48 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
 
     echo "node.js is missing, Download and install it ? (no will abort) [Yn] \c"
     read yesno
-    if [ "${yesno:0:1}" != "y" ]; then
-	echo "--> Aborting..."; exit 1
-    elif [ -n "$IS_MAC" ]; then
-	port=`which port 2>&1`
-	if [ $? -eq 0 ] && [ -x "$port" ]; then
-	    echo "--> Installing via MacPorts...";
-	    sudo port install nodejs
-	else
-	    brew=`which brew 2>&1`
-	    if [ $? -eq 0 ] && [ -x "$brew" ]; then
-		echo "--> Installing via Homebrew...";
-		brew install node # Warning: brew installs are known to be buggy
-	    else
-		if ! [ -f /tmp/node-$NODE_VERSION.pkg ]; then
-		    NODE_URL=http://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION.pkg
-		    echo "--> Downloading $NODE_URL..."
-		    curl $NODE_URL > /tmp/node-$NODE_VERSION.pkg
-		fi
-		echo "--> Opening Node installer $NODE_VERSION, please follow the instructions and then relaunch this application"
-		open /tmp/node-$NODE_VERSION.pkg
+    case "$yesno" in
+        y|Y|yes|YES)
+	    if [ -n "$IS_MAC" ]; then
+		port=`which port 2>&1`
+		if [ $? -eq 0 ] && [ -x "$port" ]; then
+		    echo "--> Installing via MacPorts...";
+		    sudo port install nodejs
+		else
+		    brew=`which brew 2>&1`
+		    if [ $? -eq 0 ] && [ -x "$brew" ]; then
+			echo "--> Installing via Homebrew...";
+			brew install node # Warning: brew installs are known to be buggy
+		    else
+			if ! [ -f /tmp/node-$NODE_VERSION.pkg ]; then
+			    NODE_URL=http://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION.pkg
+			    echo "--> Downloading $NODE_URL..."
+			    curl $NODE_URL > /tmp/node-$NODE_VERSION.pkg
+			fi
+			echo "--> Opening Node installer $NODE_VERSION, please follow the instructions and then relaunch this application"
+			open /tmp/node-$NODE_VERSION.pkg
 		exit 1
-	    fi
-	fi
-    else
-	echo "--> node.js is missing, please install node.js from: http://nodejs.org"
-	exit 1
-    fi
+		    fi
+		fi
+	    elif [ -n "$IS_LINUX" ]; then
+		case $(uname -v) in
+		    *Ubuntu*)
+			sudo apt-get install python-software-properties
+			sudo add-apt-repository ppa:chris-lea/node.js
+			sudo apt-get update
+			sudo apt-get install nodejs npm
+			;;
+		    *)
+			echo "--> node.js is missing, please install node.js from: http://nodejs.org"
+			exit 1
+		esac
+	    else
+		echo "--> node.js is missing, please install node.js from: http://nodejs.org"
+		exit 1
+
+	    fi;;
+	*) echo "--> Aborting..."; exit 1
+    esac
 
 fi;
 
