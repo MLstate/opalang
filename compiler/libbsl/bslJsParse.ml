@@ -120,6 +120,7 @@ let collect_bsl_tags tags =
       {t with BslTags.restricted = Some tags}
     );
     bool "opaName" (fun t v -> {t with BslTags.opaname = v});
+    bool "normalize" (fun t v -> {t with BslTags.opaname = not v});
     bool "raise" (fun t v -> {t with BslTags.raise_ = v});
     bool "cpsBypass" (fun t v -> {t with BslTags.cps_bypass = v});
     bool "pure" (fun t v -> {t with BslTags.pure = v});
