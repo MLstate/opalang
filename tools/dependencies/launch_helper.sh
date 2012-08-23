@@ -13,6 +13,8 @@
 node=`which node 2>&1`
 if [ $? -ne 0 ] || [ ! -x "$node" ]; then
 
+    NODE_VERSION=v0.8.7
+
     # Detect OS
     IS_LINUX=""
     IS_MAC=""
@@ -28,16 +30,36 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
             IS_LINUX=1
     esac
 
-    if [ -n "$IS_MAC" ]; then
-	echo "--> node.js missing, downloading nodejs v0.8.7..."
-	curl http://nodejs.org/dist/v0.8.7/node-v0.8.7.pkg > /tmp/node.pkg
-	open /tmp/node.pkg
-	echo "--> Node installer should be open, please install nodejs and then relaunch this application"
+    echo "node.js is missing, Download and install it ? (no will abort) [Yn] \c"
+    read yesno
+    if [ "${yesno:0:1}" != "y" ]; then
+	echo "--> Aborting..."; exit 1
+    elif [ -n "$IS_MAC" ]; then
+	port=`which port 2>&1`
+	if [ $? -eq 0 ] && [ -x "$port" ]; then
+	    echo "--> Installing via MacPorts...";
+	    sudo port install nodejs
+	else
+	    brew=`which brew 2>&1`
+	    if [ $? -eq 0 ] && [ -x "$brew" ]; then
+		echo "--> Installing via Homebrew...";
+		brew install node # Warning: brew installs are known to be buggy
+	    else
+		if ! [ -f /tmp/node-$NODE_VERSION.pkg ]; then
+		    NODE_URL=http://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION.pkg
+		    echo "--> Downloading $NODE_URL..."
+		    curl $NODE_URL > /tmp/node-$NODE_VERSION.pkg
+		fi
+		echo "--> Opening Node installer $NODE_VERSION, please follow the instructions and then relaunch this application"
+		open /tmp/node-$NODE_VERSION.pkg
+		exit 1
+	    fi
+	fi
     else
-	echo "--> node.js missing, please install nodejs from: http://nodejs.org"
+	echo "--> node.js is missing, please install node.js from: http://nodejs.org"
+	exit 1
     fi
 
-    exit 1
 fi;
 
 # npm=`which npm 2>&1`
