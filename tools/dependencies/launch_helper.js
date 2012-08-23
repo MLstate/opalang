@@ -34,7 +34,7 @@ dependencies = dependencies.filter(function(dependency, index, array) {
 if (dependencies.length > 0) {
     console.error(
 	dependencies.length+' modules are missing.',
-	'Please run: npm install -g '+dependencies.join(' ')
+	'Please run: sudo npm install -g '+dependencies.join(' ')
     );
     process.exit(1);
 }
