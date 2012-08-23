@@ -36,8 +36,6 @@ type parsed_t = ( string * string option ) list
    The type for bsltags.
 
    + [backend:restriction] : UNDOCUMENTED -- default is [None]
-   + [internal_first] : HACK will be removed. internal tag of BslRegisterLib.
-   is true if the function is the first of its module-record (js) -- default is [false]
    + [js_module_representation] : the way module are produced in js.
    new_object seems to be deprecated -- default is [None]
    + [no_projection] : [None]: this bypass should never be projected, [Some stringset]:
@@ -47,8 +45,8 @@ type parsed_t = ( string * string option ) list
    on the name of the type.
    + [restricted] : the bypass is not meant to be used by a user, but only generated in a compiler pass.
    The optional string list bring some more restriction.
-   If the bypass has been taged with [restricted:toto],
-   only a pass insering a [Directive (`restricted_bypass "toto", [Bypass _], _)] is authorized to use it.
+   If the bypass has been tagged with [restricted:toto],
+   only a pass inserting a [Directive (`restricted_bypass "toto", [Bypass _], _)] is authorized to use it.
    Beware, [Some (Some []) <> Some None]. -- default is [None]
    + [second_order] is a tag for bypass which contains an arrow type in one of their argument, or the returned type.
    + [cps_bypass] is a tag for bypass that take explicitly the cps continuation.
