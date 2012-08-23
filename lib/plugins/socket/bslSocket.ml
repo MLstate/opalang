@@ -83,7 +83,7 @@ let write_with_err_cont connection_info timeout data cont =
 ##register [cps-bypass] binary_write_with_err_cont: Socket.connection, int, 'a,\
                                continuation(outcome(int,string)) -> void
 let binary_write_with_err_cont connection_info timeout data cont =
-  let data = Obj.magic data in
+  let (data:Buffer.t) = Obj.magic data in
   Scheduler.write Scheduler.default connection_info ~timeout:(Time.milliseconds timeout) (Buffer.contents data)
                   ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
                   (fun cnt -> create_outcome (`success cnt) cont)
@@ -93,11 +93,19 @@ let binary_write_with_err_cont connection_info timeout data cont =
 let write_len connection_info data len k =
   Scheduler.write Scheduler.default connection_info data ~len (fun i -> i |> k)
 
-##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, 'a, int,\
+##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, string, int,\
                                continuation(outcome(int,string)) -> void
 let write_len_with_err_cont connection_info timeout data len cont =
   let (data:string) = Obj.magic data in
   Scheduler.write Scheduler.default connection_info ~timeout:(Time.milliseconds timeout) data ~len
+                  ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
+                  (fun cnt -> create_outcome (`success cnt) cont)
+
+##register [cps-bypass] binary_write_len_with_err_cont: Socket.connection, int, 'a, int,\
+                               continuation(outcome(int,string)) -> void
+let binary_write_len_with_err_cont connection_info timeout data len cont =
+  let (data:Buffer.t) = Obj.magic data in
+  Scheduler.write Scheduler.default connection_info ~timeout:(Time.milliseconds timeout) (Buffer.contents data) ~len
                   ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
                   (fun cnt -> create_outcome (`success cnt) cont)
 
@@ -116,7 +124,10 @@ let binary_read_with_err_cont connection_info timeout cont =
   let cont = Obj.magic(cont) in
   Scheduler.read Scheduler.default connection_info ~timeout:(Time.milliseconds timeout)
                  ~err_cont:(fun exn -> create_outcome (`failure (Printexc.to_string exn)) cont)
-                 (fun (_,str) -> create_outcome (`success str) cont)
+                 (fun (_,str) ->
+                    let b = Buffer.create (String.length str) in
+                    Buffer.add_string b str;
+                    create_outcome (`success b) cont)
 
 ##register conn_id : Socket.connection -> int
 let conn_id conn = conn.Scheduler.conn_id

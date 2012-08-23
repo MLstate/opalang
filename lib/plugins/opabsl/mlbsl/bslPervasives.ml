@@ -207,7 +207,7 @@ let serialize_string_length s =
 
 ##register memdump : string -> string
 let memdump s =
-  let base = 10 in
+  let base = 16 in
   let bb = Buffer.create 1024 in
   let bh = Buffer.create 1024 in
   let ba = Buffer.create 1024 in
