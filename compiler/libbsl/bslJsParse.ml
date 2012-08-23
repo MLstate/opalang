@@ -258,7 +258,7 @@ let extract_register implementation =
   ) in
   try_read_args "register" (fun pos args ->
     if Str.string_match re args 0 then
-      let ty = Str.matched_group 1 args in
+      let ty = String.trim (Str.matched_group 1 args) in
       let ty =
         try
           `success (snd (BslRegisterParser.parse_bslregisterparser_bslty ty))
