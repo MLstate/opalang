@@ -106,7 +106,11 @@ let globalize_native_ident stm =
   aux_stm JsIdentSet.empty stm
 
 let prefix_with (prefix : string) (name : string) : J.expr =
-  JsCons.Expr.dot (JsCons.Expr.native_global prefix) name
+  (* When prefixing with identifiers such as [global], we
+     must not ignore properties inherited from object, otherwise
+     we lose global functions such as toString. *)
+  JsCons.Expr.dot ~own_property:false
+     (JsCons.Expr.native_global prefix) name
 
 let export_to_global_namespace_aux stm =
   JsWalk.TStatement.map
