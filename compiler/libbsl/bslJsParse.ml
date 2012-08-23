@@ -97,7 +97,7 @@ let collect_bsl_tags tags =
         if tag <> tag' then
           aux rest
         else if Str.string_match whitespace args 0 then
-          Some (update bsl_tags true)
+          Some (update bsl_tags)
         else
           None
     in aux tags
@@ -119,12 +119,12 @@ let collect_bsl_tags tags =
           Some v in
       {t with BslTags.restricted = Some tags}
     );
-    bool "opaName" (fun t v -> {t with BslTags.opaname = v});
-    bool "normalize" (fun t v -> {t with BslTags.opaname = not v});
-    bool "raise" (fun t v -> {t with BslTags.raise_ = v});
-    bool "cpsBypass" (fun t v -> {t with BslTags.cps_bypass = v});
-    bool "pure" (fun t v -> {t with BslTags.pure = v});
-    bool "opacapi" (fun t v -> {t with BslTags.opacapi = v});
+    bool "opaName" (fun t -> {t with BslTags.opaname = true});
+    bool "normalize" (fun t -> {t with BslTags.opaname = false});
+    bool "raise" (fun t -> {t with BslTags.raise_ = true});
+    bool "cpsBypass" (fun t -> {t with BslTags.cps_bypass = true});
+    bool "pure" (fun t -> {t with BslTags.pure = true});
+    bool "opacapi" (fun t -> {t with BslTags.opacapi = true});
   ] in
 
   let rec try_updates bsl_tags updates =
