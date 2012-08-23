@@ -45,6 +45,7 @@ opa_dependencies = opa_dependencies.filter(function(dependency, index, array) {
         module.require(dependency);
 	return false;
     } catch(e) {
+        if (process.version < "v0.8.0") return true;
         return (e.code === 'MODULE_NOT_FOUND');
     }
 });
