@@ -40,7 +40,13 @@ sig
      simply returns the expr.
   *)
   val comma : ?label:Annot.label -> JsAst.expr list -> JsAst.expr -> JsAst.expr
-  val dot : ?label:Annot.label -> JsAst.expr -> string -> JsAst.expr
+
+  (**
+     [dot expr field] gives the expression [expr.field]. The [own_property]
+     flag indicates whether we want to access the object's own property or
+     if we accept inherited fields (default: [true]).
+  *)
+  val dot : ?label:Annot.label -> ?own_property:bool -> JsAst.expr -> string -> JsAst.expr
   val equality : ?label:Annot.label -> JsAst.expr -> JsAst.expr -> JsAst.expr
   val exprident : ?label:Annot.label -> Ident.t -> JsAst.expr
   val ident : ?label:Annot.label -> JsIdent.t -> JsAst.expr

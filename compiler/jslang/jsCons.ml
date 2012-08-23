@@ -85,13 +85,13 @@ struct
   let cond  ?(label=def_label()) cond then_ else_ =
     J.Je_cond (label, cond, then_, else_)
 
-  let dot ?(label=def_label()) expr field =
+  let dot ?(label=def_label()) ?(own_property=true) expr field =
     (* Check if the field can be an inherit field from Object, in this
        case use hasOwnProperty to ensure the field is really owned by the
        object.
        Credit: Bug reported by Erling Ellingsen <reg.opa@alf.nu>
     *)
-    if can_object_field field then
+    if own_property && can_object_field field then
       (* (e.hasOwnProperty("field") && e.field) || undefined *)
       let check = J.Je_dot (label, expr, "hasOwnProperty") in
       let check = J.Je_call (label, check, [J.Je_string (label, field, true)], true) in
@@ -118,7 +118,7 @@ struct
   let native_global ?(pure=false) ?(label=def_label()) ident =
     J.Je_ident (label, J.Native (`global pure, ident))
 
-  let field = dot
+  let field ?label expr field = dot ?label expr field
 
   let float ?(label=def_label()) float =
     let s =
