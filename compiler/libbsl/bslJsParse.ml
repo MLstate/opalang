@@ -259,7 +259,13 @@ let extract_register implementation =
   try_read_args "register" (fun pos args ->
     if Str.string_match re args 0 then
       let ty = Str.matched_group 1 args in
-      let (_, ty) = BslRegisterParser.parse_bslregisterparser_bslty ty in
+      let ty =
+        try
+          `success (snd (BslRegisterParser.parse_bslregisterparser_bslty ty))
+        with
+          Trx_runtime.SyntaxError (_, message) ->
+            `error (Printf.sprintf "Couldn't read type: %s" message)
+      in
       let name =
         try
           `success (JsCons.Ident.native
@@ -270,7 +276,7 @@ let extract_register implementation =
             | `func (ident, args1) -> (
               (* Check if arities match *)
               match ty with
-              | BT.Fun (_, args2, _) ->
+              | `success BT.Fun (_, args2, _) ->
                 let l1 = List.length args1 in
                 let l2 = List.length args2 in
                 if l1 <> l2 then
@@ -295,12 +301,13 @@ let extract_register implementation =
             | `var ident -> `success (BD.Regular ident)
             | `none -> `error "Missing definition in @register declaration"
       in
-      match name, definition with
-      | `success name, `success definition ->
+      match name, definition, ty with
+      | `success name, `success definition, `success ty ->
         `found (BD.Register (JsIdent.to_string name, definition, ty))
-      | `success _, `error message
-      | `error message, `success _ -> `wrong_format (pos, message)
-      | `error m1, `error m2 -> `wrong_format (pos, Printf.sprintf "%s, %s" m1 m2)
+      | `success _, `error message, _
+      | `error message, `success _, _
+      | _, _, `error message -> `wrong_format (pos, message)
+      | `error m1, `error m2, _ -> `wrong_format (pos, Printf.sprintf "%s, %s" m1 m2)
     else
       `wrong_format
         (pos, "Format of @register is \"@register {type} key [optional source]\"")
