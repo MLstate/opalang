@@ -1,7 +1,24 @@
+Improvements:
+
+  * improved the launch script on Mac: download and open node installer if necessary
+
+Packaging:
+
+  * added dependency to mongodb for the debian package
+
+Updated APIs:
+
+  * Bootstrap
+    - upgraded to Bootstrap 2.1.0
+    - removed support of bootstrap 2.0.2 and 2.0.3
+    - removed support for import stdlib.themes.bootstrap.v1.X.X, but added v2.0.4
+
 Bug fixes:
 
   * Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
-   
+  * opa-create now takes the remaining arguments given to `opa create`
+
+
 2012.07.30, Version 1.0.5 (stable), v2988
 
 New features:
