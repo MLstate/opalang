@@ -123,6 +123,25 @@ case "$1" in
         export NODE_PATH="$NODE_PATH:'$STATIC_PREFIX':'$STDLIB_PREFIX':'$STDLIB_QMLJS_PREFIX'"
         opa-create $OPT $@
         ;;
+    bundle)
+	shift
+	TARGET=$1
+	BUNDLE=$TARGET.opa-bundle
+
+	if [ -z $TARGET ]; then
+	   echo "Please specify a target"
+	   exit 1
+	fi
+
+	rm -rfv $BUNDLE
+	mkdir -p $BUNDLE/node_modules
+	cp $TARGET.js $BUNDLE/
+	cp -rv ${TARGET}_depends $BUNDLE/
+	cp -rv '$STATIC_PREFIX'/opa-js-runtime* $BUNDLE/node_modules
+	cp -rv '$STDLIB_PREFIX'/* $BUNDLE/node_modules
+	cp -rv '$STDLIB_QMLJS_PREFIX'/* $BUNDLE/node_modules
+	tar -cvzf $BUNDLE.tar.gz $TARGET.opa-bundle
+        ;;
     *)
         exec '$source' "$@"
 esac
