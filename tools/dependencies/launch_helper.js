@@ -11,7 +11,7 @@
 ////////////////////////////////////
 
 var min_node_version = 'v0.6.0',
-    max_node_version = 'v0.8.2';
+    max_node_version = 'v0.8.7';
 
 if (process.version < min_node_version) {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= '+min_node_version+')');
