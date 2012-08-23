@@ -9,7 +9,7 @@
 <irc>: traverse
 <mail>: traverse
 <mongo>: traverse
-<opabsl>: traverse, static, classic_syntax
+<opabsl>: traverse, static
 <qos>: traverse
 <server>: traverse
 <socket>: traverse
