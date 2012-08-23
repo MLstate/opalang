@@ -299,7 +299,7 @@ MongoDriver = {{
 
   @private
   send_no_reply_(m,mbuf:Mongo.mongo_buf,name,reply_expected): bool =
-do jlog("send_no_reply_: {name}")
+//do jlog("send_no_reply_: {name}")
     match m.conn with
     | {some=conn} ->
 //       (match WP.export(mbuf) with
@@ -308,7 +308,7 @@ do jlog("send_no_reply_: {name}")
        (match WP.binary_export(mbuf) with
         | {success=binary} ->
 //do jlog("send_no_reply_: s=\n{bindump(binary)}")
-do jlog("send_no_reply_: s=\n{memdump(string_of_binary(binary))}")
+//do jlog("send_no_reply_: s=\n{memdump(string_of_binary(binary))}")
            len = Binary.length(binary)
            //s = string_of_binary(binary)
            //s = String.substring(0,len,str)
@@ -317,9 +317,9 @@ do jlog("send_no_reply_: s=\n{memdump(string_of_binary(binary))}")
            //(match Socket.write_with_err_cont(conn,m.comms_timeout,string_of_binary(binary)) with
            (match Socket.binary_write_len_with_err_cont(conn,m.comms_timeout,binary,len) with
             | {success=cnt} ->
-do jlog("send_no_reply_: cnt={cnt}")
+//do jlog("send_no_reply_: cnt={cnt}")
                do if not(reply_expected) then free_(mbuf) else void
-do jlog("send_no_reply_: cnt==len={cnt==len}")
+//do jlog("send_no_reply_: cnt==len={cnt==len}")
                (cnt==len)
             | {failure=_} ->
                false)
@@ -332,19 +332,19 @@ do jlog("send_no_reply_: cnt==len={cnt==len}")
 
   @private
   send_with_reply(m,mbuf:Mongo.mongo_buf,name): option(Mongo.reply) =
-do jlog("send_with_reply: {name}")
+//do jlog("send_with_reply: {name}")
     mbuf = refresh_requestId(mbuf)
     mrid = reply_requestId(mbuf)
-do jlog("send_with_reply: mrid={mrid}")
+//do jlog("send_with_reply: mrid={mrid}")
     match m.conn with
     | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
        then
-do jlog("send_with_reply: sent message")
+//do jlog("send_with_reply: sent message")
          mailbox = Mailbox.create(m.bufsize)
          (match WP.read_mongo(conn,m.comms_timeout,mailbox) with
           | {success=(mailbox,reply)} ->
-do jlog("send_with_reply: reply={reply}")
+//do jlog("send_with_reply: reply={reply}")
              rrt = WP.reply_responseTo(reply)
              _ = Mailbox.reset(mailbox)
              do free_(mbuf)
@@ -408,7 +408,7 @@ do jlog("send_with_reply: reply={reply}")
 
   @private
   sr_swr(m,mbuf:Mongo.mongo_buf,name) =
-do jlog("sr_swr: {name}")
+//do jlog("sr_swr: {name}")
     swr = send_with_reply(m,mbuf,name)
     if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect}
 
@@ -431,10 +431,10 @@ do jlog("sr_swr: {name}")
 
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =
-do jlog("srpool")
+//do jlog("srpool")
     match SocketPool.get(m.pool) with
     | {success=(slaveok,connection)} ->
-do jlog("srpool: got connection")
+//do jlog("srpool: got connection")
        conn = {some=connection}
        ssok(mbuf) = if slaveok then set_query_flags(mbuf,MongoCommon.SlaveOkBit) else mbuf
        result =
@@ -473,7 +473,7 @@ do jlog("srpool: got connection")
 
   @private
   sndrcv(m,mbuf:Mongo.mongo_buf,name) =
-do jlog("sndrcv")
+//do jlog("sndrcv")
     recon() =
       mbuf2 = mbuf//copy_(mbuf) // TODO: check this
       (slaveok,connectok) = reconnect("send_with_reply",m)
