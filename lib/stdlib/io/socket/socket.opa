@@ -151,7 +151,7 @@ Socket = {{
       %%BslSocket.write_len_with_err_cont%%
 
     binary_write_len_with_err_cont: Socket.connection, int, binary, int -> outcome(int,string) =
-      %%BslSocket.write_len_with_err_cont%%
+      %%BslSocket.binary_write_len_with_err_cont%%
 
     /**
      * Read data from a connection.
@@ -175,7 +175,7 @@ Socket = {{
       else
         match binary_read_with_err_cont(conn, timeout) with
         | {success=data} ->
-           do jlog("read_fixed: data=\n{bindump(data)}")
+           //do jlog("read_fixed: data=\n{bindump(data)}")
            read_fixed(conn,timeout,len,Mailbox.add_binary(mb, data))
         | {~failure} -> {~failure}
 
