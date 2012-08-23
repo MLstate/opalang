@@ -70,15 +70,16 @@ let whitespace = Str.regexp "[ \t]*"
 
 *)
 
-(** Builds a set of bsl tags based on comment annotations *)
+(** Builds a set of bsl tags based on comment annotations.
+    TODO: treat repeated tags *)
 let collect_bsl_tags tags =
 
   (* Reads tags with an associated set of strings *)
-  let string_set tag update bsl_tags =
+  let strings tag update bsl_tags =
     let aux (_, tag', args) =
       if tag = tag' then
         let attributes = Str.split whitespace args in
-        Some (StringSet.from_list attributes)
+        Some attributes
       else
         None
     in
@@ -104,12 +105,24 @@ let collect_bsl_tags tags =
 
   (* List of tags, their formats and how they update a BslTags.t *)
   let updates = [
-    string_set "noProjection" (fun t v ->
-      {t with BslTags.no_projection = Some v}
+    strings "noProjection" (fun t v ->
+      {t with BslTags.no_projection = Some (StringSet.from_list v)}
+    );
+    strings "backend" (fun t v ->
+      {t with BslTags.backend_restriction = Some (StringSet.from_list v)}
+    );
+    strings "restricted" (fun t v ->
+      let tags =
+        if List.is_empty v then
+          None
+        else
+          Some v in
+      {t with BslTags.restricted = Some tags}
     );
     bool "opaName" (fun t v -> {t with BslTags.opaname = v});
     bool "raise" (fun t v -> {t with BslTags.raise_ = v});
     bool "cpsBypass" (fun t v -> {t with BslTags.cps_bypass = v});
+    bool "pure" (fun t v -> {t with BslTags.pure = v});
     bool "opacapi" (fun t v -> {t with BslTags.opacapi = v});
   ] in
 
