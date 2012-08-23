@@ -1575,7 +1575,7 @@ let parse_js_bypass_file_new pprocess filename =
   let contents = pprocess filename (File.content filename) in
   FilePos.add_file filename contents;
   match BslJsParse.parse_string ~filename contents with
-  | `error e -> OManager.error "%s" e
+  | `error e -> OManager.error "%s: %s" filename e
   | `success {BslJsParse. directives; code = contents} ->
     let add_tags ((pos, tags, directive) as p) =
       match directive with
