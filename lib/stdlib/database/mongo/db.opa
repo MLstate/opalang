@@ -510,7 +510,7 @@ Then use option --db-remote instead of --db-local.
                   error("File \'{path}\' exists but is not a directory")
               ) else (
                 do jlog("MongoDB does not seem to be installed in '{path}'")
-                do jlog("Please wait while Opa downloading MongoDB from '{default_url}'...")
+                do jlog("Please wait while Opa downloads MongoDB from '{default_url}'...")
                 _ = System.exec(wget(default_url, tgzpath), "")
                 do jlog("MongoDB was downloaded ({tgzpath})")
                 tarcmd = "tar -xvzf {tgzpath} -C {path}"
