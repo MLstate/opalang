@@ -487,9 +487,6 @@ struct
           "%a\nBad typed %s [cps-bypass] must be of the form : ..., continuation(...) -> void" BslTypes.pp ty (BslKey.to_string key)
       in
       let rec uncps_type check def_type =
-        let rec aux = function
-          | BslTypes.OpaValue (_, t) -> aux t
-          | t -> t in
         match def_type with
         | BslTypes.Fun (pos1, args, BslTypes.Void _) ->
             let args, ret = List.split_at (List.length args - 1) args in
