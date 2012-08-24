@@ -10,8 +10,6 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-package stdlib.widgets.formbuilder
-
 import stdlib.web.mail
 import stdlib.upload
 import stdlib.widgets.core
@@ -33,7 +31,7 @@ import stdlib.widgets.core
  * for validation.
 **/
 
-type WFormBuilder.passwd_validator_spec =
+type FormBuilder.passwd_validator_spec =
   { min_length : int
   ; force_uppercase : bool
   ; force_digit : bool
@@ -48,24 +46,24 @@ type WFormBuilder.passwd_validator_spec =
   ; force_special_char_err_msg : xhtml
   }
 
-type WFormBuilder.field_value('ty) =
+type FormBuilder.field_value('ty) =
   { no_value } / { conversion_error : xhtml } / { value : 'ty }
 
-type WFormBuilder.field_accessor('ty) =
-  WFormBuilder.field_data -> WFormBuilder.field_value('ty)
+type FormBuilder.field_accessor('ty) =
+  FormBuilder.field_data -> FormBuilder.field_value('ty)
 
-type WFormBuilder.field_renderer('ty) =
-  { data : WFormBuilder.field_rendering_data; initial_value : option('ty) } -> xhtml
+type FormBuilder.field_renderer('ty) =
+  { data : FormBuilder.field_rendering_data; initial_value : option('ty) } -> xhtml
 
-type WFormBuilder.field_validator('ty) =
+type FormBuilder.field_validator('ty) =
   'ty -> outcome('ty, xhtml)
 
-type WFormBuilder.field_converter('ty) =
-  { render : WFormBuilder.field_renderer('ty)
-  ; accessor : WFormBuilder.field_accessor('ty)
+type FormBuilder.field_converter('ty) =
+  { render : FormBuilder.field_renderer('ty)
+  ; accessor : FormBuilder.field_accessor('ty)
   }
 
-type WFormBuilder.field_data =
+type FormBuilder.field_data =
   { id : string
   ; label : string
   ; hint : option(xhtml)
@@ -73,33 +71,33 @@ type WFormBuilder.field_data =
   }
 
 @abstract
-type WFormBuilder.field('ty) =
-  { data : WFormBuilder.field_data
+type FormBuilder.field('ty) =
+  { data : FormBuilder.field_data
   ; initial_value : option('ty)
-  ; converter : WFormBuilder.field_converter('ty)
-  ; validator : WFormBuilder.field_validator('ty)
+  ; converter : FormBuilder.field_converter('ty)
+  ; validator : FormBuilder.field_validator('ty)
   }
 
 @abstract
-type WFormBuilder.field_checker = -> bool
+type FormBuilder.field_checker = -> bool
 
 @abstract
-type WFormBuilder.form =
+type FormBuilder.form =
   { id : string
   ; chan : Cell.cell(
         { renderField
-          fldRender : WFormBuilder.field_builder, WFormBuilder.style -> xhtml
-          fldChecker : WFormBuilder.style -> WFormBuilder.field_checker
+          fldRender : FormBuilder.field_builder, FormBuilder.style -> xhtml
+          fldChecker : FormBuilder.style -> FormBuilder.field_checker
         }
       /
         { renderForm
           body : xhtml
-          on_submit : WFormBuilder.form_data -> void
+          on_submit : FormBuilder.form_data -> void
         }
     , xhtml)
   }
 
-type WFormBuilder.style =
+type FormBuilder.style =
   { form_style : WStyler.styler
   ; field_complete_style : bool -> WStyler.styler
   ; field_right_col_style : WStyler.styler
@@ -115,11 +113,11 @@ type WFormBuilder.style =
   }
 
 @abstract
-type WFormBuilder.form_data =
+type FormBuilder.form_data =
     { SimpleForm }
   / { FileUploadForm : Upload.form_data }
 
-type WFormBuilder.field_ids =
+type FormBuilder.field_ids =
   { field_id : string
   ; input_id : string
   ; label_id : string
@@ -127,32 +125,32 @@ type WFormBuilder.field_ids =
   ; error_id : string
   }
 
-type WFormBuilder.field_rendering_data =
-  { ids : WFormBuilder.field_ids
-  ; style : WFormBuilder.style
-  ; data : WFormBuilder.field_data
+type FormBuilder.field_rendering_data =
+  { ids : FormBuilder.field_ids
+  ; style : FormBuilder.style
+  ; data : FormBuilder.field_data
   }
 
-type WFormBuilder.field_builder =
-  { mk_label : WFormBuilder.field_rendering_data -> xhtml
-  ; mk_input : xhtml, WFormBuilder.field_rendering_data -> xhtml
-  ; mk_hint : WFormBuilder.field_rendering_data -> xhtml
-  ; mk_err : WFormBuilder.field_rendering_data -> xhtml
-  ; mk_field : {label:xhtml input:xhtml hint:xhtml err:xhtml data:WFormBuilder.field_rendering_data} -> xhtml
+type FormBuilder.field_builder =
+  { mk_label : FormBuilder.field_rendering_data -> xhtml
+  ; mk_input : xhtml, FormBuilder.field_rendering_data -> xhtml
+  ; mk_hint : FormBuilder.field_rendering_data -> xhtml
+  ; mk_err : FormBuilder.field_rendering_data -> xhtml
+  ; mk_field : {label:xhtml input:xhtml hint:xhtml err:xhtml data:FormBuilder.field_rendering_data} -> xhtml
   }
 
-type WFormBuilder.form_config =
+type FormBuilder.form_config =
   { id : string
-  ; builder : WFormBuilder.field_builder
-  ; style : WFormBuilder.style
+  ; builder : FormBuilder.field_builder
+  ; style : FormBuilder.style
   }
 
-WFormBuilder =
+FormBuilder =
 {{
 
   /** {1 Styling} */
 
-  empty_style : WFormBuilder.style =
+  empty_style : FormBuilder.style =
     { form_style = WStyler.empty
     ; field_complete_style(_) = WStyler.empty
     ; field_right_col_style = WStyler.empty
@@ -167,7 +165,7 @@ WFormBuilder =
     ; hint_elt_type = {always_visible}
     }
 
-  bootstrap_style : WFormBuilder.style =
+  bootstrap_style : FormBuilder.style =
     { form_style = {class=["form-horizontal"]}
     ; field_complete_style(ok) = {class=["control-group"] ++ if ok then [] else ["error"]}
     ; field_right_col_style = {class=["controls"]}
@@ -184,10 +182,10 @@ WFormBuilder =
 
   /** {1 Validators} */
 
-  empty_validator : WFormBuilder.field_validator('ty) =
+  empty_validator : FormBuilder.field_validator('ty) =
     input -> {success=input}
 
-  empty_passwd_validator_spec : WFormBuilder.passwd_validator_spec =
+  empty_passwd_validator_spec : FormBuilder.passwd_validator_spec =
     { min_length = 6
     ; force_uppercase = false
     ; force_digit = true
@@ -204,8 +202,8 @@ WFormBuilder =
     ; force_special_char_err_msg = <>one special character</>
     }
 
-  password_validator(spec : WFormBuilder.passwd_validator_spec)
-    : WFormBuilder.field_validator(string) =
+  password_validator(spec : FormBuilder.passwd_validator_spec)
+    : FormBuilder.field_validator(string) =
     input ->
       length_ok = String.length(input) >= spec.min_length
       length_msg = spec.min_length_err_msg(spec.min_length)
@@ -247,14 +245,14 @@ WFormBuilder =
           , (length_ok, length_msg)
           ], true, [])
 
-  equals_validator(fld : WFormBuilder.field('ty), error_msg : xhtml) : WFormBuilder.field_validator('ty) =
+  equals_validator(fld : FormBuilder.field('ty), error_msg : xhtml) : FormBuilder.field_validator('ty) =
     input ->
       if {value=input} == access_field(fld) then
         {success = input}
       else
         {failure = error_msg}
 
-  merge_validators(vs : list(WFormBuilder.field_validator)) : WFormBuilder.field_validator =
+  merge_validators(vs : list(FormBuilder.field_validator)) : FormBuilder.field_validator =
     rec aux(input) =
       | [] -> { success=input }
       | [v | vs] ->
@@ -329,36 +327,36 @@ WFormBuilder =
 
   /** {1 Field converters} */
 
-  text_field : WFormBuilder.field_converter(string) =
+  text_field : FormBuilder.field_converter(string) =
     { render = render_text_input(_, identity)
     ; accessor = string_accessor
     }
 
-  passwd_field : WFormBuilder.field_converter(string) =
+  passwd_field : FormBuilder.field_converter(string) =
     { render = render_passwd_input
     ; accessor = string_accessor
     }
 
-  email_field(wrong_email : xhtml) : WFormBuilder.field_converter(Email.email) =
+  email_field(wrong_email : xhtml) : FormBuilder.field_converter(Email.email) =
     { render = render_text_input(_, Email.to_string)
     ; accessor = email_accessor(_, wrong_email)
     }
 
-  desc_field_with(size : {rows:int cols:int}) : WFormBuilder.field_converter(string) =
+  desc_field_with(size : {rows:int cols:int}) : FormBuilder.field_converter(string) =
     { render = render_text_area(_, size)
     ; accessor = string_accessor
     }
 
-  desc_field : WFormBuilder.field_converter(string) =
+  desc_field : FormBuilder.field_converter(string) =
     desc_field_with({rows=3 cols=40})
 
-  uri_field(wrong_uri : xhtml) : WFormBuilder.field_converter(Uri.uri) =
+  uri_field(wrong_uri : xhtml) : FormBuilder.field_converter(Uri.uri) =
     { render = render_text_input(_, Uri.to_string)
     ; accessor = uri_accessor(_, wrong_uri)
     }
 
   select_combobox_field(options : list('a), to_id : 'a -> string,
-    to_label : 'a -> xhtml, none_selected : xhtml) : WFormBuilder.field_converter('a) =
+    to_label : 'a -> xhtml, none_selected : xhtml) : FormBuilder.field_converter('a) =
     { render = render_combobox(_, options, to_id, to_label)
     ; accessor = selection_accessor(_, options, to_id, none_selected)
     }
@@ -372,14 +370,14 @@ WFormBuilder =
      hint=none
     }
 
-  mk_field(label, converter) : WFormBuilder.field =
+  mk_field(label, converter) : FormBuilder.field =
     { data=field_data(label)
     ; ~converter
     ; initial_value=none
     ; validator=empty_validator
     }
 
-  mk_form_with(params : WFormBuilder.form_config) : WFormBuilder.form =
+  mk_form_with(params : FormBuilder.form_config) : FormBuilder.form =
     on_msg(state, msg) =
       match msg with
       | {renderField ~fldChecker ~fldRender} ->
@@ -404,35 +402,35 @@ WFormBuilder =
     ; style = bootstrap_style
     }
 
-  mk_form() : WFormBuilder.form =
+  mk_form() : FormBuilder.form =
     mk_form_with(default_form_config())
 
   /** {1 Extending fields} */
 
-  add_validator(field : WFormBuilder.field, v : WFormBuilder.field_validator)
-    : WFormBuilder.field =
+  add_validator(field : FormBuilder.field, v : FormBuilder.field_validator)
+    : FormBuilder.field =
     { field with
         validator=merge_validators([field.validator, v])
     }
 
-  add_hint(field : WFormBuilder.field, hint : xhtml) : WFormBuilder.field =
+  add_hint(field : FormBuilder.field, hint : xhtml) : FormBuilder.field =
     { field with data.hint=some(hint) }
 
-  set_id(field : WFormBuilder.field, id : string) : WFormBuilder.field =
+  set_id(field : FormBuilder.field, id : string) : FormBuilder.field =
     {field with data.id=id}
 
-  set_initial_value(field : WFormBuilder.field('ty), initial_value : 'ty) : WFormBuilder.field('ty) =
+  set_initial_value(field : FormBuilder.field('ty), initial_value : 'ty) : FormBuilder.field('ty) =
     {field with initial_value=some(initial_value)}
 
-  make_required(field : WFormBuilder.field, err_msg : xhtml) : WFormBuilder.field =
+  make_required(field : FormBuilder.field, err_msg : xhtml) : FormBuilder.field =
     {field with data.optionality={required = err_msg}}
 
-  make_required_with_default_msg(field : WFormBuilder.field) : WFormBuilder.field =
+  make_required_with_default_msg(field : FormBuilder.field) : FormBuilder.field =
     make_required(field, <>Please provide a value</>)
 
   /** {1 Form/fields rendering} */
 
-  default_field_builder : WFormBuilder.field_builder =
+  default_field_builder : FormBuilder.field_builder =
     {
       mk_label({data=~{optionality label ...} ids=~{label_id input_id ...} style=s}) =
         req =
@@ -474,36 +472,36 @@ WFormBuilder =
 
      }
 
-  render_field(form : WFormBuilder.form,
-               field : WFormBuilder.field('ty)) : xhtml =
+  render_field(form : FormBuilder.form,
+               field : FormBuilder.field('ty)) : xhtml =
     fldChecker = mk_field_checker(field, _)
     fldRender = field_html(field, _, _)
     Cell.call(form.chan, {renderField ~fldChecker ~fldRender})
 
-  render_form( form : WFormBuilder.form, body : xhtml
-             , on_submit : WFormBuilder.form_data -> void
+  render_form( form : FormBuilder.form, body : xhtml
+             , on_submit : FormBuilder.form_data -> void
              ) : xhtml =
     Cell.call(form.chan, {renderForm ~body ~on_submit})
 
-  focus_on(field : WFormBuilder.field) : void =
+  focus_on(field : FormBuilder.field) : void =
     Dom.give_focus(#{build_ids(field.data.id).input_id})
 
-  submit_action(form : WFormBuilder.form) : (Dom.event -> void) =
+  submit_action(form : FormBuilder.form) : (Dom.event -> void) =
     _ ->
        // submit the form
       Dom.trigger(#{form.id}, {submit})
 
-  get_field_value(field : WFormBuilder.field('a)) : option('a) =
+  get_field_value(field : FormBuilder.field('a)) : option('a) =
     match access_field(field) with
     | {value=v} -> some(v)
     | _ -> none
 
   /* ---------- Private functions ---------- */
 
-  @private access_field(field : WFormBuilder.field) =
+  @private access_field(field : FormBuilder.field) =
     field.converter.accessor(field.data)
 
-  @private get_field_label(field : WFormBuilder.field) =
+  @private get_field_label(field : FormBuilder.field) =
     field.data.label
 
   @private add_style(style) = WStyler.add(style, _)
@@ -521,12 +519,12 @@ WFormBuilder =
        )
     void
 
-  @private mk_field_checker(field, style) : WFormBuilder.field_checker =
+  @private mk_field_checker(field, style) : FormBuilder.field_checker =
     -> validate_field(field, style)
 
   @private
-  validate_field( field : WFormBuilder.field('ty)
-                , style : WFormBuilder.style
+  validate_field( field : FormBuilder.field('ty)
+                , style : FormBuilder.style
                 ) : bool =
     ids = build_ids(field.data.id)
     input = access_field(field)
@@ -577,17 +575,17 @@ WFormBuilder =
   @private get_val_string(id : string) =
     Dom.get_value(#{id})
 
-  @private get_form_val_string(id : string, data : WFormBuilder.form_data) : string =
+  @private get_form_val_string(id : string, data : FormBuilder.form_data) : string =
     match data with
     | { SimpleForm } -> get_val_string(id)
     | { FileUploadForm=data } -> Map.get(id, data.form_fields) ? ""
 
-  @private get_file_upload_value(id : string, data : WFormBuilder.form_data) : option(Upload.file) =
+  @private get_file_upload_value(id : string, data : FormBuilder.form_data) : option(Upload.file) =
     match data with
     | { SimpleForm } -> none
     | { FileUploadForm=data } -> Map.get(id, data.uploaded_files)
 
-  @private build_ids(id) : WFormBuilder.field_ids =
+  @private build_ids(id) : FormBuilder.field_ids =
     { field_id = "{id}_field"
     ; label_id = "{id}_label"
     ; input_id = "{id}_input"
@@ -610,9 +608,9 @@ WFormBuilder =
     void
 
   @private
-  field_html( field : WFormBuilder.field
-            , builder : WFormBuilder.field_builder
-            , style : WFormBuilder.style
+  field_html( field : FormBuilder.field
+            , builder : FormBuilder.field_builder
+            , style : FormBuilder.style
             ) : xhtml =
     hide(tag) = WStyler.add({style=css{display: none}}, tag)
     ~{data initial_value converter ...} = field
@@ -648,11 +646,11 @@ WFormBuilder =
       void
 
   @private
-  form_html( config : WFormBuilder.form_config
-           , fld_checkers : list(WFormBuilder.field_checker)
+  form_html( config : FormBuilder.form_config
+           , fld_checkers : list(FormBuilder.field_checker)
            , form_type : {Basic} / {Normal}
            , body : xhtml
-           , process_form : WFormBuilder.form_data -> void
+           , process_form : FormBuilder.form_data -> void
            ) : xhtml =
     form_body = <fieldset>{body}</>
     match form_type
