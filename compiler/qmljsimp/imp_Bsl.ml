@@ -335,7 +335,7 @@ struct
           | false, true -> `to_, None
           | true, true -> `no, Some (fun fun_ ->
                                        JsCons.Expr.call ~pure:true
-                                         (JsCons.Expr.ident (JsAst.Native (`global true, "wrap_tc")))
+                                         Imp_Common.ClientLib.wrap_tc
                                          [fun_])
           | false, false -> `no, None
         in
