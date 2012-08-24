@@ -460,11 +460,7 @@ package_install (){
                 fi
                 make
                 $SUDO make install
-		npm install -g nodemailer
-		npm install -g imap
-		npm install -g mongodb
-		npm install -g formidable
-                npm install -g iconv
+		$SUDO npm install -g nodemailer imap mongodb formidable shelljs iconv
 		;;
             *)
                 install_generic
