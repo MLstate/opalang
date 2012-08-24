@@ -95,6 +95,7 @@ let _ =
       die "Couldn't create output path";
     let main_path = Filename.concat output "main.js" in
     let package_json_path = Filename.concat output "package.json" in
+    let readme_path = Filename.concat output "README.md" in
     let package_desc = JsUtils.basic_package_json
       ~version:package_version output "main.js" in
     let output_result = File.pp_output package_json_path
@@ -104,6 +105,10 @@ let _ =
     | None -> ()
     | Some error -> OManager.error "Couldn't create package: %s\n" error
     end;
-    match File.pp_output main_path process files with
+    begin match File.pp_output main_path process files with
     | None -> ()
     | Some error -> OManager.error "Couldn't create package: %s\n" error
+    end;
+    let oc = open_out readme_path in
+    output_string oc "This file is part of Opa. http://opalang.org";
+    close_out oc
