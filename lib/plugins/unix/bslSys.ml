@@ -140,3 +140,9 @@ let get_memory_usage = BaseSys.get_memory_usage
 ##register get_env_var : string -> option(string)
 let get_env_var var =
  try Some(Sys.getenv var) with Not_found -> None
+
+(** Get the path of command if exists *)
+##register which : string -> option(string)
+let which command =
+  Logger.error "`which` not implemented yet";
+  None

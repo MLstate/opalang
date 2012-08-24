@@ -384,7 +384,7 @@ export NODE_PATH=\"%s:$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:
 %s
 */
 
-var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap'];
+var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap', 'shelljs'];
 var opa_dependencies = [%s];
 
 %s
