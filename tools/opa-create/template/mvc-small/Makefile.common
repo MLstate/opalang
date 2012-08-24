@@ -1,0 +1,72 @@
+########################################
+# MAKEFILE VARIABLES
+OPACOMPILER ?= opa
+OPA = $(OPACOMPILER) $(FLAG) $(OPAOPT)
+PWD ?= $(shell pwd)
+BUILDDIR ?= _build
+export BUILDDIR
+OPAGENAPI ?= $(OPACOMPILER) --api-only
+DEPENDS = $(SRC) $(PCK:%=$(BUILDDIR)/%) $(PLUGIN:%=$(BUILDDIR)/%)
+
+ifdef CONF_FILE
+     CONFIG = --conf $(CONF_FILE) --conf-opa-files
+else
+     CONFIG =
+endif
+
+ifdef SystemRoot
+	RM = rmdir /s /q
+	RMFILE = del /s /q
+else
+	RM = rm -rf
+	RMFILE = rm
+endif
+
+# Hack to bypass the lack of "make -p" on Windows:
+_ = $(shell mkdir _build 2>/dev/null)   
+
+########################################
+# MAIN RULE
+exe : $(EXE)
+pack : $(PACKNAME)
+
+########################################
+# MAIN PACKAGE BUILDING
+$(PACKNAME) : $(BUILDDIR)/$(PACKNAME)
+
+$(BUILDDIR)/$(PACKNAME) : $(DEPENDS)
+	@echo "### Building package $(PACKNAME)"
+	$(OPA) --autocompile $(SRC) $(PLUGIN:%=$(BUILDDIR)/%) --build-dir $(BUILDDIR) -I $(BUILDDIR) $(OPAOPT)
+	$(RM) $(BUILDDIR)/$(PACKNAME)
+	@mv $(PACKNAME) $(BUILDDIR)/
+
+########################################
+# SUBS PACKAGE/PLUGIN BUILDING
+$(BUILDDIR)/%.opx :
+	make $(@:$(BUILDDIR)/%.opx=-C $(PCKDIR)/%) pack
+
+$(BUILDDIR)/%.opp :
+	make $(@:$(BUILDDIR)/%.opp=-C $(PLUGINDIR)/%)
+
+########################################
+# EXECUTABLE BUILDING
+$(EXE) : pack $(SRC) $(MAINSRC) $(DEPENDS) $(OTHER_DEPENDS)
+	@echo "### Building executable $(EXE) "
+	$(OPA) $(COMPILOPT) $(MAINSRC) $(CONFIG) $(PLUGIN:%=$(BUILDDIR)/%) -o $@ --build-dir $(BUILDDIR)/$(EXE)
+
+$(EXE:%.exe=%.run) : $(EXE)
+	./$(EXE) -p $(PORT)
+
+########################################
+# Used by recursives makefile
+pack.depends :
+	@echo $(PCK) $(PLUGIN)
+
+########################################
+# CLEANING
+clean ::
+	@$(PCK:%.opx=make -C $(PCKDIR)/% clean &&) $(PLUGIN:%.opp=make -C $(PLUGINDIR)/% clean &&) echo "### Cleaning $(BUILDDIR)";
+	$(RM) $(BUILDDIR) 2>/dev/null
+	$(RMFILE) $(EXE) 2>/dev/null 
+	
+
