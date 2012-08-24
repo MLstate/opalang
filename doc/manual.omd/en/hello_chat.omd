@@ -43,9 +43,12 @@ app, with the following content:
 | | +- css
 | | | +- style.css
 | +- src
-| | +- model.opa
-| | +- view.opa
-| | +- controller.opa`[sh]
+| | +- model
+| | | +- data.opa
+| | +- view
+| | | +- page.opa
+| | +- controller
+| | | +- main.opa`[sh]
 
 The project includes:
 
@@ -53,7 +56,7 @@ The project includes:
 * a generic `Makefile.common` (which will usually not be modified),
 * a configuration, `opa.conf` (listing all source files of the projects and their dependencies),
 * an exemplary style file `style.css`,
-* and the sources following the classical MVC pattern: `model.opa`, `view.opa` and `controller.opa`.
+* and the sources, following the classical MVC pattern, divided into three sub-directories: `model`, `view` and `controller`, for the standard three application layers.
 
 {block}[TIP]
 You can explore other templates of the `opa-create` tool by trying out
