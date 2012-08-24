@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -267,7 +267,7 @@ let generate_instrumented_functions need_instrumentation gamma annotmap code =
     ) (gamma, annotmap, empty) code
 
 (* update call elligible site *)
-let rewrite_identifiers always_serialize env annotmap code =
+let rewrite_identifiers env annotmap code =
   let new_call_site labeli i =
     let new_ident, tsc_opt = IdentMap.find i env in
     let rw_ident e = match e with | Q.Ident (label, _) when label=labeli -> Q.Ident (labeli, new_ident)
@@ -294,7 +294,7 @@ let rewrite_identifiers always_serialize env annotmap code =
     | (Q.Ident _ as id) as e
     | Q.Directive (_, `partial_apply (_,false), [Q.Apply (_, id , _ ) as e], _)
         -> begin match get_ident id with
-            | Some((labeli,id)) when has_public_env || IdentSet.mem id always_serialize ->
+            | Some((labeli,id)) when has_public_env ->
               new_call_site labeli id annotmap e
             | _ -> (annotmap,no_changes)
         end
