@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -186,6 +186,22 @@ UserContext =
       (Cell.call(context, {exec=f}) |> Option.get(_))()
     @callcc(k)
 
+
+  /**
+   * [get(context)] returns the state associated with [context] (for the current
+   * user).
+   */
+  get(context : UserContext.t('state)) : 'state =
+    execute(identity, context)
+
+  /**
+   * [set(context, value)] sets the state associated with [context] (for the
+   * current user) to [value].
+   * It is a convenience function that can be used instead of [change] when
+   * setting new state without the need to know the previous one.
+   */
+  set(context : UserContext.t('state), v : 'state) =
+    change(_ -> v, context)
 
   /**
    * [set_default(default, context)] Set the new default value for the user context.
