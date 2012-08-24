@@ -80,6 +80,8 @@ struct
   let type_extern = !! "type_extern"
   let type_opavalue = !! "type_opavalue"
   let assert_length = !! "assert_length"
+
+  let wrap_tc = JsCons.Expr.native_global ~pure:true "wrap_tc"
 end
 
 (* a very conservative approximation of which expressions do observable side

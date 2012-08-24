@@ -63,6 +63,8 @@ sig
   val type_extern : JsAst.expr
   val type_opavalue : JsAst.expr
   val assert_length : JsAst.expr
+
+  val wrap_tc : JsAst.expr
 end
 
 (**
