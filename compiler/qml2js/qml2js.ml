@@ -204,6 +204,14 @@ struct
     printer fmt;
     close_out oc
 
+  let write_readme env_opt =
+    let filename = "README.md" in
+    let filename = Filename.concat env_opt.compilation_directory filename in
+    OManager.verbose "writing file @{<bright>%s@}" filename;
+    let oc = open_out filename in
+    output_string oc "This file is part of Opa. http://opalang.org";
+    close_out oc
+
   (* Write a package.json package descriptor that can be understood by
      node and npm. *)
   let write_package_json env_opt =
@@ -349,6 +357,7 @@ struct
      OManager.error "cannot create or enter in directory @{<bright>%s@}"
        build_dir;
     write_main env_opt filename print_content;
+    write_readme env_opt;
     match ObjectFiles.compilation_mode () with
     | `compilation -> write_package_json env_opt
     | _ -> ()
