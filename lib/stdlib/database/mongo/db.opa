@@ -497,28 +497,35 @@ Then use option --db-remote instead of --db-local.
               error("Can not create directory \'{path}\'")
         )
         /* Check for MongoDB binary */
-        do jlog("Looking for MongoDB in directory \'{path}\'")
-        binpath = "{args.path}/{default_archive}/bin"
-        tgzpath = "{args.path}/mongo.tgz"
-        do (
-          if %%BslFile.exists%%(binpath) then (
-            if not(%%BslFile.is_directory%%(binpath)) then
-              error("File \'{path}\' exists but is not a directory")
-          ) else (
-            do jlog("MongoDB does not seem to be installed in '{path}'")
-            do jlog("Please wait while Opa downloading MongoDB from '{default_url}'...")
-            _ = System.exec(wget(default_url, tgzpath), "")
-            do jlog("MongoDB was downloaded ({tgzpath})")
-            tarcmd = "tar -xvzf {tgzpath} -C {path}"
-            do jlog("Uncompressing of MongoDB archive... ({tarcmd})")
-            _ = System.exec(tarcmd, "")
-            void
-          )
-        )
+        which_mongod = %%BslSys.which%%("mongod")
+        mngpath =
+          match which_mongod with
+          {none} ->
+            do jlog("Looking for MongoDB in directory \'{path}\'")
+            binpath = "{args.path}/{default_archive}/bin"
+            tgzpath = "{args.path}/mongo.tgz"
+            do (
+              if %%BslFile.exists%%(binpath) then (
+                if not(%%BslFile.is_directory%%(binpath)) then
+                  error("File \'{path}\' exists but is not a directory")
+              ) else (
+                do jlog("MongoDB does not seem to be installed in '{path}'")
+                do jlog("Please wait while Opa downloading MongoDB from '{default_url}'...")
+                _ = System.exec(wget(default_url, tgzpath), "")
+                do jlog("MongoDB was downloaded ({tgzpath})")
+                tarcmd = "tar -xvzf {tgzpath} -C {path}"
+                do jlog("Uncompressing of MongoDB archive... ({tarcmd})")
+                _ = System.exec(tarcmd, "")
+                void
+              )
+            )
+            "{binpath}/mongod"
+          {some=mongod} ->
+            do jlog("MongoDB found at \'{mongod}\'")
+            mongod
         /*Check for MongoDB server */
         pidpath = "/tmp/opaMongo.pid"
         datpath = "{path}/data"
-        mngpath = "{binpath}/mongod"
         logpath = "{path}/mongo.log"
         mngargs = "--pidfilepath {pidpath} --noprealloc --bind_ip 0.0.0.0 --dbpath {datpath} --fork --logpath {logpath}"
         _ = %%BslFile.make_dir%%(datpath)
