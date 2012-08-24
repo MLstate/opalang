@@ -32,12 +32,12 @@
    What if I need more type ?
 
    BslTypes are involved in an auto-projection process which can have a cost for
-   complexe data-structures.
+   complex data-structures.
 
    That's why we do not want to allow auto-projection for recursive types for example.
-   There is now a support via the [ServerLib] for a low level management of complexe
+   There is now a support via the [ServerLib] for a low level management of complex
    projection between arbitrary external types and opa structures.
-   This is the sence of the type constuctor {b OpaValue},
+   This is the sense of the type constuctor {b OpaValue},
    which is available with the syntax [opa[...]] handled by {b bslregister}.
 *)
 
@@ -84,7 +84,7 @@ val (~$) : string -> typevar
 (** {6 Types algebra} *)
 
 (**
-   The albebra of standard types. Some details :
+   The algebra of standard types. Some details :
    + [External of string * t list] : the name of the type * the instance of the parameters if the type is parametric.
    + [Fun of t list * t] is the representation for functions.
    + [Void] For a non Nary language (Ocaml), Void is replace by an inserted [unit].
@@ -170,13 +170,13 @@ val pp : t pprinter
 val pp_scope : scope:TypeVarPrint.scope -> t pprinter
 
 (**
-   Search for the position of t, if is not empty print the citation,
+   Search for the position of t, if it is not empty print the citation,
    if the type is a builtin, does nothing.
 *)
 val pp_citation : t pprinter
 
 (**
-   Search for the position of t, if is not empty print the citation,
+   Search for the position of t, if it is not empty print the citation,
    if the type is a builtin, print the type.
 *)
 val pp_context : t pprinter
@@ -184,7 +184,7 @@ val pp_multi_context : t list pprinter
 
 (** {6 Types Manipulations and Transformations} *)
 
-(** Ocaml does not like [with type t = t], [this_t] is just an allias to type [t] *)
+(** Ocaml does not like [with type t = t], [this_t] is just an alias to type [t] *)
 type this_t = t
 
 (** The instance of TRAVERSE module for the type [t] *)
@@ -246,7 +246,7 @@ val empty_substitution : t substitution
    Given a [substitution] between [typevar] and [t], replace every occurrence
    of [TypeVar i] by [substitute(i)].
 
-   The maping is the identity if [i] is [Not_found]
+   The mapping is the identity if [i] is [Not_found]
 *)
 val substitute : t substitution -> t -> t
 
@@ -270,7 +270,7 @@ val compare : ?normalize:bool -> t -> t -> int
    which means that one of the arguement (or the returned type)
    is or contains an arrow type.
    This is used for adding parent continuation to the uncps
-   projection, in order not to loose the context.
+   projection, in order not to lose the context.
 *)
 val is_second_order : t -> bool
 
@@ -281,7 +281,7 @@ val is_second_order : t -> bool
    It is not a unification for checking its utilisation, it is more
    restrictive than an unification.
 
-   It returns the [subsitution] built during the inclusion check
+   It returns the [substitution] built during the inclusion check
    (and it takes a substitution to start with).
 
    There is mostly 2 utilisations of this :
