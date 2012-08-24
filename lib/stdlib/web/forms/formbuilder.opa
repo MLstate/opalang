@@ -90,9 +90,7 @@ type FormBuilder.form =
           fldChecker : FormBuilder.style -> FormBuilder.field_checker
         }
       /
-        { renderForm
-          body : xhtml
-          on_submit : FormBuilder.form_data -> void
+        { renderForm body : xhtml
         }
     , xhtml)
   }
@@ -377,7 +375,7 @@ FormBuilder =
     ; validator=empty_validator
     }
 
-  mk_form_with(params : FormBuilder.form_config) : FormBuilder.form =
+  mk_form_with(on_submit, params : FormBuilder.form_config) : FormBuilder.form =
     on_msg(state, msg) =
       match msg with
       | {renderField ~fldChecker ~fldRender} ->
@@ -386,7 +384,7 @@ FormBuilder =
           { return = xhtml
           ; instruction = {set=new_state}
           }
-      | {renderForm ~body ~on_submit} ->
+      | {renderForm ~body} ->
            // FIXME, {Basic}/{Normal}
           xhtml = form_html(params, state, {Basic}, body, on_submit)
           { return = xhtml
@@ -402,8 +400,8 @@ FormBuilder =
     ; style = bootstrap_style
     }
 
-  mk_form() : FormBuilder.form =
-    mk_form_with(default_form_config())
+  mk_form(on_submit) : FormBuilder.form =
+    mk_form_with(on_submit, default_form_config())
 
   /** {1 Extending fields} */
 
@@ -478,10 +476,8 @@ FormBuilder =
     fldRender = field_html(field, _, _)
     Cell.call(form.chan, {renderField ~fldChecker ~fldRender})
 
-  render_form( form : FormBuilder.form, body : xhtml
-             , on_submit : FormBuilder.form_data -> void
-             ) : xhtml =
-    Cell.call(form.chan, {renderForm ~body ~on_submit})
+  render_form(form : FormBuilder.form, body : xhtml) : xhtml =
+    Cell.call(form.chan, {renderForm ~body})
 
   focus_on(field : FormBuilder.field) : void =
     Dom.give_focus(#{build_ids(field.data.id).input_id})
