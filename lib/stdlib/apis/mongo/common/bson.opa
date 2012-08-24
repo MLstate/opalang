@@ -42,7 +42,7 @@ import stdlib.core.{date,map}
  * [bson_to_opa] or [opa_to_bson].
  **/
 type Bson.numeric = int
-type Bson.oid = string
+type Bson.oid = binary
 type Bson.binary = binary
 type Bson.regexp = (string, string)
 type Bson.code = string
@@ -80,7 +80,7 @@ type Bson.value =
   / { Document: Bson.document }
   / { Array: Bson.document }
   / { Binary: binary }
-  / { ObjectID: string }
+  / { ObjectID: binary }
   / { Boolean: bool }
   / { Date: Date.date }
   / { Null }
@@ -161,7 +161,7 @@ Bson = {{
     valarr(n:string,l:list(Bson.value)):Bson.element =
       {name=n; value={Array=List.mapi((i, value -> ({name="{i}"; ~value}:Bson.element)),l)}}
     binary(n:string,b:Bson.binary):Bson.element = {name=n; value={Binary=b}}
-    oid(n:string,id:string):Bson.element = {name=n; value={ObjectID=id}}
+    oid(n:string,id:binary):Bson.element = {name=n; value={ObjectID=id}}
     bool(n:string,b:bool):Bson.element = {name=n; value={Boolean=b}}
     date(n:string,d:Date.date):Bson.element = {name=n; value={Date=d}}
     regexp(n:string,re:Bson.regexp):Bson.element = {name=n; value={Regexp=re}}
@@ -446,7 +446,7 @@ Bson = {{
     | {Document=v} -> "{to_pretty(v)}"
     | {Array=v} -> "{pretty_of_array(v)}"
     | {Binary=_} -> "<BINARY>"
-    | {ObjectID=v} -> "ObjectId({v})"
+    | {ObjectID=_v} -> "ObjectId" //({WireProtocol.oid_to_string(v)})" //TODO: need to move oid_{to/of}_string
     | {Boolean=v} -> "{v}"
     | {Date=v} -> "{v}"
     | {Null=_} -> "null"

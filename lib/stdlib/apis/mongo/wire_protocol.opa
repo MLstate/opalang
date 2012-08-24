@@ -112,8 +112,6 @@ type WireProtocol.Message = {
 @private U = Pack.Unser
 @private zero64 = Int64.of_int(0)
 
-@private bindump = (%% BslPervasives.bindump %%: binary -> string)
-
 WireProtocol = {{
 
   /* Element codes */
@@ -262,11 +260,6 @@ WireProtocol = {{
     if typ == st_bin_binary_old
     then (size+4,[{Byte=el_bindata}, {Cstring=name}, {Long=strsize+4}, {Byte=typ}, {Binary=bin; le=true; size={L}}])
     else (size,[{Byte=el_bindata}, {Cstring=name}, {Binary=bin; payload=[{Byte=typ}]; le=true; size={L}}])
-//    strsize = String.length(str)
-//    size = 7+String.length(name)+strsize
-//    if typ == st_bin_binary_old
-//    then (size+4,[{Byte=el_bindata}, {Cstring=name}, {Long=strsize+4}, {Byte=typ}, {String=str; le=true; size={L}}])
-//    else (size,[{Byte=el_bindata}, {Cstring=name}, {String=str; payload=[{Byte=typ}]; le=true; size={L}}])
 
   new_oid =
     counter = ServerReference.create(0)
@@ -282,21 +275,53 @@ WireProtocol = {{
 
   oid(name,oid) = (14+String.length(name),[{Byte=el_oid}, {Cstring=name}, {FixedBinary=(12,oid)}])
 
-  oid_of_string(_str:string) : string = @fail // TODO
-    //let oid = S.create 12 in
-    //for i = 0 to 11 do
-    //  oid.[i] <- Char.chr (Charf.c2h str.[i*2] str.[i*2+1]);
-    //done;
-    //oid
+  oid_of_string(str:string) : binary =
+    c2h(c1,c2) : option(int) =
+      ch(c:string) : option(int) =
+        match c with
+        | "0" -> {some=0} | "1" -> {some=1} | "2" -> {some=2} | "3" -> {some=3} | "4" -> {some=4}
+        | "5" -> {some=5} | "6" -> {some=6} | "7" -> {some=7} | "8" -> {some=8} | "9" -> {some=9}
+        | "a" -> {some=10} | "b" -> {some=11} | "c" -> {some=12} | "d" -> {some=13} | "e" -> {some=14} | "f" -> {some=15}
+        | "A" -> {some=10} | "B" -> {some=11} | "C" -> {some=12} | "D" -> {some=13} | "E" -> {some=14} | "F" -> {some=15}
+        | _ -> {none}
+      match (ch(c1),ch(c2)) with
+      | ({some=i1},{some=i2}) -> {some=i1*16+i2}
+      | _ -> {none}
+    null = binary_of_string("\000\000\000\000\000\000\000\000\000\000\000\000")
+    if String.length(str) < 24
+    then null
+    else
+      oid = Binary.create(12)
+      rec aux(i) =
+        if i >= 12
+        then oid
+        else
+          (match c2h(String.sub(i*2,1,str),String.sub(i*2+1,1,str)) with
+           | {some=n} ->
+             do Binary.add_uint8(oid, n)
+             aux(i+1)
+           | {none} ->
+             null)
+      aux(0)
 
-  oid_to_string(_oid:string) : string = @fail // TODO
-    //let hex = [|'0';'1';'2';'3';'4';'5';'6';'7';'8';'9';'a';'b';'c';'d';'e';'f'|] in
-    //let str = S.create 24 in
-    //for i = 0 to 11 do
-    //  str.[2*i] <- hex.(((Char.code oid.[i]) land 0xf0) lsr 4);
-    //  str.[2*i+1] <- hex.((Char.code oid.[i]) land 0x0f);
-    //done;
-    //str
+  oid_to_string(oid:binary) : string =
+    h2c(h:int) : string =
+      match h with
+      | 0 -> "0" | 1 -> "1" | 2 -> "2" | 3 -> "3" | 4 -> "4" | 5 -> "5" | 6 -> "6" | 7 -> "7" | 8 -> "8"
+      | 9 -> "9" | 10 -> "a" | 11 -> "b" | 12 -> "c" | 13 -> "d" | 14 -> "e" | 15 -> "f" | _ -> "\000"
+    null = "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
+    if Binary.length(oid) != 12
+    then null
+    else
+      rec aux(i,sl) =
+        if i >= 12
+        then String.concat("",List.rev(sl))
+        else
+          n = Binary.get_uint8(oid,i)
+          c1 = Bitwise.lsr(n,4)
+          c2 = Bitwise.land(0x0f,n)
+          aux(i+1,["{h2c(c1)}{h2c(c2)}"|sl])
+      aux(0,[])
 
   regex(name,pattern,opts) = (4+String.length(name)+String.length(pattern)+String.length(opts),
                               [{Byte=el_regex}, {Cstring=name}, {Cstring=pattern}, {Cstring=opts}])
@@ -331,7 +356,7 @@ WireProtocol = {{
            | {~Document} -> object(el.name,Document)
            | {~Array} -> array(el.name,Array)
            | {~Binary} -> binary(el.name,st_bin_binary,Binary)
-           | {~ObjectID} -> oid(el.name,binary_of_string(ObjectID))
+           | {~ObjectID} -> oid(el.name,ObjectID)
            | {~Boolean} -> bool(el.name,Boolean)
            | {~Date} -> time_t(el.name,Date)
            | {Null=_} -> null(el.name)
@@ -397,7 +422,7 @@ WireProtocol = {{
               do if (Pack.debug) then jlog("el_oid")
               (match U.fixed_binary(input, 12) with
                | {success=(input,oid)} ->
-                  {success=(input,{some={~name; value={ObjectID=string_of_binary8(oid)}}})} // <-- this will be binary, one day
+                  {success=(input,{some={~name; value={ObjectID=oid}}})}
                | {~failure} -> {~failure})
             | /*el_bool*/8 ->
               do if (Pack.debug) then jlog("el_bool")
@@ -489,12 +514,6 @@ WireProtocol = {{
   string_of_Insert(ins:WireProtocol.Insert) =
     "  flags={string_of_insert_flags(ins.flags)}\n  fullCollectionName={ins.fullCollectionName}\n  {string_of_Docs([],ins.documents)}"
 
-  insert(rid:int, flags:int, ns:string, docs:list(Bson.document)) : Pack.data =
-    (bodysize,bodies) = List.fold_backwards((doc, (s,bs) -> (s2,b2) = packDocument(doc) (s+s2,[b2|bs])),docs,(0,[]))
-    nssize = String.length(ns) + 1
-    head = make_header(20+nssize+bodysize,rid,0,_OP_INSERT)
-    List.flatten([[{Pack=head}, {Long=flags}, {Cstring=ns}], List.map((b -> {Pack=b}),bodies)])
-
   packInsert(hdr:WireProtocol.MsgHeader, ins:WireProtocol.Insert) : Pack.data =
     (bodysize,bodies) = List.fold_backwards((doc, (s,bs) -> (s2,b2) = packDocument(doc) (s+s2,[b2|bs])),ins.documents,(0,[]))
     nssize = String.length(ins.fullCollectionName) + 1
@@ -571,20 +590,6 @@ WireProtocol = {{
     names = ["query","returnFieldSelector"]
     "  flags={string_of_query_flags(que.flags)}\n  fullCollectionName={que.fullCollectionName}\n  numberToSkip={que.numberToSkip}\n  numberToReturn={que.numberToReturn}\n  {string_of_Docs(names,List.flatten([[que.query],match que.returnFieldSelector with | {some=rfs} -> [rfs] | _ -> []]))}"
 
-  query(rid:int, flags:int, ns:string,
-        query:Bson.document, numberToSkip:int, numberToReturn:int, returnFieldSelector:option(Bson.document)) : Pack.data =
-    (querysize,querydata) = packDocument(query)
-    (rfssize,rfsdata) =
-      match returnFieldSelector with
-      | {some=rfs} ->
-         (rfssize,rfsdata) = packDocument(rfs)
-         (rfssize,[{Pack=rfsdata}])
-      | {none} -> (0,[])
-    nssize = String.length(ns)
-    head = make_header(29+nssize+querysize+rfssize,rid,0,_OP_QUERY)
-    List.flatten([[{Pack=head},
-                   {Long=flags}, {Cstring=ns}, {Long=numberToSkip}, {Long=numberToReturn}, {Pack=querydata}], rfsdata])
-
   packQuery(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Query) : Pack.data =
     (querysize,querydata) = packDocument(bdy.query)
     (rfssize,rfsdata) =
@@ -630,11 +635,6 @@ WireProtocol = {{
   string_of_GetMore(gm:WireProtocol.GetMore) =
     "  fullCollectionName={gm.fullCollectionName}\n  numberToReturn={gm.numberToReturn}\n  cursorID=0x{hex1664(gm.cursorID)}"
 
-  get_more(rid:int, ns:string, numberToReturn:int, cursorID:int64) : Pack.data =
-    nssize = String.length(ns) + 1
-    head = make_header(32+nssize,rid,0,_OP_GET_MORE)
-    [{Pack=head}, {Long=0}, {Cstring=ns}, {Long=numberToReturn}, {Int64=cursorID}]
-
   packGetMore(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.GetMore) : Pack.data =
     nssize = String.length(bdy.fullCollectionName) + 1
     head = make_header(32+nssize,hdr.requestID,hdr.responseTo,_OP_GET_MORE)
@@ -666,12 +666,6 @@ WireProtocol = {{
     names = ["selector"]
     "  flags={string_of_delete_flags(del.flags)}\n  fullCollectionName={del.fullCollectionName}\n  {string_of_Docs(names,[del.selector])}"
 
-  delete(rid:int, flags:int, ns:string, selector:Bson.document) : Pack.data =
-    (selectorsize,selectordata) = packDocument(selector)
-    nssize = String.length(ns) + 1
-    head = make_header(25+nssize+selectorsize,rid,0,_OP_DELETE)
-    [{Pack=head}, {Long=0}, {Cstring=ns}, {Long=flags}, {Pack=selectordata}]
-
   packDelete(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Delete) : Pack.data =
     (selectorsize,selectordata) = packDocument(bdy.selector)
     nssize = String.length(bdy.fullCollectionName) + 1
@@ -699,10 +693,6 @@ WireProtocol = {{
     cursorIDsstr = String.concat(", 0x",List.map(hex1664,kc.cursorIDs))
     "  numberOfCursorIDs={kc.numberOfCursorIDs}\n  cursorIDs=[0x{cursorIDsstr}]"
 
-  kill_cursors(rid:int, cursorIDs:list(int64)) : Pack.data =
-    head = make_header(25+List.length(cursorIDs)*8,rid,0,_OP_KILL_CURSORS)
-    [{Pack=head}, {Long=0}, {List=([{Int64=zero64}],List.map((cid -> [{Int64=cid}]),cursorIDs))}]
-
   packKillCursors(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.KillCursors) : Pack.data =
     head = make_header(25+List.length(bdy.cursorIDs)*8,hdr.requestID,hdr.responseTo,_OP_KILL_CURSORS)
     [{Pack=head}, {Long=0}, {List=([{Int64=zero64}],List.map((cid -> [{Int64=cid}]),bdy.cursorIDs))}]
@@ -723,11 +713,6 @@ WireProtocol = {{
   }*/
 
   string_of_Msg(msg:WireProtocol.Msg) = "  msg={msg.message}"
-
-  msg(rid:int, msg:string) : Pack.data =
-    msgsize = String.length(msg) + 1
-    head = make_header(17+msgsize,rid,0,_OP_MSG)
-    [{Pack=head}, {Cstring=msg}]
 
   packMsg(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Msg) : Pack.data =
     msgsize = String.length(bdy.message) + 1
@@ -753,11 +738,11 @@ WireProtocol = {{
   }*/
 
   // We don't send this, it's for debug purposes
-  reply(rid:int, flags:int, cursorID:int64, startingFrom:int, numberReturned:int, docs:list(Bson.document)) : Pack.data =
+  /*reply(rid:int, flags:int, cursorID:int64, startingFrom:int, numberReturned:int, docs:list(Bson.document)) : Pack.data =
     (bodysize,bodies) = List.fold_backwards((doc, (s,bs) -> (s2,b2) = packDocument(doc) (s+s2,[b2|bs])),docs,(0,[]))
     head = make_header(37+bodysize,rid,0,_OP_REPLY)
     List.flatten([[{Pack=head}, {Long=flags}, {Int64=cursorID}, {Long=startingFrom}, {Long=numberReturned}],
-                  List.map((b -> {Pack=b}),bodies)])
+                  List.map((b -> {Pack=b}),bodies)])*/
 
   unser_reply(input:Pack.input) : Pack.result(WireProtocol.MsgBody) =
     match U.tuple4(input,U.ulong_le,U.int64_le,U.ulong_le,U.ulong_le) with
@@ -843,22 +828,8 @@ WireProtocol = {{
     | {~Msg} -> packMsg(msg.MsgHeader, Msg)
     | _ -> @fail
 
-  export(msgs:list(WireProtocol.Message)) : outcome((string,int),string) = // TODO: move to binary for socket output
-    data = List.flatten(List.map(packMessage,msgs))
-    match E.pack(data) with
-    | {success=binary} ->
-       //do jlog("export: s=\n{bindump(binary)}")
-       {success=(string_of_binary8(binary),Binary.length(binary))}
-    | {~failure} -> {~failure}
-
   binary_export(msgs:list(WireProtocol.Message)) : outcome(binary,string) =
-    data = List.flatten(List.map(packMessage,msgs))
-    //do jlog("binary_export: data={data}")
-    match E.pack(data) with
-    | {success=binary} ->
-       //do jlog("binary_export: s=\n{bindump(binary)}")
-       {success=binary}
-    | {~failure} -> {~failure}
+    E.pack(List.flatten(List.map(packMessage,msgs)))
 
   unser_header(input:Pack.input) : Pack.result(WireProtocol.MsgHeader) =
     match U.tuple4(input,U.ulong_le,U.ulong_le,U.ulong_le,U.ulong_le) with
@@ -878,7 +849,7 @@ WireProtocol = {{
         | 1000 -> /*_OP_MSG*/ result(unser_msg)
         | 2001 -> /*_OP_UPDATE*/ result(unser_update)
         | 2002 -> /*_OP_INSERT*/ result(unser_insert)
-        //| 2003 -> /*_RESERVED*/
+      //| 2003 -> /*_RESERVED*/
         | 2004 -> /*_OP_QUERY*/ result(unser_query)
         | 2005 -> /*_OP_GET_MORE*/ result(unser_get_more)
         | 2006 -> /*_OP_DELETE*/ result(unser_delete)
@@ -893,21 +864,15 @@ WireProtocol = {{
     | {~failure} -> "WireProtocol.string_of_message_binary: bad binary (\"{failure}\")"
 
   read_mongo(conn:Socket.connection, timeout:int, mailbox:Mongo.mailbox) : outcome((Mailbox.t,Mongo.reply),string) =
-//do jlog("read_mongo: start={mailbox.start} len={mailbox.len}")
     match Socket.read_fixed(conn, timeout, 4, mailbox) with
     | {success=mailbox} ->
-//do jlog("read_mongo: read 4")
        len = Binary.get_uint32_le(mailbox.buf, mailbox.start)
-//do jlog("read_mongo: len={len}")
        (match Socket.read_fixed(conn, timeout, len-4, mailbox) with
         | {success=mailbox} ->
-_ = bindump
-//do jlog("read_mongo:reply=\n{bindump(Binary.get_binary(mailbox.buf,mailbox.start,len))}")
            (match unser_message({binary=mailbox.buf; pos=mailbox.start}) with
             | {success=(_,~{MsgHeader; MsgBody={~Reply}})} ->
                (match Mailbox.skip(mailbox, len) with
                 | {success=mailbox} ->
-//do jlog("read_mongo: reply={~{MsgHeader; MsgBody={~Reply}}}")
                    {success=(mailbox, ~{MsgHeader; MsgBody={~Reply}})}
                 | {~failure} -> {~failure})
             | {success=_} -> {failure="WireProtocol.read_mongo: message is not a reply"}
@@ -917,68 +882,5 @@ _ = bindump
 
 }}
 
-/*
-@private E = Pack.Encode
-@private WP = WireProtocol
-@private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
-bindump(txt,message) =
-  do jlog("{txt}: message={message}")
-  match E.pack(message) with
-  | {success=binary} ->
-     do jlog("string_of_message_binary:\n{WP.string_of_message_binary(binary)}")
-     do jlog("{txt}:\n{bindump(binary)}")
-     match WP.unser_message({~binary; pos=0}) with
-     | {success=(_,msg)} -> jlog("{txt}: msg={msg}")
-     | {~failure} -> jlog("{txt}: failure={failure}")
-     end
-  | {~failure} -> jlog("{txt}: failure={failure}")
-
-_ =
-  //do ServerReference.set(Pack.debug,false)
-
-  docs = [Bson.opa2doc({hello="world"}),Bson.opa2doc({goodbye="cruel world"})]
-  do jlog("docs={docs}")
-  insert_msg = WP.Insert(0, 0x1, "db.collection", docs)
-  insert = WP.packMessage(insert_msg)
-  do bindump("insert",insert)
-
-  selectordoc = Bson.opa2doc({x=1;y=true})
-  do jlog("selectordoc={selectordoc}")
-  updatedoc = Bson.opa2doc({`$set`={z=1.23}})
-  do jlog("updatedoc={updatedoc}")
-  update_msg = WP.Update(0, 0x1, "db.collection", selectordoc, updatedoc)
-  update = WP.packMessage(update_msg)
-  do bindump("update",update)
-
-  querydoc = Bson.opa2doc({x=[1,2]})
-  do jlog("querydoc={querydoc}")
-  rfsdoc = Bson.opa2doc({bin=("abc":Bson.binary)})
-  do jlog("rfsdoc={rfsdoc}")
-  query_msg = WP.Query(0, 0xff, "db.collection", querydoc, 3, 5, {some=rfsdoc})
-  query = WP.packMessage(query_msg)
-  do bindump("query",query)
-
-  get_more = WP.get_more(0, "db.collection", 9, Int64.of_string_radix("deadbeefdeadbeef",16))
-  do bindump("get_more",get_more)
-
-  selectordoc = Bson.opa2doc({x=(("pat","opt"):Bson.regexp)})
-  do jlog("selectordoc={selectordoc}")
-  delete = WP.delete(0, 0x1, "db.collection", selectordoc)
-  do bindump("delete",delete)
-
-  kill_cursors = WP.kill_cursors(0, [Int64.of_string_radix("deaddeaddeaddead",16),
-                                               Int64.of_string_radix("beefbeefbeefbeef",16)])
-  do bindump("kill_cursors",kill_cursors)
-
-  msg = WP.msg(0, "Test message")
-  do bindump("msg",msg)
-
-  docs = [Bson.opa2doc({x=1}),Bson.opa2doc({x=2}),Bson.opa2doc({x=3})]
-  do jlog("docs={docs}")
-  reply = WP.reply(0, 0x0, Int64.of_string_radix("1234567887654321",16), 33, 3, docs)
-  do bindump("reply",reply)
-
-  void
-*/
 
