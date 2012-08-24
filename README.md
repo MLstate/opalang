@@ -11,7 +11,7 @@ This repository contains all the sources of both the Opa compiler and the Opa li
 
 ## Getting Started ##
 
-Check out the dedicated guide here: https://github.com/MLstate/opalang/wiki/Getting-Started
+Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-Started).
 
 ## Quick build instructions ##
 
@@ -27,6 +27,10 @@ The main dependency of Opa is OCaml 3.12 and Node.js >= 0.6. In case your distri
 installation of our dependencies. Try
 
     $ tools/dependencies/installation_helper.sh --help
+
+#### Amazon Image
+
+We provide a ready to use [Amazon Image for Opa](https://github.com/MLstate/opalang/wiki/Amazon-Image-for-Opa).
 
 ## Directory layout ##
 
