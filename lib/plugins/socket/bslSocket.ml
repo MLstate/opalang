@@ -38,9 +38,19 @@ let private_connect ?(secure_mode = Network.Unsecured) (addr: string) port
                                  continuation(Socket.connection) -> void
 let connect addr port cont = private_connect addr port (fun x -> x |> cont)
 
+##register [cps-bypass] binary_connect: string, int,\
+                                 continuation(Socket.connection) -> void
+let binary_connect addr port cont = private_connect addr port (fun x -> x |> cont)
+
 ##register [cps-bypass] secure_connect: string, int, SSL.secure_type,\
                                         continuation(Socket.connection) -> void
 let secure_connect addr port secure_type cont =
+  private_connect ~secure_mode:(Network.Secured secure_type) addr port
+                  (fun x -> x |> cont)
+
+##register [cps-bypass] binary_secure_connect: string, int, SSL.secure_type,\
+                                        continuation(Socket.connection) -> void
+let binary_secure_connect addr port secure_type cont =
   private_connect ~secure_mode:(Network.Secured secure_type) addr port
                   (fun x -> x |> cont)
 
@@ -64,6 +74,11 @@ let binary_connect_with_err_cont addr port cont = private_connect_with_err_cont 
 let secure_connect_with_err_cont addr port secure_type cont =
   private_connect_with_err_cont ~secure_mode:(Network.Secured secure_type) addr port cont
 
+##register [cps-bypass] binary_secure_connect_with_err_cont: string, int, SSL.secure_type,\
+                                 continuation(outcome(Socket.connection,string)) -> void
+let binary_secure_connect_with_err_cont addr port secure_type cont =
+  private_connect_with_err_cont ~secure_mode:(Network.Secured secure_type) addr port cont
+
 ##register close: Socket.connection -> void
 let close connection_info =
   Scheduler.remove_connection Scheduler.default connection_info
@@ -72,6 +87,12 @@ let close connection_info =
                                continuation(int) -> void
 let write connection_info data k =
   Scheduler.write Scheduler.default connection_info data (fun i -> i |> k)
+
+##register [cps-bypass] binary_write: Socket.connection, 'a,\
+                               continuation(int) -> void
+let binary_write connection_info data k =
+  let (data:Buffer.t) = Obj.magic data in
+  Scheduler.write Scheduler.default connection_info (Buffer.contents data) (fun i -> i |> k)
 
 ##register [cps-bypass] write_with_err_cont: Socket.connection, int, string,\
                                continuation(outcome(int,string)) -> void
@@ -93,6 +114,12 @@ let binary_write_with_err_cont connection_info timeout data cont =
 let write_len connection_info data len k =
   Scheduler.write Scheduler.default connection_info data ~len (fun i -> i |> k)
 
+##register [cps-bypass] binary_write_len: Socket.connection, 'a, int,\
+                               continuation(int) -> void
+let binary_write_len connection_info data len k =
+  let (data:Buffer.t) = Obj.magic data in
+  Scheduler.write Scheduler.default connection_info (Buffer.contents data) ~len (fun i -> i |> k)
+
 ##register [cps-bypass] write_len_with_err_cont: Socket.connection, int, string, int,\
                                continuation(outcome(int,string)) -> void
 let write_len_with_err_cont connection_info timeout data len cont =
@@ -112,6 +139,14 @@ let binary_write_len_with_err_cont connection_info timeout data len cont =
 ##register [cps-bypass] read : Socket.connection, continuation(string) -> void
 let read connection_info k =
   Scheduler.read Scheduler.default connection_info (fun (_, str) -> str |> k)
+
+##register [cps-bypass] binary_read : Socket.connection, continuation('a) -> void
+let binary_read connection_info k =
+  let k = Obj.magic(k) in
+  Scheduler.read Scheduler.default connection_info (fun (_, str) ->
+                                                      let b = Buffer.create (String.length str) in
+                                                      Buffer.add_string b str;
+                                                      b |> k)
 
 ##register [cps-bypass] read_with_err_cont : Socket.connection, int, continuation(outcome(string,string)) -> void
 let read_with_err_cont connection_info timeout cont =

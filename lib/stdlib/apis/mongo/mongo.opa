@@ -54,7 +54,7 @@ type Mongo.reply = WireProtocol.Message
  **/
 @abstract
 type Mongo.db = {
-  conn : option(Socket.connection);
+  conn : option(Socket.socket);
   reconncell : Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult);
   pool : SocketPool.t;
   pool_max : int;
@@ -214,7 +214,7 @@ MongoDriver = {{
         | {success=binary} ->
            len = Binary.length(binary)
            do if m.log then ML.debug("MongoDriver.send({name})","\n{WP.string_of_message_binary(binary)}",void)
-           (match Socket.binary_write_len_with_err_cont(conn,m.comms_timeout,binary,len) with
+           (match Socket.binary_write_len_with_err_cont(conn.f2,m.comms_timeout,binary,len) with
             | {success=cnt} ->
                do if not(reply_expected) then free_(mbuf) else void
                (cnt==len)
@@ -228,34 +228,35 @@ MongoDriver = {{
   send_no_reply(m,mbuf:Mongo.mongo_buf,name): bool = send_no_reply_(m,mbuf,name,false)
 
   @private
-  send_with_reply(m,mbuf:Mongo.mongo_buf,name): option(Mongo.reply) =
+  send_with_reply(m,mbuf:Mongo.mongo_buf,name): (option(Mailbox.t),option(Mongo.reply)) =
     mbuf = refresh_requestId(mbuf)
     mrid = reply_requestId(mbuf)
     match m.conn with
     | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
        then
-         mailbox = Mailbox.create(m.bufsize)
-         (match WP.read_mongo(conn,m.comms_timeout,mailbox) with
+         //mailbox = Mailbox.create(m.bufsize)
+         (match WP.read_mongo(conn.f2,m.comms_timeout,conn.f1) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
-             _ = Mailbox.reset(mailbox)
+             //m = {m with conn={some=(mailbox,conn.f2)}}
+             //_ = Mailbox.reset(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.receive({name})","\n{WP.string_of_Message(reply)}",void)
              if mrid != rrt
-             then ML.error("MongoDriver.send_with_reply","RequestId mismatch, expected {mrid}, got {rrt}",{none})
-             else {some=reply}
+             then ML.error("MongoDriver.send_with_reply","RequestId mismatch, expected {mrid}, got {rrt}",({none},{none}))
+             else ({some=mailbox},{some=reply})
           | {~failure} ->
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
-             _ = Mailbox.reset(mailbox)
-             {none})
+             _ = Mailbox.reset(conn.f1)
+             ({none},{none}))
        else
-         {none}
+         ({none},{none})
     | {none} ->
-       ML.error("MongoDriver.receive({name})","No socket",{none})
+       ML.error("MongoDriver.receive({name})","No socket",({none},{none}))
 
   @private
-  send_with_error(m,mbuf:Mongo.mongo_buf,name,ns,slaveok): option(Mongo.reply) =
+  send_with_error(m,mbuf:Mongo.mongo_buf,name,ns,slaveok): (option(Mailbox.t),option(Mongo.reply)) =
     match m.conn with
     | {some=conn} ->
        mbuf2 = [WP.Query(0,if slaveok then MongoCommon.SlaveOkBit else 0,ns^".$cmd",[H.i32("getlasterror",1)],0,1,none)]
@@ -263,43 +264,44 @@ MongoDriver = {{
        mrid = reply_requestId(mbuf2)
        if send_no_reply_(m,List.append(mbuf,mbuf2),name,true)
        then
-         mailbox = Mailbox.create(m.bufsize)
-         (match WP.read_mongo(conn,m.comms_timeout,mailbox) with
+         //mailbox = Mailbox.create(m.bufsize)
+         (match WP.read_mongo(conn.f2,m.comms_timeout,conn.f1) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
-             _ = Mailbox.reset(mailbox)
+             //m = {m with conn={some=(mailbox,conn.f2)}}
+             //_ = Mailbox.reset(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.send_with_error({name})","\n{WP.string_of_Message(reply)}",void)
              if mrid != rrt
              then
                do ML.error("MongoDriver.send_with_error",
                            "RequestId mismatch, expected {Int.to_hex(mrid)}, got {Int.to_hex(rrt)}",void)
-               {none}
-             else {some=reply}
+               ({none},{none})
+             else ({some=mailbox},{some=reply})
           | {~failure} ->
              do if m.log then ML.info("send_with_error","failure={failure}",void)
-             _ = Mailbox.reset(mailbox)
-             {none})
+             _ = Mailbox.reset(conn.f1)
+             ({none},{none}))
        else
-         {none}
+         ({none},{none})
     | {none} ->
-       ML.error("MongoDriver.send_with_error({name})","No socket",{none})
+       ML.error("MongoDriver.send_with_error({name})","No socket",({none},{none}))
 
 
   @private
   sr_snr(m,mbuf:Mongo.mongo_buf,name) =
     sr = send_no_reply(m,mbuf,name)
-    if sr then {sendresult=sr} else {reconnect}
+    ({none},if sr then {sendresult=sr} else {reconnect})
 
   @private
   sr_swr(m,mbuf:Mongo.mongo_buf,name) =
-    swr = send_with_reply(m,mbuf,name)
-    if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect}
+    (mbox,swr) = send_with_reply(m,mbuf,name)
+    (mbox,if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect})
 
   @private
   sr_swe(m,mbuf:Mongo.mongo_buf,name,ns,slaveok) =
-    swe = send_with_error(m,mbuf,name,ns,slaveok)
-    if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect}
+    (mbox,swe) = send_with_error(m,mbuf,name,ns,slaveok)
+    (mbox,if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect})
 
   check(m:Mongo.db) =
     match SocketPool.get(m.pool) with
@@ -319,12 +321,16 @@ MongoDriver = {{
     | {success=(slaveok,connection)} ->
        conn = {some=connection}
        ssok(mbuf) = if slaveok then set_query_flags(mbuf,MongoCommon.SlaveOkBit) else mbuf
-       result =
+       (mbox,result) =
          (match msg with
           | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},ssok(mbuf),name)
           | {sendrecv=(m,mbuf,name)} -> sr_swr({m with ~conn},ssok(mbuf),name)
           | {senderror=(m,mbuf,name,ns)} -> sr_swe({m with ~conn},ssok(mbuf),name,ns,slaveok)
           | {stop} -> do ML.debug("MongoDriver.srpool","stop",void) @fail)
+       connection =
+         match mbox with
+         | {some=mbox} -> (mbox,connection.f2)
+         | {none} -> connection
        do SocketPool.release(m.pool,connection)
        result
     | {~failure} ->
@@ -406,7 +412,7 @@ MongoDriver = {{
   init(bufsize:int, pool_max:int, allow_slaveok:bool, reconnectable:bool, log:bool, auth:Mongo.auths): Mongo.db =
     { conn={none};
       reconncell=(Cell.make([], reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
-      pool=SocketPool.make(("localhost",default_port),pool_max,log);
+      pool=SocketPool.make(("localhost",default_port),pool_max,bufsize,log);
       pool_max=Int.max(pool_max,1); ~allow_slaveok; ~bufsize; ~log;
       seeds=[]; name=""; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
@@ -560,7 +566,7 @@ MongoDriver = {{
    **/
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(Mongo.reply) =
-    //do jlog("MongoDriver.query: ns={ns} numberToSkip={numberToSkip} numberToReturn={numberToReturn} query={query}")
+    //do ML.debug("MongoDriver.query","ns={ns} numberToSkip={numberToSkip} numberToReturn={numberToReturn} query={query}",void)
     sndrcv(m,[WP.Query(0,flags,ns,query,numberToSkip,numberToReturn,returnFieldSelector_opt)],"query")
 
   /**

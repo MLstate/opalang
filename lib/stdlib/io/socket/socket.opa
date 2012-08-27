@@ -34,6 +34,14 @@ type Mailbox.t = {
     a failure with the exception turned into a string.  Timeouts are
     ints as milliseconds.
 
+    The binary_ functions are intended to work directly with the
+    binary type but note that a socket opened in binary_mode should
+    only be read/written with the binary functions.  Reading or
+    writing the other type will result in the data being copied.
+
+    The Mailbox module is intended to allow reading of data in multiple
+    calls.  See [read_fixed] for an example of its use.
+
     {b Warning:} This module is still experimental.
 */
 
@@ -41,26 +49,52 @@ type Mailbox.t = {
 
 Mailbox = {{
 
+  // Currently, buffers are allocated by create and returned by reset
+  // at which time the mailbox record can be loosed into the GC.
+  // There is a primitive attempt to reclaim long-term allocated
+  // memory in the check function, but this involves copying.
   // TODO: get_buf, free_buf
 
+  /**
+   * Create a mailbox, ths initial size is given by the hint parameter.
+   */
   create(hint:int) : Mailbox.t = {buf=Binary.create(hint); start=0; len=0; min=128; ~hint}
 
+  /**
+   * Reset the internal buffer.
+   */
   reset(mb:Mailbox.t) : Mailbox.t =
     do Binary.reset(mb.buf)
     {mb with start=0; len=0}
 
+  /**
+   * Add a string to the end of the buffer.
+   */
   add_string(mb:Mailbox.t, str:string) : Mailbox.t =
     do Binary.add_string(mb.buf, str)
     {mb with len=mb.len+String.length(str)}
 
+  /**
+   * Add binary data to the end of the buffer.
+   */
   add_binary(mb:Mailbox.t, bin:binary) : Mailbox.t =
     do Binary.add_binary(mb.buf, bin)
     {mb with len=mb.len+Binary.length(bin)}
 
+  /**
+   * Return the contents of the mailbox as a string.
+   */
   string_contents(mb:Mailbox.t) : string = Binary.get_string(mb.buf, mb.start, mb.len)
 
+  /**
+   * Return the contents of the mailbox as binary data.
+   */
   binary_contents(mb:Mailbox.t) : binary = Binary.get_binary(mb.buf, mb.start, mb.len)
 
+  /**
+   * Check a mailbox for size, if start>0 and the live data
+   * is less than min then the buffer is reset to contain just that data.
+   */
   check(mb:Mailbox.t) : Mailbox.t =
     if mb.start > 0 && mb.len < mb.min
     then
@@ -73,6 +107,11 @@ Mailbox = {{
         reset(mb)
     else mb
 
+  /**
+   * Return  the next [len] bytes from the mailbox, the mailbox
+   * internal parameters are updated.
+   * If there is not enough data in the mailbox then [failure] is returned.
+   */
   sub(mb:Mailbox.t, len:int) : outcome((Mailbox.t,binary),string) =
     if len <= mb.len
     then
@@ -81,11 +120,17 @@ Mailbox = {{
     else
       {failure="Mailbox.sub: Not enough data for {len} bytes (currently {mb.len})"}
 
+  /**
+   * Skip the next [len] bytes in the mailbox.
+   */
   skip(mb:Mailbox.t, len:int) : outcome(Mailbox.t,string) =
     if len <= mb.len
     then {success=(check({mb with start=mb.start+len; len=mb.len-len}))}
     else {failure="Mailbox.skip: Not enough data for {len} bytes (currently {mb.len})"}
 
+  /**
+   * Debug function, print the contents of the mailbox.
+   */
   print(name:string, mb:Mailbox.t) : void = jlog("{name}: {bindump(binary_contents(mb))}")
 
 }}
@@ -174,9 +219,7 @@ Socket = {{
       then {success=mb}
       else
         match binary_read_with_err_cont(conn, timeout) with
-        | {success=data} ->
-           //do jlog("read_fixed: data=\n{bindump(data)}")
-           read_fixed(conn,timeout,len,Mailbox.add_binary(mb, data))
+        | {success=data} -> read_fixed(conn,timeout,len,Mailbox.add_binary(mb, data))
         | {~failure} -> {~failure}
 
 }}

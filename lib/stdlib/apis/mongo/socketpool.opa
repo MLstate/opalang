@@ -13,13 +13,16 @@ package stdlib.apis.mongo
 
 import stdlib.core.queue
 
-type SocketPool.result = outcome((bool,Socket.connection),Mongo.failure)
+type Socket.socket = (Mailbox.t, Socket.connection)
+
+type SocketPool.result = outcome((bool,Socket.socket),Mongo.failure)
 
 @private type SocketPool.state = {
   host: Mongo.mongo_host;
   max: int;
-  sockets: list(Socket.connection);
-  allocated: list(Socket.connection);
+  hint: int;
+  sockets: list(Socket.socket);
+  allocated: list(Socket.socket);
   cnt: int;
   log: bool;
   queue: Queue.t(continuation(SocketPool.result));
@@ -30,11 +33,13 @@ type SocketPool.result = outcome((bool,Socket.connection),Mongo.failure)
 
 @private type SocketPool.msg =
     {get : continuation(SocketPool.result)}
-  / {release : Socket.connection}
+  / {release : Socket.socket}
   / {reconnect : Mongo.mongo_host}
   / {gethost : continuation(Mongo.mongo_host)}
   / {setslaveok : bool}
   / {getslaveok : continuation(bool)}
+  / {sethint : int}
+  / {gethint : continuation(int)}
   / {close}
   / {stop}
 
@@ -46,10 +51,11 @@ SocketPool = {{
   @private ML = MongoLog
 
   @private
-  Socket_close(conn, state) =
+  Socket_close((mbox,conn), state) =
     conn_id = Socket.conn_id(conn)
     do if state.log then ML.debug("SocketPool.handler","close {conn_id}",void)
     do Socket.close(conn)
+    _ = Mailbox.reset(mbox)
     {state with open_connections=IntSet.remove(conn_id,state.open_connections)}
 
   @private monitor(from, state) =
@@ -58,40 +64,40 @@ SocketPool = {{
      do ML.debug("SocketPool.handler({from})",
                  "open={List.list_to_string(Int.to_string,IntSet.To.list(state.open_connections))}",void)
      do ML.debug("SocketPool.handler({from})",
-                 "sockets={List.list_to_string(Int.to_string,List.map(Socket.conn_id,state.sockets))}",void)
+                 "sockets={List.list_to_string(Int.to_string,List.map(((_,id) -> Socket.conn_id(id)),state.sockets))}",void)
      do ML.debug("SocketPool.handler({from})",
-                 "allocated={List.list_to_string(Int.to_string,List.map(Socket.conn_id,state.allocated))}",void)
+                 "allocated={List.list_to_string(Int.to_string,List.map(((_,id) -> Socket.conn_id(id)),state.allocated))}",void)
      void
 
   @private pool_handler(state:SocketPool.state, msg:SocketPool.msg): Session.instruction(SocketPool.state) =
     match msg with
-    | {release=connection} ->
+    | {release=(mbox,connection)} ->
        do monitor("release", state)
        conn_id = Socket.conn_id(connection)
-       if List.exists((c -> Socket.conn_id(c) == conn_id),state.allocated)
+       if List.exists(((_,c) -> Socket.conn_id(c) == conn_id),state.allocated)
        then
          (match Queue.rem(state.queue) with
           | ({none}, _) ->
             do if state.log then ML.debug("SocketPool.handler","socket back in pool {Socket.conn_id(connection)}",void)
-            sockets = connection +> state.sockets
+            sockets = (mbox,connection) +> state.sockets
             conn_id = Socket.conn_id(connection)
-            allocated = List.filter((s -> Socket.conn_id(s) != conn_id),state.allocated)
+            allocated = List.filter(((_,s) -> Socket.conn_id(s) != conn_id),state.allocated)
             {set={state with ~sockets; ~allocated}}
           | ({some=waiter}, queue) ->
             do if state.log then ML.debug("SocketPool.handler","reallocate socket {Socket.conn_id(connection)}",void)
-            do Continuation.return(waiter, {success=(state.slaveok,connection)})
+            do Continuation.return(waiter, {success=(state.slaveok,(mbox,connection))})
             {set={state with ~queue}})
        else
          do if state.log then ML.debug("SocketPool.handler","drop socket {Socket.conn_id(connection)}",void)
-         state = Socket_close(connection, state)
+         state = Socket_close((mbox,connection), state)
          {set=state}
     | {get=k} ->
        do monitor("get", state)
        (match state.sockets with
-        | [conn|sockets] ->
+        | [(mbox,conn)|sockets] ->
           do if state.log then ML.debug("SocketPool.handler","reuse open socket {Socket.conn_id(conn)}",void)
-          do Continuation.return(k, {success=(state.slaveok,conn)})
-          allocated = conn +> state.allocated
+          do Continuation.return(k, {success=(state.slaveok,(mbox,conn))})
+          allocated = (mbox,conn) +> state.allocated
           {set={state with ~sockets; ~allocated}}
         | [] ->
           if state.cnt >= state.max
@@ -101,10 +107,11 @@ SocketPool = {{
           else
             (match Socket.binary_connect_with_err_cont(state.host.f1,state.host.f2) with
              | {success=conn} ->
+                mbox = Mailbox.create(state.hint)
                 state = {state with open_connections=IntSet.add(Socket.conn_id(conn),state.open_connections)}
                 do if state.log then ML.debug("SocketPool.handler","successfully opened socket {Socket.conn_id(conn)}",void)
-                do Continuation.return(k, {success=(state.slaveok,conn)})
-                allocated = conn +> state.allocated
+                do Continuation.return(k, {success=(state.slaveok,(mbox,conn))})
+                allocated = (mbox,conn) +> state.allocated
                 {set={state with cnt=state.cnt+1; ~allocated}}
              | {failure=str} ->
                 do if state.log then ML.debug("SocketPool.handler","open socket failure",void)
@@ -124,6 +131,11 @@ SocketPool = {{
     | {getslaveok=k} ->
        do Continuation.return(k, state.slaveok)
        {unchanged}
+    | {sethint=hint} ->
+       {set={state with ~hint}}
+    | {gethint=k} ->
+       do Continuation.return(k, state.hint)
+       {unchanged}
     | {close} ->
        do if state.log then ML.debug("SocketPool.handler","close socket pool",void)
        state = List.fold(Socket_close,state.sockets,state)
@@ -136,16 +148,16 @@ SocketPool = {{
        _state = List.fold(Socket_close,state.allocated,state)
        {stop}
 
-  make(host:Mongo.mongo_host, max:int, log:bool): SocketPool.t =
+  make(host:Mongo.mongo_host, max:int, hint:int, log:bool): SocketPool.t =
     do if log then ML.debug("SocketPool.make","{host}",void)
-    Session.make(({~host; ~max; log=log; cnt=0; sockets=[]; allocated=[]; queue=Queue.empty;
+    Session.make(({~host; ~max; ~hint; log=log; cnt=0; sockets=[]; allocated=[]; queue=Queue.empty;
                    slaveok=false; open_connections=IntSet.empty; monitor_connections=false}:SocketPool.state),
                  pool_handler)
 
   get(pool:SocketPool.t) : SocketPool.result =
     @callcc(k -> Session.send(pool, {get=k}))
 
-  release(pool:SocketPool.t, connection:Socket.connection) : void =
+  release(pool:SocketPool.t, connection:Socket.socket) : void =
     Session.send(pool, {release=connection})
 
   reconnect(pool:SocketPool.t, host:Mongo.mongo_host) : void =
@@ -159,6 +171,12 @@ SocketPool = {{
 
   getslaveok(pool:SocketPool.t) : bool =
     @callcc(k -> Session.send(pool, {getslaveok=k}))
+
+  sethint(pool:SocketPool.t, sethint:int) : void =
+    Session.send(pool, {~sethint})
+
+  gethint(pool:SocketPool.t) : int =
+    @callcc(k -> Session.send(pool, {gethint=k}))
 
   close(pool:SocketPool.t) : void =
     Session.send(pool, {close})
