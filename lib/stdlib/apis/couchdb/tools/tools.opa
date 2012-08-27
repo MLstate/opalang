@@ -97,7 +97,7 @@ Opacouch = {{
 
     /**
      * Get the revision of a document.
-     * @return [none] if the document doesn't exists.
+     * @return [none] if the document doesn't exist.
      */
     get_revision(auth, the_db, docid) : option(CouchDb.revision) =
       match CouchDb.Document.head(auth, the_db, docid)

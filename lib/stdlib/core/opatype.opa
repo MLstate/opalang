@@ -397,7 +397,7 @@ OpaType = {{
 
   /**
    * Get the type of field [name] in fields.
-   * If field [name] doesn't exists returns [none], else [some] with
+   * If field [name] doesn't exist returns [none], else [some] with
    * a type.
    */
   type_of_field(fields:OpaType.fields, field_label:OpaType.Field.label) =

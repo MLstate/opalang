@@ -393,11 +393,11 @@ OpaValue = {{
      */
     /** {4 Translation with string} */
     /**
-     * Get the name of field. If field doesn't exists return [none]
+     * Get the name of field. If field doesn't exist return [none]
      */
     name_of_field = %%BslValue.Record.name_of_field%%
     /**
-     * Get the name of field. If field doesn't exists make an error.
+     * Get the name of field. If field doesn't exist make an error.
      */
     name_of_field_unsafe(field) =
       Option.lazy_default(-> error("name_of_field_unsafe"),
@@ -428,7 +428,7 @@ OpaValue = {{
      */
     field_of_type_field_unsafe(ft:OpaType.Field.label) =
       Option.lazy_default(
-        -> error("field_of_type_field_unsafe : Field doesn't exists at runtime"),
+        -> error("field_of_type_field_unsafe : Field doesn't exist at runtime"),
         field_of_name(ft))
 
     /**
@@ -445,7 +445,7 @@ OpaValue = {{
      */
     type_field_of_field_unsafe(rf:Record.field) =
       Option.lazy_default(
-        -> error("type_field_of_field_unsafe : Field doesn't exists at runtime"),
+        -> error("type_field_of_field_unsafe : Field doesn't exist at runtime"),
         type_field_of_field(rf))
 
 
