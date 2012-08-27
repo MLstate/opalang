@@ -362,9 +362,11 @@ struct
     | `compilation -> write_package_json env_opt
     | _ -> ()
 
+  (* Path to app dependencies, such as its main file and modules *)
   let depends_dir env_opt =
     Printf.sprintf "%s_depends" (File.from_pattern "%" env_opt.target)
 
+  (* Path to app-specific Javascript modules *)
   let modules_dir env_opt =
     Filename.concat (depends_dir env_opt) "node_modules"
 
