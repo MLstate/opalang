@@ -370,6 +370,12 @@ struct
   let modules_dir env_opt =
     Filename.concat (depends_dir env_opt) "node_modules"
 
+  (* Path to app-specific Javascript modules, relative to the path of
+     the final object *)
+  let relative_modules_dir env_opt =
+    Filename.concat (File.from_pattern "%b_depends" env_opt.target)
+      "node_modules"
+
   let is_standard file =
     String.is_prefix stdlib_path file ||
       String.is_prefix static_path file
@@ -391,7 +397,9 @@ struct
 
 /*usr/bin/env true
 
-export NODE_PATH=\"%s:$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\"
+APP_PATH=$(dirname $0)
+
+export NODE_PATH=\"$APP_PATH/%s:$NODE_PATH:node_modules:/usr/local/lib/node_modules:%s:%s:%s\"
 %s
 */
 
@@ -400,7 +408,8 @@ var opa_dependencies = [%s];
 
 %s
 
-" (modules_dir env_opt) stdlib_qmljs_path stdlib_path static_path LaunchHelper.script
+" (relative_modules_dir env_opt) stdlib_qmljs_path stdlib_path
+      static_path LaunchHelper.script
       (if env_opt.static_link then "" else "'opa-js-runtime-cps'")
       LaunchHelper.js
 
