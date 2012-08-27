@@ -21,7 +21,7 @@
 
   TODO:
     -exploit the LetIn rewriting for implementing all multi-expression skipping (like apply case)
-    -remove annots were useless fields and add them where usefull match, dot, record construction
+    -remove annots were useless fields and add them where useful match, dot, record construction
 *)
 
 (* depends in Base *)
@@ -34,13 +34,13 @@ module Factorize = QmlCpsIL.Factorize
 module IL = QmlCpsIL.IL
 module Q = QmlAst
 
-(* deprecated error managment *)
+(* deprecated error management *)
 type error = string
 exception Exception of error
 external error_message : error -> string = "%identity"
 
 (*
-  debug levels : keep it synchro with DebugVariables.mli
+  debug levels : keep it synchronized with DebugVariables.mli
 *)
 
 module DebugLevel =
@@ -59,7 +59,7 @@ let debug fmt =
   OManager.printf ("@[<2>@{<cyan>[Cps]@}@ "^^fmt^^"@]@.")
 
 (* facilities to generate qmlAst *)
-(* TODO: use the statefull constructor, keep annotation, position and types *)
+(* TODO: use the stateful constructor, keep annotation, position and types *)
 module QC = QmlAstCons.UntypedExpr
 module QCW = QmlAstCons.UntypedExprWithLabel
 
@@ -94,7 +94,7 @@ type options =
       server_side : bool ;
     }
 
-(* please, keep default values synchro with the documentation *)
+(* please, keep default values synchronized with the documentation *)
 let default_options =
   {
     no_assert = false ;
@@ -198,7 +198,7 @@ end
 
 
 
-(* production of embeded location error messages in the server *)
+(* production of embedded location error messages in the server *)
 let string_of_pos = FilePos.to_string
 
 (*
@@ -356,10 +356,10 @@ module Skip = struct
 
 end
 
-(** utily module, essentially to simplify the apply case *)
+(** utility module, essentially to simplify the apply case *)
 module U = struct
   (**
-     check if an ident need to be changed to something else
+     check if an ident needs to be changed to something else
      (e.g. wait barrier or another ident)
      note that an ident cannot be a barrier ident and
      at the same time a function with non skipped version
@@ -527,7 +527,7 @@ module U = struct
             skipped_apply ?alabel ?partial fskip_id f_args
         )
     | None ->
-        (* skipped version don t exist *)
+        (* skipped version doesn't exist *)
         match partial with
         | Some _ -> skipped_apply ?alabel ?partial f_id f_args
         | None -> cps_apply ?stack_info f_id f_args context
@@ -745,7 +745,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
 
     (* Special case for stack traces *)
     | Q.Directive (_, `cps_stack_lambda cont_opt_ref, e_opt,_) ->
-        (* this directive does not modifying the rewriting of the expression in any way
+        (* this directive does not modify the rewriting of the expression in any way
          * it just records the current continuation in the reference *)
         (cont_opt_ref : Obj.t option ref) := Obj.magic (Context.current_cont context : IL.cident option);
         let e = List.get_only_element e_opt in
@@ -777,8 +777,8 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
       )
 
     (* BEGIN OF APPLY NODE *)
-    (* normalisation of apply node
-       to guaranty property : f is a non barrier ident or a bypass, f_args are stable identifiers *)
+    (* normalization of apply node
+       to guarantee property : f is a non barrier ident or a bypass, f_args are stable identifiers *)
     | Q.Apply (alabel, f, f_args) when not(U.good_apply_property private_env f f_args) ->
         aux_can_skip (U.normalize_apply_property ~alabel private_env f f_args) context
     | Q.Directive (alabel, `partial_apply (_,ser), Q.Apply (_, f, f_args) :: more_args, _)
@@ -825,10 +825,10 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
             let map (pat, epat) = (pat, Skip.get epat) in
             let qmle =
               let e =
-                (* FIXME : "Temporary hack" because skipping doesn't propagates
-                   all annotation. We should properly propagates all annotations
-                   but for the moment we just need to propagates annotations on
-                   matched expression (usefull for backend optimizations) *)
+                (* FIXME : "Temporary hack" because skipping doesn't propagate
+                   all annotations. We should properly propagate all annotations
+                   but for the moment we just need to propagate annotations on
+                   matched expressions (useful for backend optimizations) *)
                 Q.Label.New.expr e elabel
               in
               QmlAstCons.UntypedExprWithLabel.match_ ~label e (List.map map cases)
@@ -1086,7 +1086,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
               IL.ApplyBypass (catch_bypass, [ handler_id ; IL.value ctop ], c2)
              ), Some parent)
         in
-        (* code simplification for common cases, handler beeing a lambda *)
+        (* code simplification for common cases, handler being a lambda *)
         match handler with
         | IL.LetFun ([(IL.Value (_, handler_name)) as handler_id, _, _, _] as list,
                      IL.ApplyCont (IL.Continuation if_c1_name, IL.Value (_, if_handler_name)))
@@ -1139,8 +1139,8 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         let terms = List.map (fun expr -> aux expr context) exprs in
         IL.Directive (directive, terms, tys)
   (**
-     This version of aux is not allowed to return Skip node,
-     it is the standard function you should call unless you 100% certain
+     This version of aux is not allowed to return Skip nodes,
+     it is the standard function you should call unless you are 100% sure
      of doing mixed cps/noncps code (e.g. Skip nodes)
   *)
   and aux expr (context:Context.t) = Skip.remove (aux_can_skip expr context) context
@@ -1199,8 +1199,8 @@ let qml_of_il_value ~label = function
 (* Convert an IL term to a qml expression.*)
 
 (* TODO in IL :
-   + add there a few directives to distinghish from normal QmlAst constructions
-   + static type everything possible, dont loose annots (optimal branching with qmlflat...)
+   + add there a few directives to distinguish from normal QmlAst constructions
+   + static type everything possible, don't lose annots (optimal branching with qmlflat...)
 *)
 
 let runtime_bt_collection bt_pos _f_string _larg expr =
@@ -1422,7 +1422,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
 
     | IL.Directive (`module_, _, _) -> assert false (* removed by qml -> IL *)
 
-    | IL.Directive (`restricted_bypass _, _, _) -> assert false (* rewrited in a expanded_bypass after qml -> IL or removed by hoisting *)
+    | IL.Directive (`restricted_bypass _, _, _) -> assert false (* rewritten in an expanded_bypass after qml -> IL or removed by hoisting *)
 
     | IL.Directive (`async, _, _) ->
         (* at toplevel only, checked by qml -> IL *)
@@ -1484,14 +1484,14 @@ sig
 
   (**
      A bypass for setting by side-effect to QmlCpsServerLib global properties.
-     This should by used before a the execution of the continuation releasing a barrier.
+     This should by used before the execution of the continuation releasing a barrier.
   *)
   val before_wait : unit -> QmlAst.expr
 
   (**
      Special case for synchronous toplevel.
-     Make sence only before the lanch of the server.
-     The scheduler [loop_until] the barrier was released.
+     It only makes sense before the launch of the server.
+     The scheduler will loop ([loop_scheduler]) until the barrier is released.
   *)
   val toplevel_wait : Ident.t -> QmlAst.expr
 end =
@@ -1568,7 +1568,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           let private_env, il_term = il_of_qml ~can_skip_toplvl:can_skip_toplvl env private_env expr in
           let private_env, il_term = il_simplification env private_env il_term in
           match il_term with
-            (* a barrier won't be needed when an expression is skipable at toplvl *)
+            (* a barrier won't be needed when an expression is skipable at the top level. *)
           | IL.Skip expr ->
               begin
                 (* let toplevel_cont v = QC.ident v in *)
@@ -1622,8 +1622,8 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           let toplevel_cont v = QC.ident v in
           match il_term with
           | IL.Skip e ->
-              (* 2 version of the lambda must be created, one is CPS and the other is a SKIP *)
-              (* It is mandatory to have both versions, the fun_SKIP will be used when the fun's call
+              (* 2 versions of the lambda must be created, one is CPS and the other is a SKIP *)
+              (* It is mandatory to have both versions, the fun_SKIP will be used when the function call
                  is complete and the fun_CPS will be used in all other cases *)
               let fskip = e in
               let fskip_id =  Ident.refreshf ~map:"%s_skip" id in
@@ -1645,7 +1645,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               let fcps = simpl_let_in fcps in
               private_env, [ (fskip_id, fskip); (id, fcps) ]
           | _ ->
-              (* if the lambda is not skipable, only a CPS version is generated *)
+              (* if the lambda is not skippable, only a CPS version is generated *)
               let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
               let expr = simpl_let_in expr in
               private_env, [ (id, expr) ]
@@ -1712,7 +1712,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         (* Some explication on hybrid value :
            - When we encountered a hybrid_value we
            know that we compile a client code. (Indeed hybrid_value can
-           be introduce only on client_code)
+           be introduced only on client_code)
            - We know also that compiler is before javascript
            compilation (else we would have no client code)
            - And compiler is before cps rewriting on server (because
@@ -1753,7 +1753,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
 
         | Q.Directive (_, `llarray, _, _) -> immediate_value_or_barrier ~can_skip_toplvl:true ()
 
-        (* with other directive, there is no way to know if the value can be immediate or not *)
+        (* with other directives, there is no way to know if the value can be immediate or not *)
         (* this can be optimized, case by case *)
         | Q.Directive _ -> immediate_value_or_barrier ()
 
@@ -1853,7 +1853,7 @@ let instrument code =
      | _ -> assert false)
     code
 
-(* utils for back'ends *)
+(* utils for backends *)
 let cps_pass ~side env qml_code =
   let qml_code = #<If:CPS_STACK_TRACE>instrument qml_code#<Else>qml_code#<End> in
   let private_env_initial = Package.load_dependencies ~side in
