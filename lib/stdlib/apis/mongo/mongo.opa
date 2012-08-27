@@ -235,12 +235,9 @@ MongoDriver = {{
     | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
        then
-         //mailbox = Mailbox.create(m.bufsize)
          (match WP.read_mongo(conn.f2,m.comms_timeout,conn.f1) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
-             //m = {m with conn={some=(mailbox,conn.f2)}}
-             //_ = Mailbox.reset(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.receive({name})","\n{WP.string_of_Message(reply)}",void)
              if mrid != rrt
@@ -264,12 +261,9 @@ MongoDriver = {{
        mrid = reply_requestId(mbuf2)
        if send_no_reply_(m,List.append(mbuf,mbuf2),name,true)
        then
-         //mailbox = Mailbox.create(m.bufsize)
          (match WP.read_mongo(conn.f2,m.comms_timeout,conn.f1) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
-             //m = {m with conn={some=(mailbox,conn.f2)}}
-             //_ = Mailbox.reset(mailbox)
              do free_(mbuf)
              do if m.log then ML.debug("MongoDriver.send_with_error({name})","\n{WP.string_of_Message(reply)}",void)
              if mrid != rrt
