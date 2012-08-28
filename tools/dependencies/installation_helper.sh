@@ -460,7 +460,7 @@ package_install (){
                 fi
                 make
                 $SUDO make install
-		$SUDO npm install -g nodemailer imap mongodb formidable shelljs iconv
+		$SUDO npm install -g nodemailer imap mongodb formidable iconv
 		;;
             *)
                 install_generic
