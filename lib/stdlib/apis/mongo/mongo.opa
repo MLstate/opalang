@@ -54,7 +54,7 @@ type Mongo.reply = WireProtocol.Message
  **/
 @abstract
 type Mongo.db = {
-  conn : option(Socket.socket);
+  conn : option(SocketPool.socket);
   reconncell : Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult);
   pool : SocketPool.t;
   pool_max : int;
@@ -214,7 +214,7 @@ MongoDriver = {{
         | {success=binary} ->
            len = Binary.length(binary)
            do if m.log then ML.debug("MongoDriver.send({name})","\n{WP.string_of_message_binary(binary)}",void)
-           (match Socket.binary_write_len_with_err_cont(conn.f2,m.comms_timeout,binary,len) with
+           (match Socket.binary_write_len_with_err_cont(conn.conn,m.comms_timeout,binary,len) with
             | {success=cnt} ->
                do if not(reply_expected) then free_(mbuf) else void
                (cnt==len)
@@ -235,7 +235,7 @@ MongoDriver = {{
     | {some=conn} ->
        if send_no_reply_(m,mbuf,name,true)
        then
-         (match WP.read_mongo(conn.f2,m.comms_timeout,conn.f1) with
+         (match WP.read_mongo(conn.conn,m.comms_timeout,conn.mbox) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
              do free_(mbuf)
@@ -245,7 +245,7 @@ MongoDriver = {{
              else ({some=mailbox},{some=reply})
           | {~failure} ->
              do if m.log then ML.info("send_with_reply","failure={failure}",void)
-             _ = Mailbox.reset(conn.f1)
+             _ = Mailbox.reset(conn.mbox)
              ({none},{none}))
        else
          ({none},{none})
@@ -261,7 +261,7 @@ MongoDriver = {{
        mrid = reply_requestId(mbuf2)
        if send_no_reply_(m,List.append(mbuf,mbuf2),name,true)
        then
-         (match WP.read_mongo(conn.f2,m.comms_timeout,conn.f1) with
+         (match WP.read_mongo(conn.conn,m.comms_timeout,conn.mbox) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
              do free_(mbuf)
@@ -274,7 +274,7 @@ MongoDriver = {{
              else ({some=mailbox},{some=reply})
           | {~failure} ->
              do if m.log then ML.info("send_with_error","failure={failure}",void)
-             _ = Mailbox.reset(conn.f1)
+             _ = Mailbox.reset(conn.mbox)
              ({none},{none}))
        else
          ({none},{none})
@@ -323,7 +323,7 @@ MongoDriver = {{
           | {stop} -> do ML.debug("MongoDriver.srpool","stop",void) @fail)
        connection =
          match mbox with
-         | {some=mbox} -> (mbox,connection.f2)
+         | {some=mbox} -> {connection with ~mbox}
          | {none} -> connection
        do SocketPool.release(m.pool,connection)
        result
