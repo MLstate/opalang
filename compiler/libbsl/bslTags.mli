@@ -40,7 +40,7 @@ type parsed_t = ( string * string option ) list
    new_object seems to be deprecated -- default is [None]
    + [no_projection] : [None]: this bypass should never be projected, [Some stringset]:
    this bypass should be projected for everybody but inhabitants of the set
-   <!> use at your own risk ! -- default is [false]
+   <!> use at your own risk ! -- default is [Some StringSet.empty]
    + [opaname] : tag for type definition, meant not to apply the standardization
    on the name of the type.
    + [restricted] : the bypass is not meant to be used by a user, but only generated in a compiler pass.
