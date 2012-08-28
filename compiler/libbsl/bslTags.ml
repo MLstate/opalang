@@ -51,7 +51,7 @@ let default = {
   opacapi = false ;
 }
 
-(* for errors message, please put all tags there *)
+(* for error messages, please put all tags there *)
 let known_tags = [
   "backend" ;
   "opaname" ;
