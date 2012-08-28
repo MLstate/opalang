@@ -1701,36 +1701,36 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
               extend_exp annotmap extended_ty in
             ( QmlAnnotMap.merge ~no_conflict_if_equal:true init_annotmap annotmap',
               extended_ty' ) in
-          let field_annotmap, extended_ty =
-            List.fold_left find_field_type (record_annotmap, record_ty) fields_es in
-          let final_annotmap = 
-            QmlAnnotMap.merge ~no_conflict_if_equal:true record_annotmap field_annotmap in
-          try
-            #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
-            OManager.printf
-              "@[Extendwith extended_ty: %a@]@."
-              W_PrintTypes.pp_simple_type extended_ty ;
-            #<End> ; (* <---------- END DEBUG *)
+          try(
+            let field_annotmap, extended_ty =
+              List.fold_left find_field_type (record_annotmap, record_ty) fields_es in
+            let final_annotmap = 
+              QmlAnnotMap.merge ~no_conflict_if_equal:true record_annotmap field_annotmap in
+              #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
+              OManager.printf
+                "@[Extendwith extended_ty: %a@]@."
+                W_PrintTypes.pp_simple_type extended_ty ;
+              #<End> ; (* <---------- END DEBUG *)
             let (_, final_annotmap') = perform_infer_expr_type_postlude 
               expr final_annotmap extended_ty in
             perform_infer_expr_type_postlude
-              original_expr final_annotmap' extended_ty
+              original_expr final_annotmap' extended_ty)
           with W_ExtendWithDirective.Extend_with_failure reason ->
             (* Issue an error message depending on if the failure occurred by trying
                to open a type variable or another (hard) type. *)
             let err_msg =
               if reason then
-                "Record@ part@ of@ the@ expression@ argument@ of@ the@ " ^^
-                "@@extendwith@ directive@ has a@ " ^^
-                "type@ that@ can't@ be@ subtype@ of@ another@ type@ (record).@\n" ^^
+                "@[<2>The expression argument of the " ^^
+                "@@extendwith directive has a @\n" ^^
+                "type that can't be subtype of a record type.@\n" ^^
                 "@[<2>@{<bright>Hint@}:@\n"^^
                 "Its@ type@ is@ currently@ unconstrained.@ Consider@ explicitly "^^
                 "adding@ a@ type@ constraint@ toward@ a@ record@ type@ to@ " ^^
-                "precise@ the@ expression's@ type.@]"
+                "precise@ the@ expression's@ type.@]@."
               else
-                "Record@ part@ of@ the@ expression@ argument@ of@ the@ " ^^
-                "@@extendwith@ directive@ has@ " ^^
-                "a@ type@ that@ can't@ be@ subtype@ of@ a@ record@ type.@\n" in
+                "@[<2><@>The expression argument of the " ^^
+                "@@extendwith directive has " ^^
+                "a type that can't be subtype of a record type.@\n@]" in
             let err_ctxt = QmlError.Context.expr original_expr in
             QmlError.error err_ctxt err_msg
         )
