@@ -416,7 +416,10 @@ function cps(f) {
  * Transform an opa cps callback (-> void) to a js_callback
  */
 function opa_cps_callback_to_js_callback0(k, f){
-    return function(){return f(ccont(k, function(){}));};
+    return function(){
+      if (f === undefined) return ccont(k,function (){}); // ??? We're getting undefined fns here
+      return f(ccont(k, function(){}));
+    };
 }
 
 /**
