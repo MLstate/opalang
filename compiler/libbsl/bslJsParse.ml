@@ -37,8 +37,6 @@ type parsed_file = {
   code: JsAst.code;
 }
 
-let whitespace = Str.regexp "[ \t]*"
-
 (** When trying to interpret a comment as a bsl directive, we do the
     following:
 
@@ -78,7 +76,7 @@ let collect_bsl_tags tags =
   let strings tag update bsl_tags =
     let aux (_, tag', args) =
       if tag = tag' then
-        let attributes = Str.split whitespace args in
+        let attributes = Str.split (Str.regexp "[ \t]+") args in
         Some attributes
       else
         None
@@ -96,7 +94,7 @@ let collect_bsl_tags tags =
       | (_, tag', args) :: rest ->
         if tag <> tag' then
           aux rest
-        else if Str.string_match whitespace args 0 then
+        else if Str.string_match (Str.regexp "[ \t]*") args 0 then
           Some (update bsl_tags)
         else
           None
