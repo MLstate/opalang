@@ -350,6 +350,9 @@ let create_fake_shorten_record_ty ~original_fields ~interresting_fields_names =
      directions) from these fields. *)
   W_CoreTypes.type_module_record sorted_fields
 
+let safe_get_package_name p =
+  Option.default "" (Ident.safe_get_package_name p)
+
 (** TEST FUNCTION **)
 let test_fun_error err_ty1 err_ty2 =
   let err_ty1 = err_ty1.W_Algebra.sty_desc in
@@ -370,7 +373,7 @@ let pp_info ppf = function
   | W_TypeInfo.Location l ->
       Format.fprintf ppf "%a" W_Misc.pp_pos_short (Annot.pos l)
   | W_TypeInfo.FromEnv (_, l) ->
-(*     let package_name = Ident.get_package_name id in
+(*     let package_name = safe_get_package_name id in
      let of_package_name =
        if package_name = "" then "" else (" of " ^ package_name) in
      let name = Ident.original_name id ^ of_package_name in
@@ -450,7 +453,7 @@ let report_fun_conflict
      let fun_name =
        match expr with
          | QmlAst.Apply(_, (QmlAst.Ident(_, id)), _) ->
-           let package_name = Ident.get_package_name id in
+           let package_name = safe_get_package_name id in
            let of_package_name =
              if package_name = "" then " " else (" of " ^ package_name ^ " ") in
            (Ident.original_name id ^ of_package_name)
@@ -551,7 +554,7 @@ let report_unification_conflict_with_context
      let fun_name =
        match expr with
          | QmlAst.Apply(_, (QmlAst.Ident(_, id)), _) ->
-           let package_name = Ident.get_package_name id in
+           let package_name = safe_get_package_name id in
            let of_package_name =
              if package_name = "" then " " else (" of " ^ package_name ^ " ") in
            (Ident.original_name id ^ of_package_name)
@@ -694,7 +697,7 @@ let report_unification_conflict_with_context
       (expr, rec_expr_ty, accessed_field_rec_ty, accessed_label) -> (
       let (record_name, record_or_module) = match expr with
          | QmlAst.Dot(_, (QmlAst.Ident(_, id)), _) ->
-           let package_name = Ident.get_package_name id in
+           let package_name = safe_get_package_name id in
            let of_package_name =
              if package_name = "" then " " else (" of " ^ package_name ^ " ") in
            let name = Ident.original_name id in
