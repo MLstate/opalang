@@ -104,7 +104,12 @@ let collect_bsl_tags tags =
   (* List of tags, their formats and how they update a BslTags.t *)
   let updates = [
     strings "noProjection" (fun t v ->
-      {t with BslTags.no_projection = Some (StringSet.from_list v)}
+      let tags =
+        if List.is_empty v then
+          None
+        else
+          Some (StringSet.from_list v) in
+      {t with BslTags.no_projection = tags}
     );
     strings "backend" (fun t v ->
       {t with BslTags.backend_restriction = Some (StringSet.from_list v)}
