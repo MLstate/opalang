@@ -705,8 +705,16 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
       match implementation with
       | DJ.Regular name ->
         let ki = JsCons.Ident.native_global (env_rp_implementation env skey) in
-        JsIdent.to_string ki,
-        StringMap.add (JsIdent.to_string name) ki renaming
+        let orig_ident = JsIdent.to_string name in
+        if StringMap.mem orig_ident renaming then
+          (* FIXME: Since all modules of a plugin share the same
+             namespace, we must reject double renamings *)
+          OManager.error
+            "Two functions with the same name (%s) defined on this plugin."
+            orig_ident
+        else
+          JsIdent.to_string ki,
+          StringMap.add orig_ident ki renaming
       | DJ.Inline source ->
         (* Since it is just an alias in this case, we don't need to
            bind it.  FIXME: This will break if the source fragment
