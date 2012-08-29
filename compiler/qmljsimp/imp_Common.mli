@@ -36,6 +36,8 @@ sig
   val dot_bool : bool -> JsAst.expr
   val dot_false : JsAst.expr
   val dot_true : JsAst.expr
+  val dot : JsAst.expr
+  val udot : JsAst.expr
 
   val env_apply_with_ty : JsAst.expr
 

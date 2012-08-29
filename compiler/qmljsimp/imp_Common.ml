@@ -51,6 +51,8 @@ struct
   let dot_true = !! "dot_true"
   let dot_false = !! "dot_false"
   let dot_bool b = if b then dot_true else dot_false
+  let dot = !! "dot"
+  let udot = !! "udot"
 
   let env_apply_with_ty = !! "_env_apply_with_ty"
 
