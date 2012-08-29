@@ -193,11 +193,11 @@ struct
       | None, false ->
         Some (
           private_env,
-          (* id === null ? js_none : {some: id} *)
+          (* id === null ? js_none : js_some(id) *)
           JsCons.Expr.cond
             (JsCons.Expr.strict_equality id (JsCons.Expr.null ()))
             Imp_Common.ClientLib.none
-            (JsCons.Expr.obj ["some", id])
+            (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.some [id])
         )
       | Some (private_env, ast), true ->
         Some (
@@ -213,13 +213,13 @@ struct
       | Some (private_env, ast), false ->
         Some (
           private_env,
-          (* id === null ? js_none : (x = id, {some: ast}) *)
+          (* id === null ? js_none : (x = id, js_some(ast)) *)
           JsCons.Expr.cond
             (JsCons.Expr.strict_equality id (JsCons.Expr.null ()))
             Imp_Common.ClientLib.none
             (JsCons.Expr.comma
                [JsCons.Expr.assign_ident x id]
-               (JsCons.Expr.obj ["some", ast]))
+               (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.some [ast]))
         ) in
     if env.options.Qml2jsOptions.check_bsl_types then
       call_option_typer in_option key id private_env res
@@ -259,12 +259,12 @@ struct
       | Some (private_env, ast), false ->
         Some (
           private_env,
-          (* 'some' in id ? (x = id.some, {some: ast}) : null *)
+          (* (x = udot(id, "some") ? ast : null *)
           JsCons.Expr.cond
-            (JsCons.Expr.in_ (JsCons.Expr.string "some") id)
-            (JsCons.Expr.comma
-               [JsCons.Expr.assign_ident x (JsCons.Expr.dot id "some")]
-               (JsCons.Expr.obj ["some", ast]))
+            (JsCons.Expr.assign_ident x
+               (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
+                  [id; JsCons.Expr.string "some"]))
+            ast
             (JsCons.Expr.null ())
         ) in
     if env.options.Qml2jsOptions.check_bsl_types then
