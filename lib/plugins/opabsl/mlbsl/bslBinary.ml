@@ -8,9 +8,7 @@
 
 ##register binary_of_string : string -> binary
 let binary_of_string s =
-  let b = Buf.create (String.length s) in
-  Buf.add_string b s;
-  b
+  Buf.of_string s
 
 ##register string_of_binary\ `Buf.contents`: binary -> string
 

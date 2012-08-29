@@ -15,7 +15,4 @@ let flush_all () = Pervasives.flush_all ()
 
 ##register bin_of_base64 : string -> binary
 let bin_of_base64 s =
-  let s = BaseString.base64decode s in
-  let b = Buf.create (String.length s) in
-  Buf.add_string b s;
-  b
+  Buf.of_string (BaseString.base64decode s)
