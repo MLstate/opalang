@@ -700,7 +700,7 @@ let plugin_building name =
        match clib_tag tag with
        | None -> options
        | Some dep ->
-           if is_system_libs dep then
+           if not (is_system_libs dep) then
              A "--ml" :: A "-cclib" :: A "--ml" :: A ("-l"^dep) :: options
            else options
     ) tags options
