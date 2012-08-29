@@ -148,7 +148,7 @@ let compare ?(strong=false) a b =
     match a, b with
     | V_const (_, a), V_const (_, b) ->
         let c = Pervasives.compare (QmlAst.Const.type_of a) (QmlAst.Const.type_of b) in
-        if c = 0 && strong then Pervasives.compare a b else c
+        if c = 0 && strong then QmlAstUtils.Const.compare a b else c
     | V_const _, _ -> -1
     | _, V_const _ -> 1
     | V_record (_, fields, _), V_record (_, fields', _) ->

@@ -99,7 +99,7 @@ let rec match_pattern env pat value =
   | Q.PatCoerce (_, pat, _), _ -> match_pattern env pat value
 
   | Q.PatConst (_, pc), V.V_const (_, vc) ->
-      if pc = vc (* Q.const_expr, Pervasives.compare *)
+      if QmlAstUtils.Const.compare pc vc == 0 (* Q.const_expr, Pervasives.compare *)
       then Some env
       else None
 
