@@ -15,7 +15,7 @@ module U = Unix
 ##property[mli]
 ##extern-type time_t = int
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
-##extern-type binary = Buffer.t
+##extern-type binary = Buf.t
 (** *****************************)
 
 ##register mlstate_dir : void -> string
@@ -110,14 +110,14 @@ let remove_rec file = ignore (File.remove_rec file)
       let path = Filename.dirname n in
       ignore (File.check_create_path path);
 	open_out n
-    in output_string och (Buffer.contents content) ; close_out och
+    in output_string och (Buf.contents content) ; close_out och
 
 ##register create_full_path: string -> void
 let create_full_path path = ignore (File.check_create_path path)
 
 let buffer_of_string s =
-  let b = Buffer.create (String.length s) in
-  Buffer.add_string b s;
+  let b = Buf.create (String.length s) in
+  Buf.add_string b s;
   b
 
 ##register content_opt: string -> option(binary)
