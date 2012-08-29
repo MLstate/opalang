@@ -341,7 +341,7 @@ OpaValue = {{
      * you'll get a segfault). [folder] is a function like this :
      * [folder field value_of_field acc].
      */
-    fold = %%BslValue.Record.fold_record%%
+    fold = @may_cps(%%BslValue.Record.fold_record%%)
 
     /**
      * Fold two record. [fold2 folder record1 record2 acc]

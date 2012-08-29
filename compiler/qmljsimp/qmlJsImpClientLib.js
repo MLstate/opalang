@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -89,6 +89,7 @@ function fold_record(f, record, acc) {
     switch (record) {
     case true: return f("true",js_void,acc)
     case false: return f("false",js_void,acc)
+    case null: return acc
     default:
         var tab = new Array(), field, i = 0, n;
         for (field in record) _size === field || tab.push(field)
@@ -101,10 +102,31 @@ function fold_record(f, record, acc) {
     }
 }
 
+function fold_record_cps(f, record, acc, k) {
+    switch (record) {
+    case true:  return f("true", js_void,acc,k)
+    case false: return f("false",js_void,acc,k)
+    case null: return return_(k,acc)
+    default:
+        var tab = new Array(), field, n;
+        for (field in record) _size == field || tab.push(field)
+        tab.sort()
+        n = tab.length
+        function recurse(i,acc){
+            field = tab[i]
+            return ( i == n ) ?
+                 return_(k,acc)
+                :f(field, record[field], acc, ccont(k,function (acc){recurse(i+1,acc)}) )
+        }
+        return recurse(0,acc)
+    }
+}
+
 function fold_2_record(f, record1, record2, acc) {
     switch (record1) {
     case true: return f("true", js_void, js_void, acc)
     case false: return f("false", js_void, js_void, acc)
+    case null: return acc
     default:
         var tab = new Array(), field, i = 0, n;
         for (field in record1) _size === field || tab.push(field)
@@ -114,6 +136,26 @@ function fold_2_record(f, record1, record2, acc) {
             acc = f(field, record1[field], record2[field], acc)
         }
         return acc
+    }
+}
+
+function fold_2_record_cps(f, record1, record2, acc, k) {
+    switch (record) {
+    case true:  return f("true", js_void, js_void, acc,k)
+    case false: return f("false",js_void, js_void, acc,k)
+    case null: return return_(k,acc)
+    default:
+        var tab = new Array(), field, n;
+        for (field in record1) _size == field || tab.push(field)
+        tab.sort()
+        n = tab.length
+        function recurse(i,acc){
+            field = tab[i]
+            return ( i == n ) ?
+                 return_(k,acc)
+                :f(field, record1[field], record2[field], acc, ccont(k,function (acc){recurse(i+1,acc)}) )
+        }
+        return recurse(0,acc)
     }
 }
 
