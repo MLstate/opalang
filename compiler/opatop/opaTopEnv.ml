@@ -631,7 +631,10 @@ let input_code_elt env code_elt =
       env
 
   | Invalid_argument s ->
-      OManager.printf "Invalid_argument: %S@." s;
+      let backtrace =
+        if Printexc.backtrace_status() then "\n" ^ Printexc.get_backtrace() else ""
+      in
+      OManager.printf "Invalid_argument: %S\n%s@." s backtrace;
       env
 
   (* Standard Errors *)
