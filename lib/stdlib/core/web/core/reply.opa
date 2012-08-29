@@ -166,7 +166,7 @@ WebCoreExport =
  *
  * @note : According to RFC2616 CTL characters can be escaped if it are
  * inside quoted string. But in real and cruel world, browsers
- * doesn't take care CTL escaping. Therefore just remove it from content
+ * don't take care about CTL escaping. Therefore just remove it from content
  */
 @private escape_string_header(h) =
   // Remove CTLS see above note
@@ -177,7 +177,7 @@ WebCoreExport =
                 | ~CTL -> CTL
   field_content = parser x=TEXT* -> Text.ltconcat(x)
   Option.map(Text.to_string, Parser.try_parse(field_content, h))
-  ? "unsafe field content - should never happends"
+  ? "unsafe field content - should never happen"
 
 @private add_ll_header(header : Resource.http_header, lst : list(WebInfo.private.native_http_header)) =
   // /////////////////////////////////////////////////////////////////

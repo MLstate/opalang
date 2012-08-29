@@ -57,7 +57,7 @@ PingClient = {{
       match Channel.unserialize(id) with
       | {none} -> error("Can't unserialize {id}")
       | {some = channel} ->
-        serialize(_) = @toplevel.error("Should not happends")
+        serialize(_) = @toplevel.error("Should not happen")
         do Channel.forward(none, channel, message, ~{serialize message})
         true
       end

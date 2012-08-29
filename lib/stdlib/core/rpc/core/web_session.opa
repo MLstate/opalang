@@ -53,7 +53,7 @@ WebSession = {{
         | {Record = [("to", to),("message", message)|_then_]} ->
           ThreadContext.get_opt({current}) ?|> context ->
           Channel.unserialize(to) ?|> channel ->
-          serialize(_) = error("Should not happends")
+          serialize(_) = error("Should not happen")
           do Channel.forward(some(context), channel, message, ~{serialize message})
           ok()
         | _ -> bad_formatted()
