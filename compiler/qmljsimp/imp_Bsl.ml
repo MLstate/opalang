@@ -454,10 +454,13 @@ struct
   let initial_private_env = {local_vars = []}
 
   let qml_of_js ~bslkey:key ~bsltags typ ~env (BI.MetaIdent meta_ident) =
-    let o = aux_qml_of_js ~level:0 key ~bsltags env initial_private_env typ
-      (JsCons.Expr.ident (JsCons.Ident.native meta_ident)) in
-    let o = wrap_return_of_aux o in
-    env, o
+    if bsltags.BslTags.cps_bypass then
+      env, None
+    else
+      let o = aux_qml_of_js ~level:0 key ~bsltags env initial_private_env typ
+        (JsCons.Expr.ident (JsCons.Ident.native meta_ident)) in
+      let o = wrap_return_of_aux o in
+      env, o
 
   let js_of_qml ~bslkey:key ~bsltags typ ~env (BI.MetaIdent meta_ident) =
     let o = aux_js_of_qml ~level:0 ~bsltags key env initial_private_env typ
