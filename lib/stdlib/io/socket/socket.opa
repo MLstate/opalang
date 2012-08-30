@@ -214,6 +214,13 @@ Socket = {{
 
     conn_id: Socket.connection -> int = %%BslSocket.conn_id%%
 
+    /**
+     * Ensure there is a minimum number of bytes available in a mailbox.
+     * If there is not enough data in the mailbox then addition
+     * reads are performed on the socket until there is enough data.
+     *
+     * @return An outcome of an updated mailbox.
+     */
     read_fixed(conn:Socket.connection, timeout:int, len:int, mb:Mailbox.t) : outcome(Mailbox.t,string) =
       if mb.len >= len
       then {success=mb}

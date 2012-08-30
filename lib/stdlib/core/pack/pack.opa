@@ -131,6 +131,7 @@ type Pack.codes = list((Pack.u, Pack.data))
  * Other utility types include: [{Pad}] for a single null-padding byte, [{Padn}] for a series
  * of null-padding bytes, [{Bound}] to fill the current binary data up to a given boundary,
  * [{Char}] which is just a single-character string and [{Void}] which is present for cosmetic purposes.
+ * [{Empty}] is ignored and intended to be used as a marker for future updates of the data.
  **/
 type Pack.u =
    {Be}
@@ -143,9 +144,19 @@ type Pack.u =
  / {Ll}
  / {Char:string}
  / {Byte:int}
+ / {Byte:int; signed:bool}
  / {Short:int}
+ / {Short:int; signed:bool}
+ / {Short:int; le:bool}
+ / {Short:int; le:bool; signed:bool}
  / {Long:int}
+ / {Long:int; le:bool}
+ / {Long:int; signed:bool}
+ / {Long:int; le:bool; signed:bool}
  / {Longlong:int}
+ / {Longlong:int; le:bool}
+ / {Longlong:int; signed:bool}
+ / {Longlong:int; le:bool; signed:bool}
  / {Int64:int64}
  / {Int:int}
  / {Int:int; size:Pack.s}
@@ -157,6 +168,7 @@ type Pack.u =
  / {Int:int; le:bool; size:Pack.s; signed:bool}
  / {Pad}
  / {Padn:int}
+ / {Empty}
  / {Bound:int}
  / {Void}
  / {Bool:bool}
@@ -179,17 +191,19 @@ type Pack.u =
  / {Binary:binary; payload:Pack.data; le:bool}
  / {Binary:binary; payload:Pack.data; le:bool; size:Pack.s}
  / {Float32:float}
+ / {Float32:float; le:bool}
  / {Float:float}
+ / {Float:float; le:bool}
  / {Coded:Pack.codes}
  / {List:(Pack.data,list(Pack.data))}
  / {Array:(Pack.data,llarray(Pack.data))}
  / {Pack:Pack.data} // to include other pack data without copying
+ / {Reference:Server.reference(Pack.data)} // <-- updatable entity in the pack data
  / {FixedString:(int,string)} // fixed length string
  / {FixedBinary:(int,binary)} // fixed length binary
+
 // Other possibilities...
 // / {Record:list((field_name,field_type,data))} // <-- problem, type vars
-// / {Empty} // <-- placeholder for items to be added later
-// / {Reference:Server.reference(Pack.data)} // <-- updatable entity in the pack data
 
 /**
  * [Pack.data] is the main specification type but it is just a list of the [Pack.u]
@@ -207,11 +221,16 @@ type Pack.input = { binary:Pack.t; pos:int }
  * [Pack.result] is the result type for the Unser module.
  **/
 type Pack.result('a) = outcome((Pack.input,'a),string)
+
  /*
  * [Pack.options] is the type of options which is used by the main [pack] and
  * [unpack] functions.
  */
 type Pack.options = {signed : bool; endian : bool; size : Pack.s}
+
+#<Ifstatic:OPA_PACK_DEBUG>
+@private bindump = (%% BslPervasives.bindump %%: binary -> string)
+#<End>
 
 /**
  * {1 Interface}
@@ -219,7 +238,6 @@ type Pack.options = {signed : bool; endian : bool; size : Pack.s}
 Pack = {{
 
   // For debugging buffer contents
-  @private memdump = (%% BslPervasives.memdump %%: string -> string)
   #<Ifstatic:OPA_PACK_DEBUG>
     debug = true
   #<Else>
@@ -331,10 +349,10 @@ Pack = {{
   /** recover size from item, failure if not an integer type **/
   getsize(u:Pack.u) : outcome(int,string) =
     match u with
-    | {~Byte} -> {success=Byte}
-    | {~Short} -> {success=Short}
-    | {~Long} -> {success=Long}
-    | {~Longlong} -> {success=Longlong}
+    | {~Byte; ...} -> {success=Byte}
+    | {~Short; ...} -> {success=Short}
+    | {~Long; ...} -> {success=Long}
+    | {~Longlong; ...} -> {success=Longlong}
     | {~Int; ...} -> {success=Int}
     | {Int64=i} -> {success=Int64.to_int(i)}
     | _ -> {failure="Pack.getsize: size {u} is not int"}
@@ -354,44 +372,46 @@ Pack = {{
     | {L} -> false
     | {Ll} -> false
     | {Char=_} -> true
-    | {Byte=_} -> true
-    | {Short=_} -> true
-    | {Long=_} -> true
-    | {Longlong=_} -> true
+    | {Byte=_; ...} -> true
+    | {Short=_; ...} -> true
+    | {Long=_; ...} -> true
+    | {Longlong=_; ...} -> true
     | {Int=_; ...} -> true
     | {Int64=_} -> true
     | {Pad} -> false
     | {Padn=_} -> false
+    | {Empty=_} -> false
     | {Bound=_} -> false
     | {Void} -> true
     | {Bool=_} -> true
     | {Cstring=_} -> true
     | {String=_; ...} -> true
     | {Binary=_; ...} -> true
-    | {Float32=_} -> true
-    | {Float=_} -> true
+    | {Float32=_; ...} -> true
+    | {Float=_; ...} -> true
     | {Coded=_} -> true
     | {List=_} -> true
     | {Array=_} -> true
     | {Pack=_} -> true
+    | {Reference=_} -> true
     | {FixedString=_} -> true
     | {FixedBinary=_} -> true
 
-  /** Debug, memdump first 32-bytes of current input
+  /** Debug, bindump first 32-bytes of current input
    * @param name string to prefix the output
    * @param input the current Pack.input value
    **/
   @expand pinput(name:string, input:Pack.input) =
     #<Ifstatic:OPA_PACK_DEBUG>
-      data = Binary.get_string(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
-      //Log.debug("{name}: input=\n{memdump(data)}") // Can't find Log
-      jlog("{name}: input=\n{memdump(data)}")
+      data = Binary.get_binary(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
+      //Log.debug("{name}: input=\n{bindump(data)}") // Can't find Log
+      jlog("{name}: input=\n{bindump(data)}")
     #<Else>
       _ = (name, input)
       void
     #<End>
 
-  /** Debug, memdump the last 32-bytes of current output
+  /** Debug, bindump the last 32-bytes of current output
    * @param name string to prefix the output
    * @param output the current Pack.t value
    **/
@@ -399,10 +419,10 @@ Pack = {{
     #<Ifstatic:OPA_PACK_DEBUG>
       data =
         if Binary.length(output) <= 32
-        then Binary.get_string(output, 0, Binary.length(output))
-        else Binary.get_string(output,Binary.length(output)-32,32)
-      //Log.debug("{name}: output=\n{memdump(data)}")
-      jlog("{name}: output=\n{memdump(data)}")
+        then Binary.get_binary(output, 0, Binary.length(output))
+        else Binary.get_binary(output,Binary.length(output)-32,32)
+      //Log.debug("{name}: output=\n{bindump(data)}")
+      jlog("{name}: output=\n{bindump(data)}")
     #<Else>
       _ = (name, output)
       void
@@ -867,9 +887,19 @@ Pack = {{
       | ({Ll},{Ll}) -> true
       | ({Char=_},{Char=_}) -> true
       | ({Byte=_},{Byte=_}) -> true
+      | ({Byte=_; signed=sg1},{Byte=_; signed=sg2}) -> sg1 == sg2
       | ({Short=_},{Short=_}) -> true
+      | ({Short=_; signed=sg1},{Short=_; signed=sg2}) -> sg1 == sg2
+      | ({Short=_; le=le1},{Short=_; le=le2}) -> le1 == le2
+      | ({Short=_; le=le1; signed=sg1},{Short=_; le=le2; signed=sg2}) -> le1 == le2 && sg1 == sg2
       | ({Long=_},{Long=_}) -> true
+      | ({Long=_; signed=sg1},{Long=_; signed=sg2}) -> sg1 == sg2
+      | ({Long=_; le=le1},{Long=_; le=le2}) -> le1 == le2
+      | ({Long=_; le=le1; signed=sg1},{Long=_; le=le2; signed=sg2}) -> le1 == le2 && sg1 == sg2
       | ({Longlong=_},{Longlong=_}) -> true
+      | ({Longlong=_; signed=sg1},{Longlong=_; signed=sg2}) -> sg1 == sg2
+      | ({Longlong=_; le=le1},{Longlong=_; le=le2}) -> le1 == le2
+      | ({Longlong=_; le=le1; signed=sg1},{Longlong=_; le=le2; signed=sg2}) -> le1 == le2 && sg1 == sg2
       | ({Int=_},{Int=_}) -> true
       | ({Int=_; size=s1},{Int=_; size=s2}) -> s1 == s2
       | ({Int=_; signed=sg1},{Int=_; signed=sg2}) -> sg1 == sg2
@@ -883,6 +913,7 @@ Pack = {{
       | ({Int64=_},{Int64=_}) -> true
       | ({Pad},{Pad}) -> true
       | ({Padn=_},{Padn=_}) -> true
+      | ({Empty=_},{Empty=_}) -> true
       | ({Bound=_},{Bound=_}) -> true
       | ({Void},{Void}) -> true
       | ({Bool=_},{Bool=_}) -> true
@@ -908,11 +939,14 @@ Pack = {{
          leseq = le1 == le2 && s1 == s2 // non-lazy semantic???
          leseq && same_data(p1,p2)
       | ({Float32=_},{Float32=_}) -> true
+      | ({Float32=_; le=le1},{Float32=_; le=le2}) -> le1 == le2
       | ({Float=_},{Float=_}) -> true
+      | ({Float=_; le=le1},{Float=_; le=le2}) -> le1 == le2
       | ({Coded=_},{Coded=_}) -> true
       | ({List=_},{List=_}) -> true
       | ({Array=_},{Array=_}) -> true
       | ({Pack=data1},{Pack=data2}) -> same_data(data1,data2)
+      | ({Reference=data1},{Reference=data2}) -> same_data(ServerReference.get(data1),ServerReference.get(data2))
       | ({FixedString=_},{FixedString=_}) -> true
       | ({FixedBinary=_},{FixedBinary=_}) -> true
       | (_,_) -> false
@@ -978,14 +1012,16 @@ Pack = {{
       | {Ll} -> ({Ll},0,0)
       | {Char=_} -> (s,1,0)
       | {Byte=_} -> (s,1,0)
-      | {Short=_} -> (s,2,0)
-      | {Long=_} -> (s,4,0)
-      | {Longlong=_} -> (s,8,0)
+      | {Byte=_; ...} -> (s,1,0)
+      | {Short=_; ...} -> (s,2,0)
+      | {Long=_; ...} -> (s,4,0)
+      | {Longlong=_; ...} -> (s,8,0)
       | {Int=_; ~size; ...} -> (s,sizesize(size),0)
       | {Int=_; ...} -> (s,sizesize(s),0)
       | {Int64=_} -> (s,8,0)
       | {Pad} -> (s,1,0)
       | {~Padn} -> (s,Padn,0)
+      | {Empty} -> (s,0,0)
       | {~Bound} -> (s,0,Bound)
       | {Void} -> (s,1,0)
       | {Bool=_} -> (s,1,0)
@@ -1006,8 +1042,8 @@ Pack = {{
          (s,sizesize(s)+payload_size+Binary.length(bin),0)
       | {Binary=bin; ~size; ...} -> (s,sizesize(size)+Binary.length(bin),0)
       | {Binary=bin; ...} -> (s,sizesize(s)+Binary.length(bin),0)
-      | {Float32=_} -> (s,4,0)
-      | {Float=_} -> (s,8,0)
+      | {Float32=_; ...} -> (s,4,0)
+      | {Float=_; ...} -> (s,8,0)
       | {Coded=[]} -> (s,0,0) // Can't pack nothing
       | {Coded=[(code,data)]} ->
          if valid_code(code)
@@ -1019,6 +1055,9 @@ Pack = {{
          LowLevelArray.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),a,(s,sizesize(s),0))
       | {Pack=data} ->
          (match packdatasize(s, data) with
+          | (s, cnt) -> (s, cnt, 0))
+      | {Reference=data} ->
+         (match packdatasize(s, ServerReference.get(data)) with
           | (s, cnt) -> (s, cnt, 0))
       | {FixedString=(cnt,_)} -> (s, cnt, 0)
       | {FixedBinary=(cnt,_)} -> (s, cnt, 0)
@@ -1113,9 +1152,22 @@ Pack = {{
       | {Ll} -> (le, false, {Ll}, {success=void})
       | {~Char} -> (le, signed, size, char(buf, Char))
       | {~Byte} -> (le, signed, size, byte(buf, signed, Byte))
-      | {~Short} -> (le, signed, size, short(buf, le, signed, Short))
-      | {~Long} -> (le, signed, size, long(buf, le, signed, Long))
-      | {~Longlong} -> (le, signed, size, longlong(buf, le, Longlong))
+      | {~Byte; signed=actual_signed} -> (le, signed, size, byte(buf, actual_signed, Byte))
+      //| {~Short} -> (le, signed, size, short(buf, le, signed, Short))
+      | {Short=i} -> pack_int(buf, le, le, signed, signed, {S}, {S}, i)
+      | {Short=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, {S}, {S}, i)
+      | {Short=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, {S}, {S}, i)
+      | {Short=i; le=actual_le; signed=actual_signed} -> pack_int(buf, actual_le, le, actual_signed, signed, {S}, {S}, i)
+      //| {~Long} -> (le, signed, size, long(buf, le, signed, Long))
+      | {Long=i} -> pack_int(buf, le, le, signed, signed, {L}, {L}, i)
+      | {Long=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, {L}, {L}, i)
+      | {Long=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, {L}, {L}, i)
+      | {Long=i; le=actual_le; signed=actual_signed} -> pack_int(buf, actual_le, le, actual_signed, signed, {L}, {L}, i)
+      //| {~Longlong} -> (le, signed, size, longlong(buf, le, Longlong))
+      | {Longlong=i} -> pack_int(buf, le, le, signed, signed, {Ll}, {Ll}, i)
+      | {Longlong=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, {Ll}, {Ll}, i)
+      | {Longlong=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, {Ll}, {Ll}, i)
+      | {Longlong=i; le=actual_le; signed=actual_signed} -> pack_int(buf, actual_le, le, actual_signed, signed, {Ll}, {Ll}, i)
       | {Int=i} -> pack_int(buf, le, le, signed, signed, size, size, i)
       | {Int=i; size=actual_size} -> pack_int(buf, le, le, signed, signed, actual_size, size, i)
       | {Int=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, size, size, i)
@@ -1128,6 +1180,7 @@ Pack = {{
       | {Int64=i64} -> (le, signed, size, int64(buf, le, i64))
       | {Pad} -> (le, signed, size, pad(buf))
       | {~Padn} -> (le, signed, size, padn(buf, Padn))
+      | {Empty} -> (le, signed, size, {success=void})
       | {~Bound} -> (le, signed, size, boundary(buf, Bound))
       | {Void} -> (le, signed, size, pad(buf))
       | {~Bool} -> (le, signed, size, bool(buf, Bool))
@@ -1151,7 +1204,9 @@ Pack = {{
       | {Binary=bin; ~payload; le=actual_le; size=actual_size} ->
          pack_binary(buf, actual_le, le, signed, actual_size, size, payload, bin)
       | {~Float32} -> (le, signed, size, float(buf, le, Float32))
+      | {~Float32; le=actual_le} -> (le, signed, size, float(buf, actual_le, Float32))
       | {~Float} -> (le, signed, size, double(buf, le, Float))
+      | {~Float; le=actual_le} -> (le, signed, size, double(buf, actual_le, Float))
       | {Coded=[]} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has no codes"})
       | {Coded=[(code,data)]} ->
          if valid_code(code)
@@ -1161,6 +1216,7 @@ Pack = {{
       | {List=(t,l)} -> list(buf, le, signed, size, t, l)
       | {Array=(t,a)} -> list(buf, le, signed, size, t, a2l(a))
       | {Pack=data} -> pack_data(buf, le, signed, size, data)
+      | {Reference=data} -> pack_data(buf, le, signed, size, ServerReference.get(data))
       | {FixedString=(len,str)} -> (le, signed, size, fixed_string(buf, len, str))
       | {FixedBinary=(len,bin)} -> (le, signed, size, fixed_binary(buf, len, bin))
 
@@ -1620,22 +1676,22 @@ Pack = {{
       do pinput("Pack.Decode.string",{binary=data; ~pos})
       match
         match (le, size) with
-        | (_, {B}) -> uoctet(data, pos)
-        | ({false}, {S}) -> short_be(data, pos)
-        | ({true}, {S}) -> short_le(data, pos)
-        | ({false}, {L}) -> long_be(data, pos)
-        | ({true}, {L}) -> long_le(data, pos)
-        | ({false}, {Ll}) -> longlong_be(data, pos)
-        | ({true}, {Ll}) -> longlong_le(data, pos)
+        | (_, {B}) -> (pos+1,uoctet(data, pos))
+        | ({false}, {S}) -> (pos+2,short_be(data, pos))
+        | ({true}, {S}) -> (pos+2,short_le(data, pos))
+        | ({false}, {L}) -> (pos+4,long_be(data, pos))
+        | ({true}, {L}) -> (pos+4,long_le(data, pos))
+        | ({false}, {Ll}) -> (pos+8,longlong_be(data, pos))
+        | ({true}, {Ll}) -> (pos+8,longlong_le(data, pos))
       with
-      | {success=len} ->
+      | (pos,{success=len}) ->
          (match get_payload(payload, data, pos) with
           | {success=(pos,payload)} ->
-             if Binary.length(data) > pos + len
-             then {success=(payload,Binary.get_string(data, pos + 1, len))}
+             if Binary.length(data) >= pos + len
+             then {success=(payload,Binary.get_string(data, pos, len))}
              else {failure="Pack.Decode.string: not enough data for string"}
           | {~failure} -> {~failure})
-      | {~failure} -> {~failure}
+      | (_,{~failure}) -> {~failure}
 
     /** Decode 8-bit integer size-prefixed string */
     string_b = string(_, false, {B}, _, _)
@@ -1871,7 +1927,7 @@ Pack = {{
       | {success=(npos, code, ndata)} -> {success=(le, signed, size, npos, [{Coded=[(code,ndata)]}|data])}
       | {~failure} -> {~failure}
 
-    @private unpack_int(data:Pack.data,
+    @private unpack_int(data:Pack.data, size_type:option(Pack.s),
                         actual_le:option(bool), return_le:bool,
                         actual_signed:option(bool), return_signed:bool,
                         actual_size:option(Pack.s), return_size:Pack.s,
@@ -1883,16 +1939,30 @@ Pack = {{
       match int(real_le, real_signed, real_size, bin, pos) with
       | {success=i} ->
          {success=(return_le, return_signed, return_size, pos+sizesize(real_size),
-                   [(match (actual_le,actual_size,actual_signed) with
-                     | ({none},{none},{none}) -> {Int=i}
-                     | ({none},{some=actual_size},{none}) -> {Int=i; size=actual_size}
-                     | ({none},{none},{some=actual_signed}) -> {Int=i; signed=actual_signed}
-                     | ({none},{some=actual_size},{some=actual_signed}) -> {Int=i; size=actual_size; signed=actual_signed}
-                     | ({some=actual_le},{none},{none}) -> {Int=i; le=actual_le}
-                     | ({some=actual_le},{some=actual_size},{none}) -> {Int=i; le=actual_le; size=actual_size}
-                     | ({some=actual_le},{none},{some=actual_signed}) -> {Int=i; le=actual_le; signed=actual_signed}
-                     | ({some=actual_le},{some=actual_size},{some=actual_signed}) ->
+                   [(match (size_type,actual_le,actual_size,actual_signed) with
+                     | ({none},{none},{none},{none}) -> {Int=i}
+                     | ({some={S}},{none},{none},{none}) -> {Short=i}
+                     | ({some={L}},{none},{none},{none}) -> {Long=i}
+                     | ({some={Ll}},{none},{none},{none}) -> {Longlong=i}
+                     | ({none},{none},{some=actual_size},{none}) -> {Int=i; size=actual_size}
+                     | ({none},{none},{none},{some=actual_signed}) -> {Int=i; signed=actual_signed}
+                     | ({some={S}},{none},{none},{some=actual_signed}) -> {Short=i; signed=actual_signed}
+                     | ({some={L}},{none},{none},{some=actual_signed}) -> {Long=i; signed=actual_signed}
+                     | ({some={Ll}},{none},{none},{some=actual_signed}) -> {Longlong=i; signed=actual_signed}
+                     | ({none},{none},{some=actual_size},{some=actual_signed}) -> {Int=i; size=actual_size; signed=actual_signed}
+                     | ({none},{some=actual_le},{none},{none}) -> {Int=i; le=actual_le}
+                     | ({some={S}},{some=actual_le},{none},{none}) -> {Short=i; le=actual_le}
+                     | ({some={L}},{some=actual_le},{none},{none}) -> {Long=i; le=actual_le}
+                     | ({some={Ll}},{some=actual_le},{none},{none}) -> {Longlong=i; le=actual_le}
+                     | ({none},{some=actual_le},{some=actual_size},{none}) -> {Int=i; le=actual_le; size=actual_size}
+                     | ({none},{some=actual_le},{none},{some=actual_signed}) -> {Int=i; le=actual_le; signed=actual_signed}
+                     | ({some={S}},{some=actual_le},{none},{some=actual_signed}) -> {Short=i; le=actual_le; signed=actual_signed}
+                     | ({some={L}},{some=actual_le},{none},{some=actual_signed}) -> {Long=i; le=actual_le; signed=actual_signed}
+                     | ({some={Ll}},{some=actual_le},{none},{some=actual_signed}) ->
+                        {Longlong=i; le=actual_le; signed=actual_signed}
+                     | ({none},{some=actual_le},{some=actual_size},{some=actual_signed}) ->
                         {Int=i; le=actual_le; size=actual_size; signed=actual_signed}
+                     | _ -> @fail // no size for Short, Long or Longlong
                     )|data])}
       | {~failure} -> {~failure}
 
@@ -1964,34 +2034,50 @@ Pack = {{
             (match byte(signed, bin, pos) with
              | {success=Byte} -> {success=(le, signed, size, pos+1, [{~Byte}|data])}
              | {~failure} -> {~failure})
+         | {Byte=_; signed=actual_signed} ->
+            (match byte(actual_signed, bin, pos) with
+             | {success=Byte} -> {success=(le, signed, size, pos+1, [{~Byte; signed=actual_signed}|data])}
+             | {~failure} -> {~failure})
          | {Short=_} ->
-            (match short(le, signed, bin, pos) with
-             | {success=Short} -> {success=(le, signed, size, pos+2, [{~Short}|data])}
-             | {~failure} -> {~failure})
+            unpack_int(data, {some={S}}, {none}, le, {none}, signed, {none}, {S}, bin, pos)
+         | {Short=_; signed=actual_signed} ->
+            unpack_int(data, {some={S}}, {none}, le, {some=actual_signed}, signed, {none}, {S}, bin, pos)
+         | {Short=_; le=actual_le} ->
+            unpack_int(data, {some={S}}, {some=actual_le}, le, {none}, signed, {none}, {S}, bin, pos)
+         | {Short=_; le=actual_le; signed=actual_signed} ->
+            unpack_int(data, {some={S}}, {some=actual_le}, le, {some=actual_signed}, signed, {none}, {S}, bin, pos)
          | {Long=_} ->
-            (match long(le, signed, bin, pos) with
-             | {success=Long} -> {success=(le, signed, size, pos+4, [{~Long}|data])}
-             | {~failure} -> {~failure})
+            unpack_int(data, {some={L}}, {none}, le, {none}, signed, {none}, {L}, bin, pos)
+         | {Long=_; signed=actual_signed} ->
+            unpack_int(data, {some={L}}, {none}, le, {some=actual_signed}, signed, {none}, {L}, bin, pos)
+         | {Long=_; le=actual_le} ->
+            unpack_int(data, {some={L}}, {some=actual_le}, le, {none}, signed, {none}, {L}, bin, pos)
+         | {Long=_; le=actual_le; signed=actual_signed} ->
+            unpack_int(data, {some={L}}, {some=actual_le}, le, {some=actual_signed}, signed, {none}, {L}, bin, pos)
          | {Longlong=_} ->
-            (match longlong(le, bin, pos) with
-             | {success=Longlong} -> {success=(le, signed, size, pos+8, [{~Longlong}|data])}
-             | {~failure} -> {~failure})
+            unpack_int(data, {some={Ll}}, {none}, le, {none}, signed, {none}, {Ll}, bin, pos)
+         | {Longlong=_; signed=actual_signed} ->
+            unpack_int(data, {some={Ll}}, {none}, le, {some=actual_signed}, signed, {none}, {Ll}, bin, pos)
+         | {Longlong=_; le=actual_le} ->
+            unpack_int(data, {some={Ll}}, {some=actual_le}, le, {none}, signed, {none}, {Ll}, bin, pos)
+         | {Longlong=_; le=actual_le; signed=actual_signed} ->
+            unpack_int(data, {some={Ll}}, {some=actual_le}, le, {some=actual_signed}, signed, {none}, {Ll}, bin, pos)
          | {Int=_} ->
-            unpack_int(data, {none}, le, {none}, signed, {none}, size, bin, pos)
+            unpack_int(data, {none}, {none}, le, {none}, signed, {none}, size, bin, pos)
          | {Int=_; size=actual_size} ->
-            unpack_int(data, {none}, le, {none}, signed, {some=actual_size}, size, bin, pos)
+            unpack_int(data, {none}, {none}, le, {none}, signed, {some=actual_size}, size, bin, pos)
          | {Int=_; signed=actual_signed} ->
-            unpack_int(data, {none}, le, {some=actual_signed}, signed, {none}, size, bin, pos)
+            unpack_int(data, {none}, {none}, le, {some=actual_signed}, signed, {none}, size, bin, pos)
          | {Int=_; size=actual_size; signed=actual_signed} ->
-            unpack_int(data, {none}, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
+            unpack_int(data, {none}, {none}, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
          | {Int=_; le=actual_le} ->
-            unpack_int(data, {some=actual_le}, le, {none}, signed, {none}, size, bin, pos)
+            unpack_int(data, {none}, {some=actual_le}, le, {none}, signed, {none}, size, bin, pos)
          | {Int=_; le=actual_le; size=actual_size} ->
-            unpack_int(data, {some=actual_le}, le, {none}, signed, {some=actual_size}, size, bin, pos)
+            unpack_int(data, {none}, {some=actual_le}, le, {none}, signed, {some=actual_size}, size, bin, pos)
          | {Int=_; le=actual_le; signed=actual_signed} ->
-            unpack_int(data, {some=actual_le}, le, {some=actual_signed}, signed, {none}, size, bin, pos)
+            unpack_int(data, {none}, {some=actual_le}, le, {some=actual_signed}, signed, {none}, size, bin, pos)
          | {Int=_; le=actual_le; size=actual_size; signed=actual_signed} ->
-            unpack_int(data, {some=actual_le}, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
+            unpack_int(data, {none}, {some=actual_le}, le, {some=actual_signed}, signed, {some=actual_size}, size, bin, pos)
          | {Int64=_} ->
             (match int64(le, bin, pos) with
              | {success=i64} -> {success=(le, signed, size, pos+8, [{Int64=i64}|data])}
@@ -2004,6 +2090,8 @@ Pack = {{
             (match padn(bin, pos, Padn) with
              | {success=_} -> {success=(le, signed, size, pos+Padn, [{~Padn}|data])}
              | {~failure} -> {~failure})
+         | {Empty} ->
+            {success=(le, signed, size, pos, [{Empty}|data])}
          | {~Bound} ->
             (match boundary(bin, pos, Bound) with
              | {success=padding} -> {success=(le, signed, size, pos+padding, [{~Bound}|data])}
@@ -2048,16 +2136,30 @@ Pack = {{
             (match float(le, bin, pos) with
              | {success=Float32} -> {success=(le, signed, size, pos+4, [{~Float32}|data])}
              | {~failure} -> {~failure})
+         | {Float32=_; le=actual_le} ->
+            (match float(actual_le, bin, pos) with
+             | {success=Float32} -> {success=(le, signed, size, pos+4, [{~Float32; le=actual_le}|data])}
+             | {~failure} -> {~failure})
          | {Float=_} ->
             (match double(le, bin, pos) with
              | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float}|data])}
              | {~failure} -> {~failure})
+         | {Float=_; le=actual_le} ->
+            (match double(actual_le, bin, pos) with
+             | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float; le=actual_le}|data])}
+             | {~failure} -> {~failure})
          | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
          | {List=(typ,_)} -> unpack_list(true, le, signed, size, typ, bin, pos, data)
          | {Array=(typ,_)} -> unpack_list(false, le, signed, size, typ, bin, pos, data)
-         | {Pack=data} ->
-            (match unpack_data(le, signed, size, bin, pos, data) with
+         | {Pack=d} ->
+            (match unpack_data(le, signed, size, bin, pos, d) with
              | {success=(le,signed,size,pos,Pack)} -> {success=(le, signed, size, pos, [{~Pack}|data])}
+             | {~failure} -> {~failure})
+         | {Reference=r} ->
+            (match unpack_data(le, signed, size, bin, pos, ServerReference.get(r)) with
+             | {success=(le,signed,size,pos,Pack)} ->
+                do ServerReference.set(r,Pack)
+                {success=(le, signed, size, pos, [{Reference=r}|data])}
              | {~failure} -> {~failure})
          | {FixedString=(len,_)} ->
             (match fixed_string(bin, pos, len) with
@@ -2136,29 +2238,28 @@ Pack = {{
       | {L} -> none
       | {Ll} -> none
       | {Char=_} -> {some=[u]}
-      | {Byte=_} -> {some=[u]}
-      | {Short=_} -> {some=[u]}
-      | {Long=_} -> {some=[u]}
-      | {Longlong=_} -> {some=[u]}
+      | {Byte=_; ...} -> {some=[u]}
+      | {Short=_; ...} -> {some=[u]}
+      | {Long=_; ...} -> {some=[u]}
+      | {Longlong=_; ...} -> {some=[u]}
       | {~Int; ...} -> {some=[{~Int}]}
       | {Int64=_} -> {some=[u]}
       | {Pad} -> none
       | {Padn=_} -> none
+      | {Empty} -> none
       | {Bound=_} -> none
       | {Void} -> {some=[u]}
       | {Bool=_} -> {some=[u]}
       | {Cstring=_} -> {some=[u]}
       | {~String; ...} -> {some=[{~String}]}
       | {~Binary; ...} -> {some=[{~Binary}]}
-      | {Float32=_} -> {some=[u]}
-      | {Float=_} -> {some=[u]}
+      | {Float32=_; ...} -> {some=[u]}
+      | {Float=_; ...} -> {some=[u]}
       | {Coded=_} -> {some=[u]}
       | {List=_} -> {some=[u]}
       | {Array=_} -> {some=[u]}
-      | {~Pack} ->
-         (match clean(Pack) with
-          | [] -> none
-          | data -> {some=data})
+      | {~Pack} -> {some=[{Pack=clean(Pack)}]}
+      | {~Reference} -> {some=[{Reference=ServerReference.create(clean(ServerReference.get(Reference)))}]}
       | {FixedString=_} -> {some=[u]}
       | {FixedBinary=_} -> {some=[u]}
 
@@ -2169,6 +2270,14 @@ Pack = {{
      * Pack items are flattened.
      **/
     clean(data:Pack.data) = List.flatten(List.filter_map(has_data, data))
+
+    @private deref_u(u:Pack.u) : option(Pack.data) =
+      match u with
+      | {~Reference} -> {some=[{Pack=deref(ServerReference.get(Reference))}]}
+      | _ -> {some=[u]}
+
+    /** Turn references into non-reference Pack data */
+    deref(data:Pack.data) = List.flatten(List.filter_map(deref_u, data))
 
   }}
 
