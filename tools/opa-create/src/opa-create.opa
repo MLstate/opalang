@@ -50,7 +50,7 @@ list(CommandLine.parser({option(string) name, Template.t template})) options_par
   [
     CommandLine_ident(["--name", "-n"],
       "Application name, without spaces, \"/\" or any other special characters",
-      "app_name (no special characters)")({ function(name, r){ r with name:some(name)}}
+      "app_name (no special characters)")({ function(name, r){r with name:some(name)} }
     ),
     CommandLine_ident(["--template", "-t"],
       "Template to be used for the application",
@@ -75,8 +75,8 @@ function write(file, content) {
   %%BslFile.of_string%%("./{file}", binary_of_string(content))
 }
 
-Scheduler.push(function () { // hack for node.js toplevel instruction
-match (options.name) {
+Scheduler.push(function() { // hack for node.js toplevel instruction
+  match (options.name) {
   case {none}:
     Log.warning("OpaCreate:", "No project name specified.\nPlease specify a project name. See {CommandLine.executable()} --help for more information")
     System.exit(0);
