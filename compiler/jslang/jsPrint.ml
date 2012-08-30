@@ -654,8 +654,11 @@ object(self)
                 | JsLex.CommentLine (_, line) ->
                     pp f "%s\n" line
                 | JsLex.CommentTag (_, tag, args) ->
-                    pp f "@%s %s\n" tag args
-            ) lines
+                    (* WARNING: the @@ directive has been deprecated
+                       in newer versions of OCaml*)
+                    pp f "@@%s %s\n" tag args
+            ) lines;
+            pp f "*/"
     )
 
   (*
