@@ -26,7 +26,7 @@ module String = BaseString
 
 (*
   To extend the type, follow EXTEND-OPT
-  <!> the type should remain marshalable, becuase it is embeded in plugins.
+  <!> the type should remain marshalable, because it is embedded in plugins.
 *)
 type optimized_conf = {
   cleanup : bool ;
@@ -37,7 +37,7 @@ type optimized_conf = {
 }
 
 (*
-  <!> Beware, this type is marshaled during the bsl preprocess
+  <!> Beware, this type is marshaled during the bsl preprocessing
 *)
 type conf =
   | Verbatim
@@ -194,7 +194,7 @@ struct
              Verbatim
            else
              (*
-               keep the previous setting, if it exists one
+               keep the previous setting, if one exists
              *)
              Optimized (get_opt conf)
          in
@@ -225,7 +225,7 @@ type t = {
   files : string list ;
   files_set : StringSet.t ;
   (*
-    cache: same than files, but in a set format
+    cache: same as files, but in a set format
   *)
 }
 
@@ -362,7 +362,7 @@ let fold conffile t =
                     (*
                       Internal error.
                       We filter only files already known in the function parse_line,
-                      and the initializer of type [t] build the field [files]
+                      and the initializer of type [t] builds the field [files]
                     *)
                     assert false
               in

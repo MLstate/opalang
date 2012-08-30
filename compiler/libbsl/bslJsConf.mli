@@ -29,8 +29,8 @@
    -local inline
    -etc.
 
-   Nevertheless, some files are very hacky (example jquery), and contains
-   specific workarround for contourning some hacks of some browser.
+   Nevertheless, some files are very hacky (example jquery), and contain
+   specific workarounds for bypassing browser bugs.
    A scary example is the following code, taken from jquery-1.4.4.:
 
    {[
@@ -50,7 +50,7 @@
    ]}
 
    The cleanup pass would simply remove the expressions [parent.selectedIndex] and [parent.parentNode.selectedIndex]
-   because they does not make side effects, although the hack tell the contrary.
+   because they don't have side effects, although the hack tells the contrary.
 *)
 
 (** {6 Configuration} *)
