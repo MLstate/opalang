@@ -685,7 +685,7 @@ object (self)
       self#statements body
 end
 
-class printer_min =
+class printer_min keep_comments =
 object
   inherit printer_abstract as super
 
@@ -693,7 +693,7 @@ object
 
   method statement (f:Format.formatter) (s:J.statement) =
     match s with
-    | J.Js_comment _ -> ()
+    | J.Js_comment _ when not keep_comments -> ()
     | s -> super#statement f s
 end
 
@@ -758,13 +758,14 @@ object
 
 end
 
-class printer = printer_min
+class printer = printer_min false
 
 let pp = new printer
+let pp_keep_comments = new printer_min true
 let debug_pp = new debug_printer
 let scoped_pp = new scoped_printer
 let scoped_pp_min = new scoped_printer_min
-let pp_min = new printer_min
+let pp_min = new printer_min false
 
 let string_of_ident = Format.to_string pp#ident
 let code = Format.to_string pp#code
@@ -945,7 +946,7 @@ struct
   *)
   class serializer(init) =
   object (self)
-    inherit printer_min as super
+    inherit printer_min false as super
 
     val acc = init
 

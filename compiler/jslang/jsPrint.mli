@@ -57,6 +57,8 @@ end
 
 val pp : printer
 
+val pp_keep_comments : printer
+
 val pp_min : printer
 
 (** same as pp, but prints the blocks instead of hiding them *)
