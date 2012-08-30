@@ -1,3 +1,6 @@
+# -*- conf -*- (for emacs)
+
+jsbsl/bsl-sources.jsconf
 # external, kept separate for licensing issues.
 jsbsl/md5.js
 jsbsl/base64.js
@@ -93,4 +96,3 @@ jsbsl/jquery_ext_bslanchor.externs.js
 jsbsl/jquery_ext_jQueryExtends.externs.js
 jsbsl/selection_ext_bsldom.externs.js
 jsbsl/jquery_extra.externs.js
-
