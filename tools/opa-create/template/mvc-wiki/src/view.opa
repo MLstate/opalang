@@ -26,8 +26,11 @@ module View {
 
   function statistics() {
     tbody = Iter.fold(
-      function(page, acc) { <>{acc}<tr><td>{page.path}</td><td>{page.counter}</td></tr></> },
-      Model.statistics(), <></>
+      function(page, acc) {
+        <>{acc}<tr><td>{page.path}</td><td>{page.counter}</td></tr></>
+      },
+      Model.statistics(),
+      <></>
     )
     content =
       <h3>Page statistics</h3>
