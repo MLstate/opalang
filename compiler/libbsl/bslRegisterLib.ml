@@ -1204,17 +1204,26 @@ let js_validator finalized_t =
       else Format.pp_print_string
     )
     in
+
+    (* The path were preprocessed JS files will be *)
+    let path_for_validation file =
+      let (/) a b = Filename.concat a b in
+      let path =
+        (name ^ ".opp")/(Filename.dirname file)/
+          (Printf.sprintf "%s_%s" name (Filename.basename file)) in
+      if builddir == "" then path else builddir/path in
+
     let command = Format.sprintf "%s %a %a %a --js_output_file output.js"
       executable
       pp_str_list cmd_options
       pp_extern_files_list extern_files
-      pp_file_list (List.map (fun (f,_,_)-> Printf.sprintf "%s.opp/%s/%s_%s" name (Filename.dirname f) name (Filename.basename f)) finalized_t.f_js_code)
+      pp_file_list
+      (List.map
+         (fun (f,_,_) -> path_for_validation f)
+         finalized_t.f_js_code)
     in
     OManager.verbose "JS VALIDATION : %s\n" command;
-    let cwd = Sys.getcwd () in
-    if builddir <> "" then Sys.chdir builddir;
     let r = Sys.command command in
-    Sys.chdir cwd;
     if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
       if r = command_not_found
       then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
