@@ -3,7 +3,7 @@ module Controller {
   // URL dispatcher of your application; add URL handling as needed
   dispatcher = {
     parser {
-    case (.*) : View.default_page()
+    case (.*) : Page.default_page()
     }
   }
 
