@@ -37,7 +37,7 @@ mvc_template =
               @static_content_directory("tools/opa-create/template/mvc"))
 
 mvc_small_template =
-  mk_template("mvc-simple", "tools/opa-create/template/mvc-small",
+  mk_template("mvc-small", "tools/opa-create/template/mvc-small",
               @static_content_directory("tools/opa-create/template/mvc-small"))
 
 list(Template.t) templates = [ mvc_template, mvc_wiki_template, mvc_small_template ]
