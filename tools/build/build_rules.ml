@@ -733,6 +733,13 @@ let plugin_building name =
         A "--unsafe-js" :: A "--js-validator" :: t
         :: List.fold_right (fun opt acc -> A"--js-validator-opt"::opt::acc) q options
   in
+  let options =
+    let conf_files =
+      List.filter (fun f ->
+        Pathname.check_extension f "jsconf" ||
+          Pathname.check_extension f "nodejsconf"
+      ) files in
+    List.map (fun file -> P file) conf_files @ options in
   let has_ml, options (* OCaml files *) =
     let mlfiles = List.filter (fun f -> Pathname.check_extension f "ml") files in
     (mlfiles <> [],
