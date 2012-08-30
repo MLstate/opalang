@@ -11,7 +11,7 @@
 */
 
 /**
- * @type bool
+ * @type boolean
  */
 var command_line_execution
 
@@ -35,11 +35,23 @@ function error(s) {}
 
 /**
  * @param {*} x
- * return {Boolean}
+ * @return {Boolean}
  */
 var is_native_object = function(x) {}
 
+// Nodejs module exports
+
 /**
- * Nodejs module exports
+ * @type Object
  */
-var exports, global, require;
+var exports;
+
+/**
+ * @type Object
+ */
+var global;
+
+/**
+ * @type Function
+ */
+var require;
