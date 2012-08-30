@@ -177,7 +177,7 @@ type session = {
   (* 4) A pre-finalization, which keep the type session for its representation *)
   (*
     opa files may contains include directives which need to be solved at finalization
-    opa_code and opa_interface are optained at finalization time
+    opa_code and opa_interface are obtained at finalization time
   *)
   s_js_code                    : (filename * contents * BslJsConf.conf) list ;
   s_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
