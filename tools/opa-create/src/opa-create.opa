@@ -72,7 +72,7 @@ list(CommandLine.parser({option(string) name, Template.t template})) options_par
 
 options =
   cmdline = {
-    init: { name: none, template: mvc_template },
+    init: { name: none, template: mvc_small_template },
     parsers: options_parsers,
     anonymous: [],
     title: "Opa Application Generator"
