@@ -807,7 +807,8 @@ let build_file_doc_like renaming env decorated_file =
   let js_file = fbuffer () in
   let js_file = add_file_line ~filename js_file in
   let contents = rename renaming decorated_file.contents in
-  let js_file = FBuffer.printf js_file "%a" JsPrint.pp#code contents in
+  let js_file = FBuffer.printf js_file "%a"
+    JsPrint.pp_keep_comments#code contents in
   let js_code = FBuffer.contents js_file in
   let file_js_code = filename, js_code in
   let rev_files_js_code = file_js_code :: env.rev_files_js_code in
