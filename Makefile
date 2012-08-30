@@ -259,7 +259,7 @@ uninstall:
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
 	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
 	@tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
-	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
+	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
 
 # Install our ocamlbuild-generation engine
