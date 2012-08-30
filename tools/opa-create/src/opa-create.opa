@@ -64,8 +64,10 @@ list(CommandLine.parser({option(string) name, Template.t template})) options_par
       "Template to be used for the application",
       "template_name {template_names}")(
       function(template_name, r) {
-        { r with template: List.find(function (t) {t.name == template_name}, templates) ?
-          error("Wrong template name: {template_name} (known templates: {template_names})") }
+        { r with template: List.find(function (t) {t.name == template_name}, templates) ? {
+            Log.error("OpaCreate:", "Wrong template name: {template_name} (known templates: {template_names})")
+            System.exit(1)
+          } }
       }
     )
   ]
