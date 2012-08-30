@@ -15,7 +15,9 @@
 
     Todo : json handling in libbsl *)
 
+   ##property[mli]
    ##extern-type time_t = int
+   ##property[endmli]
 
    let unwrap = Time.in_milliseconds
    let wrap = Time.milliseconds

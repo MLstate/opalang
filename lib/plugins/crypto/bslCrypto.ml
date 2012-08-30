@@ -12,7 +12,9 @@
 
 exception BslCrypto of string
 
+##property[mli]
 ##extern-type binary = Buf.t
+##property[endmli]
 
 ##register md5 : string -> string
 let md5 = (fun x -> Digest.to_hex (Digest.string x))
