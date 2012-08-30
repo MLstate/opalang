@@ -165,3 +165,9 @@ create_wrapper $PREFIX/lib/opa/bin/opa-plugin-builder-bin opa-plugin-builder
 
 # creating wrapper script 'opa-plugin-browser'
 create_wrapper $PREFIX/lib/opa/bin/opa-plugin-browser-bin opa-plugin-browser
+
+if [ $UNINSTALL = true ]; then
+    opa_create=$INSTALLDIR/bin/opa-create
+    [ $QUIET = true ] || echo "Removing $opa_create"
+    rm -f $opa_create
+fi
