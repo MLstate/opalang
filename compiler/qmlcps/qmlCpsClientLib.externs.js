@@ -192,3 +192,7 @@ function push(task) {}
  * @return {!Function}
  */
 function cps(f){}
+
+function opa_cps_callback_to_js_callback0(k, f) {}
+
+function wrap_tc(opa) {}
