@@ -31,3 +31,13 @@ bslActor.nodejs
 bslActor.js
 bslActor.ml
 bslDispatcher.ml
+
+# these are kept as symlinks since .. doesn't work
+externs.js
+qmlCpsClientLib.externs.js
+clientLib.externs.js
+clientLibLib.externs.js
+
+opabsl.externs.js
+
+jquery.externs.js
