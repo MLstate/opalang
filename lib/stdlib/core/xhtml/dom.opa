@@ -76,7 +76,9 @@ type Dom.Effect.duration = {immediate} / {slow} / {fast} / {default} / {millisec
 type Dom.private.element = dom_element//TODO: external
 
 type Dom.Dimension.t = Dom.dimensions//TODO: remove
-type Dom.event_handler = external
+
+@abstract
+type Dom.event_handler = string
 
 /**
  * The current on-screen selection
