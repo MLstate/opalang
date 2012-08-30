@@ -704,7 +704,6 @@ object(self)
         | None -> pps f (safe_str (Ident.stident e))
         | Some _name ->
             pp f "%s"
-              (*safe_str name*)
               (safe_str (Ident.stident e))
         end
     | J.Native (_, s) -> pps f s
@@ -739,7 +738,6 @@ object(self)
     | _ -> self#statement f s
 
   method code f code =
-    (* pp f "var %s = {};" (safe_str (ObjectFiles.get_current_package_name ())); *)
     pp f "%a@\n" (pp_list "@\n" self#toplvl_statement) code
 
 
@@ -774,7 +772,6 @@ sig
   type t
   val append : t -> lexem -> t
   val empty : t
-  (* *)
 
   val ident : string -> lexem
   val verbatim : string -> lexem
@@ -897,7 +894,7 @@ struct
     let formatter = Format.make_formatter output flush in
     let () =
       (*
-        special traitment for tags
+        special treatment for tags
       *)
       let push_insertion_hook kind = Queue.push (!counter, kind) insertion_hooks ; "" in
       let mark_open_tag = function
