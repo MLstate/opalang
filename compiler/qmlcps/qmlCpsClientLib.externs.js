@@ -21,6 +21,15 @@
  * @author David Rajchenbach-Teller, 2010
  */
 
+/**
+ * @interface
+ */
+function Continuation() {}
+
+/**
+ * @interface
+ */
+function Task() {}
 
 /**
  * Create a synchronization barrier.
@@ -50,6 +59,26 @@ Barrier.prototype = {
      */
     wait: function(k) {}
 }
+
+/**
+ * Construct a new task from an application, i.e. a function and its arguments
+ *
+ * @param fun a function to be executed once the scheduler wakes up the task
+ * @param args the arguments to pass to the function
+ *
+ * Note: Some browsers may actually pass additional arguments to [fun]. Ignore them.
+ * @constructor
+ * @implements {Task}
+ */
+function task_from_application(fun, args) {}
+
+/**
+ * @param {!Object} k
+ * @param {Array.<!*>} args
+ * @constructor
+ * @implements {Task}
+ */
+function task_from_return(k, args) {}
 
 /**
  * Construct a continuation.
@@ -151,6 +180,12 @@ function with_thread_context(tc, k){}
 
 function thread_context(tc, k){}
 
+/**
+ * Schedule a [Task] for future execution.
+ *
+ * @param {Task} task
+ */
+function push(task) {}
 
 /**
  * @param {!Function} f
