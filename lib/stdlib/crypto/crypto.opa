@@ -36,15 +36,15 @@ Crypto = {{
 
   Base64 = {{
 
-    encode =  %% BslCrypto.base64_encode %% : string -> string
+    encode =  %% BslCrypto.base64_encode %% : binary -> string
 
-    encode_compact =  %% BslCrypto.base64_encode_compact %% : string -> string
+    encode_compact =  %% BslCrypto.base64_encode_compact %% : binary -> string
 
-    encode_multiline =  %% BslCrypto.base64_encode_multiline %% : string -> string
+    encode_multiline =  %% BslCrypto.base64_encode_multiline %% : binary -> string
 
-    decode =  %% BslCrypto.base64_decode %% : string -> string
+    decode =  %% BslCrypto.base64_decode %% : string -> binary
 
-    decode2 =  %% BslCrypto.base64_decode2 %% : string -> string
+    decode2 =  %% BslCrypto.base64_decode2 %% : string -> binary
 
   }}
 

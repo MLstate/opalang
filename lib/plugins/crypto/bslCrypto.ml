@@ -12,28 +12,33 @@
 
 exception BslCrypto of string
 
+##extern-type binary = Buf.t
+
 ##register md5 : string -> string
 let md5 = (fun x -> Digest.to_hex (Digest.string x))
 
-##register base64_encode : string -> string
-let base64_encode str =
+##register base64_encode : binary -> string
+let base64_encode bin =
+  let str = Buf.contents bin in
   BaseString.base64encode str
 
-##register base64_encode_compact : string -> string
-let base64_encode_compact str =
+##register base64_encode_compact : binary -> string
+let base64_encode_compact bin =
+  let str = Buf.contents bin in
   Cryptokit.transform_string (Cryptokit.Base64.encode_compact ()) str
 
-##register base64_encode_multiline : string -> string
-let base64_encode_multiline str =
+##register base64_encode_multiline : binary -> string
+let base64_encode_multiline bin =
+  let str = Buf.contents bin in
   Cryptokit.transform_string (Cryptokit.Base64.encode_multiline ()) str
 
-##register base64_decode : string -> string
+##register base64_decode : string -> binary
 let base64_decode str =
-  BaseString.base64decode str
+  Buf.of_string (BaseString.base64decode str)
 
-##register base64_decode2 : string -> string
+##register base64_decode2 : string -> binary
 let base64_decode2 str =
-   Cryptokit.transform_string (Cryptokit.Base64.decode ()) str
+   Buf.of_string (Cryptokit.transform_string (Cryptokit.Base64.decode ()) str)
 
 ##register hmac_sha1 : string, string -> string
 let hmac_sha1 key text =

@@ -101,7 +101,7 @@ CouchDb = {{
       match auth
       | {None} -> []
       | {HttpLogin = ~{user pass}} ->
-          encoded = Crypto.Base64.encode("{user}:{pass}")
+          encoded = Crypto.Base64.encode(binary_of_string("{user}:{pass}"))
           ["Authorization: Basic {encoded}"]
       | ~{Session} -> ["Cookie: {Session}"]
     maybe_rev ++ maybe_auth

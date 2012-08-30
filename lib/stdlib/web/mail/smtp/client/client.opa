@@ -60,7 +60,8 @@ SmtpClient = {{
         | ~{filename content mime_type} ->
            if String.has_prefix("text/", mime_type)
            then some((filename,mime_type,"8bit",content))
-           else some((filename,mime_type,"base64",Crypto.Base64.encode(content)))
+           else some((filename,mime_type,"base64",
+                      Crypto.Base64.encode(binary_of_string(content))))
         | ~{filename content mime_type encoding} ->
           some((filename,mime_type,encoding,content))
         | ~{filename resource} ->
@@ -69,7 +70,8 @@ SmtpClient = {{
              data = string_of_binary(data)
              if String.has_prefix("text/", mimetype)
              then some((filename,mimetype,"8bit",data))
-             else some((filename,mimetype,"base64",Crypto.Base64.encode(data)))
+             else some((filename,mimetype,"base64",
+                        Crypto.Base64.encode(binary_of_string(data))))
            | {none} -> {none}
            end
       , options.files)

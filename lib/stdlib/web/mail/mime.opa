@@ -131,7 +131,8 @@ Mime = {{
     | ew=encoded_word ->
       match string_to_encoding(ew.encoding)
       | {some={Q_encoding}} -> decoder(ew.charset, Q.decode(ew.encoded_text))
-      | {some={B_encoding}} -> decoder(ew.charset, Crypto.Base64.decode(ew.encoded_text))
+      | {some={B_encoding}} ->
+        decoder(ew.charset, Crypto.Base64.decode(ew.encoded_text) |> string_of_binary)
       | {none} -> decoder(ew.charset, ew.encoded_text)
       end
     | c=. -> Cactutf.cons(c)
@@ -221,7 +222,7 @@ Mime = {{
   decode_body(s:string, cte:string) =
     match String.lowercase(cte)
     | "quoted-printable" -> QuotedPrintable.decode(s)
-    | "base64" -> Crypto.Base64.decode2(s)
+    | "base64" -> string_of_binary(Crypto.Base64.decode2(s))
     | _ -> String.replace(crlf, "\n", s)
 
   /**
