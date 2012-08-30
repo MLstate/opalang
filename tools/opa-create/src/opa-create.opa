@@ -36,7 +36,11 @@ mvc_template =
   mk_template("mvc", "tools/opa-create/template/mvc",
               @static_content_directory("tools/opa-create/template/mvc"))
 
-list(Template.t) templates = [ mvc_template, mvc_wiki_template ]
+mvc_small_template =
+  mk_template("mvc-simple", "tools/opa-create/template/mvc-small",
+              @static_content_directory("tools/opa-create/template/mvc-small"))
+
+list(Template.t) templates = [ mvc_template, mvc_wiki_template, mvc_small_template ]
 
 ident_ext_parser = parser {
   case v=((Rule.alphanum_char|"_"|"-")+) : Text.to_string(v)
