@@ -30,7 +30,7 @@ function Template.t mk_template(name, dir, resources) {
 }
 
 mvc_wiki_template =
-  mk_template("mvc_wiki", "tools/opa-create/template/mvc-wiki",
+  mk_template("mvc-wiki", "tools/opa-create/template/mvc-wiki",
               @static_content_directory("tools/opa-create/template/mvc-wiki"))
 mvc_template =
   mk_template("mvc", "tools/opa-create/template/mvc",
@@ -38,10 +38,14 @@ mvc_template =
 
 list(Template.t) templates = [ mvc_template, mvc_wiki_template ]
 
+ident_ext_parser = parser {
+  case v=((Rule.alphanum_char|"_"|"-")+) : Text.to_string(v)
+}
+
 function CommandLine_ident(names,description,param_doc)(up) {
     { CommandLine.default_parser with
       ~names, ~description, ~param_doc,
-      function on_param(o) { parser { case int=Rule.ident : {no_params:up(int,o)} } }
+      function on_param(o) { parser { case int=ident_ext_parser : {no_params:up(int,o)} } }
     }
 }
 
@@ -78,7 +82,7 @@ function write(file, content) {
 Scheduler.push(function() { // hack for node.js toplevel instruction
   match (options.name) {
   case {none}:
-    Log.warning("OpaCreate:", "No project name specified.\nPlease specify a project name. See {CommandLine.executable()} --help for more information")
+    Log.warning("OpaCreate:", "No project name specified.\nPlease specify a project name.")
     System.exit(0);
   case {some:name}:
     function process_resource(file_name, file_content) {
