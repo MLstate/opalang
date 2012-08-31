@@ -214,13 +214,13 @@ function js2list(l) {}
 
 /**
  * @param {!*} o
- * @return {?*}
+ * @return {?}
  */
 function option2js(o) {}
 
 /**
  * @param {!*} o
- * @return {?*}
+ * @return {?}
  */
 function option2jsu(o) {}
 
