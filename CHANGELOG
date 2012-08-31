@@ -3,10 +3,15 @@ New features:
   * opa bundle: added a new CLI to `opa` to bundle the JS, depends and stdlib of an app
     		for an easy deployment on a clean server.
 		`opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
+  * opa create has a new mvc-small template, the two others has been also updated
 
 Improvements:
 
   * improved the launch script on Mac: download and open node installer if necessary
+  * opa-create is not compiled during installation anymore
+  * various improvements for opa cerate
+  * we do not check node max version anymore
+  * use installed mongod if exists in PATH
 
 Packaging:
 
@@ -23,6 +28,7 @@ Bug fixes:
 
   * Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
   * opa-create now takes the remaining arguments given to `opa create`
+  * SmtpClient: fixed mail send when using default_options only
 
 
 2012.07.30, Version 1.0.5 (stable), v2988
