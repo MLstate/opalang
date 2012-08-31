@@ -14,8 +14,6 @@ module BslNativeLib = BslUtils
 (** TODO - plugins dependencies *)
 ##property[mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
-##extern-type caml_tuple_2('a,'b) = ('a*'b)
-##extern-type caml_tuple_4('a,'b,'c,'d) = ('a*'b*'c*'d)
 ##extern-type caml_list('a) = 'a list
 ##extern-type SSL.secure_type = SslAS.secure_type
 ##property[endmli]
