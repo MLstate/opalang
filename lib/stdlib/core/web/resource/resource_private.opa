@@ -946,7 +946,7 @@ export_resource(external_css_files: list(string),
               do %%BslPingRegister.client_start%%(client)
               #<End>
               client.page
-            | _ -> result = Random.int(max_int)
+            | _ -> result = Random.int(Limits.max_int)
                    do Log.warning("Resource export",
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")
                    result
