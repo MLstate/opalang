@@ -223,4 +223,6 @@ LowLevelArray = {{
           aux(i+1)
     aux(1)
 
+  concat = %% LowLevelArray.concat %%
+
 }}

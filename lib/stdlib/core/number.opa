@@ -119,6 +119,8 @@ Int = {{
    */
   of_string = %% BslNumber.Int.of_string %% : string -> int
 
+  of_string_opt = %% BslNumber.Int.of_string_opt %% : string -> option(int)
+
   /**
    * Converts a float to int
    */
@@ -205,6 +207,7 @@ Float =
    * in case of the string is not a representation this type the function throw an error
    */
   of_string= %% BslNumber.Float.of_string %%
+  of_string_opt = %% BslNumber.Float.of_string_opt %%
   of_int= %% BslNumber.Float.of_int %%
   to_int    = Int.of_float
   to_string = String.of_float
