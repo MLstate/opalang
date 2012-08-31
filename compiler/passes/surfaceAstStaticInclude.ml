@@ -296,7 +296,7 @@ let pass_static_inclusions  ~options lcode: (Ident.t, 'a) SurfaceAst.code =
               "Could not open file %s. Error encountered: %s. I'll replace that file by some debugging code." full_path s;
             "text/plain") in
 
-        OManager.unquiet "Embedding file @{<bright>%S@} as resource @{<bright>%S@} with mimetype @{<bright>%S@}" full_path path mimetype;
+        OManager.verbose "Embedding file @{<bright>%S@} as resource @{<bright>%S@} with mimetype @{<bright>%S@}" full_path path mimetype;
 
         let factory_expr  = match maybe_factory with
           | [] -> C.E.applys ~label:(lab())
