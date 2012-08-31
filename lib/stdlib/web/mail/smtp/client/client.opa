@@ -79,7 +79,9 @@ SmtpClient = {{
     files = %% BslNativeLib.opa_list_to_ocaml_list %%(f, files)
     f = %% BslNativeLib.ocaml_tuple_2 %%
     custom_headers = %% BslNativeLib.opa_list_to_ocaml_list %%(f, options.custom_headers)
-    mto = emails_list_to_string(options.to)
+    mto =
+      if List.is_empty(options.to) then Email.to_string(to)
+      else emails_list_to_string(options.to)
     mcc = emails_list_to_string(options.cc)
     mbcc = emails_list_to_string(options.bcc)
     dst = [to] ++ options.to ++ options.cc ++ options.bcc
