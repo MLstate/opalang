@@ -212,9 +212,9 @@ type JsCleaning.marked = JsIdentSet.t
       ServerReference.get(code_elt.r)
       || (
         match code_elt.i with
-        | {~i} ->
+        | {~i}
+        | { k = i } ->
           is_root_ident(i)
-        | { k = _ } -> true
       )
     do if is_root then ServerReference.set(code_elt.r, true)
     is_root
