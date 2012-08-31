@@ -65,18 +65,16 @@ Barrier.prototype = {
  *
  * @param fun a function to be executed once the scheduler wakes up the task
  * @param args the arguments to pass to the function
+ * @return {Task}
  *
  * Note: Some browsers may actually pass additional arguments to [fun]. Ignore them.
- * @constructor
- * @implements {Task}
  */
 function task_from_application(fun, args) {}
 
 /**
  * @param {!Object} k
  * @param {Array.<!*>} args
- * @constructor
- * @implements {Task}
+ * @return {Task}
  */
 function task_from_return(k, args) {}
 
@@ -178,7 +176,7 @@ function handler_cont(k){}
 
 function with_thread_context(tc, k){}
 
-function thread_context(tc, k){}
+function thread_context(k){}
 
 /**
  * Schedule a [Task] for future execution.
