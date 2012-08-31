@@ -356,9 +356,10 @@ let _ =
     let list = List.rev_map (fun t -> incr(num); t) !table in
     if !num  > 0
     then (
+      let p singular plural = if !num == 1 then singular else plural in
       Format.fprintf fmt (
-        "Warning: the %d following bypass implemented @@%s are unused:@\n"
-      ) !num kind;
+        "Warning: the %d following bypass%s implemented @@%s %s unused:@\n"
+      ) !num (p "" "es") kind (p "is" "are");
       List.iter (fun key -> Format.fprintf fmt "%a@\n" BslKey.pp key) list
     );
     !num
@@ -377,7 +378,7 @@ let _ =
       "  %d both@\n"^^
       "  %d client@\n"^^
       "  %d server@\n"^^
-      "cf file @{<bright>opacapi.validation@} for details@\n"
+      "c.f. file @{<bright>opacapi.validation@} for details@\n"
     )
       percent
       !unused_bypass
