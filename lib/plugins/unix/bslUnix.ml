@@ -14,7 +14,6 @@
    <!> Not for casual user
 *)
 
-##opa-type tuple_2('a, 'b)
 ##extern-type caml_list('a) = 'a list
 
 (* ugly duplication, need to have dependencies between plugin *)
@@ -27,7 +26,7 @@ let opa_tuple_2 (a, b) =
     let acc = ServerLib.add_field acc f2 b in
     ServerLib.make_record acc
   in
-  wrap_opa_tuple_2 record
+  BslUtils.wrap_opa_tuple_2 record
 
 ##opa-type System.process_status
 

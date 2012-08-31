@@ -19,8 +19,6 @@ open C.Ops
 let (@@) a b = fun x -> a (b x)
 let scheduler = Scheduler.default
 
-##opa-type outcome('a, 'b)
-
 ##property [mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 ##extern-type SSL.secure_type = SslAS.secure_type
@@ -34,7 +32,7 @@ let scheduler = Scheduler.default
 
 (** TODO - Remove this hack we need plugins depends*)
 let create_outcome outcome k =
-  QmlCpsServerLib.return k (wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome outcome)))
+  QmlCpsServerLib.return k (BslUtils.wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome outcome)))
 
 
 (** Projection of ocaml exn raised by hlnet to an opa record
