@@ -126,12 +126,23 @@ type Pack.codes = list((Pack.u, Pack.data))
  * representing a bool, [{Float32}] for 32-bit floats and [{Float}] for 64-bit floats.
  *
  * Aggregate data types are: [{List}] for lists of data, [{Array}] for arrays and [{Coded}]
- * for data-dependent encoding.
+ * for data-dependent encoding.  These elements contain a proforma value for typing the
+ * list or array elements (it is actually needed for encoding/decoding empty lists/arrays).
+ *
+ * Meta-types are [{Pack}] which allows nesting of packed data.  This can be useful while
+ * constructing complex structured data.  Note that the Decode.clean function removes [{Pack}]
+ * elements if they are empty.  The other meta-type is [{Reference}] which is essentially the
+ * same as [{Pack}] except that the data is buried in a reference type which allows it to be
+ * externally updated.  This feature is not thread-safe and should be used with care.
+ * The [Decode.deref] function can be used to unreference the data (ie. turn it back into
+ * [{Pack}] data).  Note that [Decode.clean] recreates the references breaking the link with
+ * the original reference value.
  *
  * Other utility types include: [{Pad}] for a single null-padding byte, [{Padn}] for a series
  * of null-padding bytes, [{Bound}] to fill the current binary data up to a given boundary,
  * [{Char}] which is just a single-character string and [{Void}] which is present for cosmetic purposes.
- * [{Empty}] is ignored and intended to be used as a marker for future updates of the data.
+ * [{Empty}] is ignored and intended to be used as a marker for future updates of the data, it
+ * is removed by [Decode.clean].  [{Empty; keep=true}] means it is not removed by [Decode.clean].
  **/
 type Pack.u =
    {Be}
@@ -169,6 +180,7 @@ type Pack.u =
  / {Pad}
  / {Padn:int}
  / {Empty}
+ / {Empty; keep:bool}
  / {Bound:int}
  / {Void}
  / {Bool:bool}
@@ -196,7 +208,13 @@ type Pack.u =
  / {Float:float; le:bool}
  / {Coded:Pack.codes}
  / {List:(Pack.data,list(Pack.data))}
+ / {List:(Pack.data,list(Pack.data)); le:bool}
+ / {List:(Pack.data,list(Pack.data)); size:Pack.s}
+ / {List:(Pack.data,list(Pack.data)); le:bool; size:Pack.s}
  / {Array:(Pack.data,llarray(Pack.data))}
+ / {Array:(Pack.data,llarray(Pack.data)); le:bool}
+ / {Array:(Pack.data,llarray(Pack.data)); size:Pack.s}
+ / {Array:(Pack.data,llarray(Pack.data)); le:bool; size:Pack.s}
  / {Pack:Pack.data} // to include other pack data without copying
  / {Reference:Server.reference(Pack.data)} // <-- updatable entity in the pack data
  / {FixedString:(int,string)} // fixed length string
@@ -339,12 +357,12 @@ Pack = {{
   sizename(s:Pack.s) : string = match s with | {B} -> "byte" | {S} -> "short" | {L} -> "long" | {Ll} -> "longlong"
 
   /** make size item (ie. for preceding strings or arrays), returns failure on out-of-range **/
-  mksize(s:Pack.s, i:int) : outcome(Pack.u,string) =
+  mksize(s:Pack.s, le:bool, i:int) : outcome(Pack.u,string) =
     match s with
     | {B} -> if i < 0 || i > 0xff then {failure="Pack.mksize: int {i} too big for byte size"} else {success={Byte=i}}
-    | {S} -> if i < 0 || i > 0xffff then {failure="Pack.mksize: int {i} too big for short size"} else {success={Short=i}}
-    | {L} -> if i < 0 || i > lsize then {failure="Pack.mksize: int {i} too big for long size"} else {success={Long=i}}
-    | {Ll} -> {success={Longlong=i}}
+    | {S} -> if i < 0 || i > 0xffff then {failure="Pack.mksize: int {i} too big for short size"} else {success={Short=i; ~le}}
+    | {L} -> if i < 0 || i > lsize then {failure="Pack.mksize: int {i} too big for long size"} else {success={Long=i; ~le}}
+    | {Ll} -> {success={Longlong=i; ~le}}
 
   /** recover size from item, failure if not an integer type **/
   getsize(u:Pack.u) : outcome(int,string) =
@@ -380,7 +398,7 @@ Pack = {{
     | {Int64=_} -> true
     | {Pad} -> false
     | {Padn=_} -> false
-    | {Empty=_} -> false
+    | {Empty=_; ...} -> false
     | {Bound=_} -> false
     | {Void} -> true
     | {Bool=_} -> true
@@ -390,8 +408,8 @@ Pack = {{
     | {Float32=_; ...} -> true
     | {Float=_; ...} -> true
     | {Coded=_} -> true
-    | {List=_} -> true
-    | {Array=_} -> true
+    | {List=_; ...} -> true
+    | {Array=_; ...} -> true
     | {Pack=_} -> true
     | {Reference=_} -> true
     | {FixedString=_} -> true
@@ -914,6 +932,7 @@ Pack = {{
       | ({Pad},{Pad}) -> true
       | ({Padn=_},{Padn=_}) -> true
       | ({Empty=_},{Empty=_}) -> true
+      | ({Empty=_; keep=k1},{Empty=_; keep=k2}) -> k1==k2
       | ({Bound=_},{Bound=_}) -> true
       | ({Void},{Void}) -> true
       | ({Bool=_},{Bool=_}) -> true
@@ -944,7 +963,13 @@ Pack = {{
       | ({Float=_; le=le1},{Float=_; le=le2}) -> le1 == le2
       | ({Coded=_},{Coded=_}) -> true
       | ({List=_},{List=_}) -> true
+      | ({List=_; le=le1},{List=_; le=le2}) -> le1 == le2
+      | ({List=_; size=s1},{List=_; size=s2}) -> s1 == s2
+      | ({List=_; le=le1; size=s1},{List=_; le=le2; size=s2}) -> le1 == le2 && s1 == s2
       | ({Array=_},{Array=_}) -> true
+      | ({Array=_; le=le1},{Array=_; le=le2}) -> le1 == le2
+      | ({Array=_; size=s1},{Array=_; size=s2}) -> s1 == s2
+      | ({Array=_; le=le1; size=s1},{Array=_; le=le2; size=s2}) -> le1 == le2 && s1 == s2
       | ({Pack=data1},{Pack=data2}) -> same_data(data1,data2)
       | ({Reference=data1},{Reference=data2}) -> same_data(ServerReference.get(data1),ServerReference.get(data2))
       | ({FixedString=_},{FixedString=_}) -> true
@@ -963,11 +988,11 @@ Pack = {{
      * endianness, signedness or integer width, you have to pass these in.
      * The return value includes the final context.
      *
-     * The characteristics of the prefix (endianness, width) are determined by
-     * the initial values.  If your data has different characteristics from the prefix,
-     * you will have to include directives in the data.
+     * The characteristics of the prefix (endianness, width) are given separately.
      *
      * @param buf the binary data to pack into
+     * @param ple endianness for the prefix
+     * @param ps data size for the prefix
      * @param le initial endianness (true=little endian)
      * @param signed initial signedness (true=signed)
      * @param size the initial width for integers
@@ -976,9 +1001,9 @@ Pack = {{
      * @param data a list of data values to encode
      * @return the final endianness, signedness and integer width plus the usual outcome
      **/
-    list(buf:Pack.t, le:bool, signed:bool, s:Pack.s, typ:Pack.data, data:list(Pack.data))
+    list(buf:Pack.t, ple:bool, ps:Pack.s, le:bool, signed:bool, s:Pack.s, typ:Pack.data, data:list(Pack.data))
          : (bool, bool, Pack.s, outcome(void,string)) =
-      match mksize(s, List.length(data)) with
+      match mksize(ps, ple, List.length(data)) with
       | {success=size} ->
         match pack_u(buf, le, signed, s, size) with
         | (le, signed, size, {success=_}) ->
@@ -1021,7 +1046,7 @@ Pack = {{
       | {Int64=_} -> (s,8,0)
       | {Pad} -> (s,1,0)
       | {~Padn} -> (s,Padn,0)
-      | {Empty} -> (s,0,0)
+      | {Empty; ...} -> (s,0,0)
       | {~Bound} -> (s,0,Bound)
       | {Void} -> (s,1,0)
       | {Bool=_} -> (s,1,0)
@@ -1050,8 +1075,13 @@ Pack = {{
          then (s,icnt,_) = packitemsize(s,code) (s,dcnt) = packdatasize(s,data) (s, icnt + dcnt, 0)
          else (s,0,0) // Bad code
       | {Coded=_} -> (s,0,0) // Will generate error
-      | {List=(_,l)} -> List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(s),0))
-      | {Array=(_,a)} ->
+      | {List=(_,l); ~size; ...} ->
+         List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(size),0))
+      | {List=(_,l); ...} ->
+         List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(s),0))
+      | {Array=(_,a); ~size; ...} ->
+         LowLevelArray.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),a,(s,sizesize(size),0))
+      | {Array=(_,a); ...} ->
          LowLevelArray.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),a,(s,sizesize(s),0))
       | {Pack=data} ->
          (match packdatasize(s, data) with
@@ -1153,17 +1183,14 @@ Pack = {{
       | {~Char} -> (le, signed, size, char(buf, Char))
       | {~Byte} -> (le, signed, size, byte(buf, signed, Byte))
       | {~Byte; signed=actual_signed} -> (le, signed, size, byte(buf, actual_signed, Byte))
-      //| {~Short} -> (le, signed, size, short(buf, le, signed, Short))
       | {Short=i} -> pack_int(buf, le, le, signed, signed, {S}, {S}, i)
       | {Short=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, {S}, {S}, i)
       | {Short=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, {S}, {S}, i)
       | {Short=i; le=actual_le; signed=actual_signed} -> pack_int(buf, actual_le, le, actual_signed, signed, {S}, {S}, i)
-      //| {~Long} -> (le, signed, size, long(buf, le, signed, Long))
       | {Long=i} -> pack_int(buf, le, le, signed, signed, {L}, {L}, i)
       | {Long=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, {L}, {L}, i)
       | {Long=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, {L}, {L}, i)
       | {Long=i; le=actual_le; signed=actual_signed} -> pack_int(buf, actual_le, le, actual_signed, signed, {L}, {L}, i)
-      //| {~Longlong} -> (le, signed, size, longlong(buf, le, Longlong))
       | {Longlong=i} -> pack_int(buf, le, le, signed, signed, {Ll}, {Ll}, i)
       | {Longlong=i; signed=actual_signed} -> pack_int(buf, le, le, actual_signed, signed, {Ll}, {Ll}, i)
       | {Longlong=i; le=actual_le} -> pack_int(buf, actual_le, le, signed, signed, {Ll}, {Ll}, i)
@@ -1180,7 +1207,7 @@ Pack = {{
       | {Int64=i64} -> (le, signed, size, int64(buf, le, i64))
       | {Pad} -> (le, signed, size, pad(buf))
       | {~Padn} -> (le, signed, size, padn(buf, Padn))
-      | {Empty} -> (le, signed, size, {success=void})
+      | {Empty; ...} -> (le, signed, size, {success=void})
       | {~Bound} -> (le, signed, size, boundary(buf, Bound))
       | {Void} -> (le, signed, size, pad(buf))
       | {~Bool} -> (le, signed, size, bool(buf, Bool))
@@ -1213,8 +1240,14 @@ Pack = {{
          then coded(buf, le, signed, size, code, data)
          else (le, signed, size, {failure="Pack.Encode.pack: Coded has invalid code {code}"})
       | {Coded=_} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has multiple codes"})
-      | {List=(t,l)} -> list(buf, le, signed, size, t, l)
-      | {Array=(t,a)} -> list(buf, le, signed, size, t, a2l(a))
+      | {List=(t,l)} -> list(buf, le, size, le, signed, size, t, l)
+      | {List=(t,l); le=ple} -> list(buf, ple, size, le, signed, size, t, l)
+      | {List=(t,l); size=ps} -> list(buf, le, ps, le, signed, size, t, l)
+      | {List=(t,l); le=ple; size=ps} -> list(buf, ple, ps, le, signed, size, t, l)
+      | {Array=(t,a)} -> list(buf, le, size, le, signed, size, t, a2l(a))
+      | {Array=(t,a); le=ple} -> list(buf, ple, size, le, signed, size, t, a2l(a))
+      | {Array=(t,a); size=ps} -> list(buf, le, ps, le, signed, size, t, a2l(a))
+      | {Array=(t,a); le=ple; size=ps} -> list(buf, ple, ps, le, signed, size, t, a2l(a))
       | {Pack=data} -> pack_data(buf, le, signed, size, data)
       | {Reference=data} -> pack_data(buf, le, signed, size, ServerReference.get(data))
       | {FixedString=(len,str)} -> (le, signed, size, fixed_string(buf, len, str))
@@ -1845,8 +1878,12 @@ Pack = {{
     double(le:bool, data:Pack.t, pos:int) : outcome(float,string) =
       if le then double_le(data, pos) else double_be(data, pos)
 
-    @private mksla(lora:bool, typ:Pack.data, l:list(Pack.data)) : Pack.u =
-      if lora then {List=(typ,l)} else {Array=(typ,LowLevelArray.of_list(l))}
+    @private mksla(lora:bool, le:option(bool), size:option(Pack.s), typ:Pack.data, l:list(Pack.data)) : Pack.u =
+      match (le, size) with
+      | ({none},{none}) -> if lora then {List=(typ,l)} else {Array=(typ,LowLevelArray.of_list(l))}
+      | ({some=le},{none}) -> if lora then {List=(typ,l); ~le} else {Array=(typ,LowLevelArray.of_list(l)); ~le}
+      | ({none},{some=size}) -> if lora then {List=(typ,l); ~size} else {Array=(typ,LowLevelArray.of_list(l)); ~size}
+      | ({some=le},{some=size}) -> if lora then {List=(typ,l); ~le; ~size} else {Array=(typ,LowLevelArray.of_list(l)); ~le; ~size}
 
     /** Decode list or array of data.
      *
@@ -1864,10 +1901,10 @@ Pack = {{
      * @return the final endianness, signedness, integer width and buffer position
      *         plus an outcome of either a [{List}] or [{Array}] item containing the data items read in.
      **/
-    list(lora:bool, le:bool, signed:bool, s:Pack.s, typ:Pack.data, bin:Pack.t, pos:int)
+    list(lora:bool, ple:option(bool), ps:option(Pack.s), le:bool, signed:bool, s:Pack.s, typ:Pack.data, bin:Pack.t, pos:int)
          : outcome((bool, bool, Pack.s, int, Pack.u),string) =
       do pinput("Pack.Decode.list",{binary=bin; ~pos})
-      match mksize(s, 0) with
+      match mksize(Option.default(s,ps), Option.default(le,ple), 0) with
       | {success=size} ->
         match unpack([size], bin, pos) with
         | {success=(pos,[size])} ->
@@ -1875,7 +1912,7 @@ Pack = {{
           | {success=len} ->
             rec aux(i, l, pos) =
               if i == len
-              then {success=(le, signed, s, pos, mksla(lora, typ, List.rev(l)))}
+              then {success=(le, signed, s, pos, mksla(lora, ple, ps, typ, List.rev(l)))}
               else
                 match unpack(typ, bin, pos) with
                 | {success=(npos,ndata)} -> aux(i+1, [ndata|l], npos)
@@ -1889,9 +1926,10 @@ Pack = {{
         end
       | {~failure} -> {~failure}
 
-    @private unpack_list(lora:bool, le:bool, signed:bool, size:Pack.s, typ:Pack.data, bin:Pack.t, pos:int, data:Pack.data)
+    @private unpack_list(lora:bool, ple:option(bool), ps:option(Pack.s),
+                         le:bool, signed:bool, size:Pack.s, typ:Pack.data, bin:Pack.t, pos:int, data:Pack.data)
                         : outcome((bool, bool, Pack.s, int, Pack.data),string) =
-      match list(lora, le, signed, size, typ, bin, pos) with
+      match list(lora, ple, ps, le, signed, size, typ, bin, pos) with
       | {success=(le, signed, size, npos, item)} -> {success=(le, signed, size, npos, [item|data])}
       | {~failure} -> {~failure}
 
@@ -2092,6 +2130,8 @@ Pack = {{
              | {~failure} -> {~failure})
          | {Empty} ->
             {success=(le, signed, size, pos, [{Empty}|data])}
+         | {Empty; keep=k} ->
+            {success=(le, signed, size, pos, [{Empty; keep=k}|data])}
          | {~Bound} ->
             (match boundary(bin, pos, Bound) with
              | {success=padding} -> {success=(le, signed, size, pos+padding, [{~Bound}|data])}
@@ -2149,8 +2189,14 @@ Pack = {{
              | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float; le=actual_le}|data])}
              | {~failure} -> {~failure})
          | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
-         | {List=(typ,_)} -> unpack_list(true, le, signed, size, typ, bin, pos, data)
-         | {Array=(typ,_)} -> unpack_list(false, le, signed, size, typ, bin, pos, data)
+         | {List=(typ,_)} -> unpack_list(true, {none}, {none}, le, signed, size, typ, bin, pos, data)
+         | {List=(typ,_); le=ple} -> unpack_list(true, {some=ple}, {none}, le, signed, size, typ, bin, pos, data)
+         | {List=(typ,_); size=ps} -> unpack_list(true, {none}, {some=ps}, le, signed, size, typ, bin, pos, data)
+         | {List=(typ,_); le=ple; size=ps} -> unpack_list(true, {some=ple}, {some=ps}, le, signed, size, typ, bin, pos, data)
+         | {Array=(typ,_)} -> unpack_list(false, {none}, {none}, le, signed, size, typ, bin, pos, data)
+         | {Array=(typ,_); le=ple} -> unpack_list(false, {some=ple}, {none}, le, signed, size, typ, bin, pos, data)
+         | {Array=(typ,_); size=ps} -> unpack_list(false, {none}, {some=ps}, le, signed, size, typ, bin, pos, data)
+         | {Array=(typ,_); le=ple; size=ps} -> unpack_list(false, {some=ple}, {some=ps}, le, signed, size, typ, bin, pos, data)
          | {Pack=d} ->
             (match unpack_data(le, signed, size, bin, pos, d) with
              | {success=(le,signed,size,pos,Pack)} -> {success=(le, signed, size, pos, [{~Pack}|data])}
@@ -2247,6 +2293,7 @@ Pack = {{
       | {Pad} -> none
       | {Padn=_} -> none
       | {Empty} -> none
+      | {Empty; ~keep} -> if keep then {some=[u]} else none
       | {Bound=_} -> none
       | {Void} -> {some=[u]}
       | {Bool=_} -> {some=[u]}
@@ -2256,8 +2303,8 @@ Pack = {{
       | {Float32=_; ...} -> {some=[u]}
       | {Float=_; ...} -> {some=[u]}
       | {Coded=_} -> {some=[u]}
-      | {List=_} -> {some=[u]}
-      | {Array=_} -> {some=[u]}
+      | {List=_; ...} -> {some=[u]}
+      | {Array=_; ...} -> {some=[u]}
       | {~Pack} -> {some=[{Pack=clean(Pack)}]}
       | {~Reference} -> {some=[{Reference=ServerReference.create(clean(ServerReference.get(Reference)))}]}
       | {FixedString=_} -> {some=[u]}

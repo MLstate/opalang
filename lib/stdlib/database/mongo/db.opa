@@ -85,7 +85,6 @@ DbMongo = {{
     */
 
     @package updateerr(db:DbMongo.t2, flags:int, ns:string, selector:Bson.document, update:Bson.document, id , upsert): void =
-do jlog("updateerr")
     reply = MongoDriver.updatee(db.db, flags, ns, db.name, selector, update)
 //     # <Ifstatic:OPA_BACKEND_QMLJS>
 //       _=id
@@ -122,7 +121,6 @@ do jlog("updateerr")
 //     # <End>
 
    @package gen_read(id, query, uncap, default:'a) =
-do jlog("gen_read")
      // TODO - ...
      value2opa(value:Bson.value):option('a) =
        match value with
@@ -166,7 +164,6 @@ do jlog("gen_read")
          end
 
    @package undotdoc(doc:Bson.document, next:Bson.document -> option('a)):option('a) =
-do jlog("undotdoc")
      match doc with
      | [~{name value}] ->
        match Parser.try_parse(
@@ -195,7 +192,6 @@ do jlog("undotdoc")
   @package defaultns(db:DbMongo.t2) = "{db.name}._default"
 
   @package path_to_id(path:list(string)) =
-do jlog("path_to_id")
     Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=true})
 
    /* ********************************************
@@ -203,7 +199,6 @@ do jlog("path_to_id")
     * *******************************************/
    @package build_vpath_compose(_:DbMongo.t, path:list(string), default:'data,
                        elements:list((string, DbMongo.private.path_t(black, 'data)))):DbMongo.private.val_path('data) =
-do jlog("build_vpath_compose")
      id = path_to_id(path)
      read() = (
        #<Ifstatic:DBGEN_DEBUG>
@@ -231,7 +226,6 @@ do jlog("build_vpath_compose")
 
    @package build_rpath_compose(db:DbMongo.t, path:list(string), default:'data,
                        elements:list((string, DbMongo.private.ref_path(black)))):DbMongo.private.ref_path('data) =
-do jlog("build_rpath_compose")
      vpath = build_vpath_compose(db, path, default, @unsafe_cast(elements))
      write(data) =
        List.fold(
@@ -249,7 +243,6 @@ do jlog("build_rpath_compose")
     * *******************************************/
    @package build_vpath_sub(db:DbMongo.t, path:list(string), default:'data, rpath:list(string), partial:list(string))
    : DbMongo.private.val_path('data) =
-do jlog("build_vpath_sub")
      db = db.get()
      ns = defaultns(db)
      rid = path_to_id(rpath)
@@ -288,7 +281,6 @@ do jlog("build_vpath_sub")
      }
 
    @package build_rpath_sub(db:DbMongo.t, path:list(string), default:'data, rpath:list(string), partial:list(string)) : DbMongo.private.ref_path('data) =
-do jlog("build_rpath_sub")
      vpath = build_vpath_sub(db, path, default, rpath, partial)
      db = db.get()
      ns = defaultns(db)
@@ -319,7 +311,6 @@ do jlog("build_rpath_sub")
     * {3 Builder of declared path}
     * *******************************************/
    @package build_vpath(db:DbMongo.t, path:list(string), default:'data, const:bool):DbMongo.private.val_path('data) =
-do jlog("build_vpath")
      db = db.get()
      ns = defaultns(db)
      id = path_to_id(path)
@@ -341,7 +332,6 @@ do jlog("build_vpath")
      ~{id read default more=void}
 
    @package build_rpath(db, path:list(string), default:'data, const:bool):DbMongo.private.ref_path('data) =
-do jlog("build_rpath")
      vpath = build_vpath(db, path, default, const) : DbMongo.private.val_path('data)
      db = db.get()
      ns = defaultns(db)
@@ -360,7 +350,6 @@ do jlog("build_rpath")
      { vpath with more=~{write remove} }
 
    @package update_path(db:DbMongo.t, path:list(string), update) =
-do jlog("update_path")
      db = db.get()
      ns = defaultns(db)
      id = path_to_id(path)
@@ -384,12 +373,10 @@ do jlog("update_path")
    * @example [write(@/path,42)] initializes or updates the data at path [/path]
    */
   @package write(path:DbMongo.private.ref_path('data), data:'data) =
-do jlog("write")
     if not((path.more).write(data)) then
       Log.error("DbGen/Mongo", "Write error on path {path.id}")
 
   @package write_option(path:DbMongo.private.ref_path('data), data) =
-do jlog("write_option")
     (path.more).write(data)
 
   @package `<-`(d,a) = write(d,a)
@@ -474,7 +461,6 @@ Then use option --db-remote instead of --db-local.
     default_local() = "{%%BslFile.mlstate_dir%%(void)}/mongo"
 
     open_remote_aux(name, args, default_seed) =
-do jlog("open_remote_aux")
       args = match args.seeds with
         | [] -> {args with seeds = [default_seed]}
         | _ -> args
@@ -497,7 +483,6 @@ do jlog("open_remote_aux")
 
     @private
     open_local_aux(name, args, seed) =
-do jlog("open_local_aux")
       match default_archive with
       | {none} -> platform_error()
       | {some=default_archive} ->
@@ -571,7 +556,6 @@ do jlog("open_local_aux")
 
    @private
    open_synchronisation(name, open_: -> DbMongo.t2 ) : DbMongo.t =
-do jlog("open_synchronisation")
       #<Ifstatic:OPA_BACKEND_QMLJS>
       log(s) = Log.info(name^" DbGen/Mongo/SynchroStart", s)
       ref = Reference.create({psyncops=false wsyncops=[]:list(DbMongo.t2->void) status={wait=[]:list(continuation(DbMongo.t2))} }:{...})
