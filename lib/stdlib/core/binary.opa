@@ -180,6 +180,7 @@ Binary = {{
    * @return void
    */
   add_string : binary, string -> void = %%BslBinary.add_string%%
+  add_stringr : binary, string -> outcome(void,string) = %%BslBinary.add_stringr%%
 
   /**
    * Add binary data to the end of the data.
@@ -189,6 +190,7 @@ Binary = {{
    * @return void
    */
   add_binary : binary, binary -> void = %%BslBinary.add_binary%%
+  add_binaryr : binary, binary -> outcome(void,string) = %%BslBinary.add_binaryr%%
 
   /**
    * Add a signed 8-bit int to the end of the data.
@@ -198,6 +200,7 @@ Binary = {{
    * @return void
    */
   add_int8 : binary, int -> void = %%BslBinary.add_int8%%
+  add_int8r : binary, int -> outcome(void,string) = %%BslBinary.add_int8r%%
 
   /**
    * Add an unsigned 8-bit int to the end of the data.
@@ -207,6 +210,7 @@ Binary = {{
    * @return void
    */
   add_uint8 : binary, int -> void = %%BslBinary.add_uint8%%
+  add_uint8r : binary, int -> outcome(void,string) = %%BslBinary.add_uint8r%%
 
   /**
    * Add a signed 16-bit little-endian int to the end of the data.
@@ -216,6 +220,7 @@ Binary = {{
    * @return void
    */
   add_int16_le : binary, int -> void = %%BslBinary.add_int16_le%%
+  add_int16_ler : binary, int -> outcome(void,string) = %%BslBinary.add_int16_ler%%
 
   /**
    * Add an unsigned 16-bit little-endian int to the end of the data.
@@ -225,6 +230,7 @@ Binary = {{
    * @return void
    */
   add_uint16_le : binary, int -> void = %%BslBinary.add_uint16_le%%
+  add_uint16_ler : binary, int -> outcome(void,string) = %%BslBinary.add_uint16_ler%%
 
   /**
    * Add a signed 16-bit big-endian int to the end of the data.
@@ -234,6 +240,7 @@ Binary = {{
    * @return void
    */
   add_int16_be : binary, int -> void = %%BslBinary.add_int16_be%%
+  add_int16_ber : binary, int -> outcome(void,string) = %%BslBinary.add_int16_ber%%
 
   /**
    * Add an unsigned 16-bit big-endian int to the end of the data.
@@ -243,6 +250,7 @@ Binary = {{
    * @return void
    */
   add_uint16_be : binary, int -> void = %%BslBinary.add_uint16_be%%
+  add_uint16_ber : binary, int -> outcome(void,string) = %%BslBinary.add_uint16_ber%%
 
   /**
    * Add a signed 32-bit little-endian int to the end of the data.
@@ -252,6 +260,7 @@ Binary = {{
    * @return void
    */
   add_int32_le : binary, int -> void = %%BslBinary.add_int32_le%%
+  add_int32_ler : binary, int -> outcome(void,string) = %%BslBinary.add_int32_ler%%
 
   /**
    * Add an unsigned 32-bit little-endian int to the end of the data.
@@ -261,6 +270,7 @@ Binary = {{
    * @return void
    */
   add_uint32_le : binary, int -> void = %%BslBinary.add_uint32_le%%
+  add_uint32_ler : binary, int -> outcome(void,string) = %%BslBinary.add_uint32_ler%%
 
   /**
    * Add a signed 32-bit big-endian int to the end of the data.
@@ -270,6 +280,7 @@ Binary = {{
    * @return void
    */
   add_int32_be : binary, int -> void = %%BslBinary.add_int32_be%%
+  add_int32_ber : binary, int -> outcome(void,string) = %%BslBinary.add_int32_ber%%
 
   /**
    * Add an unsigned 32-bit big-endian int to the end of the data.
@@ -279,6 +290,7 @@ Binary = {{
    * @return void
    */
   add_uint32_be : binary, int -> void = %%BslBinary.add_uint32_be%%
+  add_uint32_ber : binary, int -> outcome(void,string) = %%BslBinary.add_uint32_ber%%
 
   /**
    * Add a signed 53-bit little-endian int to the end of the data.
@@ -288,6 +300,7 @@ Binary = {{
    * @return void
    */
   add_int53_le : binary, int -> void = %%BslBinary.add_int53_le%%
+  add_int53_ler : binary, int -> outcome(void,string) = %%BslBinary.add_int53_ler%%
 
   /**
    * Add a signed 53-bit big-endian int to the end of the data.
@@ -297,6 +310,7 @@ Binary = {{
    * @return void
    */
   add_int53_be : binary, int -> void = %%BslBinary.add_int53_be%%
+  add_int53_ber : binary, int -> outcome(void,string) = %%BslBinary.add_int53_ber%%
 
   /**
    * Add an unsigned 64-bit little-endian int to the end of the data.
@@ -306,6 +320,7 @@ Binary = {{
    * @return void
    */
   add_uint64_le : binary, int64 -> void = %%BslBinary.add_uint64_le%%
+  add_uint64_ler : binary, int64 -> outcome(void,string) = %%BslBinary.add_uint64_ler%%
 
   /**
    * Add an unsigned 64-bit big-endian int to the end of the data.
@@ -315,6 +330,7 @@ Binary = {{
    * @return void
    */
   add_uint64_be : binary, int64 -> void = %%BslBinary.add_uint64_be%%
+  add_uint64_ber : binary, int64 -> outcome(void,string) = %%BslBinary.add_uint64_ber%%
 
   /**
    * Add a 32-bit little-endian float to the end of the data.
@@ -327,6 +343,7 @@ Binary = {{
    * @return void
    */
   add_float_le : binary, float -> void = %%BslBinary.add_float_le%%
+  add_float_ler : binary, float -> outcome(void,string) = %%BslBinary.add_float_ler%%
 
   /**
    * Add a 32-bit big-endian float to the end of the data.
@@ -339,6 +356,7 @@ Binary = {{
    * @return void
    */
   add_float_be : binary, float -> void = %%BslBinary.add_float_be%%
+  add_float_ber : binary, float -> outcome(void,string) = %%BslBinary.add_float_ber%%
 
   /**
    * Add a 64-bit little-endian float to the end of the data.
@@ -348,6 +366,7 @@ Binary = {{
    * @return void
    */
   add_double_le : binary, float -> void = %%BslBinary.add_double_le%%
+  add_double_ler : binary, float -> outcome(void,string) = %%BslBinary.add_double_ler%%
 
   /**
    * Add a 64-bit big-endian float to the end of the data.
@@ -357,6 +376,7 @@ Binary = {{
    * @return void
    */
   add_double_be : binary, float -> void = %%BslBinary.add_double_be%%
+  add_double_ber : binary, float -> outcome(void,string) = %%BslBinary.add_double_ber%%
 
   /**
    * Read a section of the buffer back into a string.
@@ -371,6 +391,7 @@ Binary = {{
    * @return The data section as a string.
    */
   get_string : binary, int, int -> string = %%BslBinary.get_string%%
+  get_stringr : binary, int, int -> outcome(string,string) = %%BslBinary.get_stringr%%
 
   /**
    * Read a section of the buffer back into binary data.
@@ -381,6 +402,7 @@ Binary = {{
    * @return untranslated binary data
    */
   get_binary : binary, int, int -> binary = %%BslBinary.get_binary%%
+  get_binaryr : binary, int, int -> outcome(binary,string) = %%BslBinary.get_binaryr%%
 
   /**
    * Read a signed 8-bit int from the buffer.
@@ -390,6 +412,7 @@ Binary = {{
    * @return Integer (-128 to 127).
    */
   get_int8 : binary, int -> int = %%BslBinary.get_int8%%
+  get_int8r : binary, int -> outcome(int,string) = %%BslBinary.get_int8r%%
 
   /**
    * Read an unsigned 8-bit int from the buffer.
@@ -399,6 +422,7 @@ Binary = {{
    * @return Integer (0 to 255).
    */
   get_uint8 : binary, int -> int = %%BslBinary.get_uint8%%
+  get_uint8r : binary, int -> outcome(int,string) = %%BslBinary.get_uint8r%%
 
   /**
    * Read a signed 16-bit little-endian int from the buffer.
@@ -408,6 +432,7 @@ Binary = {{
    * @return Integer (-32768 to 32767).
    */
   get_int16_le : binary, int -> int = %%BslBinary.get_int16_le%%
+  get_int16_ler : binary, int -> outcome(int,string) = %%BslBinary.get_int16_ler%%
 
   /**
    * Read an unsigned 16-bit little-endian int from the buffer.
@@ -417,6 +442,7 @@ Binary = {{
    * @return Integer (0 to 65535).
    */
   get_uint16_le : binary, int -> int = %%BslBinary.get_uint16_le%%
+  get_uint16_ler : binary, int -> outcome(int,string) = %%BslBinary.get_uint16_ler%%
 
   /**
    * Read a signed 16-bit big-endian int from the buffer.
@@ -426,6 +452,7 @@ Binary = {{
    * @return Integer (-32768 to 32767).
    */
   get_int16_be : binary, int -> int = %%BslBinary.get_int16_be%%
+  get_int16_ber : binary, int -> outcome(int,string) = %%BslBinary.get_int16_ber%%
 
   /**
    * Read an unsigned 16-bit big-endian int from the buffer.
@@ -435,6 +462,7 @@ Binary = {{
    * @return Integer (0 to 65535).
    */
   get_uint16_be : binary, int -> int = %%BslBinary.get_uint16_be%%
+  get_uint16_ber : binary, int -> outcome(int,string) = %%BslBinary.get_uint16_ber%%
 
   /**
    * Read a signed 32-bit little-endian int from the buffer.
@@ -444,6 +472,7 @@ Binary = {{
    * @return Integer (-2147483648 to 2147483647).
    */
   get_int32_le : binary, int -> int = %%BslBinary.get_int32_le%%
+  get_int32_ler : binary, int -> outcome(int,string) = %%BslBinary.get_int32_ler%%
 
   /**
    * Read an unsigned 32-bit little-endian int from the buffer.
@@ -453,6 +482,7 @@ Binary = {{
    * @return Integer (0 to 4294967295).
    */
   get_uint32_le : binary, int -> int = %%BslBinary.get_uint32_le%%
+  get_uint32_ler : binary, int -> outcome(int,string) = %%BslBinary.get_uint32_ler%%
 
   /**
    * Read a signed 32-bit big-endian int from the buffer.
@@ -462,6 +492,7 @@ Binary = {{
    * @return Integer (-2147483648 to 2147483647).
    */
   get_int32_be : binary, int -> int = %%BslBinary.get_int32_be%%
+  get_int32_ber : binary, int -> outcome(int,string) = %%BslBinary.get_int32_ber%%
 
   /**
    * Read an unsigned 32-bit big-endian int from the buffer.
@@ -471,6 +502,7 @@ Binary = {{
    * @return Integer (0 to 4294967295).
    */
   get_uint32_be : binary, int -> int = %%BslBinary.get_uint32_be%%
+  get_uint32_ber : binary, int -> outcome(int,string) = %%BslBinary.get_uint32_ber%%
 
   /**
    * Read a signed 53-bit little-endian int from the buffer.
@@ -480,6 +512,7 @@ Binary = {{
    * @return Integer (-9007199254740992 to 9007199254740991).
    */
   get_int53_le : binary, int -> int = %%BslBinary.get_int53_le%%
+  get_int53_ler : binary, int -> outcome(int,string) = %%BslBinary.get_int53_ler%%
 
   /**
    * Read a signed 53-bit big-endian int from the buffer.
@@ -489,6 +522,7 @@ Binary = {{
    * @return Integer (-9007199254740992 to 9007199254740991).
    */
   get_int53_be : binary, int -> int = %%BslBinary.get_int53_be%%
+  get_int53_ber : binary, int -> outcome(int,string) = %%BslBinary.get_int53_ber%%
 
   /**
    * Read an unsigned 64-bit little-endian int from the buffer.
@@ -498,6 +532,7 @@ Binary = {{
    * @return Int64 (0 to 18446744073709551615).
    */
   get_uint64_le : binary, int -> int64 = %%BslBinary.get_uint64_le%%
+  get_uint64_ler : binary, int -> outcome(int64,string) = %%BslBinary.get_uint64_ler%%
 
   /**
    * Read an unsigned 64-bit big-endian int from the buffer.
@@ -507,6 +542,7 @@ Binary = {{
    * @return Int64 (0 to 18446744073709551615).
    */
   get_uint64_be : binary, int -> int64 = %%BslBinary.get_uint64_be%%
+  get_uint64_ber : binary, int -> outcome(int64,string) = %%BslBinary.get_uint64_ber%%
 
   /**
    * Read a 32-bit little-endian float from the buffer.
@@ -516,6 +552,7 @@ Binary = {{
    * @return Float (approx 1.175494351e-38 to 3.402823466e38).
    */
   get_float_le : binary, int -> float = %%BslBinary.get_float_le%%
+  get_float_ler : binary, int -> outcome(float,string) = %%BslBinary.get_float_ler%%
 
   /**
    * Read a 32-bit big-endian float from the buffer.
@@ -525,6 +562,7 @@ Binary = {{
    * @return Float (approx 1.175494351e-38 to 3.402823466e38).
    */
   get_float_be : binary, int -> float = %%BslBinary.get_float_be%%
+  get_float_ber : binary, int -> outcome(float,string) = %%BslBinary.get_float_ber%%
 
   /**
    * Read a 64-bit little-endian float from the buffer.
@@ -534,6 +572,7 @@ Binary = {{
    * @return Float (+/-2.22507385850720138e-308 to +/-1.79769313486231571e+308).
    */
   get_double_le : binary, int -> float = %%BslBinary.get_double_le%%
+  get_double_ler : binary, int -> outcome(float,string) = %%BslBinary.get_double_ler%%
 
   /**
    * Read a 64-bit big-endian float from the buffer.
@@ -543,6 +582,7 @@ Binary = {{
    * @return Float (+/-2.22507385850720138e-308 to +/-1.79769313486231571e+308).
    */
   get_double_be : binary, int -> float = %%BslBinary.get_double_be%%
+  get_double_ber : binary, int -> outcome(float,string) = %%BslBinary.get_double_ber%%
 
 }}
 
