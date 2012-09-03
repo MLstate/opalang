@@ -240,18 +240,12 @@ Server_private = {{
           do Log.warning("Server_private","Exception while answering {Debug.dump(e)}")
           export(winfo, Resource.default_error_page({internal_server_error}))
 
-
         /* The dispatcher, the result of this function */
         rec dispatch(winfo: web_info)=
         (
           request = winfo.http_request
           /* 1 - Extract requested url*/
           str_url = HttpRequest.Generic.get_uri(request)
-          //do Log.info("Server dispatch", "Received URL {str_url}")
-          str_url = Text.to_string(Parser.parse(url_decode,str_url))
-          //do Log.info("Server dispatch", "Decoded URL to {str_url}")
-          //str_url = Uri.to_string(Parser.parse(UriParser.uri, str_url)) //Clean-up URI (removing "//", "/../", etc.)
-          //do Log.info("Server dispatch", "Cleaned URL to {str_url}")
           wrong_address(kind) =
             do Log.warning("Server", "This is an abnormal request to a non-existent {kind}
 {str_url}")
@@ -289,11 +283,6 @@ Server_private = {{
             | x=overridable_handlers -> export(winfo, x)
             | .* -> wrong_address("resource")
 
-           // to update user lang when external handler is reached
-           // TODO - Doesn't use I18n if is not needed
-           // touch_lang(_bool,it) = do ServerI18n.touch_user_lang(winfo.http_request)
-           //                        some((it,void))
-
           /* 2.1 - Parser which set the thread context */
           full_handler =
             build_thread_context(page) = {
@@ -327,10 +316,6 @@ Server_private = {{
                 do ServerI18n.touch_user_lang(winfo.http_request)
                 Parser.Text.parse(external_handler, uri)
               )
-
-           // full_handler:Parser.general_parser(void) = parser
-           //  | "/" _internal_parser "/" internal_handler -> void
-           //  | &touch_lang external_handler              -> void
 
           full_handler_with_base = parser
             | "{base_url_string}" full_handler -> void
