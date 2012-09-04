@@ -311,23 +311,23 @@ let process
   let search_path = cwd :: ObjectFiles.get_paths () in
 
   (* Separated compilation: loading *)
-  (* let () = *)
-  (*   let iter (package_name, _) entries = *)
-  (*     let iter_entry entry = *)
-  (*       let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = resolve_entry search_path entry in *)
-  (*       if not (Hashtbl.mem already_seen_plugin basename) *)
-  (*       then ( *)
-  (*         BslLib.declare_visibility package_name basename ; *)
-  (*         Hashtbl.add already_seen_plugin basename basename ; *)
-  (*         Hashtbl.add extralib_plugin basename extralib ; *)
-  (*         Hashtbl.add extrapath_plugin basename extrapath ; *)
-  (*         BslDynlink.load_bypass_plugin_cache (BslDynlink.MarshalPlugin bypass) ; *)
-  (*       ) *)
-  (*     in *)
-  (*     List.iter iter_entry entries *)
-  (*   in *)
-  (*   R.iter_with_name ~packages:true ~deep:false iter *)
-  (* in *)
+  let () =
+    let iter (package_name, _) entries =
+      let iter_entry entry =
+        let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = resolve_entry search_path entry in
+        if not (Hashtbl.mem already_seen_plugin basename)
+        then (
+          BslLib.declare_visibility package_name basename ;
+          Hashtbl.add already_seen_plugin basename basename ;
+          Hashtbl.add extralib_plugin basename extralib ;
+          Hashtbl.add extrapath_plugin basename extrapath ;
+          BslDynlink.load_bypass_plugin_cache (BslDynlink.MarshalPlugin bypass) ;
+        )
+      in
+      List.iter iter_entry entries
+    in
+    R.iter_with_name ~packages:true ~deep:false iter
+  in
   let separation = Separation.create () in
 
   let commandline = FilePos.nopos "command line" in
