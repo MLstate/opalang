@@ -326,7 +326,7 @@ Priority: optional
 Architecture: $(dpkg --print-architecture)
 Installed-Size: $(du -s $INSTALLDIR | cut -f1)
 Pre-Depends: debconf
-Depends: libc6 (>= 2.3.2), nodejs, npm, mongodb
+Depends: libc6 (>= 2.3.2), nodejs, npm
 Maintainer: $MAINTAINER
 Description: Enterprise Framework for JavaScript.
  Opa is an advanced application framework for JavaScript.
