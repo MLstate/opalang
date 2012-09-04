@@ -241,8 +241,8 @@ struct
       is_side_effect_expr ~local_vars e || not(is_in_local_vars local_vars e)
 
     | J.Je_binop (_, binop, e1, e2) when JsAst.is_side_effect_binop binop ->
-      is_side_effect_expr ~local_vars e1 || is_side_effect_expr ~local_vars e1
-      || not(is_in_local_vars local_vars e2)
+      is_side_effect_expr ~local_vars e1 || is_side_effect_expr ~local_vars e2
+      || not(is_in_local_vars local_vars e1)
 
     | J.Je_call (_, f, args, pure) ->
       let side_effect_fun = match f with
