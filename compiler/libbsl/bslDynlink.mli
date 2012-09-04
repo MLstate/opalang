@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -60,6 +60,11 @@ val loadfile_private : bypass_plugin_file -> unit
    optimizing the time taken by the pass BslLoading
 *)
 val load_bypass_plugin_cache : bypass_plugin_file -> unit
+
+(**
+    Reset the cache
+*)
+val reset_cache : unit -> unit
 
 (** {6 Error reporting} *)
 

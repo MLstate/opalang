@@ -108,6 +108,7 @@ let extralib_plugin : (plugin_name, string) Hashtbl.t = Hashtbl.create 16
 let extrapath_plugin : (plugin_name, string) Hashtbl.t = Hashtbl.create 16
 
 let reset () =
+  BslDynlink.reset_cache ();
   BslPluginTable.clear ();
   Hashtbl.clear already_seen_plugin;
   Hashtbl.clear extrapath_plugin;

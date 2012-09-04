@@ -42,3 +42,4 @@ let load_bypass_plugin_cache bypass_plugin =
     Hashtbl.add cache bypass_plugin () ;
     load_bypass_plugin bypass_plugin
   )
+let reset_cache () = Hashtbl.clear cache
