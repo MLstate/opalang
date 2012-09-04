@@ -1791,8 +1791,8 @@ end
 
 module R_memo = ObjectFiles.Make(S_memo)
 
-let init_memoized_definitions () =
-  R_memo.iter
+let init_memoized_definitions obj =
+  if obj then R_memo.iter
     (fun (server, client) ->
        server_memo.memoty <- TyMap.merge (fun _ n -> n) server.memoty server_memo.memoty;
        server_memo.memotyl <- TylMap.merge (fun _ n -> n) server.memotyl server_memo.memotyl;
@@ -1813,8 +1813,8 @@ let init_memoized_definitions () =
        client_memo.memoquant <- QuantMap.merge (fun _ n -> n) client.memoquant client_memo.memoquant;
     )
 
-let finalize_memoized_defintions () =
-  R_memo.save (server_memo, client_memo);
+let finalize_memoized_defintions obj =
+  if obj then R_memo.save (server_memo, client_memo);
   reset_memo server_memo;
   reset_memo client_memo
 

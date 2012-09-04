@@ -1363,7 +1363,10 @@ let pass_InsertMemoizedTypes =
       let client_code = client_updater :: client_code in
       let gamma, new_server_code = Pass_ExplicitInstantiation.get_memoized_definitions gamma `server in
       let gamma, new_client_code = Pass_ExplicitInstantiation.get_memoized_definitions gamma `client in
-      Pass_ExplicitInstantiation.finalize_memoized_defintions ();
+      (* desactivated for flat because breaks OCaml compilation
+         TODO : Fix it *)
+      Pass_ExplicitInstantiation.finalize_memoized_defintions
+        (e.PH.options.O.back_end <> `qmlflat);
       let server_code = List.tail_append new_server_code server_code in
       let client_code = List.tail_append new_client_code client_code in
       let env_gen = {e.PH.env.P.env_gen with P.typerEnv = {e.PH.env.P.env_gen.P.typerEnv with QmlTypes.gamma = gamma ; annotmap = annotmap }} in
@@ -1549,7 +1552,10 @@ let pass_ExplicitInstantiation =
            original_renaming=client_original_renaming;
            renaming=client_renaming} = env.P.sliced_env.P.client in
 
-      Pass_ExplicitInstantiation.init_memoized_definitions ();
+      (* desactivated for flat because breaks OCaml compilation
+         TODO : Fix it *)
+      Pass_ExplicitInstantiation.init_memoized_definitions
+        (e.PH.options.O.back_end <> `qmlflat);
 
       (* TODO: optimize by adding only dummy arguments for published functions,
          if there is no explicit instantiation to be done there;

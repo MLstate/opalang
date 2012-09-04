@@ -220,6 +220,14 @@ val generate_tsc_map_updates :
   ?memoize:bool -> local_typedefs:QmlAst.TypeIdentSet.t -> QmlTypes.gamma -> QmlAst.annotmap
   -> QmlAst.annotmap * QmlAst.code_elt
 
-val init_memoized_definitions : unit -> unit
+(**
+   Initialize internal data structure for memoization of runtime gamma.
+   The boolean parameter indicates if compositionnality should be use.
+*)
+val init_memoized_definitions : bool -> unit
 
-val finalize_memoized_defintions : unit -> unit
+(**
+   Finalize internal data structure for memoization of runtime gamma
+   The boolean parameter indicates if compositionnality should be use.
+*)
+val finalize_memoized_defintions : bool -> unit
