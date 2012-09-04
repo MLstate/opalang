@@ -554,7 +554,7 @@ struct
                             OManager.error (
                               "option --minimal-version: @{<bright>%s@} not recognized@\n"^^
                               "@[<2>@{<bright>Hint@}:@\n"^^
-                              "try e.g. S3.%%d, v%%d, or %%d@]"
+                              "try e.g. v%%d, or %%d@]"
                             )
                               s
                         | Some false ->
@@ -569,6 +569,30 @@ struct
                         | Some true -> ()
                      ),
           "<version> Ensure that the compiler is newer than the given version"
+          ;
+
+          "--maximal-version",
+          Arg.String (fun s ->
+                        match BuildInfos.assert_maximal_version s with
+                        | None ->
+                            OManager.error (
+                              "option --maximal-version: @{<bright>%s@} not recognized@\n"^^
+                              "@[<2>@{<bright>Hint@}:@\n"^^
+                              "try e.g. v%%d, or %%d@]"
+                            )
+                              s
+                        | Some false ->
+                            OManager.error (
+                              "@[<2>This application needs an older version of Opa@\n"^^
+                              "Required version: %s or earlier@\n"^^
+                              "Current version:  %s/%d@]"
+                            )
+                              s
+                              BuildInfos.opa_version_name
+                              BuildInfos.opalang_git_version
+                        | Some true -> ()
+                     ),
+          "<version> Ensure that the compiler is older than the given version"
           ;
 
           "--mlcopt",
