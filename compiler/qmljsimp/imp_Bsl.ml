@@ -116,7 +116,7 @@ struct
     in
     (* 2 - Projection of outputs *)
     let js_ret =
-      JsCons.Expr.call ~pure:true id arguments
+      JsCons.Expr.call ~pure:bsltags.BslTags.pure id arguments
     in
     let (private_env, projected), proj_output =
       match outputs private_env type_return js_ret with

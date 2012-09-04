@@ -1077,7 +1077,7 @@ struct
               in
               let body =
                 JsCons.Expr.call
-                  ~pure:true
+                  ~pure:bsltags.BslTags.pure
                   impl
                   (List.map fst projected_args)
               in
