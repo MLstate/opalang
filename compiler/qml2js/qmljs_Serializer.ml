@@ -536,16 +536,13 @@ struct
       ser_key_ident b ident;
       ser_root b root;
       acc
-    let ser_code ((b,_) as acc) {JsSerializer. ast=l; plugin=_plugin} =
+    let ser_code ((b,_) as acc) l =
       ser_int b (List.length l);
-      List.fold_left ser_code_elt acc l
-    let ser_ast ((b,_) as acc) l =
-      ser_int b (List.length l);
-      List.fold_left ser_code acc l
+      List.fold_left ser_code_elt acc (List.rev l)
     let ser_ast l =
       let b = Buffer.create 20000 in
       let acc = (b, []) in
-      let (_,l) = ser_ast acc l in
+      let (_,l) = ser_code acc l in
       let l =
         if Buffer.length b = 0 then l else
           let string = !cons#string (Buffer.contents b) in
@@ -589,7 +586,24 @@ struct
           ) 0 l in
       Printf.printf "length: %d, overhead: %d, %.2f%%\n%!" count !r (100. *. float !r /. float count);
       #<End>;
-      code_elts, !cons#record ["adhoc", !cons#list (List.rev rev_list); "package_", !cons#string (ObjectFiles.get_current_package_name ())]
+      code_elts, !cons#list (List.rev rev_list)
+
+    let ser_ast l =
+      List.fold_right
+        (fun {JsSerializer. ast; plugin} (outs, elts) ->
+           let couts, adhoc = ser_ast ast in
+           let elt =
+             match plugin with
+             | None ->
+                 !cons#record ["adhoc", adhoc; "package_",
+                               !cons#string (ObjectFiles.get_current_package_name ())]
+             | Some plugin ->
+                 !cons#record ["adhoc", adhoc; "plugin",
+                               !cons#string plugin]
+           in
+           outs @ couts, elt :: elts
+        ) l ([], [])
+
   end
 
   (** {6 Nodes} *)
@@ -747,9 +761,10 @@ struct
           let register_js_code = OpaMapToIdent.val_ Opacapi.Client_code.register_js_code in
           let register_js_code = QCons.ident register_js_code in
           (* the order in code_elts doesn't matter *)
-          let code_elts, e = AdHocSerialize.ser_ast js_code in
-          let register_call = !cons#apply register_js_code [ e ] in
-          List.rev (Q.NewVal (label, [ Ident.next "js_code", register_call ]) :: code_elts)
+          let code_elts, elts = AdHocSerialize.ser_ast js_code in
+          let register_calls = List.map (fun e -> !cons#apply register_js_code [ e ]) elts in
+          List.rev (Q.NewVal (label,
+                              List.map (fun register_call -> Ident.next "js_code", register_call) register_calls) :: code_elts)
       | `ast ->
           let register_js_code =
             OpaMapToIdent.val_ Opacapi.Client_code.register_js_code

@@ -39,7 +39,7 @@ import stdlib.core.{js, rpc.core, pack}
   key_ident_code =
     [{Coded=[({Byte=0},[{String=""}]),
              ({Byte=1},[{String=""}]),
-             ({Byte=2},[{String=""},{String=""}])]}]
+            ]}]
 
   unser_key_ident(input:Pack.input) : Pack.result(JsAst.key_ident) =
     do Pack.pinput("unser_key_ident", input)

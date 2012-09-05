@@ -42,6 +42,7 @@
 **/
 type Client_code.input =
   {adhoc : list(string); package_ : string}
+/ {adhoc : list(string); plugin : string}
 / {ast : llarray(Client_code.unit)}
 
 /**
@@ -81,10 +82,16 @@ Core_client_code =
   **/
   register_js_code(js_code:Client_code.input) : void =
     update(code) = ServerReference.update(js_codes,List.cons(code,_))
-    match js_code with
-    | ~{adhoc package_} ->
+    update_adhoc(~{adhoc package_}) =
       adhoc = String.concat("",adhoc)
       update(~{adhoc package_})
+    match js_code with
+    | {adhoc=_ package_=_} as adhoc ->
+      update_adhoc(adhoc)
+    | ~{adhoc plugin} ->
+      if not(Hashtbl.mem(already_seen_plugins, plugin)) then
+        do Hashtbl.add(already_seen_plugins, plugin, void)
+        update_adhoc(~{adhoc package_="_"})
     | ~{ast} ->
       /* Only add non already seen plugins */
       LowLevelArray.iter(
