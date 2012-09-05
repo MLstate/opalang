@@ -84,7 +84,9 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
   let env = initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code in
-  let js_init = Imp_Bsl.JsImpBSL.ByPassMap.js_init env.E.private_bymap in
+  let js_init = (if BslLanguage.is_nodejs bsl_lang then Imp_Bsl.JsImpBSL.ByPassMap.node_init
+                 else Imp_Bsl.JsImpBSL.ByPassMap.js_init)
+    env.E.private_bymap in
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in
 

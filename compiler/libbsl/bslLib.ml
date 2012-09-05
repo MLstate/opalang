@@ -409,6 +409,7 @@ struct
           typesmap : BI.typesmap ; (** with module access *)
           map : ByPass.t BslKeyMap.t; (** link with complete key-names *)
           js_init : (BI.unicity_index * JsAst.code_elt) list;
+          node_init : (BI.unicity_index * JsAst.code_elt) list;
           ocaml_init : string;
           root_node : _module_table;
           ml_ctrans_env : ML_CTrans.env ;
@@ -422,6 +423,7 @@ struct
         typesmap = BslKeyMap.empty ;
         map = BslKeyMap.empty ;
         js_init = [];
+        node_init = [];
         ocaml_init = "";
         root_node = [] ;
         ml_ctrans_env = ML_CTrans.empty () ;
@@ -448,6 +450,7 @@ struct
     (** Generated compiler needs some extra code (transcription of type) *)
     let ocaml_init t = t.ocaml_init
     let js_init t = t.js_init
+    let node_init t = t.node_init
 
     let find_opt t ?lang key =
       match BslKeyMap.find_opt key t.map with
@@ -851,7 +854,8 @@ struct
           (* c_ctrans  : C_CTrans.env  ; *)
 
           generated_ml : FBuffer.t ;
-          generated_js : (BI.unicity_index * JsAst.code_elt) list (*reversed*)(*FBuffer.t*) ;
+          generated_js : (BI.unicity_index * JsAst.code_elt) list ;
+          generated_node : (BI.unicity_index * JsAst.code_elt) list ;
           (* generated_c : FBuffer.t ; *)
         }
 
@@ -997,7 +1001,15 @@ struct
             end
           else { building with ml_ctrans = env }, None
 
-    let re_compiled_generate_js building bslkey bsltags impl (inputs : _ list option) output : building_env * (Implementation.compiler_repr * BslTypes.t) option =
+    let re_compiled_generate_js lang building bslkey bsltags impl (inputs : _ list option) output : building_env * (Implementation.compiler_repr * BslTypes.t) option =
+      let get, set = match lang with
+        | `node ->
+            (fun building -> building.generated_node),
+            (fun building env buf -> {building with generated_node = buf; js_ctrans = env})
+        | `js ->
+            (fun building -> building.generated_js),
+            (fun building env buf -> {building with generated_js = buf; js_ctrans = env})
+      in
       let impl = JsParse.String.expr impl in
       let env = building.js_ctrans in
       if BslTags.never_projected bsltags then building, None else
@@ -1018,7 +1030,7 @@ struct
       in
       let new_impl = trans_ident bslkey in
       let unicity_index = BslKey.to_string bslkey in
-      let buf = building.generated_js in
+      let buf = get building in
       match inputs with
       | None ->
           if !trans_type then
@@ -1031,11 +1043,8 @@ struct
               JsCons.Statement.var jsident ~expr:trans_out in
             let buf = (unicity_index,code_elt0) :: buf in
             let type_of_new_impl = typed_out in
-            { building with
-                js_ctrans = env ;
-                generated_js = buf
-            },
-            Some (Implementation.Ident new_impl, type_of_new_impl)
+            (set building env buf,
+             Some (Implementation.Ident new_impl, type_of_new_impl))
           else
             { building with js_ctrans = env }, None
       | Some inputs ->
@@ -1092,10 +1101,7 @@ struct
                 BslTypes.Fun (BslTypes.pos typed_out, args, typed_out)
               in
               (* we must save the new generated function in js init *)
-              { building with
-                  js_ctrans = env ;
-                  generated_js = buf
-              },
+              set building env buf,
               Some (Implementation.Ident new_impl, type_of_new_impl)
             end
           else { building with js_ctrans = env }, None
@@ -1115,11 +1121,12 @@ struct
       let js_ctrans_env, js_code = JS_CTrans.conversion_code building.js_ctrans in
       let ocaml_init = ml_code ^ "\n" ^ FBuffer.contents building.generated_ml in
       let js_init = js_code @ List.rev building.generated_js in
+      let node_init = js_code @ List.rev building.generated_node in
       { building with
           ml_ctrans = ml_ctrans_env ;
           js_ctrans = js_ctrans_env
       },
-      ocaml_init, js_init
+      ocaml_init, js_init, node_init
       (* continue with other language when it will be necessary *)
 
     open Implementation
@@ -1136,6 +1143,7 @@ struct
           js_ctrans = js_ctrans ;
           generated_ml = FBuffer.create 1024 ;
           generated_js = [];
+          generated_node = [];
         } in
       let building, map =
         let fold_bypass key bypass ((building, map) as env) =
@@ -1158,9 +1166,8 @@ struct
                     let re_compiled_generate =
                       match compiled.c_lang with
                       | ml when BslLanguage.compare ml BslLanguage.ml = 0 -> re_compiled_generate_ml
-                      | js when BslLanguage.compare js BslLanguage.js = 0
-                          || BslLanguage.compare js BslLanguage.nodejs = 0
-                          -> re_compiled_generate_js
+                      | js when BslLanguage.compare js BslLanguage.js = 0 -> re_compiled_generate_js `js
+                      | nd when BslLanguage.compare nd BslLanguage.nodejs = 0 -> re_compiled_generate_js `node
                       | _ -> (fun building _key _bsltags _fct _input _output -> building, None)
                         (** with llvmtrans, do the same with CCTrans MLCTrans, in arg of the functor MakeLibBSL etc... *)
                     in
@@ -1190,7 +1197,7 @@ struct
         in
         let sorted_bypass = Hashtbl.fold BslKeyMap.add _bypass_table BslKeyMap.empty in
         BslKeyMap.fold fold_bypass sorted_bypass (building, BslKeyMap.empty) in
-      let building, ocaml_init, js_init = build_language_init building in
+      let building, ocaml_init, js_init, node_init = build_language_init building in
       let root =
         let rec from_mod _mod =
           let unsorted =
@@ -1213,7 +1220,7 @@ struct
           | BI.Module a -> Some (name, BI.Module (from_mod a))
         in from_mod _imperative_module_table
       in
-      { elt_root = None; types=types; typesmap = typesmap; map=map; ocaml_init=ocaml_init; js_init=js_init; root_node=root ;
+      { elt_root = None; types=types; typesmap = typesmap; map=map; ocaml_init=ocaml_init; js_init=js_init; node_init=node_init; root_node=root ;
         ml_ctrans_env = building.ml_ctrans ; js_ctrans_env = building.js_ctrans }
 
     let build_restrict_map_any ?ml_ctrans ?js_ctrans ?(filter=fun _ -> true) ~lang () =

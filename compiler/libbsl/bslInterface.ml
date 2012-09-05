@@ -477,6 +477,7 @@ sig
        should be a ExprIdent. (cf JsAst)
     *)
     val js_init : t -> (unicity_index * JsAst.code_elt) list
+    val node_init : t -> (unicity_index * JsAst.code_elt) list
 
     (** {6 Introspection & iterators} *)
 
