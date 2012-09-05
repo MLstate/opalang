@@ -42,7 +42,11 @@ let private_last_finalize = ref None
 let pp_item fmt t = Format.pp_print_string fmt (ItemPlugin.index t)
 
 let clear () =
+  let x =
+    Hashtbl.find_opt table None
+  in
   Hashtbl.clear table;
+  Option.iter (fun plugin -> Hashtbl.add table None plugin) x;
   private_last_finalize := None
 
 let finalize () =
