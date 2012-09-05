@@ -305,7 +305,7 @@ let name_anonymous_lambda_expr ~options annotmap (toplevel_name,e) =
         let rec aux tra is_anonymous annotmap e =
           match e with
           | Q.Lambda _ when is_anonymous ->
-              let fun_ident = Ident.refreshf ~map:"anon_fun_%s" toplevel_name in
+              let fun_ident = Ident.next "an" in
               let annotmap, e = aux tra false annotmap e in
               mk_let annotmap fun_ident e
           | Q.LetIn (_, bnds, body)
@@ -334,8 +334,8 @@ let name_anonymous_lambda_expr ~options annotmap (toplevel_name,e) =
               (* here we don't check that we actually have a lambda inside the fun_action
                * it is on purpose: we want to lift anything, not just lambdas *)
               (* we remove the directive `fun_action, but we will put it back later *)
-              let fun_ident = Ident.refreshf ~map:"fun_action_%s" toplevel_name in
-              let fun_ident' = Ident.refreshf ~map:"fun_action_eta_%s" toplevel_name in
+              let fun_ident = Ident.next "fa" in
+              let fun_ident' = Ident.next "fae" in
               public_set := IdentSet.add fun_ident  !public_set;
               client_set := IdentSet.add fun_ident' !client_set;
               let annotmap, e = aux tra false annotmap e in
