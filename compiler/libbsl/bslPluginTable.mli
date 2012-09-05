@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -67,3 +67,8 @@ val finalize : unit -> BslPluginInterface.plugin list
    If [finalize] was never called, returns [None]
 *)
 val last_finalize : unit -> BslPluginInterface.plugin list option
+
+(**
+   Clear
+*)
+val clear : unit -> unit

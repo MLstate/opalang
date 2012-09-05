@@ -107,6 +107,12 @@ let already_seen_plugin : (plugin_name, plugin_name) Hashtbl.t = Hashtbl.create 
 let extralib_plugin : (plugin_name, string) Hashtbl.t = Hashtbl.create 16
 let extrapath_plugin : (plugin_name, string) Hashtbl.t = Hashtbl.create 16
 
+let reset () =
+  BslPluginTable.clear ();
+  Hashtbl.clear already_seen_plugin;
+  Hashtbl.clear extrapath_plugin;
+  Hashtbl.clear extralib_plugin
+
 let pp_options fmt options =
   let pp = DebugPrint.pp ~depth:max_int in
   Format.fprintf fmt "cclib:     %a@\n" pp options.O.cclib ;
@@ -296,6 +302,7 @@ let process
     ~options
     ~code
     =
+  reset ();
   (* Pass *)
   let plugins = "opabsl" :: options.O.bypass_plugin in
   let server_back_end = options.O.back_end in
@@ -304,23 +311,23 @@ let process
   let search_path = cwd :: ObjectFiles.get_paths () in
 
   (* Separated compilation: loading *)
-  let () =
-    let iter (package_name, _) entries =
-      let iter_entry entry =
-        let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = resolve_entry search_path entry in
-        if not (Hashtbl.mem already_seen_plugin basename)
-        then (
-          BslLib.declare_visibility package_name basename ;
-          Hashtbl.add already_seen_plugin basename basename ;
-          Hashtbl.add extralib_plugin basename extralib ;
-          Hashtbl.add extrapath_plugin basename extrapath ;
-          BslDynlink.load_bypass_plugin_cache (BslDynlink.MarshalPlugin bypass) ;
-        )
-      in
-      List.iter iter_entry entries
-    in
-    R.iter_with_name ~packages:true ~deep:true iter
-  in
+  (* let () = *)
+  (*   let iter (package_name, _) entries = *)
+  (*     let iter_entry entry = *)
+  (*       let { S.plugin_name = basename ; extralib ; extrapath ; bypass } = resolve_entry search_path entry in *)
+  (*       if not (Hashtbl.mem already_seen_plugin basename) *)
+  (*       then ( *)
+  (*         BslLib.declare_visibility package_name basename ; *)
+  (*         Hashtbl.add already_seen_plugin basename basename ; *)
+  (*         Hashtbl.add extralib_plugin basename extralib ; *)
+  (*         Hashtbl.add extrapath_plugin basename extrapath ; *)
+  (*         BslDynlink.load_bypass_plugin_cache (BslDynlink.MarshalPlugin bypass) ; *)
+  (*       ) *)
+  (*     in *)
+  (*     List.iter iter_entry entries *)
+  (*   in *)
+  (*   R.iter_with_name ~packages:true ~deep:false iter *)
+  (* in *)
   let separation = Separation.create () in
 
   let commandline = FilePos.nopos "command line" in

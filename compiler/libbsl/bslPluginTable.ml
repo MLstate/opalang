@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -40,6 +40,10 @@ let table : (string option, BPI.plugin) Hashtbl.t = Hashtbl.create 10
 let private_last_finalize = ref None
 
 let pp_item fmt t = Format.pp_print_string fmt (ItemPlugin.index t)
+
+let clear () =
+  Hashtbl.clear table;
+  private_last_finalize := None
 
 let finalize () =
   let plugins = Hashtbl.fold (fun _ plugin acc -> plugin::acc) table [] in
