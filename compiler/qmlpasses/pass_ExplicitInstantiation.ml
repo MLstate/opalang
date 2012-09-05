@@ -1771,15 +1771,50 @@ let get_memoized_definitions gamma side =
   match side with
   | `server ->
       let l = server_memo.definitions in
-      reset_memo server_memo;
       List.fold_left (* the code is reversed on purpose *)
         (fun (gamma,code) (i,e,ty) ->
            let label = Annot.nolabel "Pass_ExplicitInstantiation.get_memoized_definitions" in
            add_ty i ty gamma, QmlAst.NewVal (label, [(i,e)]) :: code) (gamma, []) l
   | `client ->
       let l = client_memo.definitions in
-      reset_memo client_memo;
       List.fold_left (* the code is reversed on purpose *)
         (fun (gamma,code) (i,e,ty) ->
            let label = Annot.nolabel "Pass_ExplicitInstantiation.get_memoized_definitions" in
            add_ty i ty gamma, QmlAst.NewVal (label, [(i,e)]) :: code) (gamma, []) l
+
+module S_memo =
+struct
+  type t = one_side_memo * one_side_memo (*server * client *)
+  let pass = "pass_ExplicitInstantiation_memo"
+  let pp f _ = Format.pp_print_string f "<dummy>"
+end
+
+module R_memo = ObjectFiles.Make(S_memo)
+
+let init_memoized_definitions () =
+  R_memo.iter
+    (fun (server, client) ->
+       server_memo.memoty <- TyMap.merge (fun _ n -> n) server.memoty server_memo.memoty;
+       server_memo.memotyl <- TylMap.merge (fun _ n -> n) server.memotyl server_memo.memotyl;
+       server_memo.memostyl <- StylMap.merge (fun _ n -> n) server.memostyl server_memo.memostyl;
+       server_memo.memotsc <- TscMap.merge (fun _ n -> n) server.memotsc server_memo.memotsc;
+       server_memo.memotyvl <- TyvlMap.merge (fun _ n -> n) server.memotyvl server_memo.memotyvl;
+       server_memo.memorowvl <- RowvlMap.merge (fun _ n -> n) server.memorowvl server_memo.memorowvl;
+       server_memo.memocolvl <- ColvlMap.merge (fun _ n -> n) server.memocolvl server_memo.memocolvl;
+       server_memo.memoquant <- QuantMap.merge (fun _ n -> n) server.memoquant server_memo.memoquant;
+
+       client_memo.memoty <- TyMap.merge (fun _ n -> n) client.memoty client_memo.memoty;
+       client_memo.memotyl <- TylMap.merge (fun _ n -> n) client.memotyl client_memo.memotyl;
+       client_memo.memostyl <- StylMap.merge (fun _ n -> n) client.memostyl client_memo.memostyl;
+       client_memo.memotsc <- TscMap.merge (fun _ n -> n) client.memotsc client_memo.memotsc;
+       client_memo.memotyvl <- TyvlMap.merge (fun _ n -> n) client.memotyvl client_memo.memotyvl;
+       client_memo.memorowvl <- RowvlMap.merge (fun _ n -> n) client.memorowvl client_memo.memorowvl;
+       client_memo.memocolvl <- ColvlMap.merge (fun _ n -> n) client.memocolvl client_memo.memocolvl;
+       client_memo.memoquant <- QuantMap.merge (fun _ n -> n) client.memoquant client_memo.memoquant;
+    )
+
+let finalize_memoized_defintions () =
+  R_memo.save (server_memo, client_memo);
+  reset_memo server_memo;
+  reset_memo client_memo
+

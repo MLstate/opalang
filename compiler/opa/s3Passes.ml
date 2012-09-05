@@ -1363,6 +1363,7 @@ let pass_InsertMemoizedTypes =
       let client_code = client_updater :: client_code in
       let gamma, new_server_code = Pass_ExplicitInstantiation.get_memoized_definitions gamma `server in
       let gamma, new_client_code = Pass_ExplicitInstantiation.get_memoized_definitions gamma `client in
+      Pass_ExplicitInstantiation.finalize_memoized_defintions ();
       let server_code = List.tail_append new_server_code server_code in
       let client_code = List.tail_append new_client_code client_code in
       let env_gen = {e.PH.env.P.env_gen with P.typerEnv = {e.PH.env.P.env_gen.P.typerEnv with QmlTypes.gamma = gamma ; annotmap = annotmap }} in
@@ -1547,12 +1548,14 @@ let pass_ExplicitInstantiation =
            published=client_published;
            original_renaming=client_original_renaming;
            renaming=client_renaming} = env.P.sliced_env.P.client in
+
+      Pass_ExplicitInstantiation.init_memoized_definitions ();
+
       (* TODO: optimize by adding only dummy arguments for published functions,
          if there is no explicit instantiation to be done there;
          then return *_published pointing to the versions with dummy arguments,
          but inside the server and client code use the original,
          unchanged version*)
-
       Pass_ExplicitInstantiation.published_ref := server_published;
       Pass_ExplicitInstantiation.renaming_map := server_renaming;
 

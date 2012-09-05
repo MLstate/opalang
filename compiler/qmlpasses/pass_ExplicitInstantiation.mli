@@ -219,3 +219,7 @@ val generate_tsc_map_updates :
   val_:(?side:[`client|`server] -> string -> Ident.t) -> side:[ `server | `client ] ->
   ?memoize:bool -> local_typedefs:QmlAst.TypeIdentSet.t -> QmlTypes.gamma -> QmlAst.annotmap
   -> QmlAst.annotmap * QmlAst.code_elt
+
+val init_memoized_definitions : unit -> unit
+
+val finalize_memoized_defintions : unit -> unit
