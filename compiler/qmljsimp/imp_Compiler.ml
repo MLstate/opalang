@@ -143,7 +143,16 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
     if options.Qml2jsOptions.global_inlining then (
       let initial_env =
         match bsl with
-        | Some code -> Imp_Inlining.global_inline_analyse_code (Imp_Inlining.env_of_map closure_map) code
+        | Some code ->
+            let topobj =
+              if BslLanguage.is_nodejs bsl_lang then
+                function "global" -> true
+                | _ -> false
+              else function _ -> false
+            in
+            Imp_Inlining.global_inline_analyse_code
+              ~topobj
+              (Imp_Inlining.env_of_map closure_map) code
         | None -> Imp_Inlining.env_of_map closure_map in
       let pass = BslLanguage.to_string bsl_lang in
       let module Imp_Inlining_R = (val Imp_Inlining.make_r pass : Imp_Inlining.R) in

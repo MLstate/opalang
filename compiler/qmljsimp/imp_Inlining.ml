@@ -355,11 +355,11 @@ let simplify occur_env params code =
                * be updated by looking at the expression *)
               (env,acc,weak_acc), e
           | Unsafe e ->
-              if contains_vars env e then
+              if contains_vars env e then (
                 (env,acc,weak_acc), expr (* cannot inline *)
-              else
+              ) else (
                 (* don't go down either, same reason as above *)
-                (env,acc,weak_acc), e
+                (env,acc,weak_acc), e)
         with Not_found ->
           try
             (* same as in the case Safe in acc
@@ -497,6 +497,7 @@ let global_inlining_policy_for_function name params body =
           | J.Je_dot (_,e1,_) when simple_expr e1 -> Some e
           | J.Je_call (_, e1, l, _) when simple_expr e1 && List.for_all (simple_expr ~param_only:true) l ->
               Some e
+          | J.Je_array (_, l) when List.for_all simple_expr l -> Some e
           | _ -> if simple_expr e then Some e else None
         )
       | _ -> None
@@ -607,25 +608,36 @@ let env_of_map closure_map =
   { functions = JsIdentMap.empty; closures = closure_map }
 
 (* analysis of a toplevel statement, it fills the environment *)
-let global_inline_analyse_stm (env:env) stm =
+let global_inline_analyse_stm ?(topobj=fun _ -> false) (env:env) stm =
+  let update_env = function
+    | `expr (v, e) when global_inlining_policy_for_var e ->
+        {env with functions = JsIdentMap.add v (`var e) env.functions}
+    | `expr _ -> env
+    | `fun_ (name, params, body) ->
+        match global_inlining_policy_for_function name params body with
+        | None -> env
+        | Some e -> {env with functions = JsIdentMap.add name (`fun_ (params,e)) env.functions}
+  in
   JsWalk.OnlyStatement.fold
     (fun env -> function
      | J.Js_var (_,name, Some (J.Je_function (_, None, params, body)))
-     | J.Js_function (_,name,params,body) -> (
-         match global_inlining_policy_for_function name params body with
-         | None -> env
-         | Some e -> {env with functions = JsIdentMap.add name (`fun_ (params,e)) env.functions}
-       )
-     | J.Js_var (_,v,Some e) ->
-         if global_inlining_policy_for_var e then
-           {env with functions = JsIdentMap.add v (`var e) env.functions}
-         else
-           env
+     | J.Js_function (_,name,params,body) -> update_env (`fun_ (name, params, body))
+     | J.Js_var (_,v,Some e) -> update_env (`expr (v,e))
+     | J.Js_expr (_, (J.Je_binop (* topobj.val = ... *)
+                        (_, J.Jb_assign,
+                         J.Je_dot (_, J.Je_ident (_, J.Native (_, ident)), name),
+                         expr))) when topobj ident ->
+         let name = J.Native (`global true, name) in
+         begin match expr with
+         | J.Je_function (_, _, params, body) ->
+             update_env (`fun_ (name, params, body))
+         | e -> update_env (`expr (name, e))
+         end
      | _ -> env
     ) env stm
 
-let global_inline_analyse_code env code =
-  List.fold_left global_inline_analyse_stm env code
+let global_inline_analyse_code ?topobj env code =
+  List.fold_left (global_inline_analyse_stm ?topobj) env code
 
 (* rewriting of a toplevel statement, given an inlining environment *)
 let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement =

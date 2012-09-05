@@ -30,8 +30,8 @@ val local_inline : JsAst.code -> JsAst.code
 type env
 val empty_env : env
 val env_of_map : Ident.t IdentMap.t -> env
-val global_inline_analyse_stm : env -> JsAst.statement -> env
-val global_inline_analyse_code : env -> JsAst.code -> env
+val global_inline_analyse_stm :  ?topobj:(string -> bool) -> env -> JsAst.statement -> env
+val global_inline_analyse_code :  ?topobj:(string -> bool) -> env -> JsAst.code -> env
 val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement
 
 (**
