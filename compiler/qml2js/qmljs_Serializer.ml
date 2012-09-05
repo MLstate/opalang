@@ -448,24 +448,29 @@ struct
   module JsAstLabel =
   struct
     (* Meta infos, corresponding to the module JsAst of the stdlib *)
-    let content = "content"
-    let root = "root"
+    let content = "c"
+    let root = "r"
 
-    let declaration = "declaration"
-    let key = "key"
+    let declaration = "d"
+    let definition = "d"
+    let key = "k"
 
     (* JsAst.mini_expr *)
-    let ident = "ident"
+    let ident = "i"
 
-    let verbatim = "verbatim"
+    let verbatim = "v"
 
-    let set_distant = "set_distant"
+    let set_distant = "s"
 
-    let type_use = "type_use"
-    let type_def = "type_def"
+    let type_use = "tu"
+    let type_def = "td"
 
-    let rpc_use = "rpc_use"
-    let rpc_def = "rpc_def"
+    let rpc_use = "ru"
+    let rpc_def = "rd"
+
+    (* ServerAst.definition *)
+    let rpc = "r"
+    let typ = "t"
 
   end
 
@@ -645,9 +650,9 @@ struct
     !cons#record [JsAstLabel.declaration, string]
 
   let definition d = match d with
-    | `Nothing -> !cons#record ["nothing", !cons#cheap_void]
-    | `Rpc s   -> !cons#record ["rpc", !cons#string s]
-    | `Type s  -> !cons#record ["type", !cons#string s]
+    | `Nothing -> !cons#cheap_void
+    | `Rpc s   -> !cons#record ["r", !cons#string s]
+    | `Type s  -> !cons#record ["t", !cons#string s]
 
   (*
     Possibly optimized in the future.
@@ -675,7 +680,7 @@ struct
         JsAstLabel.ident,      ident ;
         JsAstLabel.root,       root ;
         JsAstLabel.content,    content ;
-        "definition",          definition elt.S.definition;
+        JsAstLabel.definition, definition elt.S.definition;
       ]
     in
     code_elt

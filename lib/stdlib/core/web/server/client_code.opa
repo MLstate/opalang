@@ -44,9 +44,9 @@ import stdlib.core.{js, rpc.core, pack}
   unser_key_ident(input:Pack.input) : Pack.result(JsAst.key_ident) =
     do Pack.pinput("unser_key_ident", input)
     match D.unpack(key_ident_code, input.binary, input.pos) with
-    | {success=(pos,[{Coded=[({Byte=0},[{String=key}])]}])} -> {success=({input with ~pos},{~key})}
-    | {success=(pos,[{Coded=[({Byte=1},[{String=ident}])]}])} -> {success=({input with ~pos},{~ident})}
-    | {success=(pos,[{Coded=[({Byte=2},[{String=key},{String=ident}])]}])} -> {success=({input with ~pos},~{key; ident})}
+    | {success=(pos,[{Coded=[({Byte=0},[{String=k}])]}])} -> {success=({input with ~pos},{~k})}
+    | {success=(pos,[{Coded=[({Byte=1},[{String=i}])]}])} -> {success=({input with ~pos},{~i})}
+    | {success=(pos,[{Coded=[({Byte=2},[{String=k},{String=i}])]}])} -> {success=({input with ~pos},~{k; i})}
     | {success=(_,[{Coded=[({Byte=n},_)]}])} -> {failure="Client_code.unser_key_ident: bad code {n}"}
     | {success=data} -> {failure="Client_code.unser_key_ident: bad unpack data {data}"}
     | {~failure} -> {~failure}
@@ -69,21 +69,21 @@ import stdlib.core.{js, rpc.core, pack}
   unser_mini_expr(input:Pack.input) : Pack.result(JsAst.mini_expr) =
     do Pack.pinput("unser_mini_expr", input)
     match D.unpack(mini_expr_code, input.binary, input.pos) with
-    | {success=(pos,[{Coded=[({Byte=0},[{String=verbatim}])]}])} -> {success=({input with ~pos},{~verbatim})}
-    | {success=(pos,[{Coded=[({Byte=1},[{String=ident}])]}])} -> {success=({input with ~pos},{~ident})}
-    | {success=(pos,[{Coded=[({Byte=2},[{String=verbatim}])]}])} -> {success=({input with ~pos},{~verbatim})}
-    | {success=(pos,[{Coded=[({Byte=3},[{List=(_,dl)}])]}])} -> {success=({input with ~pos},~{set_distant=dl2slla(dl)})}
-    | {success=(pos,[{Coded=[({Byte=4},[{String=rpc_def}])]}])} -> {success=({input with ~pos},{~rpc_def})}
-    | {success=(pos,[{Coded=[({Byte=5},[{String=rpc_use}])]}])} -> {success=({input with ~pos},{~rpc_use})}
-    | {success=(pos,[{Coded=[({Byte=6},[{String=type_def}])]}])} -> {success=({input with ~pos},{~type_def})}
-    | {success=(pos,[{Coded=[({Byte=7},[{String=type_use}])]}])} -> {success=({input with ~pos},{~type_use})}
+    | {success=(pos,[{Coded=[({Byte=0},[{String=v}])]}])} -> {success=({input with ~pos},{~v})}
+    | {success=(pos,[{Coded=[({Byte=1},[{String=i}])]}])} -> {success=({input with ~pos},{~i})}
+    | {success=(pos,[{Coded=[({Byte=2},[{String=v}])]}])} -> {success=({input with ~pos},{~v})}
+    | {success=(pos,[{Coded=[({Byte=3},[{List=(_,dl)}])]}])} -> {success=({input with ~pos},~{s=dl2slla(dl)})}
+    | {success=(pos,[{Coded=[({Byte=4},[{String=rd}])]}])} -> {success=({input with ~pos},{~rd})}
+    | {success=(pos,[{Coded=[({Byte=5},[{String=ru}])]}])} -> {success=({input with ~pos},{~ru})}
+    | {success=(pos,[{Coded=[({Byte=6},[{String=td}])]}])} -> {success=({input with ~pos},{~td})}
+    | {success=(pos,[{Coded=[({Byte=7},[{String=tu}])]}])} -> {success=({input with ~pos},{~tu})}
     | {success=(_,[{Coded=[({Byte=n},_)]}])} -> {failure="Client_code.mini_expr_ident: bad code {n}"}
     | {success=data} -> {failure="Client_code.mini_expr_ident: bad unpack data {data}"}
     | {~failure} -> {~failure}
 
   unser_content(input:Pack.input) : Pack.result(JsAst.content) =
     do Pack.pinput("unser_content", input)
-    U.array(unser_mini_expr, Pack.bigEndian, Pack.longSize, {verbatim=""}, input)
+    U.array(unser_mini_expr, Pack.bigEndian, Pack.longSize, {v=""}, input)
 
   definition_code =
     [{Coded=[({Byte=0},[]),
@@ -93,9 +93,9 @@ import stdlib.core.{js, rpc.core, pack}
   unser_definition(input:Pack.input) : Pack.result(ServerAst.definition) =
     do Pack.pinput("unser_definition", input)
     match D.unpack(definition_code, input.binary, input.pos) with
-    | {success=(pos,[{Coded=[({Byte=0},[])]}])} -> {success=({input with ~pos},{nothing})}
-    | {success=(pos,[{Coded=[({Byte=1},[{String=rpc}])]}])} -> {success=({input with ~pos},{~rpc})}
-    | {success=(pos,[{Coded=[({Byte=2},[{String=`type`}])]}])} -> {success=({input with ~pos},{~`type`})}
+    | {success=(pos,[{Coded=[({Byte=0},[])]}])} -> {success=({input with ~pos},{})}
+    | {success=(pos,[{Coded=[({Byte=1},[{String=r}])]}])} -> {success=({input with ~pos},{~r})}
+    | {success=(pos,[{Coded=[({Byte=2},[{String=t}])]}])} -> {success=({input with ~pos},{~t})}
     | {success=(_,[{Coded=[({Byte=n},_)]}])} -> {failure="Client_code.unser_definition: bad code {n}"}
     | {success=data} -> {failure="Client_code.unser_definition: bad unpack data {data}"}
     | {~failure} -> {~failure}
@@ -105,11 +105,11 @@ import stdlib.core.{js, rpc.core, pack}
   unser_code_elt(input:Pack.input): Pack.result(JsAst.code_elt) =
     do Pack.pinput("unser_code_elt", input)
     match U.tuple4(input, unser_content, unser_definition, unser_key_ident, unser_bool_ref) with
-    | {success=(input,(content, definition, ident, root))} -> {success=(input,~{content; definition; ident; root})}
+    | {success=(input,(c, d, i, r))} -> {success=(input,~{c; d; i; r})}
     | {~failure} -> {~failure}
 
   dummy_code_elt : JsAst.code_elt =
-    { ident={key=""}; definition={nothing}; root=ServerReference.create(false); content=LowLevelArray.empty }
+    { i={k=""}; d={}; r=ServerReference.create(false); c=LowLevelArray.empty }
 
   unser_code(input:Pack.input): Pack.result(JsAst.code) =
     do Pack.pinput("unser_code", input)
@@ -140,19 +140,19 @@ import stdlib.core.{js, rpc.core, pack}
                    unser_bool_ref,      // root
                    unser_sarray,        // rpc_deps
                    unser_sarray         // type_deps
-                  ) with
-    | {success=(input,(client_equivalent,defines,ident,ident_deps,root,rpc_deps,type_deps))} ->
-       {success=(input,~{client_equivalent;defines;ident;ident_deps;root;rpc_deps;type_deps})}
+           ) with
+    | {success=(input,(c,d,i,id,r,rd,td))} ->
+       {success=(input,~{c;d;i;id;r;rd;td})}
     | {~failure} -> {~failure}
 
   dummy_server_code_elt : ServerAst.code_elt =
-    { client_equivalent=none;
-      defines={nothing};
-      ident=none;
-      ident_deps=LowLevelArray.empty;
-      root=ServerReference.create(false);
-      rpc_deps=LowLevelArray.empty;
-      type_deps=LowLevelArray.empty
+    { c=none;
+      d={};
+      i=none;
+      id=LowLevelArray.empty;
+      r=ServerReference.create(false);
+      rd=LowLevelArray.empty;
+      td=LowLevelArray.empty
     }
 
   unser_server_code(input:Pack.input): Pack.result(ServerAst.code) =

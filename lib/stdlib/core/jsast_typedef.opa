@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -41,26 +41,26 @@ type JsAst.mini_expr =
     * A string evaluated representing js code.
     * Can be evaluated at compile or run-time.
    **/
-   { verbatim : string }
+   { v : string }
 
    /**
     * A reference of a toplevel js ident, separated from the code, to be renamed.
    **/
- / { ident : JsAst.ident}
+ / { i : JsAst.ident}
 
- / { set_distant : llarray(JsAst.ident) }
+ / { s : llarray(JsAst.ident) }
 
    /**
     * A reference to a runtime type name
     */
- / { type_use : ServerAst.type_key }
- / { type_def : ServerAst.type_key }
+ / { tu : ServerAst.type_key }
+ / { td : ServerAst.type_key }
 
    /**
     * A reference to a server function
     */
- / { rpc_use : ServerAst.rpc_key }
- / { rpc_def : ServerAst.rpc_key }
+ / { ru : ServerAst.rpc_key }
+ / { rd : ServerAst.rpc_key }
 
 /**
  * The type for representing the content of a code_elt
@@ -79,29 +79,29 @@ type JsAst.content = llarray(JsAst.mini_expr)
  * The content contains the complete code_element (header and concrete syntax include)
 **/
 type JsAst.key_ident =
-   { key : string }
- / { ident : JsAst.ident }
- / { key : string ; ident : JsAst.ident }
+   { k : string }
+ / { i : JsAst.ident }
+ / { k : string ; i : JsAst.ident }
 
 /**
  * The run-time representation of a js top-level declaration.
 **/
 type JsAst.code_elt = {
-  ident : JsAst.key_ident
+  i : JsAst.key_ident
 
 
-  definition : ServerAst.definition
+  d : ServerAst.definition
 
   /**
    * Some code_elt are tagged as root by the compiler.
    * They should not be cleaned.
   **/
-  root : Server.reference(bool)
+  r : Server.reference(bool)
 
   /**
    * The body of the declaration.
   **/
-  content : JsAst.content
+  c : JsAst.content
 }
 
 type JsAst.code = llarray(JsAst.code_elt)

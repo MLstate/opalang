@@ -178,29 +178,29 @@ type JsCleaning.marked = JsIdentSet.t
   @private add_stack(infos:JsCleaning.infos, code_elt:JsAst.code_elt, stack : JsCleaning.stack) =
     fold(me, stack) =
       match me : JsAst.mini_expr with
-      | { ~ident } ->
+      | { ~i } ->
         //do jlog("CLIENT: {code_elt.ident} is using ident {ident}")
-        [ident|stack]
-      | { type_def = _ }
-      | { rpc_def = _ }
-      | { verbatim = _ } -> stack
-      | { set_distant = _ } -> [JsAst.set_distant|stack]
-      | ~{ type_use } ->
+        [i|stack]
+      | { td = _ }
+      | { rd = _ }
+      | { v = _ } -> stack
+      | { s = _ } -> [JsAst.set_distant|stack]
+      | ~{ tu } ->
          // do jlog("CLIENT: {code_elt.ident} is using type {type_use}")
-         add_type_to_stack(infos, stack, type_use)
-      | ~{ rpc_use } ->
+         add_type_to_stack(infos, stack, tu)
+      | ~{ ru } ->
         //do jlog("CLIENT: {code_elt.ident} is using rpc {rpc_use}")
-        add_rpc_to_stack(infos, stack, rpc_use)
+        add_rpc_to_stack(infos, stack, ru)
       end
-    stack = JsAst.fold_content(fold, code_elt.content, stack)
+    stack = JsAst.fold_content(fold, code_elt.c, stack)
     // extra deps that opa2js adds when serializing
     // @insert_server_value
     stack =
-      match code_elt.ident with
-      | {key=_} -> stack
-      | {~ident}
-      | {~ident key=_} ->
-        closure_keys = Closure.deps_of_var_for_cleaning(ident)
+      match code_elt.i with
+      | {k=_} -> stack
+      | {~i}
+      | {~i k=_} ->
+        closure_keys = Closure.deps_of_var_for_cleaning(i)
         //do List.iter(closure_key -> jlog("CLIENT: {ident} is using ident {closure_key}"), closure_keys)
         List.append(closure_keys, stack)
     stack
@@ -210,15 +210,15 @@ type JsCleaning.marked = JsIdentSet.t
   **/
   @private is_root(code_elt : JsAst.code_elt) =
     is_root =
-      ServerReference.get(code_elt.root)
+      ServerReference.get(code_elt.r)
       || (
-        match code_elt.ident with
-        | {~ident}
-        | {~ident key=_} ->
-          is_root_ident(ident)
-        | { key = _ } -> true
+        match code_elt.i with
+        | {~i}
+        | {~i k=_} ->
+          is_root_ident(i)
+        | { k = _ } -> true
       )
-    do if is_root then ServerReference.set(code_elt.root, true)
+    do if is_root then ServerReference.set(code_elt.r, true)
     is_root
 
   /**
@@ -226,20 +226,20 @@ type JsCleaning.marked = JsIdentSet.t
   **/
   @private is_root_server(code_elt : ServerAst.code_elt) =
     is_root =
-      ServerReference.get(code_elt.root)
+      ServerReference.get(code_elt.r)
       || (
-        match code_elt.ident with
+        match code_elt.i with
         | {none} -> true
         | {some = ident} -> is_root_ident(ident)
       )
-    do if is_root then ServerReference.set(code_elt.root, true)
+    do if is_root then ServerReference.set(code_elt.r, true)
     is_root
 
   check_if_kept(infos:JsCleaning.infos,ident) : {no_cleaning} / {kept} / {server_cleaned} / {client_cleaned} =
     match Hashtbl.try_find(infos.elements, ident) with
     | {none} -> {no_cleaning} /* cleaning is not activated */
     | {some=elt} ->
-       if ServerReference.get(elt.root) then
+       if ServerReference.get(elt.r) then
          match Hashtbl.try_find(infos.correspondence, ident) with
          | {none} ->
            // useful code but no server counterpart
@@ -248,8 +248,8 @@ type JsCleaning.marked = JsIdentSet.t
            // code on both sides
            match Hashtbl.try_find(infos.server_elements, server_ident) with
            | {none} -> @fail(ident)
-           | {some = ~{root ...}} ->
-             if ServerReference.get(root) then
+           | {some = ~{r ...}} ->
+             if ServerReference.get(r) then
                // keeping the client and the server
                {kept}
              else
@@ -264,13 +264,13 @@ type JsCleaning.marked = JsIdentSet.t
    * that it is a root, or this is marked.
   **/
   @private is_marked(code_elt : JsAst.code_elt) =
-    ServerReference.get(code_elt.root)
+    ServerReference.get(code_elt.r)
 
   @private unsafe_get_ident(key_ident:JsAst.key_ident) =
     match key_ident with
-    | {~ident} -> ident
-    | {~ident key=_} -> ident
-    | ~{key} -> error("unsafe_get_ident on {key}")
+    | {~i} -> i
+    | {~i k=_} -> i
+    | ~{k} -> error("unsafe_get_ident on {k}")
 
   /**
    * Initialize the structure needing for marking
@@ -279,13 +279,13 @@ type JsCleaning.marked = JsIdentSet.t
     fold(code_elt, infos : JsCleaning.infos) =
       unicity = infos.unicity
       not_uniq =
-        match code_elt.ident : JsAst.key_ident with
-        | {~key}
-        | {~key ident=_} -> StringSet.mem(key, unicity)
-        | {ident=_} -> false
+        match code_elt.i : JsAst.key_ident with
+        | {~k}
+        | {~k i=_} -> StringSet.mem(k, unicity)
+        | {i=_} -> false
       if not_uniq
       then
-        do ServerReference.set(code_elt.root, false)
+        do ServerReference.set(code_elt.r, false)
         infos
       else
         client_roots = infos.client_roots
@@ -294,30 +294,30 @@ type JsCleaning.marked = JsIdentSet.t
         types_client = infos.types_client
         rpcs = infos.rpc
         do
-          match code_elt.definition with
-          | {nothing} -> void
-          | ~{`type`} ->
-            //do jlog("Found the definition of the type {`type`} in the client")
-            Hashtbl.add(types_client, `type`, unsafe_get_ident(code_elt.ident))
-          | ~{rpc} ->
+          match code_elt.d with
+          | {} -> void
+          | ~{t} ->
+            //do jlog("Found the definition of the type {t} in the client")
+            Hashtbl.add(types_client, t, unsafe_get_ident(code_elt.i))
+          | ~{r} ->
             //do jlog("Found the definition of the rpc {rpc} in the client")
-            Hashtbl.add(rpcs, rpc, unsafe_get_ident(code_elt.ident))
+            Hashtbl.add(rpcs, r, unsafe_get_ident(code_elt.i))
           end
         infos =
-          match code_elt.ident with
-          | { ~ident } ->
-            do JsIdent.define(ident)
-            do Hashtbl.add(elements, ident, code_elt)
+          match code_elt.i with
+          | { ~i } ->
+            do JsIdent.define(i)
+            do Hashtbl.add(elements, i, code_elt)
             ~{ infos with client_roots }
 
-          | { ~key } ->
-            unicity = StringSet.add(key, unicity)
+          | { ~k } ->
+            unicity = StringSet.add(k, unicity)
             ~{ infos with client_roots unicity }
 
-          | ~{ key ident } ->
-            do JsIdent.define(ident)
-            do Hashtbl.add(elements, ident, code_elt)
-            unicity = StringSet.add(key, unicity)
+          | ~{ k i } ->
+            do JsIdent.define(i)
+            do Hashtbl.add(elements, i, code_elt)
+            unicity = StringSet.add(k, unicity)
             ~{ infos with unicity client_roots }
         infos
     JsAst.fold_code(fold, code, infos)
@@ -326,7 +326,7 @@ type JsCleaning.marked = JsIdentSet.t
      // extra deps that opa2js adds dynamically when serializing
      // fun actions arguments at toplevel
      stack =
-       match code_elt.ident with
+       match code_elt.i with
        | {none} -> stack
        | {some=ident} ->
          closure_keys = Closure.deps_of_var_for_cleaning(ident)
@@ -334,17 +334,17 @@ type JsCleaning.marked = JsIdentSet.t
          List.append(closure_keys, stack)
      stack = LowLevelArray.fold(ident,stack ->
         //do jlog("SERVER: {code_elt.ident} is using ident {ident}")
-        [ident|stack], code_elt.ident_deps,stack)
+        [ident|stack], code_elt.id,stack)
      stack =
-         match code_elt.defines
-         {rpc=_} ->
+         match code_elt.d
+         {r=_} ->
            LowLevelArray.fold(type_,stack ->
            //do jlog("SERVER: {code_elt.ident} is using type {type_}")
-           add_type_to_stack(infos, stack, type_), code_elt.type_deps,stack)
+           add_type_to_stack(infos, stack, type_), code_elt.td,stack)
          _ -> stack
      stack = LowLevelArray.fold(rpc,stack ->
         //do jlog("SERVER: {code_elt.ident} is using rpc {rpc}")
-        add_rpc_to_stack(infos, stack, rpc), code_elt.rpc_deps,stack)
+        add_rpc_to_stack(infos, stack, rpc), code_elt.rd,stack)
      stack
 
    fold_infos_server(server_code : ServerAst.code, infos:JsCleaning.infos) : JsCleaning.infos =
@@ -354,11 +354,11 @@ type JsCleaning.marked = JsIdentSet.t
        server_elements = infos.server_elements
        correspondence = infos.correspondence
        do
-         match code_elt.ident with
+         match code_elt.i with
          | {none} -> void
          | {some=ident} ->
            do Hashtbl.add(server_elements, ident,code_elt)
-           match code_elt.client_equivalent with
+           match code_elt.c with
            | {none} -> void
            | {some=client_ident} -> Hashtbl.add(correspondence, client_ident,ident)
            end
@@ -366,14 +366,14 @@ type JsCleaning.marked = JsIdentSet.t
        types_server = infos.types_server
        rpcs = infos.rpc
        do
-         match code_elt.defines with
-         | {nothing} -> void
-         | ~{`type`} ->
-           //do jlog("Found the definition of the type {`type`} in the server")
-           Hashtbl.add(types_server, `type`,Option.get(code_elt.ident))
-         | ~{rpc} ->
+         match code_elt.d with
+         | {} -> void
+         | ~{t} ->
+           //do jlog("Found the definition of the type {t} in the server")
+           Hashtbl.add(types_server, t,Option.get(code_elt.i))
+         | ~{r} ->
            //do jlog("Found the definition of the rpc {rpc} in the server")
-           Hashtbl.add(rpcs, rpc,Option.get(code_elt.ident))
+           Hashtbl.add(rpcs, r,Option.get(code_elt.i))
          end
        ~{ infos with server_roots }
      ServerAst.fold_code(fold, server_code, infos)
@@ -396,17 +396,17 @@ type JsCleaning.marked = JsIdentSet.t
             match Hashtbl.try_find(server_elements, ident) with
             | {none} -> stack
             | {some = code_elt} ->
-              if ServerReference.get(code_elt.root)
+              if ServerReference.get(code_elt.r)
               then stack
               else
-                do ServerReference.set(code_elt.root, true)
+                do ServerReference.set(code_elt.r, true)
                 add_stack_server(infos, code_elt, stack)
             end
           | { some = code_elt } ->
-            if ServerReference.get(code_elt.root)
+            if ServerReference.get(code_elt.r)
             then stack
             else
-              do ServerReference.set(code_elt.root, true)
+              do ServerReference.set(code_elt.r, true)
               add_stack(infos, code_elt, stack)
         mark(stack)
 

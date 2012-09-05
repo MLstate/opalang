@@ -317,9 +317,9 @@ struct
     gen_string (JsPrint.escape_string type_)
 
   let gen_defines = function
-    | `nothing -> !cons#record ["nothing", !cons#cheap_void]
-    | `rpc s ->   !cons#record ["rpc",     gen_rpc s]
-    | `type_ s -> !cons#record ["type",    gen_type s]
+    | `nothing -> !cons#cheap_void
+    | `rpc s ->   !cons#record ["r",     gen_rpc s]
+    | `type_ s -> !cons#record ["t",    gen_type s]
 
   let gen_rpc_deps rpc_deps =
     gen_list gen_rpc rpc_deps
@@ -329,13 +329,13 @@ struct
 
   let gen_code_elt {ident; client_equivalent; defines; ident_deps; rpc_deps; type_deps; root} =
     !cons#record [
-      ("client_equivalent", gen_ident client_equivalent);
-      ("defines"          , gen_defines defines);
-      ("ident"            , gen_ident ident);
-      ("ident_deps"       , gen_ident_deps ident_deps);
-      ("root"             , gen_root root);
-      ("rpc_deps"         , gen_rpc_deps rpc_deps);
-      ("type_deps"        , gen_type_deps type_deps);
+      ("c",  gen_ident client_equivalent);
+      ("d",  gen_defines defines);
+      ("i",  gen_ident ident);
+      ("id", gen_ident_deps ident_deps);
+      ("r",  gen_root root);
+      ("rd", gen_rpc_deps rpc_deps);
+      ("td", gen_type_deps type_deps);
     ]
 
   let generate env_ code =

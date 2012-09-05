@@ -86,9 +86,9 @@ JsOptions =
 
   @private mini_expr_to_string(infos,e:JsAst.mini_expr) =
     match e with
-    | ~{verbatim} -> verbatim
-    | ~{ident} -> JsIdent.rename(ident)
-    | {set_distant=idents} ->
+    | ~{v} -> v
+    | ~{i} -> JsIdent.rename(i)
+    | {s=idents} ->
       idents = LowLevelArray.filter_map_to_list((
         ident -> match JsCleaning.check_if_kept(infos,ident) with
                  | {kept} | {no_cleaning} -> {some=JsIdent.rename(ident)}
@@ -109,10 +109,10 @@ JsOptions =
         args = List.to_string_using("(\"","\")",",",idents)
         ident ^ args
       end
-    | {type_def=s}
-    | {type_use=s}
-    | {rpc_use=s}
-    | {rpc_def=s} -> s
+    | {td=s}
+    | {tu=s}
+    | {ru=s}
+    | {rd=s} -> s
 
   @private lexems = List.empty : JsAst.lexems
 
@@ -121,7 +121,7 @@ JsOptions =
   **/
   @private fold_elt_lexems(infos : JsCleaning.infos)(elt : JsAst.code_elt, lexems : JsAst.lexems) : JsAst.lexems =
     fold_me(me : JsAst.mini_expr, lexems : list(string)) = [mini_expr_to_string(infos,me)|lexems]
-    lexems = fold_content(fold_me, elt.content, lexems)
+    lexems = fold_content(fold_me, elt.c, lexems)
     lexems
 
   /**
@@ -180,9 +180,9 @@ JsOptions =
           "Fake Cleaning",
           // define identifier for the renaming
           iter(elt : JsAst.code_elt) =
-            match elt.ident with
-            | { ~ident ; ... } ->
-              JsIdent.define(ident)
+            match elt.i with
+            | { ~i ; ... } ->
+              JsIdent.define(i)
             | _ -> void
           iter(code) = iter_code(iter, code)
           do List.iter(iter, js_codes)

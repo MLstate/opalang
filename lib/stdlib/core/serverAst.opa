@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -23,20 +23,32 @@
  */
 
 type ServerAst.code = llarray(ServerAst.code_elt)
+
 type ServerAst.code_elt = {
-  ident : option(ServerAst.ident);
-  client_equivalent : option(JsAst.ident);
-  defines : ServerAst.definition;
-  ident_deps : llarray(ServerAst.ident)
-  rpc_deps : llarray(ServerAst.rpc_key);
-  type_deps : llarray(ServerAst.type_key);
-  root : Server.reference(bool);
+  /*ident*/
+  i : option(ServerAst.ident);
+  /*client_equivalent*/
+  c : option(JsAst.ident);
+  /*defines*/
+  d : ServerAst.definition;
+  /*ident_deps*/
+  id : llarray(ServerAst.ident)
+  /*rpc_deps*/
+  rd : llarray(ServerAst.rpc_key);
+  /*type_deps*/
+  td : llarray(ServerAst.type_key);
+  /*root*/
+  r : Server.reference(bool);
 }
 
 type ServerAst.definition =
-    {rpc:ServerAst.rpc_key}
-  / {`type`:ServerAst.type_key}
-  / {nothing}
+    /*rpc*/
+    {r:ServerAst.rpc_key}
+    /*type*/
+  / {t:ServerAst.type_key}
+    /*nothing*/
+  / {}
+
 type ServerAst.rpc_key = string
 type ServerAst.type_key = string
 type ServerAst.ident = JsAst.ident
