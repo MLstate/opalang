@@ -327,7 +327,7 @@ let process
       in
       List.iter iter_entry entries
     in
-    R.iter_with_name ~packages:true ~deep:false iter
+    R.iter_with_name ~packages:true ~deep:true iter
   in
   let separation = Separation.create () in
 
