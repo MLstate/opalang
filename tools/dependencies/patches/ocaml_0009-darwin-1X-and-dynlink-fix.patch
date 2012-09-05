@@ -1,0 +1,13 @@
+--- a/configure  2011-07-04 14:15:01.000000000 -0700
++++ b/configure  2011-08-26 10:18:42.000000000 -0700
+@@ -619,9 +619,9 @@
+   case "$host" in
+     *-*-cygwin*)                  natdynlink=true;;
+     i[3456]86-*-linux*)           natdynlink=true;;
+     x86_64-*-linux*)              natdynlink=true;;
+-    i[3456]86-*-darwin10.*)
++    i[3456]86-*-darwin1[012].*)
+       if test $arch64 == true; then
+         natdynlink=true
+       fi;;
+     i[3456]86-*-darwin[89]*)      natdynlink=true;;
