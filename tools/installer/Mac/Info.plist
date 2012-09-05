@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>OPA</string>
+	<string>Opa</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.mlstate.opa.pkg</string>
 	<key>CFBundleName</key>
-	<string>OPA</string>
+	<string>Opa</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1</string>
 	<key>IFMajorVersion</key>
@@ -44,7 +44,7 @@
         <array>
                 <dict>
                         <key>MessageKey</key>
-                        <string>To develop with OPA, you will first need to install XCode. XCode is distributed for free by Apple as an additional disc provided with MacOS X. You can also download it from Apple's website, at http://developer.apple.com/technology/xcode.html</string>
+                        <string>To develop with Opa, you will first need to install Command Line Tools fro Xcode. Xcode is distributed for free on the Mac App Store. You can also download it from Apple's website, at https://developer.apple.com/downloads. More instructions at https://github.com/MLstate/opalang/wiki/Getting-Opa.</string>
                         <key>SpecArgument</key>
                         <string>/usr/bin/as</string>
                         <key>SpecType</key>
