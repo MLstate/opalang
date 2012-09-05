@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -47,14 +47,14 @@ val pp : Format.formatter -> error -> unit
 
 module String :
 sig
-  val code : ?filename:string -> ?throw_exn:bool -> string -> JsAst.code
-  val expr : ?filename:string -> ?throw_exn:bool -> ?globalize:bool -> string -> JsAst.expr
-  val stm :  ?filename:string -> ?throw_exn:bool -> string -> JsAst.statement
+  val code : ?comments:bool -> ?filename:string -> ?throw_exn:bool -> string -> JsAst.code
+  val expr : ?comments:bool -> ?filename:string -> ?throw_exn:bool -> ?globalize:bool -> string -> JsAst.expr
+  val stm :  ?comments:bool -> ?filename:string -> ?throw_exn:bool -> string -> JsAst.statement
 end
 
 module File :
 sig
-  val code : ?throw_exn:bool -> string -> JsAst.code
-  val expr : ?throw_exn:bool -> ?globalize:bool -> string -> JsAst.expr
-  val stm : ?throw_exn:bool -> string -> JsAst.statement
+  val code : ?comments:bool -> ?throw_exn:bool -> string -> JsAst.code
+  val expr : ?comments:bool -> ?throw_exn:bool -> ?globalize:bool -> string -> JsAst.expr
+  val stm : ?comments:bool -> ?throw_exn:bool -> string -> JsAst.statement
 end

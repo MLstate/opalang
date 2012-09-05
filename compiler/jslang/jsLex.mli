@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -151,5 +151,5 @@ val stream : string -> bool -> Lexing.lexbuf -> token Stream.t
    These high level functions automatically init the lexer
    when called
 *)
-val stream_of_file : ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf
-val stream_of_string : ?filename:string -> ?lex_comments:bool -> string -> token Stream.t * Lexing.lexbuf
+val stream_of_file : ?comments:bool -> string -> token Stream.t * Lexing.lexbuf
+val stream_of_string : ?filename:string -> ?comments:bool -> string -> token Stream.t * Lexing.lexbuf

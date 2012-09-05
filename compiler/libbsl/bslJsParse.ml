@@ -402,7 +402,7 @@ let process code =
 
 let parse_file filename =
   try
-    let code = JsParse.File.code ~throw_exn:true filename in
+    let code = JsParse.File.code ~comments:true ~throw_exn:true filename in
     process code
   with
     JsParse.Exception e ->
@@ -410,7 +410,7 @@ let parse_file filename =
 
 let parse_string ?filename content =
   try
-    let code = JsParse.String.code ?filename ~throw_exn:true content in
+    let code = JsParse.String.code ~comments:true ?filename ~throw_exn:true content in
     process code
   with
     JsParse.Exception e ->

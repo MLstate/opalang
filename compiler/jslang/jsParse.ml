@@ -669,31 +669,31 @@ let global_expr ?(globalize=false) expr =
   else
     expr
 
-let stream_of_file lex_comments file =
+let stream_of_file ?comments file =
   try
-    JsLex.stream_of_file ~lex_comments:lex_comments file
+    JsLex.stream_of_file ?comments file
   with
   | Unix.Unix_error _ -> raise (Exception (FileError file))
 
 module String =
 struct
-  let code ?filename ?throw_exn str =
+  let code ?comments ?filename ?throw_exn str =
     build_parser ?throw_exn code
-      (JsLex.stream_of_string ?filename ~lex_comments:true str)
-  let expr ?filename ?throw_exn ?globalize str =
+      (JsLex.stream_of_string ?filename ?comments str)
+  let expr ?comments ?filename ?throw_exn ?globalize str =
     build_parser ?throw_exn ~globalize:(global_expr ?globalize)
-      expr (JsLex.stream_of_string ?filename ~lex_comments:true str)
-  let stm ?filename ?throw_exn str =
+      expr (JsLex.stream_of_string ?filename ?comments str)
+  let stm ?comments ?filename ?throw_exn str =
     build_parser ?throw_exn stm
-      (JsLex.stream_of_string ?filename ~lex_comments:true str)
+      (JsLex.stream_of_string ?filename ?comments str)
 end
 module File =
 struct
-  let code ?throw_exn file =
-    build_parser ?throw_exn code (stream_of_file true file)
-  let expr ?throw_exn ?globalize file =
+  let code ?comments ?throw_exn file =
+    build_parser ?throw_exn code (stream_of_file ?comments file)
+  let expr ?comments ?throw_exn ?globalize file =
     build_parser ?throw_exn ~globalize:(global_expr ?globalize) expr
-      (stream_of_file true file)
-  let stm ?throw_exn file =
-    build_parser ?throw_exn stm (stream_of_file true file)
+      (stream_of_file ?comments file)
+  let stm ?comments ?throw_exn file =
+    build_parser ?throw_exn stm (stream_of_file ?comments file)
 end

@@ -1,5 +1,5 @@
 (*
-    copyright © 2011 MLstate
+    copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -761,17 +761,17 @@ let stream filename lex_comments lexbuf =
       | t -> Some t
   )
 
-let stream_of_file ?(lex_comments=false) filename =
+let stream_of_file ?(comments=false) filename =
   try
     let content = File.content filename in
     FilePos.add_file filename content;
     let lexbuf = Lexing.from_string content in
-    stream filename lex_comments lexbuf, lexbuf
+    stream filename comments lexbuf, lexbuf
   with Sys_error diagnostic ->
     Printf.printf "Couldn't open file %s: %s\n%!" filename diagnostic;
     exit 1
 
-let stream_of_string ?(filename="nofile") ?(lex_comments=false) string =
+let stream_of_string ?(filename="nofile") ?(comments=false) string =
   let lexbuf = Lexing.from_string string in
-  stream filename lex_comments lexbuf, lexbuf
+  stream filename comments lexbuf, lexbuf
 }
