@@ -941,14 +941,17 @@ let generate_stub explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side 
       (annotmap, req) ex_ins_list expr_std_list in
 
   (* String identifier of function *)
-  let annotmap, f_id =
-    TypedExpr.tagged_string annotmap (ident_to_registering renamingmap ident) Q.Rpc_use in
+  let f_id = ident_to_registering renamingmap ident in
+  let annotmap, untagged_id =
+    TypedExpr.string annotmap f_id in
+  let annotmap, tagged_id =
+    TypedExpr.tagged_string annotmap f_id Q.Rpc_use in
 
   (* Match send_to *)
   let annotmap, send_to =
     let annotmap, send =
       OpaRPC.send_to_other_side ~side ~sync annotmap stdlib_gamma in
-    TypedExpr.apply gamma annotmap send [f_id; req; ex_tres]
+    TypedExpr.apply gamma annotmap send [tagged_id; req; ex_tres]
   in
 
   (* Match instantiate *)
@@ -970,8 +973,7 @@ let generate_stub explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side 
   in
   let annotmap, match_instantiate =
     let annotmap, err_stub = OpaRPC.error_stub ~side annotmap stdlib_gamma in
-    let annotmap, f_id = TypedExpr.shallow_copy annotmap f_id in
-    let annotmap, ko_expr = TypedExpr.apply gamma annotmap err_stub [f_id] in
+    let annotmap, ko_expr = TypedExpr.apply gamma annotmap err_stub [untagged_id] in
     let annotmap, any = TypedPat.any annotmap in
     TypedExpr.match_ty annotmap call_ins [(pat_arrow, send_to); (any, ko_expr)] typeof_res
   in
@@ -1008,7 +1010,8 @@ let generate_stub explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side 
       let annotmap, stub = TypedExpr.lambda annotmap [] stub in
       let annotmap, try_cache = OpaRPC.try_cache ~side annotmap stdlib_gamma in
       let annotmap, try_cache =
-        TypedExpr.apply gamma annotmap try_cache [f_id; stub] in
+        let annotmap, untagged_id = TypedExpr.shallow_copy annotmap untagged_id in
+        TypedExpr.apply gamma annotmap try_cache [untagged_id; stub] in
       TypedExpr.lambda annotmap [] try_cache
     else annotmap, stub in
   annotmap, gamma, stub, expand
