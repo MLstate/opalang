@@ -46,7 +46,6 @@ import stdlib.core.{js, rpc.core, pack}
     match D.unpack(key_ident_code, input.binary, input.pos) with
     | {success=(pos,[{Coded=[({Byte=0},[{String=k}])]}])} -> {success=({input with ~pos},{~k})}
     | {success=(pos,[{Coded=[({Byte=1},[{String=i}])]}])} -> {success=({input with ~pos},{~i})}
-    | {success=(pos,[{Coded=[({Byte=2},[{String=k},{String=i}])]}])} -> {success=({input with ~pos},~{k; i})}
     | {success=(_,[{Coded=[({Byte=n},_)]}])} -> {failure="Client_code.unser_key_ident: bad code {n}"}
     | {success=data} -> {failure="Client_code.unser_key_ident: bad unpack data {data}"}
     | {~failure} -> {~failure}
@@ -169,12 +168,6 @@ import stdlib.core.{js, rpc.core, pack}
        LowLevelArray.empty
 
   /**
-   * Register a code_elt.
-  **/
-  register_js_code_elt(js_elt : JsAst.code_elt) : void =
-    Core_client_code.register_js_code({ast=@llarray(js_elt)})
-
-  /**
    * Obtain client processed code as a string (rename and cleaned, but not minified)
   **/
   retrieve_js_file() : string =
@@ -207,10 +200,6 @@ import stdlib.core.{js, rpc.core, pack}
 /**
  * {1 Functions exported to the global namespace}
  */
-
-/* client code */
-@opacapi Client_code_register_js_code_elt = Client_code.register_js_code_elt
-Client_code_register_css_file = Client_code.register_css_file
 
 /**
  * Some export for pass "AddCSS"

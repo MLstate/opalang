@@ -60,8 +60,6 @@ struct
   let (!!) s = !! ("Client_code_" ^ s)
   let register_css_declaration = !! "register_css_declaration"
   let register_js_code = !! "register_js_code"
-  let register_js_code_ast = !! "register_js_code_ast"
-  let register_js_code_elt = !! "register_js_code_elt"
   let serialize_string_length = !! "serialize_string_length"
 end
 

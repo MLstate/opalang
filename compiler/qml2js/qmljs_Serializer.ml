@@ -102,9 +102,8 @@ struct
     | RpcDef of string
 
   type jsast_key_ident =
-    | KI_key of string
+    | KI_key of jsast_ident
     | KI_ident of jsast_ident
-    | KI_key_ident of string * jsast_ident
 
   type jsast_code_elt = {
     ident : jsast_key_ident ;
@@ -113,7 +112,10 @@ struct
     content : jsast_mini_expr list ;
   }
 
-  type jsast_code = jsast_code_elt list
+  type jsast_code = {
+    ast : jsast_code_elt list ;
+    plugin : string option ;
+  }
 
   (*
     A printer, just for debugging
@@ -132,7 +134,6 @@ struct
   let pp_key_ident fmt = function
     | KI_key s -> Format.fprintf fmt "{key:%S}" s
     | KI_ident s -> Format.fprintf fmt "{ident:%S}" s
-    | KI_key_ident (key, ident) -> Format.fprintf fmt "{key:%S ident:%S}" key ident
 
   let pp_definition fmt = function
     | `Rpc s -> Format.fprintf fmt "`Rpc %s" s
@@ -155,7 +156,8 @@ struct
       incr(i) ;
       pp_code_elt fmt elt
     in
-    Format.pp_list "@\n" pp_code_elt fmt code
+    Option.iter (Format.fprintf fmt "%s@\n") code.plugin;
+    Format.pp_list "@\n" pp_code_elt fmt code.ast
 
   module X =
   struct
@@ -369,7 +371,7 @@ struct
 
   let serialize
       ~client_roots
-      ?key
+      ?(key=false)
       ( elt : JsAst.code_elt ) =
     let ident, exprident =
       let jsident =
@@ -422,10 +424,10 @@ struct
     *)
     let ident =
       match key with
-      | Some key -> KI_key_ident (key, ident)
-      | None ->
+      | true -> KI_key ident
+      | false ->
           match exprident with
-          | Ident.FakeSource key -> KI_key_ident (key, ident)
+          | Ident.FakeSource _ -> KI_key ident
           | Ident.Source _ | Ident.Internal _ -> KI_ident ident
     in
     {
@@ -488,7 +490,6 @@ struct
     let ser_key_ident b = function
       | S.KI_key key -> Buffer.add_char b '\000'; ser_string b key
       | S.KI_ident ident -> Buffer.add_char b '\001'; ser_string b ident
-      | S.KI_key_ident (key,ident) -> Buffer.add_char b '\002'; ser_string b key; ser_string b ident
     let ser_root b = function
       | false -> Buffer.add_char b '\000'
       | true -> Buffer.add_char b '\001'
@@ -535,13 +536,16 @@ struct
       ser_key_ident b ident;
       ser_root b root;
       acc
-    let ser_code ((b,_) as acc) l =
+    let ser_code ((b,_) as acc) {JsSerializer. ast=l; plugin=_plugin} =
       ser_int b (List.length l);
       List.fold_left ser_code_elt acc l
-    let ser_code l =
+    let ser_ast ((b,_) as acc) l =
+      ser_int b (List.length l);
+      List.fold_left ser_code acc l
+    let ser_ast l =
       let b = Buffer.create 20000 in
       let acc = (b, []) in
-      let (_,l) = ser_code acc l in
+      let (_,l) = ser_ast acc l in
       let l =
         if Buffer.length b = 0 then l else
           let string = !cons#string (Buffer.contents b) in
@@ -663,7 +667,6 @@ struct
       match elt.S.ident with
       | S.KI_key k -> key k
       | S.KI_ident i -> ident i
-      | S.KI_key_ident (k, i) -> key_ident k i
     in
     let root =
       let value = !cons#bool elt.S.root in
@@ -686,6 +689,15 @@ struct
     code_elt
 
   let code code = list code_elt code
+
+  let ast c =
+    list
+      (function
+       | {JsSerializer. ast; plugin=None} ->
+           !cons#record ["ast", code ast]
+       | {JsSerializer. ast; plugin=Some plugin} ->
+           !cons#record ["ast", code ast; "plugin", !cons#string plugin])
+      c
 
   (*
     The dependencies of the generated code is hard to predict,
@@ -716,14 +728,14 @@ struct
              ) ([], []) elt.S.content
          in let content = List.rev content
          in defs@outs, {elt with S.content}::code
-      ) ([], []) code
+      ) ([], []) code.JsSerializer.ast
 
-  let insert_code ~kind ( js_code : JsSerializer.jsast_code ) ( server_code : QmlAst.code ) =
+  let insert_code ~kind ( js_code : JsSerializer.jsast_code list ) ( server_code : QmlAst.code ) =
     let () =
       #<If:JS_SERIALIZE>
         let outputer oc js_code =
           let fmt = Format.formatter_of_out_channel oc in
-          JsSerializer.pp_code fmt js_code
+          Format.pp_list "@\n" JsSerializer.pp_code  fmt js_code
         in
         let _ = PassTracker.file ~filename:"js_serialize" outputer js_code in
         ()
@@ -735,18 +747,24 @@ struct
           let register_js_code = OpaMapToIdent.val_ Opacapi.Client_code.register_js_code in
           let register_js_code = QCons.ident register_js_code in
           (* the order in code_elts doesn't matter *)
-          let code_elts, e = AdHocSerialize.ser_code js_code in
+          let code_elts, e = AdHocSerialize.ser_ast js_code in
           let register_call = !cons#apply register_js_code [ e ] in
           List.rev (Q.NewVal (label, [ Ident.next "js_code", register_call ]) :: code_elts)
       | `ast ->
           let register_js_code =
-            OpaMapToIdent.val_ Opacapi.Client_code.register_js_code_ast
+            OpaMapToIdent.val_ Opacapi.Client_code.register_js_code
           in
           let register_js_code = QCons.ident register_js_code in
           (* This is needed because we want that the js code registering be
              skipped by cps *)
-          let outs, js_code = pull_expr_out js_code in
-          let js_code = code (List.rev js_code) in
+          let outs, js_code =
+            List.fold_left
+              (fun (aouts, acode) code ->
+                 let outs, ast = pull_expr_out code in
+                 aouts@outs, {code with JsSerializer.ast}::acode
+              ) ([], []) js_code
+          in
+          let js_code = ast (List.rev js_code) in
           let js_code = !cons#record ["ast", js_code] in
           let register_call = !cons#apply register_js_code [ js_code ] in
           let register_elt = Ident.next "register_js_ast", register_call in

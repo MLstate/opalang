@@ -198,8 +198,7 @@ type JsCleaning.marked = JsIdentSet.t
     stack =
       match code_elt.i with
       | {k=_} -> stack
-      | {~i}
-      | {~i k=_} ->
+      | {~i} ->
         closure_keys = Closure.deps_of_var_for_cleaning(i)
         //do List.iter(closure_key -> jlog("CLIENT: {ident} is using ident {closure_key}"), closure_keys)
         List.append(closure_keys, stack)
@@ -213,8 +212,7 @@ type JsCleaning.marked = JsIdentSet.t
       ServerReference.get(code_elt.r)
       || (
         match code_elt.i with
-        | {~i}
-        | {~i k=_} ->
+        | {~i} ->
           is_root_ident(i)
         | { k = _ } -> true
       )
@@ -269,8 +267,7 @@ type JsCleaning.marked = JsIdentSet.t
   @private unsafe_get_ident(key_ident:JsAst.key_ident) =
     match key_ident with
     | {~i} -> i
-    | {~i k=_} -> i
-    | ~{k} -> error("unsafe_get_ident on {k}")
+    | ~{k} -> k
 
   /**
    * Initialize the structure needing for marking
@@ -280,9 +277,10 @@ type JsCleaning.marked = JsIdentSet.t
       unicity = infos.unicity
       not_uniq =
         match code_elt.i : JsAst.key_ident with
-        | {~k}
-        | {~k i=_} -> StringSet.mem(k, unicity)
-        | {i=_} -> false
+        | {k=i} ->
+          StringSet.mem(i, unicity)
+        | {i=_} ->
+          false
       if not_uniq
       then
         do ServerReference.set(code_elt.r, false)
@@ -311,14 +309,11 @@ type JsCleaning.marked = JsIdentSet.t
             ~{ infos with client_roots }
 
           | { ~k } ->
+            do JsIdent.define(k)
+            do Hashtbl.add(elements, k, code_elt)
             unicity = StringSet.add(k, unicity)
             ~{ infos with client_roots unicity }
 
-          | ~{ k i } ->
-            do JsIdent.define(i)
-            do Hashtbl.add(elements, i, code_elt)
-            unicity = StringSet.add(k, unicity)
-            ~{ infos with unicity client_roots }
         infos
     JsAst.fold_code(fold, code, infos)
 

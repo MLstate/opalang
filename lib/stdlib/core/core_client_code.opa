@@ -41,15 +41,22 @@
  * @opacapi
 **/
 type Client_code.input =
-     {adhoc : list(string); package_ : string}
-   / {ast : JsAst.code}
+  {adhoc : list(string); package_ : string}
+/ {ast : llarray(Client_code.unit)}
+
+/**
+ *
+ */
+type Client_code.unit =
+  {ast : JsAst.code; plugin : string}
+/ {ast : JsAst.code}
 
 /**
  * @opacapi
 **/
 type Client_code.output =
-     {adhoc : string; package_ : string}
-   / {ast : JsAst.code}
+  {adhoc : string; package_ : string}
+/ {ast : JsAst.code}
 
 /**
  * {3 Interface}
@@ -65,22 +72,29 @@ Core_client_code =
   @private
   js_codes = ServerReference.create([]:list(Client_code.output))
 
+  @private
+  already_seen_plugins = Hashtbl.create(5):Hashtbl.t(string, void)
+
   /**
    * Register client code on server to be served for all client
    * @opacapi
   **/
   register_js_code(js_code:Client_code.input) : void =
-    code =
-      match js_code with
-      | ~{adhoc package_} ->
-        adhoc = String.concat("",adhoc)
-        ~{adhoc package_}
-      | {ast=_} as v ->
-        v
-    ServerReference.update(js_codes,List.cons(code,_))
-
-  register_js_code_ast(code) =
-    @atomic(ServerReference.set(js_codes, [code | ServerReference.get(js_codes)]))
+    update(code) = ServerReference.update(js_codes,List.cons(code,_))
+    match js_code with
+    | ~{adhoc package_} ->
+      adhoc = String.concat("",adhoc)
+      update(~{adhoc package_})
+    | ~{ast} ->
+      /* Only add non already seen plugins */
+      LowLevelArray.iter(
+        | ~{ast} -> update(~{ast})
+        | ~{ast plugin} ->
+          if not(Hashtbl.mem(already_seen_plugins, plugin)) then
+            do Hashtbl.add(already_seen_plugins, plugin, void)
+            update(~{ast})
+        , ast
+      )
 
   /**
    * Retrieve client code on server to be served for all client
@@ -89,6 +103,7 @@ Core_client_code =
   retrieve_js_codes() : list(Client_code.output) =
     l = List.rev(ServerReference.get(js_codes))
     do ServerReference.set(js_codes,[])
+    do Hashtbl.clear(already_seen_plugins)
     do @assert(l != []) /* making sure this function is called at most once */
     l
 }}
@@ -128,7 +143,6 @@ Core_server_code =
 }}
 
 @opacapi Client_code_register_js_code = Core_client_code.register_js_code
-@opacapi Client_code_register_js_code_ast = Core_client_code.register_js_code_ast
 @opacapi Core_server_code_register_server_code = Core_server_code.register_server_code
 
 #<Ifstatic:OPA_BACKEND_QMLJS>

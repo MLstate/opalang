@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -86,7 +86,6 @@ sig
   type jsast_key_ident =
     | KI_key of string
     | KI_ident of jsast_ident
-    | KI_key_ident of string * jsast_ident
 
   type jsast_code_elt = {
     ident : jsast_key_ident ;
@@ -94,8 +93,10 @@ sig
     root : bool ;
     content : jsast_mini_expr list ;
   }
-
-  type jsast_code = jsast_code_elt list
+  type jsast_code = {
+    ast : jsast_code_elt list;
+    plugin : string option;
+  }
 
   (**
      A function for serializing the compile time JsAst. (from jslang).
@@ -106,7 +107,7 @@ sig
   *)
   val serialize :
     client_roots:IdentSet.t ->
-    ?key:string ->
+    ?key:bool ->
     JsAst.code_elt -> jsast_code_elt
 
 end
@@ -127,5 +128,5 @@ sig
      in the packages [stdlib.js], in the module [JsAst].
      Keep it synchronized.
   *)
-  val insert_code : kind:[`ast|`adhoc] -> JsSerializer.jsast_code -> QmlAst.code -> QmlAst.code
+  val insert_code : kind:[`ast|`adhoc] -> JsSerializer.jsast_code list -> QmlAst.code -> QmlAst.code
 end

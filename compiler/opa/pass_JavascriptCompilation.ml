@@ -96,7 +96,7 @@ let make_root key content =
 *)
 let client_serialization
     ~client_roots
-    rev_code ( env_js_input : Qml2jsOptions.env_js_input ) =
+    ( env_js_input : Qml2jsOptions.env_js_input ) =
   (*
     bsl projection: They are no longer roots since the generation
     of bypass projection uses Ident.
@@ -107,18 +107,18 @@ let client_serialization
         match elts with
         | `ast elts ->
             List.fold_left (
-              fun rev_code (unicity_index, js_elt) ->
+              fun rev_code (_unicity_index, js_elt) ->
                 let js_elt = JsUtils.globalize_native_ident js_elt in
                 let js_elt =
                   JsSerializer.serialize
                     ~client_roots
-                    ~key:unicity_index
+                    ~key:true
                     js_elt in
                 js_elt :: rev_code
             ) rev_code elts
         | `string s ->
             make_root (Digest.string s) s :: rev_code
-    ) rev_code env_js_input.Qml2jsOptions.js_init_contents
+    ) [] env_js_input.Qml2jsOptions.js_init_contents
   in
 
   (*
@@ -171,28 +171,16 @@ let parse_js_content ~optimized_conf ~key_prefix ~filename ~content =
 
 let serialize_js_content
     ~client_roots
-    ~key_prefix ~parsed_code
-    rev_code
+    ~parsed_code
     =
-  (*
-    We use a counter for distinguing statements from external files.
-    We assume that if we parse 2 time the same plugin, or external files,
-    the order returned by the parser is the same.
-  *)
-  let count = ref 0 in
   let fold rev_code js_elt =
-    let key =
-      incr(count) ;
-      key_prefix ^ "_item_" ^ (string_of_int !count)
-    in
     let js_elt =
       JsSerializer.serialize
         ~client_roots
-        ~key
         js_elt in
     js_elt :: rev_code
   in
-  List.fold_left fold rev_code parsed_code
+  List.fold_left fold [] parsed_code
 
 (*
   Process all the code.
@@ -330,25 +318,28 @@ let full_serialize
       client.QmlBlender.code
   in
 
-  let rev_code : JsSerializer.jsast_code = [] in
+  let rev_code = [] in
   let rev_code = List.fold_left
     (fun rev_code (ast,key_prefix) ->
        match ast with
        | `parsed parsed_code ->
-           serialize_js_content
-             ~client_roots
-             ~key_prefix
-             ~parsed_code
-             rev_code
+           {JsSerializer.
+               ast = serialize_js_content ~client_roots ~parsed_code;
+               plugin = Some key_prefix;
+           } :: rev_code
        | `unparsed code_elt ->
-           code_elt :: rev_code
+           {JsSerializer.
+               ast = [code_elt];
+               plugin = Some key_prefix;
+           } :: rev_code
     ) rev_code (List.rev rev_ast) in
 
   (* 3) client code *)
   let rev_code =
-    client_serialization
-      ~client_roots
-      rev_code env_js_input
+    {JsSerializer.
+       ast = client_serialization ~client_roots env_js_input;
+       plugin = None
+    } :: rev_code
   in
 
   (* compositionality -- save *)

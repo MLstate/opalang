@@ -79,9 +79,8 @@ type JsAst.content = llarray(JsAst.mini_expr)
  * The content contains the complete code_element (header and concrete syntax include)
 **/
 type JsAst.key_ident =
-   { k : string }
+   { k : JsAst.ident }
  / { i : JsAst.ident }
- / { k : string ; i : JsAst.ident }
 
 /**
  * The run-time representation of a js top-level declaration.
