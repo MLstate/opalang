@@ -231,8 +231,6 @@ struct
       (* Packages and plugins required by file *)
       plugin_requires : BPI.plugin_basename list;
       opx_requires : string list;
-
-      generated_code : JsAst.code;
     }
     let pass = "ServerJavascriptCompilation"
     let pp fmt {opx_requires} =
@@ -326,7 +324,6 @@ struct
     let save = {S.
                 plugin_requires;
                 opx_requires;
-                generated_code = js_code;
                } in
     R.save save;
 
@@ -446,11 +443,11 @@ var opa_dependencies = [%s];
     ) loaded_files;
 
     R.iter_with_dir ~deep:true ~packages:true
-      (fun package_dir saved ->
+      (fun package_dir _ ->
         Format.fprintf fmt "// From %s\n"
           (Filename.basename package_dir);
-        Format.fprintf fmt "%a\n" JsPrint.pp_min#code
-          saved.S.generated_code);
+         Format.fprintf fmt "%s\n" (File.content (Filename.concat package_dir "a.js"))
+      );
 
     let projections = get_js_init env_js_input in
     List.iter (fun (_, code) ->
