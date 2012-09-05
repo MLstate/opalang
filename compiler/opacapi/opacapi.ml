@@ -712,6 +712,8 @@ struct
     let spawn = !! "spawn"
     let thread_context = !! "thread_context"
     let toplevel_wait = !! "toplevel_wait"
+    let topk = !! "topk"
+    let topwait = !! "topwait"
     let uncps_native = !! "uncps_native"
     let wait = !! "wait"
     let with_thread_context = !! "with_thread_context"

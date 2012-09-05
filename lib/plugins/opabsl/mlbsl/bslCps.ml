@@ -121,6 +121,14 @@ let user_cont f = QmlCpsServerLib.cont_ml (fun a -> ignore (f a))
 ##register [no-projection, restricted : cps] loop_schedule : opa['a] -> void
 let loop_schedule _ = Scheduler.run scheduler
 
+type topblack
+let topval = ref ((Obj.magic 0) : topblack)
+  ##register [opacapi, no-projection, restricted : cps] topk : opa['a] -> void
+let topk a = topval := ((Obj.magic a):topblack)
+
+##register [opacapi, no-projection, restricted : cps] topwait : _unit -> opa['a]
+let topwait () = Obj.magic (!topval)
+
 (** Notcps_compatibility : add a dummy implementation for some primitive,
     so that the same (qml/opa) code using cps features can be compiled
     using them, without changing its semantic without --cps mode *)

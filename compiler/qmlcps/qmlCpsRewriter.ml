@@ -1582,18 +1582,16 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           | _ ->
               begin
                 let asynchronous = env.options.toplevel_concurrency || is_asynchronous in
-                let local_barrier_id, barrier_id, make_barrier =
-                  let barrier_id = Ident.refreshf ~map:"%s_barrier" id in
-                  let make_barrier = Barrier.make barrier_id in
-                  let local_barrier_id = if asynchronous then Ident.refresh barrier_id else barrier_id in
-                  local_barrier_id, barrier_id, make_barrier
-                in
-                let toplevel_cont value = Barrier.release ~barrier_id:local_barrier_id ~value in
-                let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
                 let expr = simpl_let_in expr in
                 if asynchronous
                 then
                   begin
+                    let local_barrier_id, barrier_id, make_barrier =
+                      let barrier_id = Ident.refreshf ~map:"%s_barrier" id in
+                      let make_barrier = Barrier.make barrier_id in
+                      let local_barrier_id = Ident.refresh barrier_id in
+                      local_barrier_id, barrier_id, make_barrier
+                    in
                     private_env_add id barrier_id private_env,
                     [ (barrier_id,
                        QC.letin [local_barrier_id, make_barrier]
@@ -1604,15 +1602,27 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                   end
                 else
                   begin
+                    let toplevel_cont value =
+                      let cpstopcont =
+                        let k =
+                          qml_bycps_call Opacapi.Opabsl.BslCps.topk in
+                        if env.options.qml_closure && env.options.server_side then
+                          let v = Ident.next "v" in
+                          QC.lambda [v] (QC.apply k [QC.ident v])
+                        else k
+                      in
+                      QC.apply cpstopcont [QC.ident value]
+                    in
+                    let private_env, expr =
+                      qml_of_il ~toplevel_cont
+                        env private_env il_term in
+                    let expr =
+                      let qmltopwait =
+                        qml_bycps_call Opacapi.Opabsl.BslCps.topwait in
+                      QC.apply qmltopwait [expr]
+                    in
                     private_env,
-                    [ (id,
-                       QC.letin [Ident.nextf "before", Barrier.before_wait ()]
-                         (QC.letin [barrier_id, make_barrier]
-                            (QC.letin [Ident.next "barrier_unit", expr]
-                               (Barrier.toplevel_wait barrier_id)
-                            )
-                         )
-                      ) ]
+                    [ (id, expr) ]
                   end
               end
         in
