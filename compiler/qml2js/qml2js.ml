@@ -303,6 +303,12 @@ struct
 
   let compilation_generation env_opt env_bsl plugin_requires
       bundled_plugin env_js_input =
+    let already_required =
+      R.fold ~deep:true ~packages:true
+        (fun acc saved ->
+           StringSet.add_list (List.map Filename.basename saved.S.opx_requires) acc
+        ) StringSet.empty
+    in
     let js_init =
       if env_opt.modular_plugins then
         (* FIXME: there's probably a bug when fixing projections
@@ -339,16 +345,24 @@ struct
     (* Add package dependencies
        NB by not reversing this we were getting bugs in the order of
        the requires *)
-    let opx_requires = List.rev_map (fun opx ->
-      require_stm None (Filename.basename opx)
-    ) opx_requires in
+    let opx_requires =
+      List.map Filename.basename opx_requires in
+    let opx_requires =
+      List.filter
+        (fun opx -> not (StringSet.mem opx already_required))
+        opx_requires in
+    let opx_requires =
+      List.rev_map
+        (fun opx -> require_stm None opx)
+        opx_requires in
 
     let requires = runtime_requires @ plugin_requires @ opx_requires in
     let print_content fmt =
       Format.fprintf fmt "%a\n%s%a\n"
         JsPrint.pp_min#code requires
         (Option.default "" bundled_plugin)
-        JsPrint.scoped_pp_min#code js_code in
+        JsPrint.scoped_pp_min#code js_code
+    in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
     OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
