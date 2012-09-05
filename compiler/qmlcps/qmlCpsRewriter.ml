@@ -1268,7 +1268,12 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
               fun_body
             #<End>
           in
-          let lambda = QCW.lambda ~label [id] fun_body in
+          let lambda =
+            match fun_body with
+            | Q.Apply (_, lambda, [Q.Ident (_, i)]) when Ident.equal i id ->
+                (* Avoid useless eta expansion *) lambda
+            | _ -> QCW.lambda ~label [id] fun_body
+          in
           match parent with
           | None ->
              let make_continuation =
