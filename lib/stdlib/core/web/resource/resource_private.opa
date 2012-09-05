@@ -116,7 +116,7 @@ type dynamic_resource_private = { rc_name    : string;
 /**
  * {1 Interface}
  */
-
+@server_private
 Resource_private =
 {{
   @private
