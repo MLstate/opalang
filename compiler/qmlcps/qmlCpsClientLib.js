@@ -199,8 +199,9 @@ function execute1(k, arg) {
  */
 function executexn(k, exn) {
     var payload = k[1][2];
-    (payload ? payload : default_handler_cont(k)[0])
-        .apply(k[1][0], [exn]);
+    payload = (payload?payload:default_handler_cont(k)[0]);
+    payload.apply(k[1][0],[exn]);
+
 }
 
 function ccont(k, f) {
@@ -209,7 +210,7 @@ function ccont(k, f) {
 
 function catch_(k, h) {
     var k = ccont(k, k[0]);
-    k[1][2] = h;
+    k[1][2] = function(x){ return h(x, k) };
     return k;
 }
 
