@@ -12,6 +12,13 @@
 
 /**
  * @author Quentin Bourgerie
+ *
+ *
+ * /!\ This file is shared between server (node) and client, it's why you can
+ * found the Ifstatic preprocessing directive.  Indeed even if the client code
+ * is not cps rewrited, the cps runtime is anyway used by the client (stdlib).
+ * But the client cps runtime is a bit different than the server cps
+ * runtime. It's why they are Ifstatic preprocessing directive.
  */
 
 /**
@@ -292,8 +299,12 @@ function loop_schedule()
             } else {
                 task = tasks.shift();
                 var r = task();
-                for(var i=0; i<100 && r && r !== js_void; i++) r =execute1(r[0], r[1]);
-                if (r && r !== js_void) push(task_from_return(r[0], [r[1]]));
+                #<Ifstatic:OPABSL_NODE>
+                for(var i=0; i<100 && r; i++) r =execute1(r[0], r[1]);
+                if (r) push(task_from_return(r[0], [r[1]]));
+                #<Else>
+                execute1(r[0], r[1])
+                #<End>
             }
         }
     } catch(e) {
@@ -328,7 +339,11 @@ function return_(k, x){
 
 function execute(k, x){
     var r;
+    #<Ifstatic:OPABSL_NODE>
     if (r = execute1(k, x)) push(task_from_return(r[0], [r[1]]));
+    #<Else>
+    execute1(k, x);
+    #<End>
 }
 
 /**
