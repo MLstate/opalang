@@ -65,6 +65,17 @@ let process formatter (files : (path * JsAst.code) list) =
 let die message =
   Printf.eprintf "error: %s\n" message; exit 1
 
+
+let pp_nodejs filename contents =
+  let ppenv =
+    let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
+    let ppenv = Pprocess.add_env "OPABSL_NODE" "1" ppenv in
+    Pprocess.add_env "OPA_CPS_CLIENT" "1" ppenv in
+  let ppopt = Pprocess.default_options ppenv in
+  let contents = Pprocess.process ~name:filename
+    Pplang.js_description ppopt contents in
+  contents
+
 let _ =
   let args = List.tl (Array.to_list Sys.argv) in
   match read_cmd_line_args args with
@@ -74,6 +85,7 @@ let _ =
     (* Read files and reexport their identifiers *)
     let files = List.map (fun filename ->
       let content = File.content filename in
+      let content = pp_nodejs  filename content in
       let content =
         try
           JsParse.String.code ~throw_exn:true content
