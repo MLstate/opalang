@@ -390,7 +390,7 @@ function uncps(pk, f, name) {
 function cps(f) {
     return function (){
         var a = Array.prototype.slice.call(arguments);
-        var k = arguments.pop();
+        var k = a.pop();
         return return_(k, f.apply(this, a));
     }
 }
