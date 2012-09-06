@@ -1,9 +1,10 @@
 New features:
 
-  * opa bundle: added a new CLI to `opa` to bundle the JS, depends and stdlib of an app
-    		for an easy deployment on a clean server.
-		`opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
-  * opa create has a new mvc-small template, the two others has been also updated
+  * Tools:
+    - opa bundle: added a new CLI to `opa` to bundle the JS, depends and stdlib of an app
+      for an easy deployment on a clean server.
+      `opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
+    - opa create has a new mvc-small template, the two others has been also updated
 
   * Stdlib :
     - stdlib.io.file: file watcher, readdir
@@ -11,11 +12,26 @@ New features:
 
 Improvements:
 
-  * improved the launch script on Mac: download and open node installer if necessary
-  * opa-create is not compiled during installation anymore
-  * various improvements for opa cerate
-  * we do not check node max version anymore
-  * use installed mongod if exists in PATH
+  * Compiler:
+    - Optimized pattern matching of the server code (propagates type annotation)
+    - Optimized JavaScript cps runtime
+    - Simplification of toplevel wait of cps values
+    - Reduction of the size of the runtime JavaScript client AST
+    - Increased sharing of runtime gamma
+    - Avoid useless cps eta expansion
+    - Improved JavaScript inlining
+    - Avoid useless require to speedup the launch time
+    - Improved cleaning of JavaScript client code
+
+  * Stdlib:
+    - Added Iter.cache
+
+  * Other:
+    - improved the launch script on Mac: download and open node installer if necessary
+    - opa-create is not compiled during installation anymore
+    - various improvements for opa create
+    - we do not check node max version anymore
+    - use installed mongod if exists in PATH
 
 Packaging:
 
@@ -30,9 +46,21 @@ Updated APIs:
 
 Bug fixes:
 
-  * Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
-  * opa-create now takes the remaining arguments given to `opa create`
-  * SmtpClient: fixed mail send when using default_options only
+  * Compiler:
+    - Reset plugins loader between several compilation unit
+    - Separates client and server side projection of bypasses
+
+  * Stdlib:
+    - Database: Dbset iterator are now cached.
+    - SmtpClient: fixed mail send when using default_options only
+    - OpaSerialize: Opa record deserialization from smaller json record
+    - Server: Don't decode urls
+
+  * Other:
+    - Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
+    - opa-create now takes the remaining arguments given to `opa create`
+    - Dom: Xhtml attributes and namespaces
+    - 32bits compilation
 
 
 2012.07.30, Version 1.0.5 (stable), v2988
@@ -52,10 +80,10 @@ Improvements:
     - Added the new 'pure' bsltag, allows some JS optimizations
     - Do not copy standard Opa JS plugins and packages when building object
     - Output a package.json descriptor for packages and plugins
-	- Add flag --package-version to specify version in package.json
-	- Opa now accepts .js and .nodejs files when compiling packages and
-	  executables. Files should be in plugin format and used with standard
-	  plugin syntax
+    - Add flag --package-version to specify version in package.json
+    - Opa now accepts .js and .nodejs files when compiling packages and
+      executables. Files should be in plugin format and used with standard
+      plugin syntax
 
   * Node.js runtime:
     - Launch script improved, with node version check and node module dependencies check
