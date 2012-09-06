@@ -52,6 +52,7 @@ File = {{
   content = %% BslFile.content %% : string -> binary
   content_opt = %% BslFile.content_opt %% : string -> option(binary)
   is_directory = %% BslFile.is_directory %% : string -> bool
+  /** Warning: not working on node backend */
   mimetype =
     #<Ifstatic:OPA_BACKEND_QMLJS>
     _ -> none
