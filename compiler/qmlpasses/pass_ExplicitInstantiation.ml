@@ -291,6 +291,8 @@ module type MEMO = sig
   val ident : side:[< `server | `client ] -> t -> Ident.t
 end
 
+let idents = ref IdentSet.empty
+
 module MakeMemoUtils(M:BaseMapSig.S)
   (S:sig
      val extract : one_side_memo -> (Ident.t * Q.ty) M.t
@@ -310,16 +312,21 @@ struct
     | `client -> S.assign client_memo (M.add key value (S.extract client_memo))
   let hsize = 10
   let hash x = String.sub (Digest.to_hex (Digest.string x)) 0 hsize
+
   let ident ~side t =
-    match side with
-    | `client ->
-        let s = Format.to_string S.pp t in
-        let s = if String.length s > hsize then hash s else s in
-        Ident.fake_source s (* fake source because we want collisions between different packages
-                             * (in the js only, because in caml, identifiers are in different
-                             * scopes anyway) *)
-    | `server ->
-        Ident.next "memo_ty"
+    let ident =
+      match side with
+      | `client ->
+          let s = Format.to_string S.pp t in
+          let s = if String.length s > hsize then hash s else s in
+          Ident.fake_source s (* fake source because we want collisions between different packages
+                               * (in the js only, because in caml, identifiers are in different
+                               * scopes anyway) *)
+      | `server ->
+          Ident.next "t"
+    in
+    idents := IdentSet.add ident !idents;
+    ident
 end
 
 
@@ -1830,6 +1837,16 @@ let finalize_memoized_defintions obj =
     let depends =
       List.map (fun (ident, _expr, ty) -> (ident, ty))
         memo.definitions in
+    let set = !idents in
+    let filter (i,_) = IdentSet.mem i set in
+    memo.memoty <- TyMap.filter_val filter memo.memoty;
+    memo.memotyl <- TylMap.filter_val filter memo.memotyl;
+    memo.memostyl <- StylMap.filter_val filter memo.memostyl;
+    memo.memotsc <- TscMap.filter_val filter memo.memotsc;
+    memo.memotyvl <- TyvlMap.filter_val filter memo.memotyvl;
+    memo.memorowvl <- RowvlMap.filter_val filter memo.memorowvl;
+    memo.memocolvl <- ColvlMap.filter_val filter memo.memocolvl;
+    memo.memoquant  <- QuantMap.filter_val filter memo.memoquant;
     memo.definitions <- [];
     memo.depends <- depends;
   in
@@ -1838,6 +1855,7 @@ let finalize_memoized_defintions obj =
     aux client_memo;
     R_memo.save (server_memo, client_memo);
   );
+  idents := IdentSet.empty;
   reset_memo server_memo;
   reset_memo client_memo
 
