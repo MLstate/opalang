@@ -100,6 +100,7 @@ type ('a,'b,'c) strictly_non_expansive =
     | `doctype of 'b
     | `sliced_expr
     | `warncoerce
+    | `extendwith
     | `specialize of 'c
     | `may_cps
     | Q.opavalue_directive
