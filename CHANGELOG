@@ -5,6 +5,10 @@ New features:
 		`opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
   * opa create has a new mvc-small template, the two others has been also updated
 
+  * Stdlib :
+    - stdlib.io.file: file watcher, readdir
+    - stdlib.system: explicit asynchronous shell commands
+
 Improvements:
 
   * improved the launch script on Mac: download and open node installer if necessary
