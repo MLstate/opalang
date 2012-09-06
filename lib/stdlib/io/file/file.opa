@@ -27,6 +27,24 @@ import-plugin unix
  */
 
 /**
+  * Type of file event.
+  * For :
+  *  - directory, 'rename' can be a sub-file/directory creation/deletion, 'change' is a sub-file change
+  *  - file, 'rename' is file deletion and creation, 'change' is a file modification
+  *  The string indicates which files has been modified, changed ...
+  */
+type File.raw_event = {rename:string} / {change:string}
+
+/** Equivalent to File.raw_event */
+type File.event = File.raw_event
+
+/** A file watcher handler */
+type File.watcher = external
+
+/** Options for File.onchange function */
+type File.onchange = {persistent:bool}
+
+/**
   * A module for very basic file access
   */
 File = {{
@@ -49,9 +67,25 @@ File = {{
     then {success=r}
     else {failure=err}
 
+  onchange_default = {persistent=false} : File.onchange
+
+  /** if the path of the file is changed, the behaviour is undefined */
+  onchange(path1,conf_opt:option(File.onchange))(f) =
+    conf = conf_opt ? onchange_default
+    g(event,path2) = f(path1,Raw.conv(event,path2))
+    watcher = Raw.onchange(path1,conf.persistent,g)
+    {stop() = Raw.watcher_stop(watcher)}
 
   @private
   Raw = {{
+    conv(event,path2) = match event
+      "rename" -> {rename=path2}
+      "change" -> {change=path2}
+      _ ->  do Log.warning("File.onchange","Unknown event {Debug.dump(event)}")
+            conv("change",path2)
+      end
+    onchange = %% BslFile.onchange %% : string, bool, (string,string->void) -> File.watcher
+    watcher_stop = %% BslFile.filewatcher_stop %% : File.watcher -> void
     readdir = %% BslFile.readdir %% : string -> (string,llarray(string))
   }}
 

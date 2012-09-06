@@ -137,6 +137,16 @@ let content_opt x =
 ##register content : string -> binary
 let content x = buffer_of_string (File.content x)
 
+(**
+   {1 Todo}
+*)
+##extern-type File.watcher
+
+##register onchange : string, bool, (string, string -> void) -> File.watcher
+let onchange _ _ _ = assert false
+
+##register filewatcher_stop : File.watcher -> void
+let filewatcher_stop _ = assert false
 
 ##register [cps-bypass] readdir : string, continuation(tuple_2(string,llarray(string))) -> void
 let readdir dir cont =
