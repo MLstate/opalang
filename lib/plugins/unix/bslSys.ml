@@ -16,6 +16,11 @@ module BslNativeLib = BslUtils
 let caml_list_to_opa_list =
   BslNativeLib.caml_list_to_opa_list
 
+##opa-type outcome('a,'b)
+##opa-type System.process
+##opa-type System.process.out
+
+
 (** This returns the raw arguments from the command line,
  *  it's used to seed the Opa version of ServerArgs.
  *  We also kill off ServerArgs to prevent multiple reading of the same args.
@@ -92,6 +97,10 @@ let do_exit = ServerLib.do_exit
     with
     | Unix.Unix_error (error, a, b) ->
         Printf.sprintf "Unix_error (%S, %S, %S)" (Unix.error_message error) a b
+
+  ##register  async_shell_exec : string, string, (System.process.out -> void) -> System.process
+  let async_shell_exec _ _ _ = assert false
+
 ##endmodule
 
 

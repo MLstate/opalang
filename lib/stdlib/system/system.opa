@@ -38,10 +38,23 @@ type System.wait_flag = external
 
 type System.pid = int
 
+type System.process = {
+     kill : -> void
+     pid  : System.pid
+}
+
+type System.process.out = {
+     stdout: string
+     stderr: string
+     error : option(string)
+}
+
+
 /**
  * Binding with module System
  * <!> Not for casual user
 **/
+@server_private
 System = {{
 
 #<Ifstatic:OPA_BACKEND_QMLJS>
@@ -135,5 +148,24 @@ System = {{
    * @return raw result
    */
   exec = @may_cps(%%bslSys.process.exec%%) : string, string -> string
+
+
+  @private
+  async_shell_exec = %%bslSys.process.async_shell_exec%% : string, string, (System.process.out->void) -> System.process
+
+  shell_exec(command,input) =
+    m = Mutex.create()
+    r = Reference.create(none)
+    do Mutex.lock(m)
+    p = (async_shell_exec(command,input, _)){ out ->
+      do Reference.set(r, some(out))
+      Mutex.unlock(m)
+    }
+    result() =
+      do Mutex.lock(m)
+      r = Reference.get(r) ? do Mutex.unlock(m) error("shell_exec no result")
+      do Mutex.unlock(m)
+      r
+    ~{p result}
 
 }}
