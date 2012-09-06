@@ -10,6 +10,7 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 import-plugin unix
+import stdlib.system
 /**
  * Utils for calling dot (using external plugin)
  * Part of the fgraph lib
@@ -63,11 +64,10 @@ Dot = {{
    * The given source should be written in the dot syntax
   **/
   convert(format : Dot.format, source) =
-    exec = %%BslSys.Process.exec%%
     format = format_to_string(format)
     command = "dot -T{format}"
     do Log.info("Dot","calling external dot tool")
-    exec(command, source)
+    System.exec(command, source)
 
   /**
    * Parse the svg output of {it dot}, and extract the svg part (hackish)
