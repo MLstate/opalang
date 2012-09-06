@@ -6,9 +6,13 @@ New features:
       `opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
     - opa create has a new mvc-small template, the two others has been also updated
 
-  * Stdlib :
+  * Stdlib:
     - stdlib.io.file: file watcher, readdir
     - stdlib.system: explicit asynchronous shell commands
+    - Added Iter.cache
+
+  * Plugins:
+    - New syntax to plugins registering
 
 Improvements:
 
@@ -23,9 +27,6 @@ Improvements:
     - Avoid useless require to speedup the launch time
     - Improved cleaning of JavaScript client code
 
-  * Stdlib:
-    - Added Iter.cache
-
   * Other:
     - improved the launch script on Mac: download and open node installer if necessary
     - opa-create is not compiled during installation anymore
@@ -33,16 +34,16 @@ Improvements:
     - we do not check node max version anymore
     - use installed mongod if exists in PATH
 
-Packaging:
-
-  * added dependency to mongodb for the debian package
-
 Updated APIs:
 
-  * Bootstrap
+  * Bootstrap:
     - upgraded to Bootstrap 2.1.0
     - removed support of bootstrap 2.0.2 and 2.0.3
     - removed support for import stdlib.themes.bootstrap.v1.X.X, but added v2.0.4
+
+  * Crypto:
+    - change interface of Crypto.Base64.encode* to binary -> string
+    - change interface of Crypto.Base64.decode* to string -> binary
 
 Bug fixes:
 
@@ -55,6 +56,7 @@ Bug fixes:
     - SmtpClient: fixed mail send when using default_options only
     - OpaSerialize: Opa record deserialization from smaller json record
     - Server: Don't decode urls
+    - Crypto.Base64
 
   * Other:
     - Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
