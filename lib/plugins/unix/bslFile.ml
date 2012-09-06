@@ -16,6 +16,10 @@ module U = Unix
 ##extern-type time_t = int
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 ##extern-type binary = Buf.t
+##extern-type llarray('a) = Obj.t array
+##extern-type tuple_2('a, 'b) =  ('a, 'b) BslUtils.opa_tuple_2
+##property[endmli]
+
 (** *****************************)
 
 ##register mlstate_dir : void -> string
@@ -132,3 +136,21 @@ let content_opt x =
 (*Deprecated: use [content_cps]*)
 ##register content : string -> binary
 let content x = buffer_of_string (File.content x)
+
+
+##register [cps-bypass] readdir : string, continuation(tuple_2(string,llarray(string))) -> void
+let readdir dir cont =
+  let cont t = QmlCpsServerLib.return cont (BslUtils.opa_tuple_2 t) in
+  try
+    let dir_handle = Unix.opendir dir in
+    let rec next l () =
+      try
+        let l = (Unix.readdir dir_handle)::l in
+        Scheduler.push Scheduler.default (next l)
+      with
+      | ex -> (
+        Unix.closedir dir_handle;
+        cont ((if ex=End_of_file then "" else "error while reading directory"),(Array.of_list (List.rev l)))
+      )
+    in Scheduler.push Scheduler.default (next [])
+  with ex -> cont ("can not open dir "^dir,[||])

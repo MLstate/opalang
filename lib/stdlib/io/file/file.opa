@@ -42,4 +42,17 @@ File = {{
     #<End>
   basename = %% BslFile.basename %% : string -> string
   dirname = %% BslFile.dirname %% : string -> string
+
+  readdir(path):outcome(llarray(string),string) =
+    (err,r) = Raw.readdir(path)
+    if err==""
+    then {success=r}
+    else {failure=err}
+
+
+  @private
+  Raw = {{
+    readdir = %% BslFile.readdir %% : string -> (string,llarray(string))
+  }}
+
 }}
