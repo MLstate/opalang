@@ -7,6 +7,42 @@
 MLSTATELIBS=/opt/mlstate
 PREFIX=/usr/local
 
+sudo mkdir -p $PREFIX/bin
+sudo mkdir -p $PREFIX/share/man/man1
+
+DEST_EMACS=/Library/Application\ Support/Emacs/site-lisp/opa-mode
+
+logger -t "OPA" "Postflight starting"
+
+#logger -t "OPA" "Creating shortcut"
+
+logger -t "OPA" "Installing opa shortcuts and manpages"
+
+$MLSTATELIBS/share/opa/install.sh --dir $MLSTATELIBS --ocaml-prefix $MLSTATELIBS --link $PREFIX/bin
+
+logger -t "OPA" "Add symbolic links from '$PREFIX/bin' to '$MLSTATELIBS/bin'"
+ls $MLSTATELIBS/bin | while read x; do
+    sudo ln -s $MLSTATELIBS/bin/$x $PREFIX/bin/$x || logger -t "OPA" " -- link $PREFIX/bin/$x could not be created."
+done
+
+logger -t "OPA" "Add symbolic links from '$PREFIX/share/man/man1' to '$MLSTATELIBS/share/man/man1'"
+ls $MLSTATELIBS/share/man/man1 | while read x; do
+    sudo ln -s $MLSTATELIBS/share/man/man1/$x $PREFIX/share/man/man1/$x || logger -t "OPA" " -- link $PREFIX/share/man/man1/$x could not be created."
+done
+
+
+logger -t "OPA" "Installing Emacs plug-in"
+sudo mkdir -p "$DEST_EMACS"
+sudo install $MLSTATELIBS/share/opa/emacs/opa-mode.el "$DEST_EMACS/"
+sudo install $MLSTATELIBS/share/opa/emacs/opa-js-mode.el "$DEST_EMACS/"
+sudo install $MLSTATELIBS/share/opa/emacs/site-start.el "$DEST_EMACS/"
+
+logger -t "OPA" "Set ownership to 'root'"
+sudo chown -f -R root:wheel $MLSTATELIBS
+
+
+logger -t "OPA" "Postflight complete"
+
 remove() {
     if ! [ $(ls -al "$PREFIX/bin/$1" 2>/dev/null | grep "$MLSTATELIBS" | wc -l) -eq 0 ]; then
 	echo "Removing $PREFIX/bin/$1"
@@ -49,5 +85,6 @@ remove "opatop"
 remove "opadoc"
 remove "opa-db-tool"
 remove "opa-db-server"
+remove "opa-db-cloud"
 
 logger -t "OPA" "Postinstall complete"

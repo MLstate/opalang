@@ -260,7 +260,7 @@ if [ "$PKG" = "true" ]; then
     # if [ $NOOCAML = "true" ]; then
     # 	 MOREOPTS="--filter lib/opa/static/*"
     # fi
-    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPALANG/tools/installer/Mac/Resources/ --scripts $OPALANG/tools/installer/Mac/Scripts --info $OPALANG/tools/installer/Mac/Info.plist --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR"
+    $PACK_MAN/Contents/MacOS/PackageMaker --root $INSTALLDIR --resources $OPALANG/tools/installer/Mac/Resources --scripts $OPALANG/tools/installer/Mac/Scripts --info $OPALANG/tools/installer/Mac/PackageInfo --id com.mlstate.opa.pkg -o "$MYDIR/$PKG_NAME.pkg" -n $BUILDNUM --domain system --root-volume-only --discard-forks -m --verbose --title "Opa $VERSION_MAJOR" --target 10.5
     echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
     if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
 	rm "$MYDIR/$PKG_NAME.dmg"
