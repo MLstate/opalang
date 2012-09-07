@@ -111,7 +111,6 @@ then
 
     grep -v "^ \-\-" $DIFFCHANGELOG > $DIFFCHANGELOGNOCOMMENT
     cat $DIFFCHANGELOGNOCOMMENT $CHANGELOG > $CHANGELOGPROP
-    echo $MASTERTAG > $CHANGELOGTAGF
 
     cat $CHANGELOGPROP > $CHANGELOG
 
@@ -120,3 +119,5 @@ then
 else
     echo Nothing to do
 fi
+
+echo $MASTERTAG > $CHANGELOGTAGF
