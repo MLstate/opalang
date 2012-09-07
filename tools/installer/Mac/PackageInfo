@@ -43,7 +43,7 @@
         <array>
                 <dict>
                         <key>MessageKey</key>
-                        <string>To develop with Opa, you will first need to install Command Line Tools for Xcode. Xcode is distributed for free on the Mac App Store. You can also download it from Apple's website, at https://developer.apple.com/downloads. More instructions at https://github.com/MLstate/opalang/wiki/Getting-Opa.</string>
+                        <string>To develop with Opa, you will first need to install Command Line Tools for Xcode. Xcode is distributed for free on the Mac App Store. Once installed, you have to open Xcode and go to Preferences > Downloads > Components > Command Line Tools. You can also download Command Line Tools directly from Apple's website, at https://developer.apple.com/downloads. More instructions at https://github.com/MLstate/opalang/wiki/Getting-Opa.</string>
                         <key>SpecArgument</key>
                         <string>/usr/bin/as</string>
                         <key>SpecType</key>
