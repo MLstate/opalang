@@ -33,6 +33,7 @@ TBZ2=""
 AUTOINSTALL=""
 DEB="false"
 PKG="false"
+PKG_SIGN=""
 WINPKG="false"
 NOOCAML="false"
 
@@ -76,6 +77,10 @@ while [ $# -gt 0 ]; do
                 exit 1
             fi
             PKG=true;;
+	-sign-pkg)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
+            shift
+            PKG_SIGN="$1";;
         -make-winpkg)
             if [ -z "$OPALANG" ]; then
                 echo "Error: you need to define \$OPALANG to build a windows package"
@@ -264,6 +269,11 @@ if [ "$PKG" = "true" ]; then
     echo "Creating image '$MYDIR/$PKG_NAME.dmg'"
     if [ -f "$MYDIR/$PKG_NAME.dmg" ]; then
 	rm "$MYDIR/$PKG_NAME.dmg"
+    fi
+    if [ -n "$PKG_SIGN" ]; then
+	mv "$MYDIR/$PKG_NAME.pkg" "$MYDIR/$PKG_NAME.orig.pkg"
+	productsign --sign "$PKG_SIGN" "$MYDIR/$PKG_NAME.orig.pkg" "$MYDIR/$PKG_NAME.pkg"
+	spctl -a -v --type install "$MYDIR/$PKG_NAME.pkg"
     fi
     hdiutil create "$MYDIR/$PKG_NAME.dmg" -srcfolder "$MYDIR/$PKG_NAME.pkg"
 fi
