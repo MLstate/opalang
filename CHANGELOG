@@ -65,6 +65,7 @@ Bug fixes:
     - opa-create now takes the remaining arguments given to `opa create`
     - Dom: Xhtml attributes and namespaces
     - 32bits compilation
+    - Mac Package signed for Gatekeeper
 
 
 2012.07.30, Version 1.0.5 (stable), v2988
