@@ -235,7 +235,6 @@ type one_side_memo = {
   mutable memocolvl : (Ident.t * Q.ty) ColvlMap.t;
   mutable memoquant : (Ident.t * Q.ty) QuantMap.t;
   mutable definitions : (Ident.t * Q.expr * Q.ty) list;
-  mutable depends : (Ident.t * Q.ty) list;
 }
 
 (* DO NOT USE a printer that normalizes variables here
@@ -263,7 +262,6 @@ let make_memo () = {
   memocolvl = ColvlMap.empty;
   memoquant = QuantMap.empty;
   definitions = [];
-  depends = [];
 }
 
 let server_memo = make_memo ()
@@ -278,8 +276,7 @@ let reset_memo memo =
   memo.memorowvl <- RowvlMap.empty;
   memo.memocolvl <- ColvlMap.empty;
   memo.memoquant <- QuantMap.empty;
-  memo.definitions <- [];
-  memo.depends <- []
+  memo.definitions <- []
 
 
 let same_ident (ident1,_) (ident2,_) = Ident.equal ident1 ident2
@@ -1785,9 +1782,6 @@ let get_memoized_definitions gamma side =
         (fun (gamma,code) (i,e,ty) ->
            let label = Annot.nolabel "Pass_ExplicitInstantiation.get_memoized_definitions" in
            add_ty i ty gamma, QmlAst.NewVal (label, [(i,e)]) :: code) (gamma, []) memo.definitions
-    in
-    let gamma =
-      List.fold_left (fun gamma (i, ty) -> add_ty i ty gamma) gamma memo.depends
     in gamma, code
   in
   match side with
@@ -1805,38 +1799,30 @@ module R_memo = ObjectFiles.Make(S_memo)
 
 let init_memoized_definitions obj =
   if obj then
-    let (sdepends, cdepends) =
-      R_memo.fold ~deep:true ~packages:true
-        (fun (sdepends, cdepends) (server, client) ->
-           server_memo.memoty <- TyMap.merge (fun _ n -> n) server.memoty server_memo.memoty;
-           server_memo.memotyl <- TylMap.merge (fun _ n -> n) server.memotyl server_memo.memotyl;
-           server_memo.memostyl <- StylMap.merge (fun _ n -> n) server.memostyl server_memo.memostyl;
-           server_memo.memotsc <- TscMap.merge (fun _ n -> n) server.memotsc server_memo.memotsc;
-           server_memo.memotyvl <- TyvlMap.merge (fun _ n -> n) server.memotyvl server_memo.memotyvl;
-           server_memo.memorowvl <- RowvlMap.merge (fun _ n -> n) server.memorowvl server_memo.memorowvl;
-           server_memo.memocolvl <- ColvlMap.merge (fun _ n -> n) server.memocolvl server_memo.memocolvl;
-           server_memo.memoquant <- QuantMap.merge (fun _ n -> n) server.memoquant server_memo.memoquant;
+    R_memo.iter ~deep:true
+      (fun (server, client) ->
+         server_memo.memoty <- TyMap.merge (fun _ n -> n) server.memoty server_memo.memoty;
+         server_memo.memotyl <- TylMap.merge (fun _ n -> n) server.memotyl server_memo.memotyl;
+         server_memo.memostyl <- StylMap.merge (fun _ n -> n) server.memostyl server_memo.memostyl;
+         server_memo.memotsc <- TscMap.merge (fun _ n -> n) server.memotsc server_memo.memotsc;
+         server_memo.memotyvl <- TyvlMap.merge (fun _ n -> n) server.memotyvl server_memo.memotyvl;
+         server_memo.memorowvl <- RowvlMap.merge (fun _ n -> n) server.memorowvl server_memo.memorowvl;
+         server_memo.memocolvl <- ColvlMap.merge (fun _ n -> n) server.memocolvl server_memo.memocolvl;
+         server_memo.memoquant <- QuantMap.merge (fun _ n -> n) server.memoquant server_memo.memoquant;
 
-           client_memo.memoty <- TyMap.merge (fun _ n -> n) client.memoty client_memo.memoty;
-           client_memo.memotyl <- TylMap.merge (fun _ n -> n) client.memotyl client_memo.memotyl;
-           client_memo.memostyl <- StylMap.merge (fun _ n -> n) client.memostyl client_memo.memostyl;
-           client_memo.memotsc <- TscMap.merge (fun _ n -> n) client.memotsc client_memo.memotsc;
-           client_memo.memotyvl <- TyvlMap.merge (fun _ n -> n) client.memotyvl client_memo.memotyvl;
-           client_memo.memorowvl <- RowvlMap.merge (fun _ n -> n) client.memorowvl client_memo.memorowvl;
-           client_memo.memocolvl <- ColvlMap.merge (fun _ n -> n) client.memocolvl client_memo.memocolvl;
-           client_memo.memoquant <- QuantMap.merge (fun _ n -> n) client.memoquant client_memo.memoquant;
+         client_memo.memoty <- TyMap.merge (fun _ n -> n) client.memoty client_memo.memoty;
+         client_memo.memotyl <- TylMap.merge (fun _ n -> n) client.memotyl client_memo.memotyl;
+         client_memo.memostyl <- StylMap.merge (fun _ n -> n) client.memostyl client_memo.memostyl;
+         client_memo.memotsc <- TscMap.merge (fun _ n -> n) client.memotsc client_memo.memotsc;
+         client_memo.memotyvl <- TyvlMap.merge (fun _ n -> n) client.memotyvl client_memo.memotyvl;
+         client_memo.memorowvl <- RowvlMap.merge (fun _ n -> n) client.memorowvl client_memo.memorowvl;
+         client_memo.memocolvl <- ColvlMap.merge (fun _ n -> n) client.memocolvl client_memo.memocolvl;
+         client_memo.memoquant <- QuantMap.merge (fun _ n -> n) client.memoquant client_memo.memoquant;
 
-           server.depends :: sdepends, client.depends :: cdepends
-        ) ([], [])
-    in
-    server_memo.depends <- List.flatten sdepends;
-    client_memo.depends <- List.flatten cdepends
+      )
 
 let finalize_memoized_defintions obj =
   let aux memo =
-    let depends =
-      List.map (fun (ident, _expr, ty) -> (ident, ty))
-        memo.definitions in
     let set = !idents in
     let filter (i,_) = IdentSet.mem i set in
     memo.memoty <- TyMap.filter_val filter memo.memoty;
@@ -1848,7 +1834,6 @@ let finalize_memoized_defintions obj =
     memo.memocolvl <- ColvlMap.filter_val filter memo.memocolvl;
     memo.memoquant  <- QuantMap.filter_val filter memo.memoquant;
     memo.definitions <- [];
-    memo.depends <- depends;
   in
   if obj then (
     aux server_memo;

@@ -1235,7 +1235,7 @@ module MakeSaver(Name : sig val name : string end) =
         (QmlTypes.Env.Ident.to_map rebuilt_gamma)
         (QmlTypes.Env.Ident.to_map input_gamma)
     let load ~side gamma =
-      fold_with_name ~side
+      fold_with_name ~side ~deep:true
         (fun package gamma map ->
            IdentMap.fold (fun ident tsc gamma ->
                             let tsc = QmlRefresh.refresh_typevars_from_tsc package tsc in
