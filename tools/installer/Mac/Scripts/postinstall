@@ -83,6 +83,7 @@ remove "opa2opa"
 
 remove "opatop"
 remove "opadoc"
+remove "opa-translate"
 remove "opa-db-tool"
 remove "opa-db-server"
 remove "opa-db-cloud"
