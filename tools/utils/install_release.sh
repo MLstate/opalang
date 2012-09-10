@@ -242,7 +242,7 @@ if [ $NODOC = "false" ] && [ -z "$IS_WINDOWS" ]; then
     cp -r $OPABOOK/* $INSTALLDIR/share/doc/opa/book
 fi
 
-$SRCDIR/tools/utils/install.sh --uninstall --dir $INSTALLDIR
+$SRCDIR/tools/utils/install.sh --uninstall-wrappers --dir $INSTALLDIR
 install -m 0755 -v $SRCDIR/tools/utils/install.sh $INSTALLDIR/share/opa
 mkdir -p $INSTALLDIR/share/opa/emacs
 install -m 0644 -v $SRCDIR/tools/editors/emacs/{opa-mode.el,opa-js-mode.el,site-start.el} $INSTALLDIR/share/opa/emacs

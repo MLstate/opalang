@@ -18,12 +18,14 @@ help() {
     echo "	--prefix <dir>		make wrappers for the given installation prefix"
     echo "				(by default, the value of --dir)"
     echo "	--quiet			be quiet"
-    echo "	--uninstall		remove installed scripts instead"
+    echo "	--uninstall		remove installed scripts"
+    echo "	--uninstall-wrappers	remove installed wrapper scripts"
 }
 
 INSTALLDIR=$PWD
 LINKDIR=""
 UNINSTALL=false
+UNINSTALL_WRAPPERS=false
 NO_OCAML=false
 QUIET=false
 
@@ -65,6 +67,9 @@ while [ $# -gt 0 ]; do
         --uninstall)
             UNINSTALL=true
             ;;
+        --uninstall-wrappers)
+            UNINSTALL_WRAPPERS=true
+            ;;
         --no-ocaml)
             NO_OCAML=true
             ;;
@@ -93,7 +98,7 @@ create_wrapper() {
     [ $# -eq 0 ]
     local wrapper=$INSTALLDIR/bin/$name
 
-    if [ $UNINSTALL = true ]; then
+    if [ $UNINSTALL = true ] || [ $UNINSTALL_WRAPPERS = true ]; then
         [ $QUIET = true ] || echo "Removing $wrapper"
         rm -f $wrapper
         if [ -n "$LINKDIR" ]; then
@@ -166,8 +171,8 @@ create_wrapper $PREFIX/lib/opa/bin/opa-plugin-builder-bin opa-plugin-builder
 # creating wrapper script 'opa-plugin-browser'
 create_wrapper $PREFIX/lib/opa/bin/opa-plugin-browser-bin opa-plugin-browser
 
-# if [ $UNINSTALL = true ]; then
-#     opa_create=$INSTALLDIR/bin/opa-create
-#     [ $QUIET = true ] || echo "Removing $opa_create"
-#     rm -f $opa_create
-# fi
+if [ $UNINSTALL = true ]; then
+    opa_create=$INSTALLDIR/bin/opa-create
+    [ $QUIET = true ] || echo "Removing $opa_create"
+    rm -f $opa_create
+fi
