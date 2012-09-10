@@ -181,9 +181,8 @@ JsOptions =
           // define identifier for the renaming
           iter(elt : JsAst.code_elt) =
             match elt.i with
-            | { ~i ; ... } ->
+            | { ~i } | { k=i } ->
               JsIdent.define(i)
-            | _ -> void
           iter(code) = iter_code(iter, code)
           do List.iter(iter, js_codes)
           infos = JsCleaning.empty_infos()
