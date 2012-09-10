@@ -1211,8 +1211,10 @@ let select_publish_resolver _n =
 
 (** Insert resolver. Produce a directive for qmljs. Its goal is to
     insert server value on client code. *)
-let insert_resolver0_unoptimized ~annotmap ~stdlib_gamma ~gamma ~side (`insert_server_value ident) _id ty =
+let insert_resolver0_unoptimized ~renaming ~annotmap ~stdlib_gamma ~gamma ~side
+    (`insert_server_value ident) _id ty =
   assert(side = `client);
+  ignore (renaming);
   _insert ();
   let add_missing_string_arg annotmap func args =
     let string_arg = Ident.next "expand_missing_string_arg" in
@@ -1252,7 +1254,7 @@ let insert_resolver0_unoptimized ~annotmap ~stdlib_gamma ~gamma ~side (`insert_s
 
 (** Second version for insert resolver. More optimized but not stable
     : back-end and implementation dependent (see opa2js.opa). *)
-let insert_resolver1_optimized ~annotmap ~stdlib_gamma ~gamma ~side (`insert_server_value ident) id ty =
+let insert_resolver1_optimized ~renaming ~annotmap ~stdlib_gamma ~gamma ~side (`insert_server_value ident) id ty =
   assert(side = `client);
   _insert ();
   (* Make server expr *)
@@ -1261,7 +1263,14 @@ let insert_resolver1_optimized ~annotmap ~stdlib_gamma ~gamma ~side (`insert_ser
   let annotmap, ser =
     Opa2Js.to_string ~side:(OpaMapToIdent.other_side side) annotmap stdlib_gamma in
   let annotmap, serv_expr =
-    let annotmap, toplevel_var = TypedExpr.string annotmap (JsPrint.string_of_ident (JsAst.ExprIdent id)) in
+    let annotmap, toplevel_var =
+      let id =
+        try
+          QmlRenamingMap.original_from_new renaming id
+        with Not_found -> id
+      in
+      TypedExpr.string annotmap (JsPrint.string_of_ident (JsAst.ExprIdent id))
+    in
     let annotmap, expr = TypedExpr.ident annotmap ident ty in
     full_apply gamma annotmap ser [ty_expr_server] [toplevel_var; expr]
   in
@@ -1405,7 +1414,7 @@ let perform_on_code ?(options=default_options) side ~annotmap ~stdlib_gamma ~gam
       ((select_publish_resolver options.optimize_publish) expmap1 renaming1)
       (generate_stub_from_publish expmap1 renaming1)
       (call_resolver expmap2 renaming2)
-      (select_insert_resolver options.optimize_insert) in
+      (select_insert_resolver options.optimize_insert ~renaming:renaming1) in
 
   (* let annotmap, gamma, code = *)
   (*   #<If:RPC_ALT_SKELETON> *)
