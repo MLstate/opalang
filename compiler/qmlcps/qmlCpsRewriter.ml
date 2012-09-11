@@ -1587,7 +1587,6 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           | _ ->
               begin
                 let asynchronous = env.options.toplevel_concurrency || is_asynchronous in
-                let expr = simpl_let_in expr in
                 if asynchronous
                 then
                   begin
@@ -1597,6 +1596,9 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                       let local_barrier_id = Ident.refresh barrier_id in
                       local_barrier_id, barrier_id, make_barrier
                     in
+                    let toplevel_cont value = Barrier.release ~barrier_id:local_barrier_id ~value in
+                    let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
+                    let expr = simpl_let_in expr in
                     private_env_add id barrier_id private_env,
                     [ (barrier_id,
                        QC.letin [local_barrier_id, make_barrier]
