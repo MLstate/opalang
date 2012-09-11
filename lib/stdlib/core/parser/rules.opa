@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -436,6 +436,20 @@ Rule =
     match p(i, b) with
     | {none} -> none
     | {some = (i, r)} -> {some = (i, f(r))}
+
+  /**
+   * Pipe parser [pi] to the [p] parser.
+   * @param pi The parser which translate the input
+   * @param p The main parser
+   * @return A parser which inputs are decoded by [pi] then parsed by [p].
+   */
+  pipe(pi:Parser.general_parser(itextrator), p:Parser.general_parser('a))
+    :Parser.general_parser('a) = b, i ->
+    match pi(b, i) with
+    | {none} as e -> e
+    | {some = (_, r)} -> p(b, r)
+
+
 
 }}
 
