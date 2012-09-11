@@ -141,7 +141,9 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
   #<If:JS_IMP$contains "time"> Printf.printf "qml -> js: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_0_translation" _outputer js_code) #<End>;
 
-  let js_code =
+  let pass = BslLanguage.to_string bsl_lang in
+
+  let save_inlining_env, js_code =
     if options.Qml2jsOptions.global_inlining then (
       let initial_env =
         match bsl with
@@ -156,7 +158,6 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
               ~topobj
               (Imp_Inlining.env_of_map closure_map) code
         | None -> Imp_Inlining.env_of_map closure_map in
-      let pass = BslLanguage.to_string bsl_lang in
       let module Imp_Inlining_R = (val Imp_Inlining.make_r pass : Imp_Inlining.R) in
       let loaded_env = Imp_Inlining_R.load initial_env in
       (* we first analyse the code just to be able to inline simple recursive functions
@@ -193,12 +194,10 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
                   env, stms
                )
           ) env js_code in
-      Imp_Inlining_R.save ~env ~loaded_env ~initial_env;
       #<If:JS_IMP$contains "time"> Printf.printf "global inline: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
-      js_code
+      (fun f -> Imp_Inlining_R.save ~env:(f env) ~loaded_env ~initial_env), js_code
     ) else
-      js_code in
-
+      ignore, js_code in
   (* this local inline doesn't do much but it still removes a few variables *)
   let js_code = if options.Qml2jsOptions.inlining then Imp_Inlining.local_inline js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "local inline: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
@@ -209,10 +208,13 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
   let js_code = if options.Qml2jsOptions.alpha_renaming then Imp_Renaming.rename js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "local renaming: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_5_local_renaming" _outputer js_code) #<End>;
-
+  let js_code, sharing_env = Imp_Sharing.process_code ~pass js_code in
+  save_inlining_env (Imp_Inlining.map_expr_in_env (Imp_Sharing.rewrite_expr sharing_env));
+  #<If:JS_IMP$contains "time"> Printf.printf "code sharing: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
+  #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_6_code_sharing" _outputer js_code) #<End>;
   let js_code = if options.Qml2jsOptions.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "clean up: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
-  #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_6_cleanup" _outputer js_code) #<End>;
+  #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_7_cleanup" _outputer js_code) #<End>;
 
   {Qml2jsOptions.
      js_init_contents = [ "bsl_dynamic_code_and_projections.js", `ast js_init;
