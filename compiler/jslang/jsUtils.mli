@@ -19,6 +19,7 @@
    Utils on Javascript code
    @author Mathieu Barbin
    @author Valentin Gatien-Baron
+   @author Quentin Bourgerie
 *)
 
 (**
@@ -72,3 +73,13 @@ val export_global_declarations : JsAst.code -> JsAst.code
    Generate a json value that can be used in a package.json file
 *)
 val basic_package_json : ?version:string -> string -> string -> string
+
+(** {3 Comparisons} *)
+
+val compare_ident : JsAst.ident -> JsAst.ident -> int
+
+val compare_expr : JsAst.expr -> JsAst.expr -> int
+
+val compare_statement : JsAst.statement -> JsAst.statement -> int
+
+val compare_code : JsAst.code -> JsAst.code -> int
