@@ -717,3 +717,13 @@ let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement 
     JsWalk.TStatement.self_traverse_foldmap_context_down rewrite_stm_aux rewrite_expr_aux true local_vars stm in
   assert (local_vars = []);
   stm
+
+
+let map_expr_in_env map env =
+  {env with
+     functions =
+      JsIdentMap.map
+        (function
+         | `var e -> `var (map e)
+         | `fun_ (a, e) -> `fun_ (a, map e))
+        env.functions }

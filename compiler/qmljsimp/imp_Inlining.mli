@@ -34,6 +34,9 @@ val global_inline_analyse_stm :  ?topobj:(string -> bool) -> env -> JsAst.statem
 val global_inline_analyse_code :  ?topobj:(string -> bool) -> env -> JsAst.code -> env
 val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement
 
+(** [map_expr_in_env f env] Map all JavaScript expression in [env] with [f]. *)
+val map_expr_in_env : (JsAst.expr -> JsAst.expr) -> env -> env
+
 (**
    The interface for separate compilation
 *)
