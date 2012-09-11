@@ -199,6 +199,28 @@ type service =
 Server = {{
 
   /**
+   * Decode url, as per "http://en.wikipedia.org/wiki/URL_Encoding
+   * Byte should be decoded as if it was valid utf-8 (see current standard)
+   */
+  @private decoded_parse(p) =
+      hex2 = parser
+        | h1=Rule.hexadecimal h2=Rule.hexadecimal ->
+          h1 * 16 + h2
+      special_char = parser
+        | "+" -> " "
+        | "%" ~hex2 -> String.of_byte_val(hex2)
+      special_chars = parser
+        | l=special_char+ -> Text.cons(String.concat("", l))
+      Rule.pipe(
+        Rule.map(
+          parser l=(((!special_char .)+) | c=special_chars -> c )* -> Text.ltconcat(l)
+          , (x -> Itextrator.make(Text.to_string(x)))
+        )
+        , p)
+
+  @private resources_of_map(resources) = decoded_parse(Rule.of_map(resources))
+
+  /**
    * Convert a Server.handler to an url parser
    */
   @private handler_to_parser(handler:Server.handler) =
@@ -224,7 +246,7 @@ Server = {{
           } -> dispatch(u1)
         end
       | ~{resources} -> parser
-        | "/" r={Rule.of_map(resources)} -> r
+        | "/" r={resources_of_map(resources)} -> r
         end
 
     rec check(l) =
@@ -390,7 +412,7 @@ Server = {{
 
    of_bundle(resources: list(stringmap(resource))): service =
    (
-      map = Rule.of_parsers(List.map(Rule.of_map, resources))
+      map = Rule.of_parsers(List.map(resources_of_map, resources))
       blind_url_parser = parser | "/" result=map -> _ -> result
       make(blind_url_parser)
    )
@@ -459,7 +481,7 @@ Server = {{
  */
 one_page_bundle(title:string, resources: list(stringmap(resource)), css:list(string), content: -> xhtml): service =
 (
-  map = Rule.of_parsers(List.map(Rule.of_map, resources))
+  map = Rule.of_parsers(List.map(resources_of_map, resources))
   blind_url_parser = parser | "/" result=map -> _ -> result
                             | x={Server_private.overridable_handlers} -> _ -> x/*avoid capturing favicon, etc.*/
                             | .* -> _ -> Resource.styled_page(title, css, content())
@@ -496,7 +518,7 @@ simple_server(urls: simple_url_handler(resource)) : service =
 
 simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(resource)): service =
 (
-  map = Rule.of_parsers(List.map(Rule.of_map, resources))
+  map = Rule.of_parsers(List.map(resources_of_map, resources))
   blind_url_parser = parser result=urls -> _ -> result
                       | "/" result=map -> _ -> result
   make(blind_url_parser)
@@ -636,7 +658,7 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
    */
   of_map(map: stringmap((->Resource.resource))) : service =
   (
-     a : Parser.general_parser((->Resource.resource)) = Rule.of_map(map)
+     a : Parser.general_parser((->Resource.resource)) = resources_of_map(map)
      b : Parser.general_parser(HttpRequest.request -> resource) = parser resource=a -> (_ -> resource())
      make(b)
   )
@@ -650,13 +672,13 @@ simple_bundle(resources: list(stringmap(resource)), urls:simple_url_handler(reso
      @private permanent_prefix = Rule.of_string(ExecInit.id())
      resource_map(map: stringmap(resource)): Parser.general_parser(resource) =
      (
-       suffix = Rule.of_map(map)
+       suffix = resources_of_map(map)
        parser "/" result=suffix -> result
      )
 
      permanent_resource_map(map: stringmap(resource)): Parser.general_parser(resource) =
      (
-       suffix = Rule.of_map(map)
+       suffix = resources_of_map(map)
        parser permanent_prefix result=suffix -> result
      )
 
