@@ -966,5 +966,4 @@ let rewrite_modules create_groups lcode =
     lcode
     |> flatten_toplevel_module create_groups
     |> flatten_module_in_expr create_groups in
-  OManager.flush_errors (); (* remove this line when s2 is removed *)
   lcode
