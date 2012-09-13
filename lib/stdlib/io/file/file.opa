@@ -1,5 +1,5 @@
 /*
-    Copyright Â© 2011, 2012 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -69,6 +69,14 @@ File = {{
    * @param content The binary content to put in the file
    */
   write(path, content) = %% BslFile.write %%(path, content)
+
+  /**
+   * Create a directory
+   *
+   * @param path The path of the directory
+   * @return true if creation successful
+   */
+  mkdir(path) = %% BslFile.make_dir %%(path)
 
   /**
    * Check the existence of a file

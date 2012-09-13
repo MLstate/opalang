@@ -2,7 +2,7 @@ Updated APIs:
 
   * File:
     - depreacted `content` and `content_opt`, replaced by `read` and `read_opt`
-    - added `write` function
+    - added `write` and `mkdir` function
 
 
 2012.09.10, Version 1.0.6 (stable), v3375
