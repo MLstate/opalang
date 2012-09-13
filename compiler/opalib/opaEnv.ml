@@ -204,6 +204,7 @@ type opa_options = {
   parser_ : OpaSyntax.Args.options;
 
   static_link : bool; (* Whether or not to link object files statically *)
+  parallelism : int; (* maximum number of // compilations *)
   package_version: string; (* The version to be used when outputting
                               the package.json file *)
   modular_plugins: bool;
@@ -300,6 +301,7 @@ struct
 
     let static_link = ref false
 
+    let parallelism = ref 4
     let package_version = ref "0.1.0"
     let set_package_version version =
       package_version := version
@@ -539,6 +541,9 @@ struct
           ("--extra-lib",         Arg.String add_full_extra_lib, "\"*.cm*,*.js,...\" Add lib(s) to link the generated server");
           ("--extra-path",        Arg.String add_full_extra_path, "\"dir,...\" Add path(s) to link the generated server");
           ("-impl",               Arg.String add_any_file,   "<file> Take <file> as a .opa file");
+
+
+          ("-j", Arg.Int ((:=)parallelism)," Maximum number of compilation sub-process");
           ("--js-check-bsl-types", Arg.Set js_check_bsl_types, " Enables runtime type checking of the types of bypasses");
 
           "--js-bypass-syntax",
@@ -928,6 +933,7 @@ struct
     parser_ = !OpaSyntax.Args.r;
 
     static_link = !ArgParser.static_link;
+    parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;
     modular_plugins = !ArgParser.modular_plugins;
     js_classic_bypass_syntax = !js_bypass_syntax = `classic;

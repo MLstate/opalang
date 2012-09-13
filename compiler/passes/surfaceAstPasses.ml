@@ -56,6 +56,7 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
     (Printf.sprintf "stdlib.%s" (OpaEnv.string_of_available_back_end options.OpaEnv.back_end));
   ObjectFiles.set_extrapaths ~no_stdlib:(not options.OpaEnv.stdlib) options.OpaEnv.extrapath;
   ObjectFiles.load
+    ~parallelism:options.parallelism
     ~extrajs:(
       (*
         TODO(if needed): we can patch ObjectFiles for passing the conf as well

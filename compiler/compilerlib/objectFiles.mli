@@ -130,6 +130,7 @@ val conf_opa_files : unit -> filename list
    It check the existence of .opx but doesn't load anything
  *)
 val load :
+  ?parallelism:int ->
   ?extrajs:string list ->
   no_stdlib:bool ->
   ('code_elt -> ([< `declaration | `import ] * package_name * FilePos.pos) option) ->
