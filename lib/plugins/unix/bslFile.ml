@@ -101,19 +101,19 @@ let remove_rec file = ignore (File.remove_rec file)
   let last_modification f = Time.in_milliseconds (File.last_modification f)
 
   (**
-     Dump a value to a file
+     Dump a binary value to a file
 
-     @param n The name of the file
-     @param content The content to put in the file
+     @param name The name of the file
+     @param content The binary content to put in the file
 
      In case of error, explode.
   *)
-  ##register of_string : string, binary -> void
-  let of_string n content =
+  ##register write : string, binary -> void
+  let write name content =
     let och =
-      let path = Filename.dirname n in
+      let path = Filename.dirname name in
       ignore (File.check_create_path path);
-	open_out n
+      open_out name
     in output_string och (Buf.contents content) ; close_out och
 
 ##register create_full_path: string -> void

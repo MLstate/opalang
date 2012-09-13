@@ -11,16 +11,6 @@
 */
 
 import-plugin unix
-/**
- * {1 About this module}
- *
- * Be aware that this package access local file
- * and could be inaccessible or not working with some cloud configuration
- *
- * {1 Where should I start?}
- *
- * {1 What if I need more?}
- */
 
 /**
  * {1 Interface}
@@ -46,12 +36,56 @@ type File.onchange = {persistent:bool}
 
 /**
   * A module for very basic file access
+  *
+  * Be aware that this package access local file
+  * and could be inaccessible or not working with some cloud configuration
   */
 File = {{
-  exists = %% BslFile.exists %% : string -> bool
-  content = %% BslFile.content %% : string -> binary
-  content_opt = %% BslFile.content_opt %% : string -> option(binary)
-  is_directory = %% BslFile.is_directory %% : string -> bool
+
+  /**
+   * Read the content of a file
+   *
+   * @param path The path of the file
+   * @return The binary content
+   */
+  read(path) = %% BslFile.content %%(path)
+  @deprecated({use="read"})
+  content = read
+
+  /**
+   * Read the content of a file
+   *
+   * @param path The path of the file
+   * @return The optional binary content
+   */
+  read_opt(path) = %% BslFile.content_opt %%(path)
+  @deprecated({use="read_opt"})
+  content_opt = read_opt
+
+  /**
+   * Write a binary value to a file
+   *
+   * @param path The path of the file
+   * @param content The binary content to put in the file
+   */
+  write(path, content) = %% BslFile.write %%(path, content)
+
+  /**
+   * Check the existence of a file
+   *
+   * @param path The path of the file to check
+   * @return true if the file exists
+   */
+  exists(path) = %% BslFile.exists %%(path)
+
+  /**
+   * Check if the given path is a directory
+   *
+   * @param path The path to test
+   * @return true if the path is a directory
+   */
+  is_directory(path) = %% BslFile.is_directory %%(path)
+
   /** Warning: not working on node backend */
   mimetype =
     #<Ifstatic:OPA_BACKEND_QMLJS>
@@ -59,6 +93,7 @@ File = {{
     #<Else>
     %% BslFile.mimetype_opt %% : string -> option(string)
     #<End>
+
   basename = %% BslFile.basename %% : string -> string
   dirname = %% BslFile.dirname %% : string -> string
 

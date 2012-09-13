@@ -82,7 +82,7 @@ to_string(config, content) =
 */
 to_file(config, content, filename) =
     xls_s = to_string(config, content)
-    %%BslFile.of_string%%(filename, binary_of_string(xls_s))
+    %%BslFile.write%%(filename, binary_of_string(xls_s))
 
 /**
 * Generate a new binary resource from the given list of string list
