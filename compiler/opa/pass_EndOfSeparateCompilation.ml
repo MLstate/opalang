@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -80,9 +80,11 @@ let process_code :
      S.pesc_gamma = merge_gamma ?package gamma1 gamma2;
      S.pesc_schema = schema;
     } in
-  if ObjectFiles.Arg.is_fully_separated () then
-    k env
-  else (
+  if ObjectFiles.Arg.is_fully_separated () then (
+    let v = k env in
+    R.save initial;
+    v
+  ) else (
     match ObjectFiles.compilation_mode () with
     | `init ->
         k env

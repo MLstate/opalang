@@ -1573,8 +1573,7 @@ let reorder :
               try
                 if ConsistencyCheckR.load_hash_exn package = digest (*package on disk has the same hash _as the files*) then (
                   try
-                    if File.is_regular (filename_from_package package last_pass)
-                    || File.is_directory (filename_from_package package "_build") then (
+                    if File.is_regular (filename_from_package package last_pass) then (
                       if check_consistency_of_conf package then
                         if check_date_of_static_inclusions package then (
                         (* merge_assoc succeeds -> consistent *)
