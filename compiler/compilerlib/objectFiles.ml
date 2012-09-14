@@ -1753,7 +1753,8 @@ let parrallelise ~parallelism f (l: (((string*_) *_ * (string*_) list ) as 'e) l
   (* could pick the most popular with reversed deps *)
   let pick_ready ready : string * StringSet.t = let to_start = StringSet.choose ready in to_start,StringSet.remove to_start ready in
   let simplify_deps d =
-    List.uniq ~cmp:Pervasives.compare (List.stable_sort Pervasives.compare (List.map fst d))
+    let d = List.uniq ~cmp:Pervasives.compare (List.stable_sort Pervasives.compare (List.map fst d)) in
+    List.filter (fun p-> StringMap.mem p all_packages) d (* package that are not asked to be recompiled are removed from deps *)
   in
   let todo = StringMap.fold (fun n (_,_,d) map ->  StringMap.add n (simplify_deps d) map) all_packages StringMap.empty in
   let todo, ready = update_todo_ready ~finished:"" todo StringSet.empty in
