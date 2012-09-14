@@ -148,7 +148,7 @@ ServerI18n =
     extract(s) = Option.bind(extract_lang,env(s))
       extract("LANG")     // Linux, e.g. fr_FR.UTF-8
     ? extract("LANGUAGE") // Linux, e.g. fr_FR:en
-    ? do Log.warning("I18n","ServerI18n.get_system_lang can't get system language")
+    ? //do Log.warning("I18n","ServerI18n.get_system_lang can't get system language")
       default_lang
 
   initial_server_lang = get_system_lang()
