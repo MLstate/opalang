@@ -1732,43 +1732,51 @@ let setup compare transitive_closure ?package_name direct_deps =
 
 let launch f =
   let pid = Unix.fork () in
-  if pid<0 then None
+  if pid<0 then (f (); None)
   else if pid=0 then (f (); exit 0)
   else Some pid
 
 let flush () = flush stdout;flush stderr
+
+
 let parrallelise ~parallelism f (l: (((string*_) *_ * (string*_) list ) as 'e) list) =
   let max_concurrency = parallelism in
   let all_packages = List.fold_left (fun map (((n,_),_,_) as e) -> StringMap.add n e map) StringMap.empty l in
   let pack_get s = StringMap.find s all_packages in
-  (* could be faster with reverse deps *)
-  let update_todo_ready ~finished todo ready = StringMap.fold (fun p deps (todo,ready) ->
-    let deps = List.remove_first finished deps in
-    #<If> Printf.printf "%s: %s \n\n" p (String.concat " " deps) #<End>;
-    if deps=[] then (todo, StringSet.add p ready)
-    else (StringMap.add p deps todo,ready)
-  ) todo (StringMap.empty,ready)
-  in
-  (* could pick the most popular with reversed deps *)
-  let pick_ready ready : string * StringSet.t = let to_start = StringSet.choose ready in to_start,StringSet.remove to_start ready in
   let simplify_deps d =
     let d = List.uniq ~cmp:Pervasives.compare (List.stable_sort Pervasives.compare (List.map fst d)) in
     List.filter (fun p-> StringMap.mem p all_packages) d (* package that are not asked to be recompiled are removed from deps *)
   in
   let todo = StringMap.fold (fun n (_,_,d) map ->  StringMap.add n (simplify_deps d) map) all_packages StringMap.empty in
+  let getl k m = Option.default [] (StringMap.find_opt k m) in
+  let addl k v m = StringMap.add k (v::(getl k m)) m in
+  let rdeps = StringMap.fold (fun p0 d rdeps -> List.fold_left (fun rdeps p1 -> addl p1 p0 rdeps) rdeps d) todo StringMap.empty in
+  let update_todo_ready ~finished todo ready =
+    let modified = if finished="" then StringMap.keys todo else getl finished rdeps in
+    List.fold_left (fun (todo,ready) modified ->
+      let deps = StringMap.find modified todo in
+      let deps = List.remove_first finished deps in
+      (*#<If> Printf.printf "%s: %s \n\n" modified (String.concat " " deps) #<End>;*)
+      if deps=[] then (StringMap.remove modified todo, StringSet.add modified ready)
+      else (StringMap.add modified deps todo,ready)
+    ) (todo,ready) modified
+  in
   let todo, ready = update_todo_ready ~finished:"" todo StringSet.empty in
-  let pids = IntMap.empty in
-  let rec loop pids todo ready current =
+  (* could pick the most popular with reversed deps *)
+  let pick_ready ready : string * StringSet.t = let to_start = StringSet.choose ready in to_start,StringSet.remove to_start ready in
+  let rec loop ~pids ~todo ~ready current =
     #<If>  Printf.printf "STATUS %d/%d/%d\n" (StringMap.size todo) (StringSet.size ready) current;flush () #<End>;
     if not(StringSet.is_empty ready) && (current+1) <= max_concurrency then (
       (* Launch *)
+      (* one ready and no current => no_concurrency (avoid one fork cost) *)
       let (to_start,ready) = pick_ready ready in
-      match launch (fun () -> f (pack_get to_start)) with
-      | None -> Unix.sleep 1; loop pids todo ready (current+1)
+      let no_concurrency = current=0 && ((max_concurrency=1) || StringSet.size ready=1) in
+      match f ~no_concurrency (pack_get to_start) with
+      | None -> let (todo,ready) = update_todo_ready ~finished:to_start todo ready in loop ~pids ~todo ~ready current
       | Some pid ->
-        #<If> Printf.printf "LAUNCH %s\n" to_start;flush () #<End>;
+        #<If> Printf.printf "LAUNCH %s %d\n" to_start pid;flush () #<End>;
         let pids = IntMap.add pid to_start pids in
-        loop pids todo ready (current+1)
+        loop ~pids ~todo ~ready:ready (current+1)
     ) else (
       if current==0 then (
         if StringMap.is_empty todo then (
@@ -1778,20 +1786,21 @@ let parrallelise ~parallelism f (l: (((string*_) *_ * (string*_) list ) as 'e) l
           Unix.sleep 3;
           let todo, ready = update_todo_ready ~finished:"" todo ready in
           assert( not( StringSet.is_empty ready) );
-          loop pids todo ready current
+          loop ~pids ~todo ~ready current
         )
       ) else (
         let (pid,state) = Unix.waitpid [Unix.WNOHANG] (-1) in
-        let (pid,state) = if pid=0 then (if current<max_concurrency/2 then (Printf.printf "Waiting %d\n" current;flush()) ; Unix.wait ()) else (pid,state) in
+        let (pid,state) = if pid<=0 then (if current<max_concurrency/2 then (Printf.printf "Waiting %d\n" current;flush()) ; Unix.wait ()) else (pid,state) in
+        #<If>  Printf.printf "FINISHED %d\n" pid;flush () #<End>;
         let finished = IntMap.find pid pids in
         (match state with Unix.WEXITED v -> if v<>0 then exit v | _ -> exit 1);
         let (todo,ready) = update_todo_ready ~finished todo ready in
-        loop pids todo ready (current-1)
+        loop ~pids ~todo ~ready (current-1)
       )
     )
   in
   Gc.compact ();
-  loop pids todo ready 0
+  loop ~pids:IntMap.empty ~todo ~ready 0
 
 let load ?(parallelism=4) ?(extrajs=[]) ~no_stdlib extract_package_decl extract_more_deps filename_content_lcodes (k : 'code_elt block list -> unit) =
   if not (is_separated ()) then (
@@ -1856,19 +1865,22 @@ let load ?(parallelism=4) ?(extrajs=[]) ~no_stdlib extract_package_decl extract_
     (* compiling the packages in the order of dependencies *)
     compilation_has_started := true;
     compilation_mode_state := `compilation;
-    let _ = (list : (((string*_) *_ * (string*_) list )) list) in
-    (if parallelism>0 then parrallelise ~parallelism  else List.iter)
-      (fun (package_name,blocks,dep_list) ->
-         setup compare transitive_closure ~package_name dep_list;
-         if save_if_need_recompilation package_name then (
-           reset_successfull_compilation ();
-           verbose "Files at compiling: [%a]@."
-             (Format.pp_list ";" Format.pp_print_string) (List.map (fun (filename,_,_) -> filename) blocks);
-           k blocks
-         ) else (
-           compilation_is_successfull ()
-         )
-      ) list;
+
+    let launch ~no_concurrency f = if no_concurrency then (f(); None ) else launch f in
+    let foreach l f = if parallelism>0 then parrallelise ~parallelism f l else List.iter (fun v-> ignore(f ~no_concurrency:true v)) l in
+    foreach list (
+      fun ~no_concurrency (package_name,blocks,dep_list) ->
+        setup compare transitive_closure ~package_name dep_list;
+        if save_if_need_recompilation package_name then (
+          reset_successfull_compilation ();
+          verbose "Files at compiling: [%a]@."
+            (Format.pp_list ";" Format.pp_print_string) (List.map (fun (filename,_,_) -> filename) blocks);
+          launch ~no_concurrency (fun() -> k blocks)
+        ) else (
+          compilation_is_successfull ();
+          None
+        )
+    );
 
     (* linking (only in autobuild or --linking) *)
     (match anon with
