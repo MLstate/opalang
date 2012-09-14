@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -11,6 +11,7 @@
 *)
 (** Provides some functions for manipulate runtime values on Opa. *)
 
+##property[mli]
 (** Type of field of records. *)
 ##extern-type Record.field = ServerLib.field
 
@@ -25,6 +26,7 @@
 
 (** Type of record field index. *)
 ##extern-type Record.field_index = ServerLib.field_index
+##property[endmli]
 
 (** A module for manipulate and construct records. It's just alias to
       some functions of the [ServerLib].
