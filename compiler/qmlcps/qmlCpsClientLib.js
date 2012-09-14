@@ -378,6 +378,7 @@ function spawn(f) {
     var barrier = new Barrier();
     var task = function(){
         var k = cont(barrier.release, barrier, null);
+        f = wrap_tc(f);
         f(js_void, k);
     }
     push(task);
