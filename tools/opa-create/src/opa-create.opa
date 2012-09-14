@@ -82,7 +82,7 @@ options =
   CommandLine.filter(cmdline)
 
 function write(file, content) {
-  %%BslFile.of_string%%("./{file}", binary_of_string(content))
+  File.write("./{file}", binary_of_string(content))
 }
 
 Scheduler.push(function() { // hack for node.js toplevel instruction
