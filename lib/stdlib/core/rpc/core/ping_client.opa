@@ -42,14 +42,11 @@ PingClient = {{
      ]}
      f("/chan/register", Json.to_string(msg))
 
-  @private
+  @package
   set_process_msg(f:RPC.Json.json -> bool):void =
     (%%Session.PingRegister.process_msg%%:(RPC.Json.json -> bool) -> void)(f)
 
-  @private
-  _x : void = set_process_msg(process_msg)
-
-  @private
+  @package
   process_msg(json:RPC.Json.json):bool =
     error(msg) = do error(msg) false
     match json with
@@ -81,4 +78,12 @@ PingClient = {{
     wrap_request(url, body, %%Session.PingRegister.ping_async_call%%)
 
 }}
+
+@private
+@both_implem
+_ = @sliced_expr({
+  client=PingClient.set_process_msg(PingClient.process_msg)
+  server=void
+})
+
 #<End>
