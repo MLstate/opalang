@@ -191,6 +191,15 @@ function push(task) {}
  */
 function cps(f){}
 
+
+/**
+ * @param {!Continuation} k
+ * @param {!Function} f
+ * @param {?String} id
+ * @return {!Function}
+ */
+function uncps(k,f,id){}
+
 function opa_cps_callback_to_js_callback0(k, f) {}
 
 function wrap_tc(opa) {}
