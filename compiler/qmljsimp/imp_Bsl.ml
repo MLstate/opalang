@@ -340,11 +340,13 @@ struct
           None
 
     | B.Void _ ->
-        let qml_void = Imp_Common.ClientLib.void in
-        if env.options.Qml2jsOptions.check_bsl_types then
-          Some (private_env, call_typer ~key Imp_Common.ClientLib.type_native_void id ~ret:qml_void)
+        if bsltags.BslTags.cps_bypass then None
         else
-          Some (private_env, qml_void)
+          let qml_void = Imp_Common.ClientLib.void in
+          if env.options.Qml2jsOptions.check_bsl_types then
+            Some (private_env, call_typer ~key Imp_Common.ClientLib.type_native_void id ~ret:qml_void)
+          else
+            Some (private_env, JsCons.Expr.comma [id] qml_void)
 
     | B.Bool _ ->
         if env.options.Qml2jsOptions.check_bsl_types then
