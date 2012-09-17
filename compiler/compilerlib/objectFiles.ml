@@ -1790,8 +1790,7 @@ let parrallelise ~parallelism f (l: (((string*_) *_ * (string*_) list ) as 'e) l
         )
       ) else (
         let (pid,state) = Unix.waitpid [Unix.WNOHANG] (-1) in
-        let (pid,state) = if pid<=0 then (if current<max_concurrency/2 then (Printf.printf "Waiting %d\n" current;flush()) ; Unix.wait ()) else (pid,state) in
-        #<If>  Printf.printf "FINISHED %d\n" pid;flush () #<End>;
+        let (pid,state) = if pid<=0 then (if current<max_concurrency/2 then flush(); Unix.wait ()) else (pid,state) in
         let finished = IntMap.find pid pids in
         (match state with Unix.WEXITED v -> if v<>0 then exit v | _ -> exit 1);
         let (todo,ready) = update_todo_ready ~finished todo ready in
