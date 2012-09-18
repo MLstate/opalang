@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -172,11 +172,11 @@ let process_opa ~(options : E.opa_options) env =
 
 (**
    This function filter the code, by removing [`doctype] diretives
-   introduced by the first part (pass_AddDocApiDirecitves).
+   introduced by the first part (pass_AddDocApiDirectives).
 
    It returns the filtered annotmap, and collect all the decorated path,
-   in the form of an assoc list, binding pathes of decorated elements
-   with there label (so that we can find their types and position)
+   in the form of an assoc list, binding paths of decorated elements
+   with their label (so that we can find their types and position)
 *)
 let remove_code_doctype annotmap (qmlAst : QmlAst.code) :
     (QmlAst.annotmap * (string list * QmlAst.expr * QmlAst.doctype_access_directive) list) * QmlAst.code
@@ -413,6 +413,7 @@ struct
   module J = JsonTypes
 
   let string s = J.String s
+  let bool b = J.Bool b
   let pkg pkg = J.String pkg
   let file file = J.String file
   let pos pos = J.Int pos
@@ -519,6 +520,7 @@ struct
         let params = List.map param type_def.QmlAst.ty_def_params in
         JsonTypes.Array params
       in
+      let opacapi = bool type_def.QmlAst.ty_def_options.QmlAst.opacapi in
       let visibility =
         match type_def.QmlAst.ty_def_visibility with
         | Q.TDV_public ->
@@ -541,6 +543,7 @@ struct
       let tuple = JsonTypes.Record [
         "ty_def_visibility", visibility ;
         "ty_def_params", params ;
+	"ty_def_opacapi", opacapi ;
         "ty_def_name", name ;
         "ty_def_body", body ;
       ] in
