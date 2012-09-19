@@ -342,8 +342,8 @@ struct
     end*)
     let open_ ?(label=w()) e1 e2 =
       (Directive (`open_, [e1;e2], []), c label)
-    let doctype (path:string list) ?(label=w()) ?(access=`public) e1 =
-      (Directive (`doctype (path, access), [e1], []), c label)
+    let doctype (path:string list) ?(label=w()) ?(access=`public) ?(info=[]) e1 =
+      (Directive (`doctype (path, access, info), [e1], []), c label)
     let string ?(label=w()) l =
       (Directive (`string, l, []), c label)
     let i18n_lang ?(label=w()) () =

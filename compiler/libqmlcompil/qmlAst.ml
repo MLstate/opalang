@@ -1092,6 +1092,11 @@ type doctype_access_directive =
     | `package (* visible only in the current package *)
     ]
 
+type doctype_info = [
+| `opacapi
+| `module_
+]
+
 (**
   add information around an apply or a lifted lambda
 *)
@@ -1156,7 +1161,7 @@ type qml_directive = [
   | `apply_ty_arg of ty list * ty_row list * ty_col list
   | `abstract_ty_arg of TypeVar.t list * RowVar.t list * ColVar.t list
 
-  | `doctype of (string list * doctype_access_directive)
+  | `doctype of (string list * doctype_access_directive * doctype_info list)
   | `hybrid_value
       (** Directive for qmljs. First expression is a client
           function whose type must be (string -> 'a).

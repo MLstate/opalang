@@ -633,12 +633,12 @@ module Classic = struct
       | [] -> self#typeident f ident
       | _ -> pp f "@[@[<2>%a(%a@])@]" self#typeident ident (list ",@ " self#under_comma#ty) params
     method private typeforall f (tvars,rvars,cvars,ty) =
-      pp f "@[<2>forall(@[<h>%a%s%a%s%a@]) %a@]" 
+      pp f "@[<2>forall(@[<h>%a%s%a%s%a@]) %a@]"
         (list ",@ " self#typevar) tvars
         (if tvars=[] then "" else ", ")
         (list ",@ " self#rowvar) rvars
         (if tvars=[] && rvars=[] then "" else ", ")
-        (list ",@ " self#colvar) cvars 
+        (list ",@ " self#colvar) cvars
         self#under_forall#ty ty
     method private typesumsugar f l =
       pp f "@[<v>  %a@]" (list "@ / " self#under_typesum#sum_t) l
@@ -833,7 +833,7 @@ module Classic = struct
       | `toplevel -> Format.pp_print_string f "toplevel"
       | `from s -> Format.fprintf f "from(%s)" s
       | `local s -> pp f "local[%s]" (Ident.to_string s)
-      | `doctype (sl, access) ->
+      | `doctype (sl, access, _info) ->
           pp f "doctype([%a], %a)" (list ",@ " Format.pp_print_string) sl self#variant access
       | `parser_ _ -> Format.pp_print_string f "parser_"
       | `xml_parser _ -> Format.pp_print_string f "xml_parser"
@@ -1170,7 +1170,7 @@ module Js = struct
        (if tvars=[] then "" else ", ")
        (list ",@ " self#rowvar) rvars
        (if tvars=[] && rvars=[] then "" else ", ")
-       (list ",@ " self#colvar) cvars 
+       (list ",@ " self#colvar) cvars
        self#under_forall#ty ty
     method private typesumsugar f l =
       pp f "@[<v>or %a@]" (list "@ or " self#under_typesum#sum_t) l
@@ -1421,7 +1421,7 @@ module Js = struct
       | `toplevel -> Format.pp_print_string f "toplevel"
       | `from s -> Format.fprintf f "from(%s)" s
       | `local s -> pp f "local[%s]" (Ident.to_string s)
-      | `doctype (sl, access) ->
+      | `doctype (sl, access, _info) ->
           pp f "doctype([%a], %a)" (list ",@ " Format.pp_print_string) sl self#variant access
       | `parser_ _ -> Format.pp_print_string f "parser_"
       | `xml_parser _ -> Format.pp_print_string f "xml_parser"

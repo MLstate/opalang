@@ -378,10 +378,10 @@ type alpha_renaming_directive =
     ]
 
 (**
-   path * access
+   path * access * info
 *)
 type documentation_directive =
-    [ `doctype of string list * QmlAst.doctype_access_directive ]
+    [ `doctype of string list * QmlAst.doctype_access_directive * QmlAst.doctype_info list ]
 
 type opavalue_directive = [
 | `stringifier

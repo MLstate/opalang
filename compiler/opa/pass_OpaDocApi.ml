@@ -179,11 +179,11 @@ let process_opa ~(options : E.opa_options) env =
    with their label (so that we can find their types and position)
 *)
 let remove_code_doctype annotmap (qmlAst : QmlAst.code) :
-    (QmlAst.annotmap * (string list * QmlAst.expr * QmlAst.doctype_access_directive) list) * QmlAst.code
+    (QmlAst.annotmap * (string list * QmlAst.expr * QmlAst.doctype_access_directive * QmlAst.doctype_info list) list) * QmlAst.code
     =
   let rec remove_expr_doctype (annotmap, acc) e =
     match e with
-    | Q.Directive (label, `doctype (path, access), [sube], []) ->
+    | Q.Directive (label, `doctype (path, access, info), [sube], []) ->
         let annot_e = Annot.annot label in
         let tsc_opt =
           QmlAnnotMap.find_tsc_opt annot_e annotmap in
@@ -207,7 +207,7 @@ let remove_code_doctype annotmap (qmlAst : QmlAst.code) :
           QmlAnnotMap.add_tsc_opt annot_sube tsc_opt annotmap in
         let annotmap =
           QmlAnnotMap.add_tsc_inst_opt annot_sube tsc_inst_opt annotmap in
-        ((annotmap, (path, sube, access) :: acc), sube)
+        ((annotmap, (path, sube, access, info) :: acc), sube)
     | _ -> ((annotmap, acc), e) in
   let remove_patt_doctype acc e =
     QmlAstWalk.Expr.foldmap_down remove_expr_doctype acc e
@@ -239,6 +239,8 @@ struct
   *)
   type value = {
     value_args : string list;
+    value_is_module : bool ;
+    value_opacapi : bool ;
     value_ty : ty ;
     value_visibility : QmlAst.doctype_access_directive ;
   }
@@ -282,7 +284,7 @@ struct
     val value :
       gamma:QmlTypes.gamma ->
       annotmap:QmlAst.annotmap ->
-      (string list * QmlAst.expr * QmlAst.doctype_access_directive -> entry)
+      (string list * QmlAst.expr * QmlAst.doctype_access_directive * QmlAst.doctype_info list -> entry)
 
     (**
        Types definitions
@@ -319,7 +321,7 @@ struct
 
     let value ~gamma:_ ~annotmap =
       let make_entry = make_entry () in
-      let value (path, expr, visibility) =
+      let value (path, expr, visibility, _info) =
         let label = QmlAst.Label.expr expr in
         let filepos = Annot.pos label in
         let annot = Annot.annot label in
@@ -334,10 +336,27 @@ struct
               end
           | _ -> []
         in
+	let rec is_module expr =
+	  match expr with
+	  | QmlAst.Directive (_, `module_, [_e], _) -> true
+	  | QmlAst.Directive (_, `doctype(_, _, l), [_e], _) -> List.mem `module_ l
+	  | QmlAst.Directive (_, _, [e], _) -> is_module e
+	  | QmlAst.Lambda (_, _, e) -> is_module e
+	  | QmlAst.LetIn (_, _, e) -> is_module e
+	  | _ -> false
+	in
+	let is_module = is_module expr in
+	let opacapi =
+	  match expr with
+	  | QmlAst.Directive (_, `doctype(_, _, l), [_e], _) -> List.mem `opacapi l
+	  | _ -> false
+	in
         let code_elt = Value {
           value_args = args ;
           value_ty = ty ;
           value_visibility = visibility ;
+	  value_is_module = is_module ;
+	  value_opacapi = opacapi
         } in
         make_entry ~path ~filepos ~code_elt
       in
@@ -493,6 +512,10 @@ struct
         field, J.Void ;
       ]
 
+    method is_module im = bool im
+
+    method opacapi o = bool o
+
     method value v =
       (*
         <!> Opa magic serialize, reverse of alphabetic order between fields
@@ -500,6 +523,8 @@ struct
       J.Record [
         "visibility", self#visibility v.Api.value_visibility ;
         "ty", self#ty v.Api.value_ty ;
+	"opacapi", self#opacapi v.Api.value_opacapi ;
+	"is_module", self#is_module v.Api.value_is_module ;
         "args", self#args v.Api.value_args ;
       ]
 
@@ -637,7 +662,7 @@ let process_qml ~(options : E.opa_options)
     *)
     let byfile =
       List.fold_left
-        (fun byfile ((_, expr, _) as value) ->
+        (fun byfile ((_, expr, _, _) as value) ->
            let label = QmlAst.Label.expr expr in
            let filename = FilePos.get_file (Annot.pos label) in
            let entry = make_value value in

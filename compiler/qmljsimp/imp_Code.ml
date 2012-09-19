@@ -46,6 +46,7 @@ type ('a, 'b) ignored_directive = [
 | `may_cps
 | `wait
 | `backend_ident of string
+| `doctype of (string list * QmlAst.doctype_access_directive * QmlAst.doctype_info list)
 (* do not add 'lazy' directive here, or any directive that may avoid some computation,
    it will increases the number of directly nested record and letin,
    see may_alias_deep_record and may_flatten_letin, if you need to do it *)

@@ -565,7 +565,7 @@ struct
 
 
 
-  and directive opa_annot ((c, e, t) as d) =
+  and directive opa_annot ((c, e, t) as d) : QA.expr =
     match c, e, t with
     | (
         `typeof | `opensums | `openrecord | `extendwith | `unsafe_cast
@@ -604,9 +604,11 @@ struct
         *)
         assert false
 
-    | `opacapi, args, _ -> (
+    | `opacapi, args, _tl -> (
         match args with
-        | [e] -> expr e
+        | [e] ->
+            let el = [expr e] in
+            QA.Directive ((make_label_from_opa_annot opa_annot), `doctype([], `private_, [`opacapi]), el, [])
         | _ ->
             (*
               The parser ensure that the directive has exactly 1 argument.

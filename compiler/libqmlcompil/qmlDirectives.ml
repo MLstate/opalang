@@ -520,4 +520,3 @@ let to_string d =
   | `visibility_annotation (`public `funaction) -> "publish_funaction"
 
   | `public_env -> "public_env"
-

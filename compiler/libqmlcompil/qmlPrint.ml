@@ -360,7 +360,7 @@ object (self)
     | Q.Bypass (_, s) -> Format.pp_print_string f ("%%" ^ (BslKey.to_string s) ^ "%%")
     | Q.Coerce (_, e,ty) -> pp f "%a : %a" self#under_coerce#expr e self#ty ty
     | Q.Path (_, el, knd, select) -> self#path f (el, knd, select)
-    | Q.Directive (_, `module_, [e], _) -> pp f "{%a}" self#reset#expr e
+    | Q.Directive (_, `module_, [e], _) -> pp f "module{%a}" self#reset#expr e
     | Q.Directive (_, dir, exprs, tys) -> self#directive f dir exprs tys
   method bind_field fmt (f, d) = pp fmt "%s = %a" f self#under_record#expr d
   method binding f (i, e) =
