@@ -1881,6 +1881,8 @@ let load ?(parallelism=4) ?(extrajs=[]) ~no_stdlib extract_package_decl extract_
         )
     );
 
+    compilation_is_successfull ();
+
     (* linking (only in autobuild or --linking) *)
     (match anon with
      | None -> ()
