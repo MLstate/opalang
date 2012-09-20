@@ -17,7 +17,6 @@ module U = Unix
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 ##extern-type binary = Buf.t
 ##extern-type llarray('a) = Obj.t array
-##extern-type tuple_2('a, 'b) =  ('a, 'b) BslUtils.opa_tuple_2
 ##property[endmli]
 
 (** *****************************)

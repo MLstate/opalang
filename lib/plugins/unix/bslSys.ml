@@ -16,7 +16,6 @@ module BslNativeLib = BslUtils
 let caml_list_to_opa_list =
   BslNativeLib.caml_list_to_opa_list
 
-##opa-type outcome('a,'b)
 ##opa-type System.process
 ##opa-type System.process.out
 

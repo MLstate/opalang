@@ -15,8 +15,6 @@ module BslNativeLib = BslUtils
 module C = QmlCpsServerLib
 open C.Ops
 
-##opa-type outcome('a, 'b)
-
 ##property [mli]
 ##extern-type continuation('a) = 'a QmlCpsServerLib.continuation
 ##extern-type SSL.secure_type = SslAS.secure_type
@@ -25,7 +23,7 @@ open C.Ops
 ##extern-type Socket.connection = Scheduler.connection_info
 
 let create_outcome outcome k =
-  QmlCpsServerLib.return k (wrap_opa_outcome (BslUtils.unwrap_opa_outcome (BslUtils.create_outcome outcome)))
+  QmlCpsServerLib.return k (BslUtils.wrap_opa_outcome (BslUtils.create_outcome outcome))
 
 let private_connect ?(secure_mode = Network.Unsecured) (addr: string) port
                     (cont: Scheduler.connection_info -> unit) =
