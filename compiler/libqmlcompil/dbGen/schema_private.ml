@@ -1333,7 +1333,14 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
              | _ -> OManager.i_error "Virtual path are NYI"
            in
            match kind with
-           | Db.Option -> H.typeoption dataty
+           | Db.Option ->
+               begin match virtual_ with
+                 `virtualset _ ->
+                   QmlError.serror context
+                     "This @{<bright>read access is inconsistent@} a database set always exists\nReplace the @{<bright>optional@} read access by a @{<bright>direct@} read access"
+               | _ -> ()
+               end;
+               H.typeoption dataty
            | Db.Default -> dataty
            | Db.Valpath -> C.Db.val_path_ty dataty
            | Db.Ref -> C.Db.ref_path_ty dataty
