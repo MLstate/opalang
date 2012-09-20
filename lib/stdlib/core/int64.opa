@@ -118,6 +118,12 @@ Int64 = {{
   /** Convert int64 to int, may raise overflow **/
   to_int = %%BslNumber.BslInt64.to_int%% : int64 -> int
 
+  /** Convert signed int into int64 **/
+  of_int_signed = %%BslBinary.i64_of_int_signed%% : int -> int64
+
+  /** Convert int64 to signed int, may raise overflow **/
+  to_int_signed = %%BslBinary.i64_to_int_signed%% : int64 -> int
+
   /** Generate int64 from decimal string **/
   of_string = %%BslNumber.BslInt64.of_string%% : string -> int64
 
