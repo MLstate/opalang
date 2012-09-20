@@ -52,7 +52,7 @@ let add_fill b len v =
 
 ##register add_stringr : binary, string -> opa[outcome(void,string)]
 let add_stringr b s =
-  Buffer.add_string b s;
+  Buf.add_string b s;
   BslUtils.create_outcome (`success ())
 
 ##register add_binary : binary, binary -> void
@@ -61,7 +61,7 @@ let add_binary b nb =
 
 ##register add_binaryr : binary, binary -> opa[outcome(void,string)]
 let add_binaryr b nb =
-  Buffer.add_string b (Buffer.contents nb);
+  Buf.add_string b (Buf.contents nb);
   BslUtils.create_outcome (`success ())
 
 exception BslBinaryError of string
@@ -75,7 +75,7 @@ let add_int8 b i =
 ##register add_int8r : binary, int -> opa[outcome(void,string)]
 let add_int8r b i =
   (* if (i < -0x80 || i > 0x7f) then error (Printf.sprintf "BslBinary.add_int8: out of range int %d" i); *)
-  BslUtils.create_outcome (`success (Buffer.add_char b (Char.chr (if i < 0 then i+0x100 else i))))
+  BslUtils.create_outcome (`success (Buf.add_char b (Char.chr (if i < 0 then i+0x100 else i))))
 
 ##register add_uint8 : binary, int -> void
 let add_uint8 b i =
@@ -85,7 +85,7 @@ let add_uint8 b i =
 ##register add_uint8r : binary, int -> opa[outcome(void,string)]
 let add_uint8r b i =
   (* if (i < 0 || i > 0xff) then error (Printf.sprintf "BslBinary.add_uint8: out of range int %d" i); *)
-  BslUtils.create_outcome (`success (Buffer.add_char b (Char.chr i)))
+  BslUtils.create_outcome (`success (Buf.add_char b (Char.chr i)))
 
 ##register add_int16_le : binary, int -> void
 let add_int16_le b i =
@@ -98,8 +98,8 @@ let add_int16_le b i =
 let add_int16_ler b i =
   (* if (i < -0x8000 || i > 0x7fff) then error (Printf.sprintf "BslBinary.add_int16_le: out of range int %d" i); *)
   let i = if i < 0 then 0x10000 + i else i in
-  Buffer.add_char b (Char.chr ( i         land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_int16_be : binary, int -> void
@@ -113,8 +113,8 @@ let add_int16_be b i =
 let add_int16_ber b i =
   (* if (i < -0x8000 || i > 0x7fff) then error (Printf.sprintf "BslBinary.add_int16_be: out of range int %d" i); *)
   let i = if i < 0 then 0x10000 + i else i in
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
-  Buffer.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_uint16_le : binary, int -> void
@@ -126,8 +126,8 @@ let add_uint16_le b i =
 ##register add_uint16_ler : binary, int -> opa[outcome(void,string)]
 let add_uint16_ler b i =
   (* if (i < 0 || i > 0xffff) then error (Printf.sprintf "BslBinary.add_uint16_le: out of range int %d" i); *)
-  Buffer.add_char b (Char.chr ( i         land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_uint16_be : binary, int -> void
@@ -139,8 +139,8 @@ let add_uint16_be b i =
 ##register add_uint16_ber : binary, int -> opa[outcome(void,string)]
 let add_uint16_ber b i =
   (* if (i < 0 || i > 0xffff) then error (Printf.sprintf "BslBinary.add_uint16_be: out of range int %d" i); *)
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
-  Buffer.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
   BslUtils.create_outcome (`success ())
 
 let _0x100000000 =
@@ -163,10 +163,10 @@ let add_int32_le b i =
 let add_int32_ler b i =
   (* if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_le: out of range int %d" i); *)
   let i = if i < 0 then _0x100000000 + i else i in
-  Buffer.add_char b (Char.chr ( i         land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 16) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 24) land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_int32_be : binary, int -> void
@@ -182,10 +182,10 @@ let add_int32_be b i =
 let add_int32_ber b i =
   (* if (i < -0x80000000 || i > 0x7fffffff) then error (Printf.sprintf "BslBinary.add_int32_be: out of range int %d" i); *)
   let i = if i < 0 then _0x100000000 + i else i in
-  Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
-  Buffer.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 24) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 16) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_uint32_le : binary, int -> void
@@ -199,10 +199,10 @@ let add_uint32_le b i =
 ##register add_uint32_ler : binary, int -> opa[outcome(void,string)]
 let add_uint32_ler b i =
   (* if (i < 0 || i > 0xffffffff) then error (Printf.sprintf "BslBinary.add_uint32_le: out of range int %d" i); *)
-  Buffer.add_char b (Char.chr ( i         land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 16) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 24) land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_uint32_be : binary, int -> void
@@ -216,10 +216,10 @@ let add_uint32_be b i =
 ##register add_uint32_ber : binary, int -> opa[outcome(void,string)]
 let add_uint32_ber b i =
   (* if (i < 0 || i > 0xffffffff) then error (Printf.sprintf "BslBinary.add_uint32_be: out of range int %d" i); *)
-  Buffer.add_char b (Char.chr ((i lsr 24) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 16) land 0xff));
-  Buffer.add_char b (Char.chr ((i lsr 8 ) land 0xff));
-  Buffer.add_char b (Char.chr ( i         land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 24) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 16) land 0xff));
+  Buf.add_char b (Char.chr ((i lsr 8 ) land 0xff));
+  Buf.add_char b (Char.chr ( i         land 0xff));
   BslUtils.create_outcome (`success ())
 
 ##register add_uint64_le : binary, int64 -> void
@@ -235,14 +235,14 @@ let add_uint64_le b i =
 
 ##register add_uint64_ler : binary, int64 -> opa[outcome(void,string)]
 let add_uint64_ler b i =
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
   BslUtils.create_outcome (`success ())
 
 ##register add_uint64_be : binary, int64 -> void
@@ -258,14 +258,14 @@ let add_uint64_be b i =
 
 ##register add_uint64_ber : binary, int64 -> opa[outcome(void,string)]
 let add_uint64_ber b i =
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
   BslUtils.create_outcome (`success ())
 
 ##register add_int53_le : binary, int -> void
@@ -307,10 +307,10 @@ let add_float_le b f =
 let add_float_ler b f =
   (* if f < _FLOATMIN32 || f > _FLOATMAX32 then error (Printf.sprintf "BslBinary.add_float_le: out of range float %g" f); *)
   let i = Int32.bits_of_float f in
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (                          i   ) 0xffl)));
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 8 ) 0xffl)));
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 16) 0xffl)));
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 24) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (                          i   ) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 8 ) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 16) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 24) 0xffl)));
   BslUtils.create_outcome (`success ())
 
 ##register add_float_be : binary, float -> void
@@ -326,10 +326,10 @@ let add_float_be b f =
 let add_float_ber b f =
   (* if f < _FLOATMIN32 || f > _FLOATMAX32 then error (Printf.sprintf "BslBinary.add_float_le: out of range float %g" f); *)
   let i = Int32.bits_of_float f in
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 24) 0xffl)));
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 16) 0xffl)));
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 8 ) 0xffl)));
-  Buffer.add_char b (Char.chr (Int32.to_int (Int32.logand (                          i   ) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 24) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 16) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (Int32.shift_right_logical i 8 ) 0xffl)));
+  Buf.add_char b (Char.chr (Int32.to_int (Int32.logand (                          i   ) 0xffl)));
   BslUtils.create_outcome (`success ())
 
 ##register add_double_le : binary, float -> void
@@ -347,14 +347,14 @@ let add_double_le b f =
 ##register add_double_ler : binary, float -> opa[outcome(void,string)]
 let add_double_ler b f =
   let i = Int64.bits_of_float f in
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
   BslUtils.create_outcome (`success ())
 
 ##register add_double_be : binary, float -> void
@@ -372,14 +372,14 @@ let add_double_be b f =
 ##register add_double_ber : binary, float -> opa[outcome(void,string)]
 let add_double_ber b f =
   let i = Int64.bits_of_float f in
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
-  Buffer.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 56) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 48) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 40) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 32) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 24) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 16) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (Int64.shift_right_logical i 8 ) 0xffL)));
+  Buf.add_char b (Char.chr (Int64.to_int (Int64.logand (                          i   ) 0xffL)));
   BslUtils.create_outcome (`success ())
 
 ##register get_string : binary, int, int -> string
@@ -388,7 +388,7 @@ let get_string b start length =
 
 ##register get_stringr : binary, int, int -> opa[outcome(string,string)]
 let get_stringr b start length =
-  BslUtils.create_outcome (`success (Buffer.sub b start length))
+  BslUtils.create_outcome (`success (Buf.sub b start length))
 
 ##register get_binary : binary, int, int -> binary
 let get_binary b start length =
@@ -401,15 +401,15 @@ let get_binary b start length =
 
 ##register get_binaryr : binary, int, int -> opa[outcome(binary,string)]
 let get_binaryr b start length =
-  let blen = Buffer.length b in
+  let blen = Buf.length b in
   if start < 0 || start >= blen || length < 0
-  then BslUtils.create_outcome (`success (Buffer.create 0))
+  then BslUtils.create_outcome (`success (Buf.create 0))
   else
     try
       BslUtils.create_outcome (`success (
-                                 binary_of_string (Buffer.sub b start (if blen < start + length then blen - start else length))
+                                 binary_of_string (Buf.sub b start (if blen < start + length then blen - start else length))
                                ))
-    with Invalid_argument _ -> BslUtils.create_outcome (`success (Buffer.create 0))
+    with Invalid_argument _ -> BslUtils.create_outcome (`success (Buf.create 0))
 
 ##register get_int8 : binary, int -> int
 let get_int8 b start =
@@ -419,9 +419,9 @@ let get_int8 b start =
 
 ##register get_int8r : binary, int -> opa[outcome(int,string)]
 let get_int8r b start =
-  if start >= Buffer.length b
+  if start >= Buf.length b
   then BslUtils.create_outcome (`failure "BslBinary.get_int8: insufficient buffer data") else
-  let i = Char.code (Buffer.nth b start) in
+  let i = Char.code (Buf.nth b start) in
   BslUtils.create_outcome (`success (if i > 0x7f then i - 0x100 else i))
 
 ##register get_uint8 : binary, int -> int
@@ -431,9 +431,9 @@ let get_uint8 b start =
 
 ##register get_uint8r : binary, int -> opa[outcome(int,string)]
 let get_uint8r b start =
-  if start >= Buffer.length b
+  if start >= Buf.length b
   then BslUtils.create_outcome (`failure "BslBinary.get_uint8: insufficient buffer data") else
-  BslUtils.create_outcome (`success (Char.code (Buffer.nth b start)))
+  BslUtils.create_outcome (`success (Char.code (Buf.nth b start)))
 
 ##register get_int16_le : binary, int -> int
 let get_int16_le b start =
@@ -446,11 +446,11 @@ let get_int16_le b start =
 
 ##register get_int16_ler : binary, int -> opa[outcome(int,string)]
 let get_int16_ler b start =
-  if start > Buffer.length b - 2
+  if start > Buf.length b - 2
   then BslUtils.create_outcome (`failure "BslBinary.get_int16_le: insufficient buffer data") else
   let i =
-           (Char.code (Buffer.nth b  start             ) land 0x00ff)
-     lor (((Char.code (Buffer.nth b (start + 1))) lsl 8) land 0xff00)
+           (Char.code (Buf.nth b  start             ) land 0x00ff)
+     lor (((Char.code (Buf.nth b (start + 1))) lsl 8) land 0xff00)
   in
   BslUtils.create_outcome (`success (if i > 0x7fff then i - 0x10000 else i))
 
@@ -465,11 +465,11 @@ let get_int16_be b start =
 
 ##register get_int16_ber : binary, int -> opa[outcome(int,string)]
 let get_int16_ber b start =
-  if start > Buffer.length b - 2
+  if start > Buf.length b - 2
   then BslUtils.create_outcome (`failure "BslBinary.get_int16_be: insufficient buffer data") else
   let i =
-           (Char.code (Buffer.nth b (start + 1)        ) land 0x00ff)
-     lor (((Char.code (Buffer.nth b  start     )) lsl 8) land 0xff00)
+           (Char.code (Buf.nth b (start + 1)        ) land 0x00ff)
+     lor (((Char.code (Buf.nth b  start     )) lsl 8) land 0xff00)
   in
   BslUtils.create_outcome (`success (if i > 0x7fff then i - 0x10000 else i))
 
@@ -481,11 +481,11 @@ let get_uint16_le b start =
 
 ##register get_uint16_ler : binary, int -> opa[outcome(int,string)]
 let get_uint16_ler b start =
-  if start > Buffer.length b - 2
+  if start > Buf.length b - 2
   then BslUtils.create_outcome (`failure "BslBinary.get_uint16_le: insufficient buffer data") else
   BslUtils.create_outcome (`success (
-        (Char.code (Buffer.nth b  start             ) land 0x00ff)
-  lor (((Char.code (Buffer.nth b (start + 1))) lsl 8) land 0xff00)))
+        (Char.code (Buf.nth b  start             ) land 0x00ff)
+  lor (((Char.code (Buf.nth b (start + 1))) lsl 8) land 0xff00)))
 
 ##register get_uint16_be : binary, int -> int
 let get_uint16_be b start =
@@ -495,11 +495,11 @@ let get_uint16_be b start =
 
 ##register get_uint16_ber : binary, int -> opa[outcome(int,string)]
 let get_uint16_ber b start =
-  if start > Buffer.length b - 2
+  if start > Buf.length b - 2
   then BslUtils.create_outcome (`failure "BslBinary.get_uint16_be: insufficient buffer data") else
   BslUtils.create_outcome (`success (
-        (Char.code (Buffer.nth b (start + 1)        ) land 0x00ff)
-  lor (((Char.code (Buffer.nth b  start     )) lsl 8) land 0xff00)))
+        (Char.code (Buf.nth b (start + 1)        ) land 0x00ff)
+  lor (((Char.code (Buf.nth b  start     )) lsl 8) land 0xff00)))
 
 let _0xff000000 =
   #<Ifstatic:OCAML_WORD_SIZE 64>
@@ -526,13 +526,13 @@ let get_int32_le b start =
 
 ##register get_int32_ler : binary, int -> opa[outcome(int,string)]
 let get_int32_ler b start =
-  if start > Buffer.length b - 4
+  if start > Buf.length b - 4
   then BslUtils.create_outcome (`failure "BslBinary.get_int32_le: insufficient buffer data") else
   let i =
-           (Char.code (Buffer.nth b  start              ) land 0x000000ff)
-     lor (((Char.code (Buffer.nth b (start + 1))) lsl 8 ) land 0x0000ff00)
-     lor (((Char.code (Buffer.nth b (start + 2))) lsl 16) land 0x00ff0000)
-     lor (((Char.code (Buffer.nth b (start + 3))) lsl 24) land _0xff000000)
+           (Char.code (Buf.nth b  start              ) land 0x000000ff)
+     lor (((Char.code (Buf.nth b (start + 1))) lsl 8 ) land 0x0000ff00)
+     lor (((Char.code (Buf.nth b (start + 2))) lsl 16) land 0x00ff0000)
+     lor (((Char.code (Buf.nth b (start + 3))) lsl 24) land _0xff000000)
   in
   BslUtils.create_outcome (`success (
   #<Ifstatic:OCAML_WORD_SIZE 64>
@@ -559,13 +559,13 @@ let get_int32_be b start =
 
 ##register get_int32_ber : binary, int -> opa[outcome(int,string)]
 let get_int32_ber b start =
-  if start > Buffer.length b - 4
+  if start > Buf.length b - 4
   then BslUtils.create_outcome (`failure "BslBinary.get_int32_be: insufficient buffer data") else
   let i =
-           (Char.code (Buffer.nth b (start + 3)         ) land 0x000000ff)
-     lor (((Char.code (Buffer.nth b (start + 2))) lsl 8 ) land 0x0000ff00)
-     lor (((Char.code (Buffer.nth b (start + 1))) lsl 16) land 0x00ff0000)
-     lor (((Char.code (Buffer.nth b  start     )) lsl 24) land _0xff000000)
+           (Char.code (Buf.nth b (start + 3)         ) land 0x000000ff)
+     lor (((Char.code (Buf.nth b (start + 2))) lsl 8 ) land 0x0000ff00)
+     lor (((Char.code (Buf.nth b (start + 1))) lsl 16) land 0x00ff0000)
+     lor (((Char.code (Buf.nth b  start     )) lsl 24) land _0xff000000)
   in
   BslUtils.create_outcome (`success (
   #<Ifstatic:OCAML_WORD_SIZE 64>
@@ -585,13 +585,13 @@ let get_uint32_le b start =
 
 ##register get_uint32_ler : binary, int -> opa[outcome(int,string)]
 let get_uint32_ler b start =
-  if start > Buffer.length b - 4
+  if start > Buf.length b - 4
   then BslUtils.create_outcome (`failure "BslBinary.get_uint32_le: insufficient buffer data") else
   BslUtils.create_outcome (`success (
-        (Char.code (Buffer.nth b  start              ) land 0x000000ff)
-  lor (((Char.code (Buffer.nth b (start + 1))) lsl 8 ) land 0x0000ff00)
-  lor (((Char.code (Buffer.nth b (start + 2))) lsl 16) land 0x00ff0000)
-  lor (((Char.code (Buffer.nth b (start + 3))) lsl 24) land _0xff000000)))
+        (Char.code (Buf.nth b  start              ) land 0x000000ff)
+  lor (((Char.code (Buf.nth b (start + 1))) lsl 8 ) land 0x0000ff00)
+  lor (((Char.code (Buf.nth b (start + 2))) lsl 16) land 0x00ff0000)
+  lor (((Char.code (Buf.nth b (start + 3))) lsl 24) land _0xff000000)))
 
 ##register get_uint32_be : binary, int -> int
 let get_uint32_be b start =
@@ -603,13 +603,13 @@ let get_uint32_be b start =
 
 ##register get_uint32_ber : binary, int -> opa[outcome(int,string)]
 let get_uint32_ber b start =
-  if start > Buffer.length b - 4
+  if start > Buf.length b - 4
   then BslUtils.create_outcome (`failure "BslBinary.get_uint32_be: insufficient buffer data") else
   BslUtils.create_outcome (`success (
-        (Char.code (Buffer.nth b (start + 3)         ) land 0x000000ff)
-  lor (((Char.code (Buffer.nth b (start + 2))) lsl 8 ) land 0x0000ff00)
-  lor (((Char.code (Buffer.nth b (start + 1))) lsl 16) land 0x00ff0000)
-  lor (((Char.code (Buffer.nth b  start     )) lsl 24) land _0xff000000)))
+        (Char.code (Buf.nth b (start + 3)         ) land 0x000000ff)
+  lor (((Char.code (Buf.nth b (start + 2))) lsl 8 ) land 0x0000ff00)
+  lor (((Char.code (Buf.nth b (start + 1))) lsl 16) land 0x00ff0000)
+  lor (((Char.code (Buf.nth b  start     )) lsl 24) land _0xff000000)))
 
 let get_int64_le b p =
   (Int64.logor (Int64.logand (Int64.shift_left (Int64.of_int (Char.code (Buf.nth b (p+7)))) 56) 0xff00000000000000L)
@@ -679,10 +679,10 @@ let get_float_le b p =
 let get_float_ler b p =
   BslUtils.create_outcome (`success (
   Int32.float_of_bits
-    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buffer.nth b (p+3)))) 24) 0xff000000l)
-    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buffer.nth b (p+2)))) 16) 0x00ff0000l)
-    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buffer.nth b (p+1))))  8) 0x0000ff00l)
-                 (Int32.logand (                 (Int32.of_int (Char.code (Buffer.nth b  p   )))   ) 0x000000ffl))))))
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buf.nth b (p+3)))) 24) 0xff000000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buf.nth b (p+2)))) 16) 0x00ff0000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buf.nth b (p+1))))  8) 0x0000ff00l)
+                 (Int32.logand (                 (Int32.of_int (Char.code (Buf.nth b  p   )))   ) 0x000000ffl))))))
 
 ##register get_float_be : binary, int -> float
 let get_float_be b p =
@@ -696,10 +696,10 @@ let get_float_be b p =
 let get_float_ber b p =
   BslUtils.create_outcome (`success (
   Int32.float_of_bits
-    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buffer.nth b  p   ))) 24) 0xff000000l)
-    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buffer.nth b (p+1)))) 16) 0x00ff0000l)
-    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buffer.nth b (p+2))))  8) 0x0000ff00l)
-                 (Int32.logand (                 (Int32.of_int (Char.code (Buffer.nth b (p+3))))   ) 0x000000ffl))))))
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buf.nth b  p   ))) 24) 0xff000000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buf.nth b (p+1)))) 16) 0x00ff0000l)
+    (Int32.logor (Int32.logand (Int32.shift_left (Int32.of_int (Char.code (Buf.nth b (p+2))))  8) 0x0000ff00l)
+                 (Int32.logand (                 (Int32.of_int (Char.code (Buf.nth b (p+3))))   ) 0x000000ffl))))))
 
 ##register get_double_le : binary, int -> float
 let get_double_le b p = Int64.float_of_bits (get_int64_le b p)
