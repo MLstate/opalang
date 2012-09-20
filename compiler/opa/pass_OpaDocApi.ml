@@ -207,7 +207,7 @@ let remove_code_doctype annotmap (qmlAst : QmlAst.code) :
           QmlAnnotMap.add_tsc_opt annot_sube tsc_opt annotmap in
         let annotmap =
           QmlAnnotMap.add_tsc_inst_opt annot_sube tsc_inst_opt annotmap in
-        ((annotmap, (path, sube, access, info) :: acc), sube)
+        remove_expr_doctype (annotmap, (path, sube, access, info) :: acc) sube
     | _ -> ((annotmap, acc), e) in
   let remove_patt_doctype acc e =
     QmlAstWalk.Expr.foldmap_down remove_expr_doctype acc e
