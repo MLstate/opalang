@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -95,6 +95,16 @@ Int = {{
   `-` = %% BslPervasives.int_sub %%
   `*` = %% BslPervasives.int_mul %%
   `/` = %% BslPervasives.int_div %%
+
+  /**
+   * Add 1 to the int given in parameter
+   */
+  succ(i) = i+1
+
+  /**
+   * Subtract 1 to the int given in parameter
+   */
+  pred(i) = i-1
 
   /**
    * Check equality of two int
