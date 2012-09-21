@@ -117,7 +117,7 @@ let to_int_signed_opt (i64:int64) =
   else Some (Int64.to_int i64)
 
 let max_int64 = Int64.max_int
-##register max_int \ `max_int64` : int64
+##register max_int \ max_int64 : int64
 
 ##register is_NaN : int64 -> bool
 let is_NaN _ = false
