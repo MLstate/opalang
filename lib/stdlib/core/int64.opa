@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -89,7 +89,7 @@ Int64 = {{
   succ = %%BslNumber.BslInt64.succ%% : int64 -> int64
 
   /** Maximum int64 value **/
-  max_int = %%BslNumber.BslInt64.max_int%% : -> int64
+  max_int = %%BslNumber.BslInt64.max_int%% : int64
 
   /** Bitwise and of two int64 values **/
   logand = %%BslNumber.BslInt64.logand%% : int64, int64 -> int64
@@ -120,6 +120,14 @@ Int64 = {{
 
   /** Convert signed int into int64 **/
   of_int_signed = %%BslBinary.i64_of_int_signed%% : int -> int64
+
+  /**
+   * Convert int64 into signed int if the int64 is not greater than max_int.
+   * @param i64 The int64 number to convert
+   * @return An option which contains the converted int, or [none] if [i64] is
+   * greater than max_int
+   **/
+  to_int_signed_opt = %%BslNumber.BslInt64.to_int_signed_opt%% : int64 -> option(int)
 
   /** Convert int64 to signed int, may raise overflow **/
   to_int_signed = %%BslBinary.i64_to_int_signed%% : int64 -> int

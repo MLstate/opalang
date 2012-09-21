@@ -80,8 +80,6 @@ let catch f =
 ##register rem \ `Int64.rem` : int64, int64 -> int64
 ##register pred \ `Int64.pred` : int64 -> int64
 ##register succ \ `Int64.succ` : int64 -> int64
-##register max_int : -> int64
-let max_int _ = Int64.max_int
 ##register logand \ `Int64.logand` : int64, int64 -> int64
 ##register logor \ `Int64.logor` : int64, int64 -> int64
 ##register logxor \ `Int64.logxor` : int64, int64 -> int64
@@ -112,6 +110,14 @@ let op_ge i1 i2 = i1 >= i2
 let op_lt i1 i2 = i1 < i2
 ##register op_le : int64, int64 -> bool
 let op_le i1 i2 = i1 <= i2
+
+##register to_int_signed_opt : int64 -> option(int)
+let to_int_signed_opt (i64:int64) =
+  if op_gt i64 (Int64.of_int max_int) then None
+  else Some (Int64.to_int i64)
+
+let max_int64 = Int64.max_int
+##register max_int \ `max_int64` : int64
 
 ##register is_NaN : int64 -> bool
 let is_NaN _ = false
