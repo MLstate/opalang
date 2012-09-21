@@ -471,9 +471,12 @@ WireProtocol = {{
               do if (Pack.debug) then ML.debug("unser_item","el_long",void)
               (match U.int64_le(input) with
                | {success=(input,i64)} ->
-                  if Int64.op_gt(i64,Int64.of_int(0x1fffffffffffff))
-                  then {success=(input,{some={~name; value={RealInt64=i64}}})}
-                  else {success=(input,{some={~name; value={Int64=Int64.to_int(i64)}}})}
+                  match Int64.to_int_signed_opt(i64)
+                  | {none} ->
+                    {success=(input,{some={~name; value={RealInt64=i64}}})}
+                  | {some = i} ->
+                    {success=(input,{some={~name; value={Int64=i}}})}
+                  end
                | {~failure} -> {~failure})
             | /*el_minkey*/255 ->
               do if (Pack.debug) then ML.debug("unser_item","el_minkey",void)
