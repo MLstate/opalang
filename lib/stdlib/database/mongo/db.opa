@@ -454,7 +454,7 @@ Then use option --db-remote instead of --db-local.
       seeds=[] : list((string, int))
       bufsize = 50*1024
       poolsize = 100
-      log = true
+      log = false
       auth = [] : Mongo.auths
     }
 
