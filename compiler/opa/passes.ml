@@ -768,8 +768,10 @@ let pass_resolve_remote_calls ~options (env:'tmp_env env_Gen_sliced) =
     let server_code = more_server_code @ server_code in
     let client_code = more_client_code @ client_code in
 
-    let client_renaming, server_renaming =
-      Opa_InsertRemote.postlude client_renaming server_renaming in
+    let exported = env.env_gen.exported in
+
+    let client_renaming, server_renaming, exported =
+      Opa_InsertRemote.postlude client_renaming server_renaming exported in
 
     let sliced_env =
       {
@@ -786,6 +788,7 @@ let pass_resolve_remote_calls ~options (env:'tmp_env env_Gen_sliced) =
       } in
     let env_gen =
       { env.env_gen with
+          exported;
           qmlAst = [];
           typerEnv = { env.env_gen.typerEnv with
                          QmlTypes.annotmap = annotmap;

@@ -1179,7 +1179,7 @@ let generate_stub_from_publish,
   (fun k x -> Hashtbl.add prev_stubs k x),
   (fun folder ->
      Hashtbl.fold
-       (fun ident (sident, _, _) acc -> folder ident sident acc)
+       (fun ident (sident, _, expanded) acc -> folder expanded ident sident acc)
        current_stubs
   ),
   (fun _ -> current_stubs)
@@ -1359,32 +1359,33 @@ let prelude ~gamma ~annotmap code1 code2 =
   with e when String.is_prefix "stdlib." (ObjectFiles.get_current_package_name ())
       -> error_stdlib gamma annotmap code1 code2 e
 
-let postlude orig_renaming1 orig_renaming2 =
+let postlude orig_renaming1 orig_renaming2 exported =
   (* Finalize pass *)
   (* Update renaming map *)
-  let renaming1,renaming2 =
+  let renaming1,renaming2,exported =
     fold_current_stubs
-      (fun org stu (renaming1,renaming2) ->
+      (fun expanded org stu (renaming1,renaming2,exported) ->
          match QmlRenamingMap.original_from_new_opt orig_renaming2 org with
          | None ->
              (match QmlRenamingMap.original_from_new_opt orig_renaming1 org with
              | None ->
-                 OManager.printf "error when updating renaming map on %a" QmlPrint.pp#ident org
-                   (*
-                     Mathieu Wed Mar  9 11:53:45 CET 2011
-                     FIXME: This is a wild warning
-                   *)
-                 ;
-                 QmlRenamingMap.add renaming1 org stu, QmlRenamingMap.add renaming2 org stu (* no idea what to do *)
+                 OManager.i_error "error when updating renaming map on %a" QmlPrint.pp#ident org
              | Some org ->
-                 renaming1, QmlRenamingMap.add renaming2 org stu)
+                 (renaming1, QmlRenamingMap.add renaming2 org stu,
+                  if expanded && IdentSet.mem org exported then
+                    IdentSet.add stu exported
+                  else exported)
+             )
          | Some org ->
              assert (Option.is_none (QmlRenamingMap.original_from_new_opt orig_renaming1 org));
-             QmlRenamingMap.add renaming1 org stu, renaming2
-      ) (orig_renaming1,orig_renaming2) in
+             QmlRenamingMap.add renaming1 org stu, renaming2,
+             (if expanded && IdentSet.mem org exported then
+                IdentSet.add stu exported
+              else exported)
+      ) (orig_renaming1,orig_renaming2,exported) in
   (* Save object files *)
   R.save (get_current_stubs ());
-  renaming1, renaming2
+  renaming1, renaming2, exported
 
 (** Perform on an AST (code).
     @param expmap1 Explicit map of the computed side

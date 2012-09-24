@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -208,7 +208,7 @@ type options = {
 val default_options : options
 
 val prelude : gamma:QmlTypes.gamma -> annotmap:QmlAst.annotmap -> QmlAst.code -> QmlAst.code -> unit
-val postlude : QmlRenamingMap.t -> QmlRenamingMap.t -> QmlRenamingMap.t * QmlRenamingMap.t
+val postlude : QmlRenamingMap.t -> QmlRenamingMap.t -> IdentSet.t -> QmlRenamingMap.t * QmlRenamingMap.t * IdentSet.t
 val need_to_process_code : QmlAst.code -> QmlAst.code -> bool
 
 (** Work on server code. Resolve :
