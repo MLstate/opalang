@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -36,28 +36,19 @@ import stdlib.core.{js}
 
 @server @publish JsInterface = {{
 
-  @private define(source) =
-    do JsIdent.define(source)
-    JsIdent.rename(source)
-
-  /**
-   * funaction
-  **/
-  get_local_unsafe = define("get_local_unsafe")
-
   /**
    * dynamic xhtml
   **/
-  default_opa_event = define("default_opa_event")
+  default_opa_event = JsIdent.define_rename("default_opa_event")
 
   /**
    * opa2js
   **/
-  js_void = define("js_void")
+  js_void = JsIdent.define_rename("js_void")
 
   /**
    * opa2js
   **/
-  ServerChannel = define("ServerChannel")
+  ServerChannel = JsIdent.define_rename("ServerChannel")
 
 }}
