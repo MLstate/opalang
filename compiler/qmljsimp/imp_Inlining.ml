@@ -544,7 +544,7 @@ let make_r pass =
   let module S =
       struct
         type t = env
-        let pass = pass ^ "_imp_Inlining"
+        let pass = Printf.sprintf "imp_Inlining_%s" pass
         let pp_element f = function
           | `var e ->
               Format.fprintf f "`var %a" (JsPrint.pp#expr ~leading:true) e
