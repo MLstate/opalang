@@ -32,3 +32,6 @@ val rewrite_expr : env -> JsAst.expr -> JsAst.expr
     identical".
 *)
 val process_code : pass:string -> JsAst.code -> (JsAst.code * env)
+
+(** Get the substitute ident of the given one *)
+val get_substitute : env -> JsIdent.t -> JsIdent.t option

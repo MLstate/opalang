@@ -229,7 +229,26 @@ let compile
   let inlining_env =
     Imp_Inlining.map_expr_in_env (Imp_Sharing.rewrite_expr sharing_env) inlining_env
   in
+  let exported =
+    JsIdentSet.fold
+      (fun i exported ->
+         match Imp_Sharing.get_substitute sharing_env i with
+         | None -> exported
+         | Some s -> JsIdentSet.add s (JsIdentSet.remove i exported)
+      ) exported exported in
   save_inlining_env inlining_env;
+  let exported =
+    Imp_Inlining.fold_env
+      (fun i e exported ->
+         if JsIdentSet.mem i exported then
+           JsWalk.Expr.fold
+             (fun exported -> function
+              | JsAst.Je_ident (_, i) -> JsIdentSet.add i exported
+              | _ -> exported
+             ) exported e
+         else exported)
+      inlining_env exported
+  in
   #<If:JS_IMP$contains "time"> Printf.printf "code sharing: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_6_code_sharing" _outputer js_code) #<End>;
   let js_code = if options.Qml2jsOptions.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true js_code else js_code in

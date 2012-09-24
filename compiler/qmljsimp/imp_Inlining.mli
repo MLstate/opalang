@@ -37,6 +37,9 @@ val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement option
 (** [map_expr_in_env f env] Map all JavaScript expression in [env] with [f]. *)
 val map_expr_in_env : (JsAst.expr -> JsAst.expr) -> env -> env
 
+(** [fold_env f env acc] Fold in the inlining [env] with [f]. *)
+val fold_env : (JsAst.ident -> JsAst.expr -> 'a -> 'a) -> env -> 'a -> 'a
+
 (**
    The interface for separate compilation
 *)

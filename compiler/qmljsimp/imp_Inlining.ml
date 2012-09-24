@@ -734,3 +734,12 @@ let map_expr_in_env map env =
          | `var e -> `var (map e)
          | `fun_ (a, e) -> `fun_ (a, map e))
         env.functions }
+
+let fold_env f env acc =
+  JsIdentMap.fold
+    (fun i e acc -> match e with
+     | `var e
+     | `fun_ (_, e) ->
+         f i e acc
+    ) env.functions acc
+

@@ -111,3 +111,6 @@ let process_code ~pass code =
 
   let code = rewrite env code in
   code, env
+
+
+let get_substitute env i = JsIdentMap.find_opt i env
