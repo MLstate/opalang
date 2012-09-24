@@ -192,6 +192,7 @@ let full_serialize
     ~closure_map
     ~is_distant
     ~renaming
+    ~exported
     ~client_roots
     ~typing:_
     ~bsl_pp
@@ -304,6 +305,7 @@ let full_serialize
     with Not_found ->
       OManager.error "Function %S not registered in Opacapi@\n" name in
   let env_js_input =
+    let exported = IdentSet.union client_roots exported in
     Qml2js.Sugar.for_opa
       ~bsl:bsl_and_plugin_ast
       ~val_:env_js_input_val_
@@ -311,6 +313,7 @@ let full_serialize
       ~is_distant
       ~renaming
       ~bsl_lang:BslLanguage.js
+      ~exported
       back_end
       jsoptions
       bsl_client
@@ -377,6 +380,7 @@ let process
     ~closure_map
     ~is_distant
     ~renaming
+    ~exported
     ~client_roots
     ~typing
     ~bsl_pp
@@ -396,6 +400,7 @@ let process
       ~closure_map
       ~is_distant
       ~renaming
+      ~exported
       ~client_roots
       ~typing
       ~bsl_pp

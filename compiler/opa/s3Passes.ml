@@ -712,6 +712,8 @@ let pass_SaToQml =
          the annotations.
        *)
 
+       let exported_values_idents = env.P.sa_exported_values_idents in
+
        let typerEnv =
          let bypass_typer =
            BslLib.BSL.ByPassMap.bypass_typer
@@ -723,7 +725,7 @@ let pass_SaToQml =
            ~explicit_instantiation: options.O.explicit_instantiation
            ~value_restriction: options.O.value_restriction
            ~display: options.O.show_types
-           ~exported_values_idents: env.P.sa_exported_values_idents () in
+           ~exported_values_idents: exported_values_idents () in
 
        let env_Gen =
          { P.
@@ -732,6 +734,7 @@ let pass_SaToQml =
            typerEnv = typerEnv;
            doc_types = env.P.sa_doc_types;
            temporary_env = ();
+           exported = exported_values_idents;
            local_typedefs = QmlAst.TypeIdentSet.empty;
            stdlib_gamma = QmlTypes.Env.empty;
          } in
@@ -1737,6 +1740,7 @@ let pass_SlicedToFinal =
              newFinalCompile_qml_milkshake = blender_milkshake;
              newFinalCompile_renaming_server = eenv.P.sliced_env.P.server.P.original_renaming;
              newFinalCompile_renaming_client = eenv.P.sliced_env.P.client.P.original_renaming;
+             newFinalCompile_exported = e.PH.env.P.env_gen.P.exported;
              newFinalCompile_closure_map = IdentMap.empty;
              newFinalCompile_stdlib_gamma = e.PH.env.P.env_gen.P.stdlib_gamma;
            } in
@@ -1819,6 +1823,7 @@ let pass_JavascriptCompilation =
         let other = client_finalenv.P.newFinalCompile_renaming_server in
         EnvUtils.jsutils_from_renamings ~here ~other
       in
+      let exported = client_finalenv.P.newFinalCompile_exported in
       let bsl_pp =
         let ppenv = Pprocess.fill_with_sysenv Pprocess.empty_env in
         let ppenv = OpaEnv.Options.to_ppenv options ppenv in
@@ -1830,6 +1835,7 @@ let pass_JavascriptCompilation =
           ~closure_map
           ~is_distant
           ~renaming
+          ~exported
           ~client_roots
           ~typing
           ~bsl_pp
@@ -2217,6 +2223,7 @@ let pass_ServerJavascriptCompilation =
          let here  = env.P.newFinalCompile_renaming_server in
          EnvUtils.jsutils_from_renamings ~here ~other
        in
+       let exported = env.Passes.newFinalCompile_exported in
        let env_js_input = JsBackend.compile
          ~runtime_ast:false
          ~bsl:loaded_bsl.Qml2js.generated_ast
@@ -2225,6 +2232,7 @@ let pass_ServerJavascriptCompilation =
          ~is_distant
          ~renaming
          ~bsl_lang:BslLanguage.nodejs
+         ~exported
          jsoptions
          env_bsl
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env

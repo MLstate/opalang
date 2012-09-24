@@ -59,6 +59,7 @@ val process :
   closure_map:Ident.t IdentMap.t ->
   is_distant:(Ident.t -> bool) ->
   renaming:QmlRenamingMap.t ->
+  exported:IdentSet.t ->
   client_roots:IdentSet.t ->
   typing:QmlTyper.env -> (* currently unused *)
   bsl_pp:(name:string-> string -> string) ->

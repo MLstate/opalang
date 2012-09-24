@@ -573,6 +573,7 @@ sig
                 is_distant:(Ident.t -> bool) ->
                 renaming:QmlRenamingMap.t ->
                 bsl_lang:BslLanguage.t ->
+                exported:IdentSet.t ->
                 (module Qml2jsOptions.JsBackend) ->
                 Qml2jsOptions.t ->
                 BslLib.env_bsl ->
@@ -583,9 +584,13 @@ sig
 end
 =
 struct
-  let for_opa ~val_ ?bsl:bsl_code ~closure_map ~is_distant ~renaming ~bsl_lang back_end argv env_bsl env_typer code =
+  let for_opa ~val_ ?bsl:bsl_code ~closure_map ~is_distant ~renaming ~bsl_lang ~exported
+      back_end argv env_bsl env_typer code =
     let module M = (val back_end : Qml2jsOptions.JsBackend) in
-    let env_js_input = M.compile ~val_ ?bsl:bsl_code ~closure_map ~is_distant ~renaming ~bsl_lang argv env_bsl env_typer code in
+    let env_js_input =
+      M.compile ~val_ ?bsl:bsl_code ~closure_map ~is_distant ~renaming ~bsl_lang ~exported
+        argv env_bsl env_typer code
+    in
     env_js_input
   let dummy_for_opa backend =
     let module M = (val backend : Qml2jsOptions.JsBackend) in

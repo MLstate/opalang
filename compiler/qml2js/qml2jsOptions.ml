@@ -89,20 +89,23 @@ type env_js_input =
                           | `ast of (BslInterface.unicity_index * JsAst.code_elt) list
                           | `string of string
                           ]) list ;
+      exported : JsIdentSet.t ;
       js_code : JsAst.code ; (** will be split according to argv_options *)
     }
 
 
 module type JsBackend = sig
   val dynloader : BslPluginInterface.plugin -> unit
-  val compile : ?runtime_ast:bool ->
-                ?val_:(string -> QmlAst.ident) ->
-                ?bsl:JsAst.code ->
-                ?closure_map:Ident.t IdentMap.t ->
-                renaming:QmlRenamingMap.t   ->
-                is_distant:(Ident.t -> bool) ->
-                bsl_lang:BslLanguage.t ->
-                t -> BslLib.env_bsl -> QmlTyper.env -> QmlAst.code -> env_js_input
+  val compile :
+    ?runtime_ast:bool ->
+    ?val_:(string -> QmlAst.ident) ->
+    ?bsl:JsAst.code ->
+    ?closure_map:Ident.t IdentMap.t ->
+    renaming:QmlRenamingMap.t   ->
+    is_distant:(Ident.t -> bool) ->
+    bsl_lang:BslLanguage.t ->
+    exported:IdentSet.t ->
+    t -> BslLib.env_bsl -> QmlTyper.env -> QmlAst.code -> env_js_input
   val name : string
   val runtime_libs : cps:bool -> extra_lib list
   val dummy_compile : unit -> unit (* if the back end is not called because the input code is empty

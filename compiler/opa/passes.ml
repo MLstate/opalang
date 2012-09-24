@@ -192,6 +192,7 @@ type 'tmp_env env_Gen = {
   local_typedefs : QmlAst.TypeIdentSet.t;
   stdlib_gamma : QmlTypes.gamma; (* used to get the tsc of the stdlib ident *)
   doc_types : Ident.t doc_types; (** opadoc specific data *)
+  exported : IdentSet.t;
   temporary_env : 'tmp_env;
 }
 
@@ -224,6 +225,7 @@ let change_temporary (temporary_env : 'b) (env_gen : 'a env_Gen)  = ({
   local_typedefs = env_gen.local_typedefs;
   stdlib_gamma = env_gen.stdlib_gamma;
   doc_types = env_gen.doc_types;
+  exported = env_gen.exported;
   temporary_env = temporary_env;
 } : ('b env_Gen))
 
@@ -376,6 +378,7 @@ type env_NewFinalCompile = {
   newFinalCompile_qml_milkshake : QmlBlender.qml_milkshake ;
   newFinalCompile_renaming_server : QmlRenamingMap.t;
   newFinalCompile_renaming_client : QmlRenamingMap.t;
+  newFinalCompile_exported : IdentSet.t;
   newFinalCompile_closure_map : Ident.t IdentMap.t; (* see QmlUncurry.mli *)
   newFinalCompile_stdlib_gamma : QmlTypes.gamma;
 }
