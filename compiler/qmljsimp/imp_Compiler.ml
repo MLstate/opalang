@@ -175,13 +175,17 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
           (fun _n ->
              List.fold_left_collect
                (fun env stm ->
-                  (* first global inline inside the statement using the environment of the dependencies
-                   * (which may not be enough for recursive cases, but you can't realy inline anyway,
-                   * except for cases such as an eta expansion in the middle of a recursive group) *)
-                  let stm = Imp_Inlining.global_inline_rewrite_stm env stm in
-                  #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:(Printf.sprintf "js_imp_1_%d_global_inline" _n) _outputer [stm]) #<End>;
-                  (* then, local inline to remove all useless stuff in the original code,
-                   * introduced by patterns compilation and from global inline *)
+                  (* first global inline inside the statement using the
+                   * environment of the dependencies (which may not be enough for
+                   * recursive cases, but you can't realy inline anyway, except
+                   * for cases such as an eta expansion in the middle of a
+                   * recursive group) *)
+                  match Imp_Inlining.global_inline_rewrite_stm env stm with
+                  | None -> env, []
+                  | Some stm ->
+                      #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:(Printf.sprintf "js_imp_1_%d_global_inline" _n) _outputer [stm]) #<End>;
+                      (* then, local inline to remove all useless stuff in the original code,
+                       * introduced by patterns compilation and from global inline *)
                   let stm = Imp_Inlining.local_inline_stm stm in
                   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:(Printf.sprintf "js_imp_2_%d_local_inline" _n) _outputer [stm]) #<End>;
                   (* cleanup, constant folding, etc to make the code as lightweight as possible *)

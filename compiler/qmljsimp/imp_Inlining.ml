@@ -640,7 +640,7 @@ let global_inline_analyse_code ?topobj env code =
   List.fold_left (global_inline_analyse_stm ?topobj) env code
 
 (* rewriting of a toplevel statement, given an inlining environment *)
-let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement =
+let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) =
   let find_function i =
     match i with
     | J.Native (`global pure, _s) when not(pure) -> raise Not_found
@@ -713,10 +713,17 @@ let global_inline_rewrite_stm (env:env) (stm:JsAst.statement) : JsAst.statement 
        | J.Js_with _ when toplevel -> assert false (* no expression at toplevel are treated *)
        | _ -> tra toplevel local_vars stm) in
   let local_vars = [] in
+
   let local_vars, stm =
     JsWalk.TStatement.self_traverse_foldmap_context_down rewrite_stm_aux rewrite_expr_aux true local_vars stm in
   assert (local_vars = []);
-  stm
+  match stm with
+  | J.Js_var (_,_,Some J.Je_ident (_, i)) when
+      (try
+         ignore (find_function i);true
+       with Not_found -> false)
+      -> None
+  | _ -> Some stm
 
 
 let map_expr_in_env map env =

@@ -32,7 +32,7 @@ val empty_env : env
 val env_of_map : Ident.t IdentMap.t -> env
 val global_inline_analyse_stm :  ?topobj:(string -> bool) -> env -> JsAst.statement -> env
 val global_inline_analyse_code :  ?topobj:(string -> bool) -> env -> JsAst.code -> env
-val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement
+val global_inline_rewrite_stm : env -> JsAst.statement -> JsAst.statement option
 
 (** [map_expr_in_env f env] Map all JavaScript expression in [env] with [f]. *)
 val map_expr_in_env : (JsAst.expr -> JsAst.expr) -> env -> env
