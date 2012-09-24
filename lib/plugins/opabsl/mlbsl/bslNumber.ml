@@ -95,8 +95,8 @@ let catch f =
 ##register of_string \ `Int64.of_string` : string -> int64
 
 ##register of_string_radix : string, int -> int64
-let of_string_radix (_s:string) (_radix:int) : int64 =
-  let tab (c:char) : int =
+let of_string_radix s radix =
+  let tab c =
     match c with
     | '0' -> 0 | '1' -> 1 | '2' -> 2 | '3' -> 3 | '4' -> 4 | '5' -> 5 | '6' -> 6 | '7' -> 7 | '8' -> 8 | '9' -> 9
     | 'a' -> 10 | 'b' -> 11 | 'c' -> 12 | 'd' -> 13 | 'e' -> 14 | 'f' -> 15
@@ -104,37 +104,37 @@ let of_string_radix (_s:string) (_radix:int) : int64 =
     | _ -> raise (BslNumberError (Printf.sprintf "Int64.of_string: bad character %c" c))
   in
   if (radix < 2 || radix > 16) then raise (BslNumberError (Printf.sprintf "Int64.of_string: bad radix %d" radix));
-  let x : int64 ref = ref Int64.zero in
-  let radix64 : int64 = Int64.of_int radix in
+  let x = ref Int64.zero in
+  let radix64 = Int64.of_int radix in
   for i = 0 to String.length s - 1 do
-    let dig : int = tab(s.[i]) in
+    let dig = tab(s.[i]) in
     if dig >= radix then raise (BslNumberError (Printf.sprintf "Int64.of_string: bad digit %d" dig));
     (* TODO: proper check for overflow *)
-    x := ((Int64.add (Int64.mul ((!x):int64) (radix64:int64)) ((Int64.of_int (dig:int)):int64)):int64)
+    x := Int64.add (Int64.mul !x radix64) (Int64.of_int dig)
   done;
-  ((!x):int64)
+  !x
 
 ##register to_string \ `Int64.to_string` : int64 -> string
 
 ##register to_string_radix : int64, int -> string
-let to_string_radix (_i:int64) (_radix:int) : string =
+let to_string_radix i radix =
   if (radix < 2 || radix > 16) then raise (BslNumberError (Printf.sprintf "Int64.of_string: bad radix %d" radix));
   if i = 0L then "0"
   else if i = 1L then "1"
   else
-    let strs : string = "0123456789abcdef" in
-    let s : char list ref = ref [] in
-    let radix64 : int64 = Int64.of_int radix in
-    let i : int64 ref = ref i in
+    let strs  = "0123456789abcdef" in
+    let s = ref [] in
+    let radix64 = Int64.of_int radix in
+    let i = ref i in
     while !i <> 0L do
-      let r : int64 = Int64.rem !i radix64 in
+      let r = Int64.rem !i radix64 in
       if Int64.compare r radix64 = 1 then raise (BslNumberError "Int64.of_string: bad number");
       s := (strs.[Int64.to_int r])::!s;
       i := Int64.div !i radix64
     done;
-    let r : string = String.create (List.length !s) in 
-    let _i : int = List.fold_left (fun i c -> r.[i] <- c; succ i) 0 !s in
-    (r:string)
+    let r = String.create (List.length !s) in
+    let _i = List.fold_left (fun i c -> r.[i] <- c; i + 1) 0 !s in
+    r
 
 ##register op_eq : int64, int64 -> bool
 let op_eq i1 i2 = i1 = i2
