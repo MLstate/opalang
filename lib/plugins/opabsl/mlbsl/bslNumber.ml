@@ -95,8 +95,8 @@ let catch f =
 ##register of_string \ `Int64.of_string` : string -> int64
 
 ##register of_string_radix : string, int -> int64
-let of_string_radix s radix =
-  let tab c =
+let of_string_radix (s:string) (radix:int) : int64 =
+  let tab (c:char) : int =
     match c with
     | '0' -> 0 | '1' -> 1 | '2' -> 2 | '3' -> 3 | '4' -> 4 | '5' -> 5 | '6' -> 6 | '7' -> 7 | '8' -> 8 | '9' -> 9
     | 'a' -> 10 | 'b' -> 11 | 'c' -> 12 | 'd' -> 13 | 'e' -> 14 | 'f' -> 15
@@ -106,23 +106,25 @@ let of_string_radix s radix =
   if (radix < 2 || radix > 16) then raise (BslNumberError (Printf.sprintf "Int64.of_string: bad radix %d" radix));
   let x = ref Int64.zero in
   let radix64 = Int64.of_int radix in
-  for i = 0 to String.length s - 1 do
+  let (sign, istart) = if s.[0] = '-' then (-1L,1) else (1L,0) in
+  for i = istart to String.length s - 1 do
     let dig = tab(s.[i]) in
     if dig >= radix then raise (BslNumberError (Printf.sprintf "Int64.of_string: bad digit %d" dig));
     (* TODO: proper check for overflow *)
     x := Int64.add (Int64.mul !x radix64) (Int64.of_int dig)
   done;
-  !x
+  Int64.mul sign !x
 
 ##register to_string \ `Int64.to_string` : int64 -> string
 
 ##register to_string_radix : int64, int -> string
-let to_string_radix i radix =
+let to_string_radix (i:int64) (radix:int) : string =
   if (radix < 2 || radix > 16) then raise (BslNumberError (Printf.sprintf "Int64.of_string: bad radix %d" radix));
   if i = 0L then "0"
   else if i = 1L then "1"
   else
-    let strs  = "0123456789abcdef" in
+    let (sign,i) = if Int64.compare i 0L = (-1) then ("-",Int64.sub 0L i) else ("",i) in
+    let strs = "0123456789abcdef" in
     let s = ref [] in
     let radix64 = Int64.of_int radix in
     let i = ref i in
@@ -132,9 +134,9 @@ let to_string_radix i radix =
       s := (strs.[Int64.to_int r])::!s;
       i := Int64.div !i radix64
     done;
-    let r = String.create (List.length !s) in
-    let _i = List.fold_left (fun i c -> r.[i] <- c; i + 1) 0 !s in
-    r
+    let r = String.create (List.length !s) in 
+    let _ = List.fold_left (fun i c -> r.[i] <- c; i+1) 0 !s in
+    sign^r
 
 ##register op_eq : int64, int64 -> bool
 let op_eq i1 i2 = i1 = i2
