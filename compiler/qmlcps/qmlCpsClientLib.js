@@ -274,38 +274,48 @@ var is_schedule = false;
 var loop_level = 0;
 
 /**
+ * Maximal number of consecutive return allowed by thread before it be scheduled.
+ */
+var max_return_by_thread = 100;
+
+/**
+ * Maximal number of thread computation before schedule to JS VM
+ */
+var max_consecutive_thread = 5;
+
+/**
  * An infinite scheduling loop.
  *
  * Takes the tasks waiting in [ready], execute them. If [ready] is empty, sleep and wake up
  *
  * Stop on fatal error.
  */
-function loop_schedule()
+function loop_schedule(blocking)
 {
     var fatal_error   = false;//[true] if we stopped scheduling because of a fatal error, [false] otherwise
-    var nothing_to_do = false;//[true] if we stopped scheduling because there's nothing left to do
     var tasks         = ready;//Keep a local copy. In most JS VMs, this will speed-up code.
     var task;
     loop_level++;
     is_schedule = true;
     try
     {
-        for(;;)
+        for(var t=0; tasks.length != 0 && (blocking || t < max_consecutive_thread); t++)
         {
-            if(tasks.length == 0)
-            {
-                nothing_to_do = true;
-                break;
-            } else {
-                task = tasks.shift();
-                var r = task();
-                #<Ifstatic:OPABSL_NODE>
-                for(var i=0; i<100 && r; i++) r =execute1(r[0], r[1]);
-                if (r) push(task_from_return(r[0], [r[1]]));
-                #<Else>
-                execute1(r[0], r[1])
-                #<End>
-            }
+            task = tasks.shift();
+            var r = task();
+            #<Ifstatic:OPABSL_NODE>
+            for(var i=0; i<max_return_by_thread && r; i++) r =execute1(r[0], r[1]);
+            if (r) push(task_from_return(r[0], [r[1]]));
+            #<Else>
+            execute1(r[0], r[1])
+            #<End>
+        }
+        if(tasks.length != 0) {
+            #<Ifstatic:OPABSL_NODE>
+            process.nextTick(loop_schedule)
+            #<Else>
+            setTimeout(loop_schedule, 0)
+            #<End>
         }
     } catch(e) {
         fatal_error = true;
