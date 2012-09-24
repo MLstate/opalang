@@ -80,7 +80,10 @@ let repeat2 n (f : int -> 'a -> 'b -> 'a * 'b) =
       aux (i+1) a b in
   aux 0
 
-let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty) ~renaming ~is_distant ~bsl_lang options _env_bsl env_typer code =
+let compile
+    ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty)
+    ~renaming ~is_distant ~bsl_lang ~exported
+    options _env_bsl env_typer code =
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
   let env = initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code in
@@ -136,7 +139,17 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
          )
       ) code
   in
-  (* Format.eprintf "CODE %a\n%!" QmlPrint.pp#code code; *)
+  let exported =
+    IdentSet.fold
+      (fun i acc ->
+         let i =
+           try
+             QmlRenamingMap.original_from_new env.E.srenaming i
+           with Not_found -> i
+         in
+         JsIdentSet.add (JsCons.Ident.ident i) acc)
+      exported JsIdentSet.empty
+  in
   let _private_env, js_code = Imp_Code.compile ?runtime_ast env private_env code in
   #<If:JS_IMP$contains "time"> Printf.printf "qml -> js: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_0_translation" _outputer js_code) #<End>;
@@ -222,11 +235,19 @@ let compile ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentM
   let js_code = if options.Qml2jsOptions.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "clean up: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_7_cleanup" _outputer js_code) #<End>;
+  let js_code =
+    let keep = match ObjectFiles.compilation_mode () with
+      | `linking -> (fun _ -> false) (* We can clean all non-used idents *)
+      | _ -> (fun i -> JsIdentSet.mem i exported)
+    in
+    Imp_Cleaning.process_code ~keep js_code
+  in
 
   {Qml2jsOptions.
      js_init_contents = [ "bsl_dynamic_code_and_projections.js", `ast js_init;
                         ];
-     js_code = js_code;
+     js_code;
+     exported;
   }
 
 
