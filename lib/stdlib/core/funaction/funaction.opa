@@ -75,7 +75,7 @@ FunAction = {{
   serialize(f:FunAction.t) =
     json = OpaSerialize.partial_serialize(f, @typeof(f))
     match json with
-    | {String = id} -> "{JsInterface.get_local_unsafe}({id})(event)"
+    | {String = id} -> "({id})(event)"
     | _ -> sendFA(f)
 
 }}
