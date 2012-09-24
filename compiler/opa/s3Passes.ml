@@ -2176,6 +2176,17 @@ let pass_OcamlCompilation =
     ] in
   PassHandler.make_pass ~invariant ~precond ~postcond transform
 
+
+(* ***********************************************)
+(* FINAL QMLJS COMPILATION ***********************)
+
+type env_JsCompilation = {
+  env_js_input : Qml2jsOptions.env_js_input;
+  jsoptions : Qml2jsOptions.t;
+  env_bsl : BslLib.env_bsl;
+  loaded_bsl : Qml2js.loaded_bsl;
+}
+
 let pass_ServerJavascriptCompilation =
   PassHandler.make_pass
     (fun e ->
@@ -2238,12 +2249,55 @@ let pass_ServerJavascriptCompilation =
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
        in
+       PH.make_env options {
+         env_js_input;
+         jsoptions;
+         env_bsl;
+         loaded_bsl;
+       }
+    )
+
+let pass_ServerJavascriptOptimization =
+  PassHandler.make_pass
+    (fun e ->
+       let env = e.PH.env in
+       let exported = env.env_js_input.Qml2jsOptions.exported in
+       let js_code =
+         Pass_ServerJavascriptOptimization.process_code
+           exported
+           env.env_js_input.Qml2jsOptions.js_code
+       in
+       let js_init_contents =
+         List.map
+           (fun (x, c) -> x,
+              match c with
+              | `string _ -> assert false
+              | `ast proj -> `ast
+                  (List.map
+                     (fun (i, e) ->
+                        (i, Pass_ServerJavascriptOptimization.process_code_elt exported e))
+                     proj)
+           ) env.env_js_input.Qml2jsOptions.js_init_contents
+       in
+       PH.make_env e.PH.options
+         { env with env_js_input =
+             { env.env_js_input with Qml2jsOptions. js_code; js_init_contents }
+         }
+    )
+
+let pass_ServerJavascriptGeneration =
+  PassHandler.make_pass
+    (fun e ->
+       let env = e.PH.env in
+       let jsoptions = env.jsoptions in
+       let env_bsl = env.env_bsl in
+       let loaded_bsl = env.loaded_bsl in
        let env_js_output =
          Qml2js.JsTreat.js_generation jsoptions env_bsl
-           loaded_bsl env_js_input
+           loaded_bsl env.env_js_input
        in
        let code = Qml2js.JsTreat.js_treat jsoptions env_js_output in
-       PH.make_env options code
+       PH.make_env e.PH.options code
     )
 
 let pass_CleanUp =

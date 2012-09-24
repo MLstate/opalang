@@ -235,17 +235,6 @@ val pass_AddCSS :
 val pass_CheckPatternMatching :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
-val pass_EndOfSeparateCompilation :
-  ((SurfaceAstPassesTypes.options, unit Passes.env_Gen) PassHandler.one_env -> unit) ->
-  (opa_options, unit, unit Passes.env_Gen, unit) PassHandler.pass
-
-(*
-  (Passes.env_Gen, Passes.env_Gen) opa_pass
-
-((SurfaceAstPassesTypes.options, ('a, 'b, SurfaceAstCons.ExprIdentCons.ident, SurfaceAst.basic_directive) Passes.sa_env_Gen_aux) PassHandler.one_env -> unit) ->
-(SurfaceAstPassesTypes.options, unit, ('a, 'b, SurfaceAstCons.ExprIdentCons.ident, SurfaceAst.basic_directive) Passes.sa_env_Gen_aux, unit) PassHandler.pass
-*)
-
 val pass_FunActionLifting :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
@@ -307,6 +296,10 @@ val pass_InstrumentForClosureSerialization :
 
 val pass_ReorderEnvGen :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
+
+val pass_EndOfSeparateCompilation :
+  ((SurfaceAstPassesTypes.options, unit Passes.env_Gen) PassHandler.one_env -> unit) ->
+  (opa_options, unit, unit Passes.env_Gen, unit) PassHandler.pass
 
 val pass_BypassHoisting :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
@@ -428,8 +421,17 @@ val pass_OcamlCompilation :
 (* ***********************************************)
 (* FINAL QMLJS COMPILATION ***********************)
 
+(** Environment needed by the final JavasScript compilation. *)
+type env_JsCompilation
+
 val pass_ServerJavascriptCompilation :
-  (env_NewFinalCompile, int) opa_pass
+  (env_NewFinalCompile, env_JsCompilation) opa_pass
+
+val pass_ServerJavascriptOptimization :
+  (env_JsCompilation, env_JsCompilation) opa_pass
+
+val pass_ServerJavascriptGeneration :
+  (env_JsCompilation, int) opa_pass
 
 (* ***********************************************)
 (* END OF COMPILATION *****************************)

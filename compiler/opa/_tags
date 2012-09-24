@@ -35,6 +35,7 @@
 <pass_MacroExpansion.{ml,mli}>: use_libqmlcompil, use_passlib, use_opalib, use_opalang
 <pass_OpaDocApi.{ml,mli}>: use_libqmlcompil, use_opalib, use_opalang, use_opapasses, use_qmlpasses, with_mlstate_debug
 <pass_JavascriptCompilation.{ml,mli}>: use_libqmlcompil, use_libbsl, use_opalib, use_qml2js, use_opalang, use_jslang, use_qml2ocaml, use_qmljsimp, use_pplib
+<pass_ServerJavascriptOptimization.{ml,mli}>: use_jslang, use_libqmlcompil, use_passlib
 <pass_RegisterAppSrcCode.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
 <pass_TreatNoClientCalls.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
 <pass_DbEngineImportation.{ml,mli}>: use_libqmlcompil, use_opalang
@@ -48,7 +49,7 @@
 <s3Warnings.{ml,mli}>: use_compilerlib, use_libqmlcompil, use_qmlpasses, use_opapasses, use_qmljsimp, use_qmlflatcompiler, use_qmlslicer, use_opalang
 
 # thing about it
-<passes.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlfakecompiler, use_qmlflatcompiler, use_qml2ocaml, use_qml2js, use_libbsl, use_opalang, use_opapasses, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_qmlpasses
+<passes.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlfakecompiler, use_qmlflatcompiler, use_qml2ocaml, use_qml2js, use_libbsl, use_opalang, use_opapasses, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_qmlpasses, use_passlib
 
 # main
 <main_utils.{ml,mli}>: use_libqmlcompil, use_opalang, use_opalib, use_opapasses, use_libbsl

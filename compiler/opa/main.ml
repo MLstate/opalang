@@ -293,6 +293,10 @@ let () =
 
              |+> ("ServerJavascriptCompilation", S3.pass_ServerJavascriptCompilation)
 
+             |+> ("ServerJavascriptOptimization", S3.pass_ServerJavascriptOptimization)
+
+             |+> ("ServerJavascriptGeneration", S3.pass_ServerJavascriptGeneration)
+
              )))
           )
       |+> ("CleanUp", S3.pass_CleanUp)

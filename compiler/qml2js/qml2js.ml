@@ -358,7 +358,7 @@ struct
       Format.fprintf fmt "%a\n%s%a\n"
         JsPrint.pp_min#code requires
         (Option.default "" bundled_plugin)
-        JsPrint.scoped_pp_min#code js_code
+        JsPrint.pp_min#code js_code
     in
     let filename = "a.js" in
     let build_dir = env_opt.compilation_directory in
