@@ -95,7 +95,6 @@ let process_code ~keep code =
      | J.Js_function (_, i, _, _)
      | J.Js_expr (_, J.Je_binop(_, J.Jb_assign, J.Je_dot(_, J.Je_ident (_, i), _), _))
          when not(JsIdentSet.mem i deps) ->
-         Format.eprintf "clean %a\n%!" JsPrint.pp#ident i;
          false
      | _ -> true
     ) code
