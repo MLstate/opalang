@@ -149,7 +149,6 @@ System = {{
    */
   exec = @may_cps(%%bslSys.process.exec%%) : string, string -> string
 
-
   @private
   async_shell_exec = %%bslSys.process.async_shell_exec%% : string, string, (System.process.out->void) -> System.process
 
@@ -167,5 +166,24 @@ System = {{
       do Mutex.unlock(m)
       r
     ~{p result}
+
+    /**
+     * Equivalent of UNIX `which` command
+     */
+    which(command) =
+      env_path_opt = %%BslSys.get_env_var%%("PATH")
+      match env_path_opt
+      {none} -> none
+      {some=env_path} ->
+        env_path_list = String.explode(":", env_path)
+        List.fold(path, acc ->
+          match acc
+          {none} ->
+            bin = path + "/" + command
+            exists = %%BslFile.exists%%(bin)
+            if exists then some(bin)
+            else acc
+          {some=_} -> acc
+        , env_path_list, none)
 
 }}

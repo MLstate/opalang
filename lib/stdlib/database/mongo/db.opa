@@ -497,7 +497,7 @@ Then use option --db-remote instead of --db-local.
               error("Can not create directory \'{path}\'")
         )
         /* Check for MongoDB binary */
-        which_mongod = %%BslSys.which%%("mongod")
+        which_mongod = System.which("mongod")
         mngpath =
           match which_mongod with
           {none} ->
