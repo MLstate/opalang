@@ -894,7 +894,7 @@ and f_module_fields all_env hierar fields =
          let defined_row_vars = List.rev_map SurfaceAstHelper.rowvar (StringMap.elts f_env.frowvars) in
          let defined_col_vars = List.rev_map SurfaceAstHelper.colvar (StringMap.elts f_env.fcolvars) in
          let ty =
-           if defined_typed_vars=[] && defined_row_vars=[] && defined_col_vars = [] then ty 
+           if defined_typed_vars=[] && defined_row_vars=[] && defined_col_vars = [] then ty
            else ( TypeForall (defined_typed_vars, defined_row_vars, defined_col_vars, ty)
                 , Parser_utils.nlabel ty) in
          f_env, (field,ty)) all_env.f fields in

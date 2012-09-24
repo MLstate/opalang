@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -28,5 +28,6 @@ val reorder_toplevel :
 
 val rewrite_modules :
   ((int * IntSet.t) list -> (int * bool * IntSet.t) list * 'a) ->
+  IdentSet.t ->
   (Ident.t, SurfaceAst.dependency_directive) SurfaceAst.code ->
-  (Ident.t, SurfaceAst.basic_directive) SurfaceAst.code
+  IdentSet.t * ((Ident.t, SurfaceAst.basic_directive) SurfaceAst.code)

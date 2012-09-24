@@ -772,43 +772,50 @@ let rec remove_access_directive e =
    directives)
 
 *)
-let flatten_fields (i,e) =
+let flatten_fields exported (i,e) =
   if is_module e then
     let l, label, letin_bindings, coercer =
       extract_field_ident_expr_from_module e in
-    let record =
-      List.filter_map
-        (fun (field,ident,label,e) ->
-           if is_private e then None
-           else Some (field, (Ident ident, label)))
-        l in
+    let exported, record =
+      List.fold_left_filter_map
+        (fun exported (field,ident,label,e) ->
+           if is_private e then exported, None
+           else (
+             (if IdentSet.mem i exported then IdentSet.add ident exported
+              else exported)
+               ,
+             Some (field, (Ident ident, label))
+           ))
+        exported l in
     let record_expr = coercer (Record record, label) in
     let bindings =
       List.map
         (fun (_,ident,_,e) ->
            let e = remove_access_directive e in
            (ident,e)) l in
-    (i, record_expr) :: letin_bindings @ bindings
+    exported, ((i, record_expr) :: letin_bindings @ bindings)
   else
-    [(i,e)]
+    exported, [(i,e)]
 
 (* this function flatten all the modules directly present in the expressions on the given bindings
  * it calls itself until a fixpoint is reached
  * (the fixpoint being detected when the number of bindings doesn't increase)
  *)
-let rec flatten_module ident_expr_list =
+let rec flatten_module exported ident_expr_list =
   let map = module_names ident_expr_list in
     ident_expr_list
  |> List.map (fun (i,e) -> (i, rewrite_path map e))
- |> List.concat_map flatten_fields
- |> (fun l -> if List.length l = List.length ident_expr_list then l else flatten_module l)
+ |> List.fold_left_collect flatten_fields exported
+ |> (fun ((exported, l) as r) ->
+       if List.length l = List.length ident_expr_list then r
+       else flatten_module exported l)
 
 let rec flatten_module_in_expr_basic create_group_list = function
   | (Directive (#access_directive as v, [e], _),label) ->
       OManager.serror "@[<2>%s@\nInvalid directive @@%a.@]@\n" (SAH.Annot.to_string label) OpaPrint.ident#variant v;
       flatten_module_in_expr_basic create_group_list e
   | (LetIn (_,iel,e), label) ->
-      let iel = flatten_module iel in
+      let _, iel = flatten_module IdentSet.empty iel in
       let biell = reorder_for_ident_bindings create_group_list iel in
       List.fold_right
         (fun (iel,rec_) e ->
@@ -817,7 +824,7 @@ let rec flatten_module_in_expr_basic create_group_list = function
       if is_module e then
         let i = Ident.next "flatten_module" in
         (* FIXME: factorize me with the code above *)
-        let iel = flatten_module [(i,e)] in
+        let _, iel = flatten_module IdentSet.empty [(i,e)] in
         let iell = reorder_for_ident_bindings create_group_list iel in
           match List.extract_last iell with
             (* FIXME: HACK: very fragile but needed by InlineModules *)
@@ -867,9 +874,10 @@ let rec flatten_module_in_expr_basic create_group_list = function
 (**
    Rewrite local modules
 *)
-let flatten_module_in_expr create_group_list lcode =
+let flatten_module_in_expr create_group_list (exported, lcode) =
   (* mapping down because we want to rewrite the modules in letin before
    * the modules that appear in other places *)
+  exported,
   SurfaceAstTraversal.ExprTraverse.Heterogeneous.lift_map_down
     (function
        | #basic_directive as v -> v
@@ -883,12 +891,12 @@ let fresh_ident () = Ident.next "rewrite_module"
 (**
    Rewrite toplevel modules
 *)
-let flatten_toplevel_module create_group_list lcode =
-  List.concat_map
-    (fun ((code_elt_node,label) as c) ->
+let flatten_toplevel_module create_group_list (exported, lcode) =
+  List.fold_left_collect
+    (fun exported ((code_elt_node,label) as c) ->
        match code_elt_node with
          | NewVal (pel,_) ->
-             (* replacing pattern that are not identifiers by fresh
+             (* replacing pattern that are not idenbtifiers by fresh
               * identifiers that won't be used to transform the lhs of pattern
               * by lhs of identifiers *)
              let map,iel =
@@ -902,7 +910,7 @@ let flatten_toplevel_module create_group_list lcode =
                         IdentMap.add i pat map, (i, remove_access_directive e)
                  ) IdentMap.empty pel in
              (* the actual flattening *)
-             let iel = flatten_module iel in
+             let exported, iel = flatten_module exported iel in
              (* reputting the original patterns instead of the fake
               * identifiers *)
              let pel = List.map
@@ -913,9 +921,9 @@ let flatten_toplevel_module create_group_list lcode =
                ) iel in
              (* reordering the result *)
              let pelbl = reorder_for_pat_bindings create_group_list pel in
-             List.map (fun (pel,b) -> (NewVal (pel,b), copy_label label)) pelbl
-         | _ -> [c]
-    ) lcode
+             exported, List.map (fun (pel,b) -> (NewVal (pel,b), copy_label label)) pelbl
+         | _ -> exported, [c]
+    ) exported lcode
 
 (* some utils to print the dependency graph of the standard library *)
 module G = GraphUtils.String.G
@@ -961,9 +969,7 @@ let reorder_toplevel ?roots create_groups lcode =
   let () = if ObjectFiles.Arg.is_opadep () then dump_file_deps lcode in
   reorder_toplevel ?roots create_groups lcode
 
-let rewrite_modules create_groups lcode =
-  let lcode =
-    lcode
-    |> flatten_toplevel_module create_groups
-    |> flatten_module_in_expr create_groups in
-  lcode
+let rewrite_modules create_groups exported lcode =
+  (exported, lcode)
+  |> flatten_toplevel_module create_groups
+  |> flatten_module_in_expr create_groups

@@ -483,7 +483,12 @@ let pass_reorder_toplevel ~options:_ env =
   {env with sa_lcode = SurfaceAstDependencies.reorder_toplevel arg_for_surfaceAstDependencies env.sa_lcode}
 
 let pass_rewrite_modules ~options:_ env =
-  {env with sa_lcode = SurfaceAstDependencies.rewrite_modules arg_for_surfaceAstDependencies env.sa_lcode}
+  let sa_exported_values_idents, sa_lcode =
+    SurfaceAstDependencies.rewrite_modules arg_for_surfaceAstDependencies
+      env.sa_exported_values_idents
+      env.sa_lcode
+  in
+  {env with sa_lcode; sa_exported_values_idents}
 
 
 
