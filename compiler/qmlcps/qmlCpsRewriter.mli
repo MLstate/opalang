@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -154,6 +154,8 @@ type private_env
 *)
 val private_env_initial : unit -> private_env
 
+val private_env_get_skipped_ident : private_env -> Ident.t -> Ident.t option
+
 (** {6 Internal traduction} *)
 (**
    Exported in this interface for interaction and debugging with
@@ -218,9 +220,9 @@ val code : env -> private_env -> QmlAst.code -> private_env * QmlAst.code
     + qmflat use only a very small part of gamma.
     + maybe we can add some directives for record access optimization.
 *)
-val cps_pass : side:[`server|`client] -> env -> QmlAst.code -> QmlAst.code
+val cps_pass : side:[`server|`client] -> env -> QmlAst.code -> private_env * QmlAst.code
 
-val no_cps_pass : env -> QmlAst.code -> QmlAst.code
+val no_cps_pass : env -> QmlAst.code -> private_env * QmlAst.code
 
 (** {6 Common tools for back-ends} *)
 

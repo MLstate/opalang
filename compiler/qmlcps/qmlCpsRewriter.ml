@@ -156,6 +156,11 @@ let private_binding (private_env:private_env) =
 let private_env_get_skipped_fun id private_env =
   IdentMap.find_opt id private_env.skipped_functions
 
+let private_env_get_skipped_ident private_env id =
+  Option.map
+    (fun (_, skip_id, _) -> skip_id)
+    (IdentMap.find_opt id private_env.skipped_functions)
+
 
 module S =
 struct
@@ -1883,6 +1888,7 @@ let cps_pass ~side env qml_code =
       debug "il substitution global time : %f s." (Factorize.chrono_subst ())
     #<End> in
 
+  private_env,
   match private_binding private_env with
   | [] -> r
   | bindings ->
@@ -1934,6 +1940,7 @@ let no_cps_pass env code =
         else expr
     | _ -> expr
   in
+  private_env,
   QmlAstWalk.CodeExpr.map
         (QmlAstWalk.Expr.map_up rewrite)
         code

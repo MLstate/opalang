@@ -601,7 +601,7 @@ Please use a bsl plugin@\n" (BslKey.to_string key)
       ~typing:(env.newFinalCompile_qml_milkshake.QmlBlender.env)
       () in
   let code = env.newFinalCompile_qml_milkshake.QmlBlender.code in
-  let code =
+  let private_env, code =
     let side = if client then `client else `server in
     try
       (if opaoptions.OpaEnv.cps then QmlCpsRewriter.cps_pass ~side
@@ -612,8 +612,26 @@ Please use a bsl plugin@\n" (BslKey.to_string key)
         OManager.printf "During CPS transformation :@\n%s@\n" (QmlCpsRewriter.error_message error) ;
         raise e  (** plus + : very usefull to see the backtrace *)
   in
+  let update_exported exported =
+    IdentSet.fold
+      (fun i exported ->
+         match QmlCpsRewriter.private_env_get_skipped_ident private_env i with
+         | Some skip_id -> IdentSet.add skip_id exported
+         | None -> match QmlRenamingMap.new_from_original_opt
+             env.newFinalCompile_renaming_server i with
+             | None -> exported
+             | Some i2 -> match QmlCpsRewriter.private_env_get_skipped_ident private_env i2 with
+               | Some skip_id -> IdentSet.add skip_id exported
+               | None -> exported
+      ) exported exported
+  in
+  let exported = update_exported env.newFinalCompile_exported in
+  (* ignore (PassTracker.print ~passname:"CPSEXPORTED" ~printer_id:"js_exported" (IdentSet.pp ", " QmlPrint.pp#ident) exported); *)
   let qml_milkshake = { env.newFinalCompile_qml_milkshake with QmlBlender.code = code } in
-  { env with newFinalCompile_qml_milkshake = qml_milkshake }
+  { env with
+      newFinalCompile_qml_milkshake = qml_milkshake;
+      newFinalCompile_exported = exported;
+  }
 
 
 type env_BinaryGeneration = {

@@ -626,7 +626,7 @@ struct
           ~typing:env_typer
           ()
       in
-      let code =
+      let _, code =
         let fct () =
           (if options.cps then QmlCpsRewriter.cps_pass ~side:`server else QmlCpsRewriter.no_cps_pass)
             env_cps code
@@ -748,6 +748,7 @@ struct
              let renaming = QmlRenamingMap.empty in
              let is_distant _ = false in
              let env_js_input = B.compile options ~is_distant ~renaming
+               ~exported:IdentSet.empty
                ~bsl:generated_ast env_bsl env_typer code
                ~bsl_lang:BslLanguage.js in
              PassHandler.make_env options (loaded_bsl, env_bsl, env_js_input)
