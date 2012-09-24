@@ -11,3 +11,4 @@ compiler/qmljsimp/Imp_Renaming
 compiler/qmljsimp/Imp_CleanUp
 compiler/qmljsimp/Imp_Inlining
 compiler/qmljsimp/Imp_SimpleRenaming
+compiler/qmljsimp/Imp_Cleaning

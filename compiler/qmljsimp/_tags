@@ -7,4 +7,5 @@
 <imp_SumCase.ml>: with_mlstate_debug
 <imp_MatchGeneration.ml>: with_mlstate_debug
 <imp_Renaming.ml>: use_graph, with_mlstate_debug
+<imp_Cleaning.ml>: use_graph
 <imp_Compiler.ml>: with_mlstate_debug
