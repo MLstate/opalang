@@ -52,7 +52,7 @@ module Generator = struct
     | DbAst.SFlds fields ->
         List.find_map
           (fun (fields, u) -> match fields with
-           | [t] when t = field ->
+           | [`string t] when t = field ->
                Some (if u = DbAst.SNil then DbAst.SStar else u)
            | [_t] -> None
            | _t::_q -> assert false
@@ -70,7 +70,7 @@ module Generator = struct
     | DbAst.UFlds fields ->
         List.find_map
           (fun (fields, u) -> match fields with
-           | t::q when t = field -> Some (annotmap, DbAst.UFlds [q, u])
+           | `string t::q when t = field -> Some (annotmap, DbAst.UFlds [q, u])
            | _ -> None)
           fields
     | _ -> None
@@ -194,6 +194,7 @@ module Generator = struct
                 let annotmap, path =
                   let rpath = List.map (fun s -> `string s ) rpath in
                   expr_of_path gamma annotmap (`string dbname::rpath) in
+                let partial = List.map (fun s -> `string s) partial in  
                 let annotmap, uexpr =
                   update_to_expr gamma annotmap dataty (DbAst.UFlds [partial, u])
                 in

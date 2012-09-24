@@ -283,7 +283,6 @@ DbMongo = {{
      db = db.get()
      ns = defaultns(db)
      rid = DbCommon.path_to_id(rpath)
-     vpath = build_vpath_sub(db, path, default, rpath, partial)
      selector = [{name = "_id"; value = {String = rid}}]
      tags = Bitwise.lor(0, MongoCommon.UpsertBit)
      field = List.to_string_using("", "", ".", partial)
@@ -1032,7 +1031,6 @@ DbMongoSet = {{
              read_map:DbMongoSet.engine('a) -> option('b),
              write_map:'b -> list(Bson.document),
              embed:option(string)):DbMongo.private.ref_path('b) =
-             write_map:'b -> list(Bson.document)):DbMongo.private.ref_path('b) =
     id = path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
     db0 = db.get()
@@ -1103,6 +1101,5 @@ DbMongoSet = {{
 @opacapi DbMongoSet_build_rpath = DbMongoSet.build_rpath
 @opacapi DbMongoSet_build_rpath_collection = DbMongoSet.build_rpath_collection
 @opacapi DbMongoSet_default = Option.default
-@opacapi DbMongoSet_empty = {empty}
 @opacapi DbMongo_expr_to_field(x) = Bson.encode_field(OpaSerialize.serialize(x))
 

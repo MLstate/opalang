@@ -99,7 +99,7 @@ DbDropbox = {{
    notice(s) = Log.notice("DbGen/Dropbox", s)
    uri_to_string(path) = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=false})
    build_path(path) =
-    path = DbCommon.path_to_id(path)
+    path = uri_to_string(path)
     "/{path}.json"
    build_folder_path(path) =
     path = uri_to_string(path)
@@ -216,7 +216,7 @@ DbDropbox = {{
    @package @server read_record(db:DbDropbox.t, creds, path:string, ty):option('data) =
     match D(db).Files(db.root, path).get(none, creds) with
     | { success = file } -> (
-      value : DbDropbox.value = file.content
+      value : DbDropbox.value = string_of_binary(file.content)
       match Json.deserialize(value) with
       | { some = json } -> (
         s = OpaSerialize.Json.unserialize_with_ty(json, ty)
@@ -246,7 +246,7 @@ DbDropbox = {{
     @package @server gen_write(db:DbDropbox.t, path, data:string) =
       match User(db).get_status() with
       | {authenticated = creds} -> (
-          json_value : DbDropbox.value = data
+          json_value : binary = binary_of_string(data : DbDropbox.value)
           match D(db).Files(db.root, build_path(path)).put("application/json", json_value, true, none, creds) with
           | { success = _ } -> true
           | { failure = failure } -> do error("Impossible to write to {path}: {failure}") false )
@@ -415,4 +415,5 @@ DbDropbox = {{
 @opacapi DbDropbox_read = DbDropbox.read
 @opacapi DbDropbox_write = DbDropbox.write
 @opacapi DbDropbox_option = DbDropbox.option
+@opacapi DbDropbox_expr_to_field = magicToString
 
