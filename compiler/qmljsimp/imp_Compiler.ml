@@ -139,6 +139,7 @@ let compile
          )
       ) code
   in
+  let exported = IdentSet.union (Qmljs_Serializer.JsIdent.get_idents ()) exported in
   let exported =
     IdentSet.fold
       (fun i acc ->

@@ -60,6 +60,10 @@ sig
      if it will be defined in the returned [QmlAst.code].
   *)
   val is_toplevel_declaration : Ident.t -> bool
+
+  (** Returns the set of idents was resolved *)
+  val get_idents : unit -> IdentSet.t
+
 end
 
 

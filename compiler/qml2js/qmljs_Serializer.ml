@@ -41,6 +41,8 @@ struct
 
   let table = ( Hashtbl.create 16 : (string, QmlAst.ident * QmlAst.code_elt) Hashtbl.t )
 
+  let idents = ref IdentSet.empty
+
   let resolve cident =
     let string = JsPrint.string_of_ident (JsCons.Ident.ident cident) in
     match Hashtbl.find_opt table string with
@@ -55,7 +57,8 @@ struct
         let def = QCons.ident (OpaMapToIdent.val_ Opacapi.JsIdent.define_rename) in
         let apply = QCons.apply def [QCons.directive (`tagged_string (string, Q.Client_closure_use)) [] []] in
         let code_elt = Q.NewVal(Annot.nolabel "Serializer.JsIdent.resolve", [ident, apply]) in
-        Hashtbl.add table string (ident, code_elt)
+        Hashtbl.add table string (ident, code_elt);
+        idents := IdentSet.add cident !idents
       in
       ident
 
@@ -74,6 +77,8 @@ struct
         ) table ;
         false
     )
+
+  let get_idents () = !idents
 end
 
 
