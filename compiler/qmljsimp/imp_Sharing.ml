@@ -32,12 +32,6 @@ module JsMap =
              let compare = U.compare_statement
             end)
 
-module JiMap =
-  Map.Make (struct
-             type t = J.ident
-             let compare = U.compare_ident
-            end)
-
 let rec collect jsmap code =
   List.fold_left
     (fun jsmap -> function
@@ -57,7 +51,7 @@ let rec collect jsmap code =
 let rewrite_expr jsmap = JsWalk.Expr.map
   (function
    | J.Je_ident (l, i) as e ->
-       begin match JiMap.find_opt i jsmap with
+       begin match JsIdentMap.find_opt i jsmap with
        | None -> e
        | Some i -> J.Je_ident (l, i)
        end
@@ -68,13 +62,13 @@ let rec rewrite jsmap code =
   List.filter_map
     (function
      | J.Js_function (l, i, p, e) ->
-         if JiMap.mem i jsmap then None
+         if JsIdentMap.mem i jsmap then None
          else Some (J.Js_function (l, i, p, rewrite jsmap e))
      | J.Js_block (l, s) -> Some (J.Js_block (l, rewrite jsmap s))
      | s -> Some (JsWalk.ExprInStatement.map (rewrite_expr jsmap) s))
     code
 
-type env = JsAst.ident JiMap.t
+type env = JsAst.ident JsIdentMap.t
 
 let process_code ~pass code =
   let module S =
@@ -82,7 +76,7 @@ let process_code ~pass code =
         type t = env
         let pass = Printf.sprintf "imp_Sharing_%s" pass
         let pp fmt m =
-          JiMap.pp ",@ "
+          JsIdentMap.pp ",@ "
             (fun fmt i0 i1 ->
                Format.fprintf fmt "%a => %a"
                  JsPrint.pp#ident i0
@@ -101,14 +95,14 @@ let process_code ~pass code =
              List.fold_left
                (fun acc i ->
                   try
-                    JiMap.safe_add i id acc
+                    JsIdentMap.safe_add i id acc
                   with _ -> acc
                ) acc tail
          | _ -> acc
-      ) jsmap JiMap.empty
+      ) jsmap JsIdentMap.empty
   in
   R.save env;
-  let env = R.fold ~deep:true (JiMap.merge (fun _ _ -> assert false)) env in
+  let env = R.fold ~deep:true (JsIdentMap.merge (fun _ _ -> assert false)) env in
   let _outputer oc tosave =
     let fmt = Format.formatter_of_out_channel oc in
     Format.fprintf fmt "%a%!" S.pp tosave
