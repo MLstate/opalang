@@ -101,6 +101,10 @@ val get_memoized_definitions :
   QmlTypes.gamma -> [ `server | `client ]
   -> QmlTypes.gamma * QmlAst.code
 
+(** [get_exported_idents exported] adds to exported all idents which can be used
+    by another package. *)
+val get_exported_idents : IdentSet.t -> IdentSet.t
+
 (** A dummy representation of type that can be inserted when [process_code]
     will not be called on a given expression, e.g., because
     Explicit Instantiation is disabled by a compilation option. *)

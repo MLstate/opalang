@@ -1364,15 +1364,26 @@ let pass_InsertMemoizedTypes =
       let client_code = e.PH.env.P.sliced_env.P.client.P.code in
       let server_code = server_updater :: server_code in
       let client_code = client_updater :: client_code in
-      let gamma, new_server_code = Pass_ExplicitInstantiation.get_memoized_definitions gamma `server in
-      let gamma, new_client_code = Pass_ExplicitInstantiation.get_memoized_definitions gamma `client in
+      let gamma, new_server_code =
+        Pass_ExplicitInstantiation.get_memoized_definitions gamma `server in
+      let gamma, new_client_code =
+        Pass_ExplicitInstantiation.get_memoized_definitions gamma `client in
       (* desactivated for flat because breaks OCaml compilation
          TODO : Fix it *)
+      let exported =
+        Pass_ExplicitInstantiation.get_exported_idents
+          e.PH.env.P.env_gen.P.exported
+      in
       Pass_ExplicitInstantiation.finalize_memoized_defintions
+
         (e.PH.options.O.back_end <> `qmlflat);
       let server_code = List.tail_append new_server_code server_code in
       let client_code = List.tail_append new_client_code client_code in
-      let env_gen = {e.PH.env.P.env_gen with P.typerEnv = {e.PH.env.P.env_gen.P.typerEnv with QmlTypes.gamma = gamma ; annotmap = annotmap }} in
+      let env_gen =
+        {e.PH.env.P.env_gen with P.
+           typerEnv = {e.PH.env.P.env_gen.P.typerEnv with QmlTypes.gamma ; annotmap };
+           exported;
+        } in
       let client = {e.PH.env.P.sliced_env.P.client with P.code = client_code} in
       let server = {e.PH.env.P.sliced_env.P.server with P.code = server_code} in
       let sliced_env = {(*e.PH.env.sliced_env with*) P.client = client; server = server} in

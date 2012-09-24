@@ -1788,6 +1788,11 @@ let get_memoized_definitions gamma side =
   | `server -> aux gamma server_memo
   | `client -> aux gamma client_memo
 
+let get_exported_idents exported =
+  let aux =
+    List.fold_left (fun exported (i, _, _) -> IdentSet.add i exported)
+  in aux (aux exported server_memo.definitions) client_memo.definitions
+
 module S_memo =
 struct
   type t = one_side_memo * one_side_memo (*server * client *)
