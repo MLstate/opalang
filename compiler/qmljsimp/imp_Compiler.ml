@@ -276,7 +276,8 @@ let dummy_compile () =
   R.save
     ~env:Imp_Inlining.empty_env
     ~loaded_env:Imp_Inlining.empty_env
-    ~initial_env:Imp_Inlining.empty_env
+    ~initial_env:Imp_Inlining.empty_env;
+  ignore (Imp_Sharing.process_code ~pass:"js" [])
 
 module Backend =
 struct
