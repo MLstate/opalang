@@ -40,11 +40,9 @@ let export_to_global ident e =
        (Format.to_string JsPrint.pp#ident ident))
     e
 
-let is_exported exported i = JsIdentSet.mem i exported
-
-let process_code_elt exported = function
-  | J.Js_var (_, i, Some e) when is_exported exported i -> export_to_global i e
-  | J.Js_function (l, i, p, b) when is_exported exported i ->
+let process_code_elt is_exported = function
+  | J.Js_var (_, i, Some e) when is_exported i -> export_to_global i e
+  | J.Js_function (l, i, p, b) when is_exported i ->
       export_to_global i (J.Je_function (l, Some i, p, b))
   | x -> x
 
@@ -55,16 +53,15 @@ let cons_require opx =
       [(JsCons.Expr.string opx)]
   )
 
-let process_code exported code =
+let process_code is_exported code =
   (* Exports idents to global node scope *)
-  let code = List.map (process_code_elt exported) code in
+  let code = List.map (process_code_elt is_exported) code in
   (* Adding require *)
 
   let is_a_real_deps =
     if ObjectFiles.stdlib_package_names (ObjectFiles.get_current_package_name ()) then
       (fun _ -> true)
     else
-      (* Compute real depends in the JavaScript code *)
       let real_depends =
         List.fold_left
           (JsWalk.TStatement.fold
@@ -78,7 +75,6 @@ let process_code exported code =
               | _ -> real_depends)
           ) StringSet.empty code
       in
-      Format.eprintf "real_depends: %a\n%!" (StringSet.pp ", " Format.pp_print_string) real_depends;
       (fun opx -> not (ObjectFiles.stdlib_package_names opx) || StringSet.mem opx real_depends)
   in
   let opx_requires =
@@ -86,35 +82,29 @@ let process_code exported code =
       (fun requires opx name ->
          let opx = Filename.basename opx in
          if is_a_real_deps (fst name) then (
-           Format.eprintf "Add : %s\n%!" opx;
            opx :: requires ) else requires)
       []
   in
-  Format.eprintf "opx_requires: %a\n%!" (BaseFormat.pp_list ", " Format.pp_print_string) opx_requires;
   let already_required =
     (R.fold_with_name ~deep:true ~packages:true
        (fun pack k saved_requires ->
           (fun acc ->
              k (
-               Format.eprintf "acc: %a\n%!" (StringSet.pp ", " Format.pp_print_string) acc;
                let pname = fst pack in
                if
                  is_a_real_deps (Filename.basename pname)
                  || StringSet.mem (pname ^ ".opx") acc
                then (
-                 Format.eprintf "Add %s and %a\n%!" (fst pack) (Format.pp_list ", " Format.pp_print_string) saved_requires;
                  StringSet.add_list (List.map Filename.basename saved_requires) acc
                ) else acc)
           )
        ) (fun s -> s)
     ) StringSet.empty
   in
-  Format.eprintf "opx_requires: %a\n%!" (BaseFormat.pp_list ", " Format.pp_print_string) opx_requires;
   let opx_requires =
     List.filter
       (fun opx -> not (StringSet.mem opx already_required))
       opx_requires in
-  Format.eprintf "opx_requires: %a\n%!" (BaseFormat.pp_list ", " Format.pp_print_string) opx_requires;
   R.save opx_requires;
   let opx_requires =
     List.rev_map

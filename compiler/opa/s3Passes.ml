@@ -2196,6 +2196,7 @@ type env_JsCompilation = {
   jsoptions : Qml2jsOptions.t;
   env_bsl : BslLib.env_bsl;
   loaded_bsl : Qml2js.loaded_bsl;
+  is_distant : JsIdent.t -> bool;
 }
 
 let pass_ServerJavascriptCompilation =
@@ -2260,11 +2261,24 @@ let pass_ServerJavascriptCompilation =
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
          env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
        in
+       let is_distant ident =
+         match ident with
+         | JsIdent.ExprIdent i ->
+             (try
+                ignore
+                  (QmlRenamingMap.new_from_original
+                     env.P.newFinalCompile_renaming_client
+                i);
+                true
+              with Not_found -> false)
+         | _ -> false
+       in
        PH.make_env options {
          env_js_input;
          jsoptions;
          env_bsl;
          loaded_bsl;
+         is_distant;
        }
     )
 
@@ -2273,9 +2287,10 @@ let pass_ServerJavascriptOptimization =
     (fun e ->
        let env = e.PH.env in
        let exported = env.env_js_input.Qml2jsOptions.exported in
+       let is_exported i = JsIdentSet.mem i exported || env.is_distant i in
        let js_code =
          Pass_ServerJavascriptOptimization.process_code
-           exported
+           is_exported
            env.env_js_input.Qml2jsOptions.js_code
        in
        let js_init_contents =
@@ -2286,7 +2301,8 @@ let pass_ServerJavascriptOptimization =
               | `ast proj -> `ast
                   (List.map
                      (fun (i, e) ->
-                        (i, Pass_ServerJavascriptOptimization.process_code_elt exported e))
+                        (i, Pass_ServerJavascriptOptimization.process_code_elt
+                           is_exported e))
                      proj)
            ) env.env_js_input.Qml2jsOptions.js_init_contents
        in

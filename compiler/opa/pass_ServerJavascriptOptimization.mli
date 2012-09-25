@@ -16,6 +16,6 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-val process_code_elt : JsIdentSet.t -> JsAst.code_elt -> JsAst.code_elt
+val process_code_elt : (JsIdent.t -> bool) -> JsAst.code_elt -> JsAst.code_elt
 
-val process_code : JsIdentSet.t -> JsAst.code -> JsAst.code
+val process_code : (JsIdent.t -> bool) -> JsAst.code -> JsAst.code
