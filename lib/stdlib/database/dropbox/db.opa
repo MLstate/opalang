@@ -95,8 +95,8 @@ DbDropbox = {{
     * {2 Utils}
     */
 
-   error(s) = Log.error("DbGen/Dropbox", s)
-   notice(s) = Log.notice("DbGen/Dropbox", s)
+   error(s) = Log.error("DbGen/Dropbox:", s)
+   notice(s) = Log.notice("DbGen/Dropbox:", s)
    uri_to_string(path) = Uri.to_string(~{path fragment=none query=[] is_directory=false is_from_root=false})
    build_path(path) =
     path = uri_to_string(path)
@@ -232,7 +232,6 @@ DbDropbox = {{
     | {authenticated = creds} -> (
         ty = @typeval('data)
         read_map_opt(kty, dty) = { some = @unsafe_cast(read_map(db, creds, build_folder_path(path), kty, dty)) }
-        do jlog("\ngen_read/TYPE: {OpaType.to_pretty(ty)}\n")
         match ty
         | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
         | {TyName_args=[kty, dty]; TyName_ident="map"}      -> read_map_opt(kty, dty)
@@ -357,9 +356,7 @@ DbDropbox = {{
 
   @private Init = {{
 
-    error(msg) = do Log.error("DbGen/Dropbox", msg) System.exit(1)
-
-    jlog(msg) = Log.notice("DbGen/Dropbox", msg)
+    error(msg) = do Log.error("DbGen/Dropbox:", msg) System.exit(1)
 
     open(name) =
       (suffix, msg) = match name with

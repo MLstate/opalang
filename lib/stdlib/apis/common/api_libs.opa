@@ -32,7 +32,7 @@ API_libs_private = {{
   * Alias to easily manage the jlog of API modules
   */
   apijlog(text:string) =
-    do jlog(text)
+    do Log.debug("API", text)
     void
 
   /* -------------- */
