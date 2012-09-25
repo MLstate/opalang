@@ -259,7 +259,7 @@ fi
 #############################
 if [ "$PKG" = "true" ]; then
     OS_VARIANT=`sw_vers -productVersion`
-    PKG_NAME="Opa $VERSION_MAJOR - Build $BUILDNUM for Mac OS X (64-bit)"
+    PKG_NAME="opa-$VERSION_MAJOR"
     echo "Making package '$MYDIR/$PKG_NAME.pkg'"
     # MOREOPTS=""
     # if [ $NOOCAML = "true" ]; then
