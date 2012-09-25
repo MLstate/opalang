@@ -230,12 +230,10 @@ struct
     type t = {
       (* Packages and plugins required by file *)
       plugin_requires : BPI.plugin_basename list;
-      opx_requires : string list;
     }
     let pass = "ServerJavascriptCompilation"
-    let pp fmt {opx_requires} =
-      Format.fprintf fmt "opx: %a"
-        (Format.pp_list "@\n@\n" Format.pp_print_string) opx_requires
+    let pp fmt _ =
+      Format.fprintf fmt "<dummy>"
   end
 
   module R = ObjectFiles.Make(S)
@@ -301,12 +299,6 @@ struct
 
   let compilation_generation env_opt env_bsl plugin_requires
       bundled_plugin env_js_input =
-    let already_required =
-      R.fold ~deep:true ~packages:true
-        (fun acc saved ->
-           StringSet.add_list (List.map Filename.basename saved.S.opx_requires) acc
-        ) StringSet.empty
-    in
     let js_init =
       if env_opt.modular_plugins then
         (* FIXME: there's probably a bug when fixing projections
@@ -318,13 +310,7 @@ struct
         List.map snd (get_js_init env_js_input) in
     let js_code = js_init @ env_js_input.js_code in
 
-    let opx_requires = ObjectFiles.fold_dir ~packages:true
-      (fun requires opx -> opx :: requires) [] in
-
-    let save = {S.
-                plugin_requires;
-                opx_requires;
-               } in
+    let save = {S. plugin_requires} in
     R.save save;
 
     let runtime_requires =
@@ -339,21 +325,7 @@ struct
       require_stm (Some ("__opa_" ^ plugin_name)) (plugin_name ^ ".opp")
     ) plugin_requires in
 
-    (* Add package dependencies
-       NB by not reversing this we were getting bugs in the order of
-       the requires *)
-    let opx_requires =
-      List.map Filename.basename opx_requires in
-    let opx_requires =
-      List.filter
-        (fun opx -> not (StringSet.mem opx already_required))
-        opx_requires in
-    let opx_requires =
-      List.rev_map
-        (fun opx -> require_stm None opx)
-        opx_requires in
-
-    let requires = runtime_requires @ plugin_requires @ opx_requires in
+    let requires = runtime_requires @ plugin_requires in
     let print_content fmt =
       Format.fprintf fmt "%a\n%s%a\n"
         JsPrint.pp_min#code requires
