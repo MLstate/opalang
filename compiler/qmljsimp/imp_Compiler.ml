@@ -256,10 +256,7 @@ let compile
   #<If:JS_IMP$contains "time"> Printf.printf "clean up: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_7_cleanup" _outputer js_code) #<End>;
   let js_code =
-    let keep = match ObjectFiles.compilation_mode () with
-      | `linking -> (fun _ -> false) (* We can clean all non-used idents *)
-      | _ -> (fun i -> JsIdentSet.mem i exported)
-    in
+    let keep = (fun i -> JsIdentSet.mem i exported) in
     Imp_Cleaning.process_code ~keep js_code
   in
 
