@@ -155,7 +155,12 @@ function blocking_wait(barrier) {}
  */
 function cps_apply(f, v, k){}
 
-function loop_schedule() {}
+/**
+ * Launch scheduling loop
+ * @param {?boolean} b If true then don't returns or/and push on the native
+ * scheduler while they are tasks in the stack.
+ */
+function loop_schedule(b) {}
 
 /**
  * @param {!string} s
