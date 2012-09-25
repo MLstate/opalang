@@ -16,6 +16,14 @@
     along with OPA. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+
+(**
+  Pass for Dropbox database backend
+
+  @author Quentin Bourgerie
+  @author Cedric Soulas
+*)
+
 (* shorthands *)
 module Q = QmlAst
 module C = QmlAstCons.TypedExpr

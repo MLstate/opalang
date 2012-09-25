@@ -1,24 +1,21 @@
 /*
     Copyright © 2011, 2012 MLstate
 
-    This file is part of OPA.
+    This file is part of Opa.
 
-    OPA is free software: you can redistribute it and/or modify it under the
+    Opa is free software: you can redistribute it and/or modify it under the
     terms of the GNU Affero General Public License, version 3, as published by
     the Free Software Foundation.
 
-    OPA is distributed in the hope that it will be useful, but WITHOUT ANY
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
     FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
     more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with OPA.  If not, see <http://www.gnu.org/licenses/>.
+    along with Opa.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/**
- *
- */
 
 package stdlib.database.dropbox
 
@@ -30,13 +27,14 @@ import stdlib.core.rpc.core
 import stdlib.io.file
 
 /**
- * {1 About this module}
+ * Dropbox database backend
+ * Looking for Dropbox API? Find it in stdlib.apis.dropbox
  *
- * {1 Where do I start?}
- *
- * {1 What if I need more?}
- *
+ * @category database
+ * @author Cedric Soulas
+ * @destination experimental
  */
+
 
 /**
  * {1 Types defined in this module}
@@ -128,6 +126,21 @@ DbDropbox = {{
 
   }}
 
+  /**
+    Wrapper around Dropbox Auth module (stdlib.apis.dropbox)
+     to manipulate the User crendentials,
+     based on the context stored in the database in parameter.
+
+    Example:
+    [
+      database db_dropbox @dropbox {
+        stringmap(int) /test
+      }
+
+      DbU = DbDropbox.User(db_dropbox)
+      url = DbU.get_login_url(redirect)
+    ]
+  */
   User(db : DbDropbox.t) = {{
 
     get_status = _User(db).get_status
@@ -159,14 +172,14 @@ DbDropbox = {{
       | { failure = { not_found }} -> do error("Unbound path {path}"); []
       | { failure = failure } -> do error("Unexepected error: {failure}"); []
 
-   /**
-    - all elements are requested in parallel (would be too slow in sequence!)
-    - responses are received in a random order (random time response)
-    - an element is safely added to the map via a cell
-    - a counter is used to know when all elements are retrieved
-    - no callback argument: the map is return thanks to @callcc
-   */
    @package @server read_map(db:DbDropbox.t, creds, path:string, kty, dty):stringmap('data) =
+     /**
+      - all elements are requested in parallel (would be too slow in sequence!)
+      - responses are received in a random order (random time response)
+      - an element is safely added to the map via a cell
+      - a counter is used to know when all elements are retrieved
+      - no callback argument: the map is return thanks to @callcc
+     */
      Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
      l = get_path_list(db, creds, path)
      if l == [] then Map.empty else

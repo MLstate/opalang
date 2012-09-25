@@ -16,6 +16,13 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+
+(**
+  Pass for MongoDB backend
+  
+  @author Quentin Bourgerie
+*)
+
 (* shorthands *)
 module Q = QmlAst
 module C = QmlAstCons.TypedExpr

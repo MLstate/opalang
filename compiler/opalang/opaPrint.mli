@@ -17,6 +17,10 @@
 *)
 (**
    A family of pretty-printers for the Opa AST.
+
+   @author Mathieu Barbin
+   @author Rudy Sicard
+   @author Cedric Soulas
 *)
 type 'ident printer =
   <
