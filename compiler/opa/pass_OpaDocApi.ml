@@ -546,6 +546,7 @@ struct
         JsonTypes.Array params
       in
       let opacapi = bool type_def.QmlAst.ty_def_options.QmlAst.opacapi in
+      let is_module = bool type_def.QmlAst.ty_def_options.QmlAst.is_module in
       let visibility =
         match type_def.QmlAst.ty_def_visibility with
         | Q.TDV_public ->
@@ -568,7 +569,10 @@ struct
       let tuple = JsonTypes.Record [
         "ty_def_visibility", visibility ;
         "ty_def_params", params ;
-	"ty_def_opacapi", opacapi ;
+	"ty_def_options", JsonTypes.Record [
+	  "opacapi", opacapi ;
+	  "is_module", is_module ;
+	];
         "ty_def_name", name ;
         "ty_def_body", body ;
       ] in

@@ -1005,7 +1005,7 @@ and f_ty_node label (all_env:Ident.t list all_envs) hierar = function
       f_env, TypeForall (tvars,rvars,cvars,t)
   | TypeModule fields ->
       let f_env, fields = f_module_fields all_env hierar fields in
-      f_env, TypeRecord (TyRow (fields, None))
+      f_env, TypeModule fields
 
 and f_flatvar label (all_env:Ident.t list all_envs) hierar (Flatvar name) =
   let f_env, name = f_typevar label all_env hierar name in

@@ -675,6 +675,7 @@ end
 *)
 type ty_def_options = {
   opacapi : bool ;
+  is_module : bool ;
   warn_x_field : unit ;
 }
 
@@ -685,6 +686,7 @@ type ty_def_options = {
 *)
 let ty_def_options = {
   opacapi = false ;
+  is_module = false ;
   warn_x_field = () ;
 }
 

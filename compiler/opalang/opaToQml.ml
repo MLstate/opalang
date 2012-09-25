@@ -261,14 +261,8 @@ struct
          , ty t)
     | SA.TypeModule fields ->
         let aux_module_field (s, t) =
-          Arg.add_local_scope ();
           let t = ty t in
-          let (ty_vars, row_vars, col_vars) as vars = Arg.get_local_vars () in
-          let t_quantified =
-            if vars = ([], [], []) then t
-            else QA.TypeForall (ty_vars, row_vars, col_vars, t) in
-          Arg.remove_local_scope () ;
-          (s, t_quantified) in
+          (s, t) in
         let fields = List.map aux_module_field fields in
         QA.TypeRecord(QA.TyRow(fields, None))
 
@@ -332,9 +326,14 @@ struct
            QmlAst.TDV_abstract (ObjectFiles.get_current_package_name ())
        | SA.TDV_private ->
            QmlAst.TDV_private (ObjectFiles.get_current_package_name ())) in
+    let is_module =
+      match fst(ty_def.SurfaceAst.ty_def_body) with
+      | SA.TypeModule _ -> true
+      | _ -> false in
+    let options = { ty_def.SA.ty_def_options with QmlAst.is_module = is_module } in
     let SA.Typeident ti = ty_def.SurfaceAst.ty_def_name in
     {
-      QmlAst.ty_def_options = ty_def.SA.ty_def_options ;
+      QmlAst.ty_def_options = options ;
       QmlAst.ty_def_visibility = visibility' ;
       QmlAst.ty_def_name = Arg.typeident ~check:false ti ;
       QmlAst.ty_def_params = vars ;
