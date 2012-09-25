@@ -19,12 +19,7 @@ import-plugin unix
 package stdlib.database.mongo
 
 import stdlib.core.{date,map,parser}
-//# <Ifstatic:OPA_BACKEND_QMLJS>
-//import stdlib.apis.mongo.node
-//# <Else>
 import stdlib.apis.mongo
-//# <End>
-import stdlib.apis.mongo.common
 import stdlib.system
 import stdlib.database.common
 
@@ -87,12 +82,6 @@ DbMongo = {{
 
     @package updateerr(db:DbMongo.t2, flags:int, ns:string, selector:Bson.document, update:Bson.document, id , upsert): void =
     reply = MongoDriver.updatee(db.db, flags, ns, db.name, selector, update)
-//     # <Ifstatic:OPA_BACKEND_QMLJS>
-//       _=id
-//       _=upsert
-//       if reply then void
-//       else error("Update error")
-//     # <Else>
        match reply with
        | {none} ->
          do Log.error("DbGen/Query", "(failure) Read {id} didn't return anything")
@@ -137,9 +126,6 @@ DbMongo = {{
              do Log.error("DbGen/Mongo", "(failure) read from {id} didn't return any document")
              none
            | {some=document} ->
-//             # <Ifstatic:OPA_BACKEND_QMLJS>
-//             do MongoDriver.cclose(reply)
-//             # <End>
              #<Ifstatic:DBGEN_DEBUG>
              do Log.notice("DbGen/Mongo", "(success) read bson document from mongo db returned")
              #<End>
@@ -782,11 +768,6 @@ DbMongoSet = {{
       error("DbSet build error")
     | {some=reply} ->
       rec next(consummed, reply) =
-//        # <Ifstatic:OPA_BACKEND_QMLJS>
-//        _ = consummed
-//        do MongoDriver.cclose(reply)
-//        {none}
-//        # <Else>
         cursor = MongoCommon.reply_cursorID(reply)
         if MongoCommon.is_null_cursorID(cursor) then
           none

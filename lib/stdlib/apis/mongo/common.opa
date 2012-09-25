@@ -10,7 +10,6 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 package stdlib.apis.mongo
-import stdlib.apis.mongo.common
 
 /**
  * MongoDB binding for OPA.
@@ -123,13 +122,13 @@ MongoCommon = {{
   _OP_QUERY = 2004
 
   /** Return new Bson Object ID */
-  new_oid = WP.new_oid //(%% BslMongo.Bson.new_oid %%: void -> string)
+  new_oid = WP.new_oid
 
   /** Get OID from string */
-  oid_of_string = WP.oid_of_string //(%% BslMongo.Bson.oid_of_string %%: string -> string)
+  oid_of_string = WP.oid_of_string
 
   /** Get string from OID */
-  oid_to_string = WP.oid_to_string //(%% BslMongo.Bson.oid_to_string %%: string -> string)
+  oid_to_string = WP.oid_to_string
 
   /** Generate a driver error message outcome **/
   failErr(msg:string): outcome('a,Mongo.failure) = {failure={Error=msg}}
@@ -421,29 +420,26 @@ MongoCommon = {{
   string_of_tags(tags:list(Mongo.mongo_tag)): string = List.list_to_string(string_of_tag,tags)
 
   /** Access components of the reply value **/
-  reply_messageLength = WP.reply_messageLength//(%% BslMongo.Mongo.reply_messageLength %% : Mongo.reply -> int)
-  reply_requestId = WP.reply_requestId//(%% BslMongo.Mongo.reply_requestId %% : Mongo.reply -> int)
-  reply_responseTo = WP.reply_responseTo//(%% BslMongo.Mongo.reply_responseTo %% : Mongo.reply -> int)
-  reply_opCode = WP.reply_opCode//(%% BslMongo.Mongo.reply_opCode %% : Mongo.reply -> int)
-  reply_responseFlags = WP.reply_responseFlags//(%% BslMongo.Mongo.reply_responseFlags %% : Mongo.reply -> int)
-  reply_cursorID = WP.reply_cursorID//(%% BslMongo.Mongo.reply_cursorID %% : Mongo.reply -> Mongo.cursorID)
-  reply_startingFrom = WP.reply_startingFrom//(%% BslMongo.Mongo.reply_startingFrom %% : Mongo.reply -> int)
-  reply_numberReturned = WP.reply_numberReturned//(%% BslMongo.Mongo.reply_numberReturned %% : Mongo.reply -> int)
+  reply_messageLength = WP.reply_messageLength
+  reply_requestId = WP.reply_requestId
+  reply_responseTo = WP.reply_responseTo
+  reply_opCode = WP.reply_opCode
+  reply_responseFlags = WP.reply_responseFlags
+  reply_cursorID = WP.reply_cursorID
+  reply_startingFrom = WP.reply_startingFrom
+  reply_numberReturned = WP.reply_numberReturned
 
   /** Return the n'th document attached to the reply **/
-  reply_document = WP.reply_document_pos//(%% BslMongo.Mongo.reply_document %% : Mongo.reply, int -> option(Bson.document))
-
-  /** Debug routine, export the internal representation of the reply **/
-  //export_reply = (%% BslMongo.Mongo.export_reply %%: Mongo.reply -> string)
+  reply_document = WP.reply_document_pos
 
   /** Null cursor value **/
-  null_cursorID(_) = Int64.zero//(%% BslMongo.Mongo.null_cursorID %% : void -> Mongo.cursorID)
+  null_cursorID(_) = Int64.zero
 
   /** Return a string representation of a cursor (it's an int64) **/
-  string_of_cursorID(cid) = Int64.to_string_radix(cid,16)//(%% BslMongo.Mongo.string_of_cursorID %% : Mongo.cursorID -> string)
+  string_of_cursorID(cid) = Int64.to_string_radix(cid,16)
 
   /** Predicate for end of query, when the cursorID is returned as zero **/
-  is_null_cursorID(cid) = Int64.op_eq(cid,Int64.zero)//(%% BslMongo.Mongo.is_null_cursorID %% : Mongo.cursorID -> bool)
+  is_null_cursorID(cid) = Int64.op_eq(cid,Int64.zero)
 
   /**
    * Extract a document from a reply.
