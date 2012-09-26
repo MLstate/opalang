@@ -323,6 +323,7 @@ if [ "$DEB" = "true" ]; then
     mkdir _build
     rm -f $INSTALLDIR/install.sh
     cp -a $INSTALLDIR/* $DEBROOT$PREFIX
+    ARCH=$(dpkg --print-architecture)
     # if [ $NOOCAML = "true" ]; then
     # 	 rm -rf $DEBROOT$PREFIX/lib/opa/static
     # fi
@@ -333,7 +334,7 @@ Package: opa
 Version: $VERSION_STRING
 Section: devel
 Priority: optional
-Architecture: $(dpkg --print-architecture)
+Architecture: $ARCH
 Installed-Size: $(du -s $INSTALLDIR | cut -f1)
 Pre-Depends: debconf
 Depends: libc6 (>= 2.3.2), nodejs, npm
@@ -366,8 +367,14 @@ EOF
 
     dpkg-deb --build debian _build
     PACKAGE=$(ls _build/*.deb)
-    mv $PACKAGE $MYDIR
-    msg "Generated $(basename "$PACKAGE")"
+    NEW_PACKAGE=$(basename "$PACKAGE")
+    if [ "$ARCH" = "amd64" ]; then
+	NEW_PACKAGE="opa-$BUILDNUM.x64.deb"
+    elif [ "$ARCH" = "i386" ]; then
+	NEW_PACKAGE="opa-$BUILDNUM.x86.deb"
+    fi
+    mv $PACKAGE $MYDIR/$NEW_PACKAGE
+    msg "Generated $(basename "$NEW_PACKAGE")"
     cd $MYDIR
     rm -rf /tmp/${WORKDIR#/tmp/}
 fi
