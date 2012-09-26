@@ -140,7 +140,7 @@ fi
 ###################################
 
 if [ -n "$AUTOINSTALL" ]; then
-    AUTOINSTALL=${AUTOINSTALL//\{\}/$VERSION_STRING}
+    AUTOINSTALL=${AUTOINSTALL//\{\}/$BUILDNUM}
     msg "Making $AUTOINSTALL"
     cat >"$INSTALLDIR/install.sh" <<EOF
 #!/usr/bin/env bash
