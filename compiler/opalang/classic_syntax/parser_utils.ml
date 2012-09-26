@@ -145,7 +145,7 @@ let error_neither_ident_nor_call = error1 "the term is not a function call (the 
 let error_redefinition_basic_type (ty,label) =
   let s = const_ty_to_string ty in
   error1 (sprintf "you are trying to redefine the basic type %s. If you really want that, use `%s` instead." s s) label
-let error_bad_compare = error1 (sprintf "found a binding as condition. Did you mean `==' rather than `=' ?")
+let error_bad_compare = error1 (sprintf "expected a returned expression at the end of the block, but found a binding. Did you mean `==' rather than `=' ?")
 let error_static_xml pos =
   error1 "Directive `@xml' expects some static xml." pos
 let error_consecutive_arrow pos =
