@@ -64,49 +64,76 @@ type binary = external
  * {1 Interface}
  */
 
-/**
- * Create binary data from a string.
- *
- * Copies the entire string.
- *
- * Note: Beware of the behaviour of multi-byte characters which may not be portable
- * between the different backends.
- *
- * @param s The string to copy.
- * @return A binary type set exactly to the size of the string.
- */
-binary_of_string : string -> binary = %%BslBinary.binary_of_string%%
+binary_of_string : string -> binary = Binary.of_string
 
-/**
- * As for string_of_binary but makes an attempt to split multi-byte
- * characters into separate 8-bit characters.  This routine should be
- * used with caution, it is slow and makes assumptions about the
- * behaviour of the backend.
- */
-binary_of_string8 : string -> binary = %%BslBinary.binary_of_string8%%
-
-/**
- * Turns binary data back into a string.
- *
- * As for binary_of_string this function copies the entire string.
- *
- * Multi-byte characters are not reconstituted.
- *
- * @param b The binary data.
- * @return A string of 8-bit characters.
- */
-string_of_binary : binary -> string = %%BslBinary.string_of_binary%%
-
-/**
- * As for string_of_binary but uses the *deprecated* binary encoding
- * for javascript backends.  Use with caution.
- */
-string_of_binary8 : binary -> string = %%BslBinary.string_of_binary%%
+string_of_binary : binary -> string = Binary.to_string
 
 @opacapi
-bin_of_base64(x:string):binary = %%bslPervasivesServer.bin_of_base64%%(x)
+bin_of_base64 = Binary.of_base64
 
 Binary = {{
+
+  /**
+   * A generic to_string function.
+   * @param encoding is wanted encoding
+   * @param data is binary data to encode
+   * @returns An encoded string of [data]
+   */
+  @private
+  to_encoding(data, encoding) = %%bslBinary.to_encoding%%(data, encoding)
+
+  /**
+   * Returns the string content of a binary [data].
+   * Note: The binary data *must* be valid utf8 sequence else the resulted string
+   * can be invalid.
+   * @param data The binary data
+   * @return The decoded content of [data]
+   */
+  to_string(data) = to_encoding(data, "utf8")
+
+  /**
+   * Returns a base64 encoded string of a binary [data].
+   * @param data The binary data
+   * @return The base64 encoded content of [data]
+   */
+  to_base64(data) = to_encoding(data, "base64")
+
+  /**
+   * Returns a hex encoded string of a binary [data].
+   * @param data The binary data
+   * @return The hex encoded content of [data]
+   */
+  to_hex(data) = to_encoding(data, "hex")
+
+  /**
+   * A generic of_string function.
+   * @param encoding is the way where the string is encoded
+   * @param data is string data to decode to a binary
+   * @return The decoded binary of [data]
+   */
+  @private
+  of_encoding(data, encoding) = %%bslBinary.of_encoding%%(data, encoding)
+
+  /**
+   * Convert a (non-encoded) string to its binary representation.
+   * @param data The string to convert
+   * @return The binary representation of [data]
+   */
+  of_string(data) = of_encoding(data, "utf8")
+
+  /**
+   * Convert a base64 encoded string to its binary representation.
+   * @param data The string to convert
+   * @return The binary representation of base64 decoded [data]
+   */
+  of_base64(data) = of_encoding(data, "base64")
+
+  /**
+   * Convert a hex encoded string to its binary representation.
+   * @param data The string to convert
+   * @return The binary representation of hex decoded [data]
+   */
+  of_hex(data) = of_encoding(data, "hex")
 
   /**
    * Create binary data of the given size.

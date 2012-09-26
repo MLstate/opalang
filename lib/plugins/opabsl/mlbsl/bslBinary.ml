@@ -6,21 +6,29 @@
 
 ##register length\ `Buf.length`: binary -> int
 
-##register binary_of_string : string -> binary
+exception BslBinaryError of string
+let error str = raise (BslBinaryError str)
+
 let binary_of_string s =
   let b = Buf.create (String.length s) in
   Buf.add_string b s;
   b
 
-##register binary_of_string8 : string -> binary
-let binary_of_string8 s =
-  let b = Buf.create (String.length s) in
-  Buf.add_string b s;
-  b
+##register of_encoding : string, string -> binary
+let of_encoding s e =
+  match e with
+  | "utf8" -> binary_of_string s
+  | "hex" -> binary_of_string (BaseString.from_hex s)
+  | "base64" -> binary_of_string (BaseString.base64decode s)
+  | _ -> error (Printf.sprintf "BslBinary.of_encoding: unknown encoding %s" e)
 
-##register string_of_binary\ `Buf.contents`: binary -> string
-
-##register string_of_binary8\ `Buf.contents`: binary -> string
+##register to_encoding : binary, string -> string
+let to_encoding b e =
+  match e with
+  | "utf8" -> Buf.contents b
+  | "hex" -> BaseString.to_hex (Buf.contents b)
+  | "base64" -> BaseString.base64encode (Buf.contents b)
+  | _ -> error (Printf.sprintf "BslBinary.to_encoding: unknown encoding %s" e)
 
 ##register resize : binary, int -> void
 let resize b size =
@@ -63,9 +71,6 @@ let add_binary b nb =
 let add_binaryr b nb =
   Buf.add_string b (Buf.contents nb);
   BslUtils.create_outcome (`success ())
-
-exception BslBinaryError of string
-let error str = raise (BslBinaryError str)
 
 ##register add_int8 : binary, int -> void
 let add_int8 b i =
