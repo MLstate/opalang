@@ -192,7 +192,9 @@ Server_private = {{
        * url (but the client never uses it, it is meant for us because having a stable
        * url is convenient for scripts) */
       js_code = Client_code.retrieve_js_file()
-      js_unique_stamp = ( %% BslCrypto.md5 %% )(js_code) //As some bits of the JS are generated at launch-time and can be randomized (e.g. @public sessions), the server id isn't sufficient
+
+      //As some bits of the JS are generated at launch-time and can be randomized (e.g. @public sessions), the server id isn't sufficient
+      js_unique_stamp = %% BslCrypto.md5 %%(js_code)
       js_file_no_internal_without_version = "code/all.js"
       js_file_no_internal_with_version = "{js_unique_stamp}/{js_file_no_internal_without_version}"
       js_file_with_version = "{base_url_string}/{_internal_}/{js_file_no_internal_with_version}"

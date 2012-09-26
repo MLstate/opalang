@@ -48,48 +48,104 @@ Crypto = {{
 
   }}
 
+  /**
+   * The [HMAC] module implements keyed-hash functions (see the RFC2104).
+   */
+  HMAC = {{
+
+    /**
+     * A generic HMAC digest of the message [m].
+     * @param H is the name of cryptographic hash function
+     * @param K is a secret key
+     * @param m is a message
+     * @return the digest of [m]
+     */
+    @private
+    digest(H, K, m) = %% BslCrypto.hmac_digest %%(H, K, m)
+
+    /**
+     * Calculates the HMAC-MD5 digest of [data] with the secret [key].
+     * @param key is a secret key
+     * @param data is a message
+     * @return the calculated digest
+     */
+    md5(key, data) = digest("md5", key, data)
+
+    /**
+     * Calculates the HMAC-SHA1 digest of [data] with the secret [key].
+     * @param key is a secret key
+     * @param data is a message
+     * @return the calculated digest
+     */
+    sha1(key, data) = digest("sha1", key, data)
+
+    /**
+     * Calculates the HMAC-SHA1 digest of [data] with the secret [key].
+     * @param key is a secret key
+     * @param data is a message
+     * @return the calculated digest
+     */
+    sha256(key, data) = digest("sha256", key, data)
+
+    /**
+     * Calculates the HMAC-SHA1 digest of [data] with the secret [key].
+     * @param key is a secret key
+     * @param data is a message
+     * @return the calculated digest
+     */
+    ripemd160(key, data) = digest("ripemd160", key, data)
+
+  }}
+
+  /**
+   * The [Hash] module implements (unkeyed) hash functions.
+   */
   Hash = {{
 
     /**
-     * Produces a HMAC_SHA1 for the given key and message. The first argument
-     * is the key, the second is the message.
+     * A generic digest of the message [m].
+     * @param H is the name of cryptographic hash function
+     * @param m is a message
+     * @return the digest of [m]
      */
-    hmac_sha1 = %% BslCrypto.hmac_sha1 %% : string, string -> string
+    @private
+    digest(H, m) = %% BslCrypto.hash_digest %%(H, m)
 
     /**
-     * Produces a HMAC_SHA256 for the given key and message. The first argument
-     * is the key, the second is the message.
-     */
-    hmac_sha256 = %% BslCrypto.hmac_sha256 %% : string, string -> string
-
-    /**
-     * Generalised hmac.
-     * Valid output encodings are "hex", "binary" and "base64".
-     * Valid algorithms depend on what is available in OpenSSL, eg. "sha1", "md5", "sha256" and "sha512".
-     * Note that [hmac_sha1 = hash("sha1","binary",_)] and [hmac_sha256 = hash("sha256","binary",_)].
+     * Compute the MD5 signature of a string.
      *
-     * @param algorithm the algorithm to use
-     * @param output_encoding the output encoding
-     * @param key the key for the encryption
-     * @param str the string to encode
+     * @param data A text of arbitrary length.
+     * @return A 32 digit long hexadecimal string
      */
-    hmac = %%BslCrypto.hmac%% : string, string, string, string -> string
-
-    md5 = %% BslCrypto.md5 %% : string -> string
-
-    sha2 = %%BslCrypto.sha2%% : string -> string
+    md5(data) = %%BslCrypto.md5%%(data)
 
     /**
-     * Generalised hash.
-     * Valid output encodings are "hex", "binary" and "base64".
-     * Valid algorithms depend on what is available in OpenSSL, eg. "sha1", "md5", "sha256" and "sha512".
-     * Note that [sha2 = hash("sha256","binary",_)] and [md5 = hash("md5","hex",_)].
-     *
-     * @param algorithm the algorithm to use
-     * @param output_encoding the output encoding
-     * @param str the string to hash
+     * Calculates the MD5 digest of [data].
+     * @param data is a message
+     * @return the calculated digest
      */
-    hash = %%BslCrypto.hash%% : string, string, string -> string
+    md5_bin(data) = digest("md5", data)
+
+    /**
+     * Calculates the SHA1 digest of [data].
+     * @param data is a message
+     * @return the calculated digest
+     */
+    sha1(data) = digest("sha1", data)
+
+    /**
+     * Calculates the SHA256 digest of [data].
+     * @param data is a message
+     * @return the calculated digest
+     */
+    sha256(data) = digest("sha256", data)
+
+    /**
+     * Calculates the HMAC-RIPEM160 digest of [data].
+     * @param data is a message
+     * @return the calculated digest
+     */
+    ripemd160(data) = digest("ripemd160", data)
 
   }}
 
@@ -117,15 +173,3 @@ Crypto = {{
   #<End>
 
 }}
-
-/**
- * {1 Deprecated API}
- *
- * function used to be exported to the global namespace, which is bad
-**/
-
-@deprecated({use="Crypto.Base64.encode"}) base64_encode = Crypto.Base64.encode
-@deprecated({use="Crypto.Base64.decode"}) base64_decode = Crypto.Base64.decode
-@deprecated({use="Crypto.Hash.hmac_sha1"}) hmac_sha1 = Crypto.Hash.hmac_sha1
-@deprecated({use="Crypto.Hash.md5"}) md5 = Crypto.Hash.md5
-@deprecated({use="Crypto.Hash.md5"}) Hash = Crypto.Hash

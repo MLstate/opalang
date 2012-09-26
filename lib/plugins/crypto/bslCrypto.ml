@@ -42,41 +42,21 @@ let base64_decode str =
 let base64_decode2 str =
    Buf.of_string (Cryptokit.transform_string (Cryptokit.Base64.decode ()) str)
 
-##register hmac_sha1 : string, string -> string
-let hmac_sha1 key text =
-  Cryptokit.hash_string (Cryptokit.MAC.hmac_sha1 key) text
+##register hmac_digest : string, string, binary -> binary
+let hmac_digest algo key data =
+  Buf.of_string
+    (Cryptokit.hash_string
+       (match algo with
+        | "md5" -> Cryptokit.MAC.hmac_md5 key
+        | "sha1" -> Cryptokit.MAC.hmac_sha1 key
+        | "sha256" -> Cryptokit.MAC.hmac_sha256 key
+        | "ripemd160" -> Cryptokit.MAC.hmac_ripemd160 key
+        | _ -> raise (BslCrypto ("Unknown algorithm "^algo))
+       ) (Buf.to_string data)
+    )
 
-##register hmac_sha256 : string, string -> string
-let hmac_sha256 key text =
-  Cryptokit.hash_string (Cryptokit.MAC.hmac_sha256 key) text
-
-##register hmac : string, string, string, string -> string
-let hmac algo encoding key text =
-  let hash =
-    match algo with
-    | "md5" -> Cryptokit.MAC.hmac_md5 key
-    | "sha1" -> Cryptokit.MAC.hmac_sha1 key
-    | "sha256" -> Cryptokit.MAC.hmac_sha256 key
-    | "ripemd160" -> Cryptokit.MAC.hmac_ripemd160 key
-    | _ -> raise (BslCrypto ("Unknown algorithm "^algo))
-  in
-  let str = Cryptokit.hash_string hash text in
-  match encoding with
-  | "binary" -> str
-  | "hex" -> BaseString.to_hex(str)
-  | "base64" -> BaseString.base64encode(str)
-  | _ -> raise (BslCrypto ("Unknown output encoding"^encoding))
-
-##register sha2 : string -> string
-let sha2 s =
-  let hashobj = Cryptokit.Hash.sha256 () in
-  begin
-    hashobj#add_string s;
-    hashobj#result
-  end
-
-##register hash : string, string, string -> string
-let hash algo encoding s =
+##register hash_digest : string, binary -> binary
+let hash_digest algo data =
   let hashobj =
     match algo with
     | "md5" -> Cryptokit.Hash.md5 ()
@@ -85,14 +65,10 @@ let hash algo encoding s =
     | "ripemd160" -> Cryptokit.Hash.ripemd160 ()
     | _ -> raise (BslCrypto ("Unknown algorithm "^algo))
   in
-  begin
-    hashobj#add_string s;
-    match encoding with
-    | "binary" -> hashobj#result
-    | "hex" -> BaseString.to_hex(hashobj#result)
-    | "base64" -> BaseString.base64encode(hashobj#result)
-    | _ -> raise (BslCrypto ("Unknown output encoding"^encoding))
-  end
+  hashobj#add_string (Buf.to_string data);
+  Buf.of_string (hashobj#result)
+
+
 
 
 ##extern-type Crypto.RSA.key = Cryptokit.RSA.key
