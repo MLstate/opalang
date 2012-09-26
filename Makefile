@@ -87,7 +87,6 @@ distrib: $(MYOCAMLBUILD)
 	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
 	$(MAKE) manpages
 	$(MAKE) $(OPA_TOOLS)
-	@$(call copy-tools,$(OPA_TOOLS))
 
 .PHONY: distrib-all
 distrib-all: $(MYOCAMLBUILD)
@@ -95,7 +94,6 @@ distrib-all: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	$(MAKE) manpages
 	$(MAKE) $(OPA_TOOLS)
-	@$(call copy-tools,$(OPA_TOOLS))
 
 ##
 ## MANPAGES
