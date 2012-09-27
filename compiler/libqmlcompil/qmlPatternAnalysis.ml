@@ -511,13 +511,10 @@ module Normalize = struct
     | Any_before_last_pattern     (* any pattern not in last position, merge with hiding *) (* not used *)
     | Missing_const_case of rpath * L.const list (* incomplete disjonction of constant *)
     | Missing_record_class of rpath * (field list) list
-    | Pattern_hidding of recur list
-    | Pattern_incompletness of onion list (* only possible with types or jointures ?? *)  (* not used *)
 
 
   type private_exception =
     | Empty_pattern
-    | Non_homogenious
 
   type exceptions = Public of public_exception | Private of private_exception
 
@@ -558,13 +555,9 @@ module Normalize = struct
       Format.fprintf fmt "Incomplete pattern matching: %acase %a %s" print_rpath rpath (Format.pp_list " and " print_record_class) lclass
         (if List.length lclass = 1 then "is missing"
          else "are missing")
-    | Pattern_hidding _lr        ->
-        Format.fprintf fmt "Pattern hidding"  (*"before expression %a"  (Format.pp_list " ;@ " print_recur) lr*)
-    | Pattern_incompletness _lo -> Format.fprintf fmt "Pattern incompleteness" (*TODO*) (*(Format.pp_list " ;@ " print_recur) lr*)
 
   let print_private_exc fmt = function
    | Empty_pattern   ->  Format.fprintf fmt "Empty pattern"
-   | Non_homogenious ->  Format.fprintf fmt "Non homogenous pattern"
 
   let print_exc fmt e =
     match e with
