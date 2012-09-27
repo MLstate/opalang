@@ -288,4 +288,4 @@ let warn_olevel =
 (* Pattern Matching *******************)
 let pattern =
   let doc = "Warnings related to pattern matching" in
-  create ~name:"pattern" ~doc ~err:false ~enable:true ()
+  create ~name:"pattern" ~doc ~err:true ~enable:true ()

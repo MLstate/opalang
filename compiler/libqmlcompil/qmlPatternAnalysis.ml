@@ -544,27 +544,27 @@ module Normalize = struct
 
   let print_rpath fmt rpath =
     if rpath = []  then
-      Format.fprintf fmt "in the whole pattern"
+      Format.fprintf fmt ""
     else
-      Format.fprintf fmt "in the path %a" (Format.pp_list "." Format.pp_print_string) (List.rev rpath)
+      Format.fprintf fmt "at path %a, " (Format.pp_list "." Format.pp_print_string) (List.rev rpath)
 
   let print_public_exc fmt = function
     | Any_before_last_pattern   -> Format.fprintf fmt "Any_before_last_pattern"
     | Missing_const_case(rpath,lc)    ->
-      Format.fprintf fmt "Incomplete constant pattern matching : %a, %a %s"  print_rpath rpath (Format.pp_list " and " print_const) lc
-         (if List.length lc = 1 then "constant case is missing"
-         else "constants case are missing")
+      Format.fprintf fmt "Incomplete constant pattern matching: %acase %a %s"  print_rpath rpath (Format.pp_list " and " print_const) lc
+         (if List.length lc = 1 then "is missing"
+         else "are missing")
     | Missing_record_class(rpath,lclass)   ->
-      Format.fprintf fmt "Incomplete record pattern matching : %a, %a %s" print_rpath rpath (Format.pp_list " and " print_record_class) lclass
-        (if List.length lclass = 1 then "record layout is missing"
-         else "records layout are missing")
+      Format.fprintf fmt "Incomplete pattern matching: %acase %a %s" print_rpath rpath (Format.pp_list " and " print_record_class) lclass
+        (if List.length lclass = 1 then "is missing"
+         else "are missing")
     | Pattern_hidding _lr        ->
         Format.fprintf fmt "Pattern hidding"  (*"before expression %a"  (Format.pp_list " ;@ " print_recur) lr*)
-    | Pattern_incompletness _lo -> Format.fprintf fmt "Pattern incompletness TODO" (*(Format.pp_list " ;@ " print_recur) lr*)
+    | Pattern_incompletness _lo -> Format.fprintf fmt "Pattern incompleteness" (*TODO*) (*(Format.pp_list " ;@ " print_recur) lr*)
 
   let print_private_exc fmt = function
    | Empty_pattern   ->  Format.fprintf fmt "Empty pattern"
-   | Non_homogenious ->  Format.fprintf fmt "Non homogenious pattern"
+   | Non_homogenious ->  Format.fprintf fmt "Non homogenous pattern"
 
   let print_exc fmt e =
     match e with
