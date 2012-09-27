@@ -21,7 +21,7 @@
  * @destination public
  */
 
-//package stdlib.apis.github.auth
+package stdlib.apis.github.auth
 import stdlib.apis.common
 import stdlib.apis.github.lib
 
@@ -34,6 +34,9 @@ type GHAuth.scope =
     {user}        /** DB read/write access to profile info only. */
   / {public_repo} /** DB read/write access, and Git read access to public repos. */
   / {repo}        /** DB read/write access, and Git read access to public and private repos */
+  / {repo_status} /** Read/write access to public and private repo statuses.
+                      Does not include access to code - use repo for that. */
+  / {delete_repo} /** Delete access to adminable repositories. */
   / {gist}        /** Write access to gists. */
 
 @private GHAp = {{
@@ -43,6 +46,8 @@ type GHAuth.scope =
     | {user}        -> "user"
     | {public_repo} -> "public_repo"
     | {repo}        -> "repo"
+    | {repo_status} -> "repo:status"
+    | {delete_repo} -> "delete_repo"
     | {gist}        -> "gist"
 
 }}
@@ -72,7 +77,7 @@ GHAuth(conf:GHAuth.conf) = {{
               ("code", code)]
       match GHLib.full_post(base, path, data, some) with
       | {some=c} ->
-        token = AL.get_field(AL.get_data(c), "access_token")
+        token = AL.get_field(AL.get_data(c.content), "access_token")
         if token == "" then {none}
         else {some=token}
       | _ -> {none}
