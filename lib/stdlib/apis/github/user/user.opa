@@ -13,7 +13,7 @@
  * Author    : Nicolas Glondu <nicolas.glondu@mlstate.com>
  **/
 
-//package stdlib.apis.github.user
+package stdlib.apis.github.user
 import stdlib.apis.github
 import stdlib.apis.github.lib
 
@@ -25,103 +25,88 @@ import stdlib.apis.github.lib
  * @destination public
  */
 
-/**
- * Type of a GitHub user provided to [GHUser.show]
- */
-type GHUser.t =
-    { self  : string } /** Token of user - provides more information */
-  / { login : string } /** Login of user */
 
 @private GHUp = {{
 
   @private GP = GHParse
 
-  one_full_user(res) =
-    GP.dewrap_obj(res, "user", GP.get_user)
+  one_full_user(res:WebClient.success(string)) = GP.dewrap_whole_obj(res, GP.get_user)
 
-  multiple_full_users(res) =
-    GP.dewrap_list(res, "users", GP.get_user)
+  multiple_users(res:WebClient.success(string)) = GP.multiple_objects(res, GP.get_user)
 
-  multiple_users_ids(res) =
-    GP.multiple_strings(res, "users")
+  multiple_emails(res:WebClient.success(string)) = GP.list_strings(res)
 
-  multiple_emails(res) =
-    GP.multiple_strings(res, "emails")
-
-  multiple_public_keys(res) =
-    GP.dewrap_list(res, "public_keys", GP.get_public_key)
+  one_public_key(res:WebClient.success(string)) = GP.dewrap_whole_obj(res, GP.get_public_key)
+  multiple_public_keys(res:WebClient.success(string)) = GP.multiple_objects(res, GP.get_public_key)
 
 }}
 
 GHUser = {{
 
-  /* Search and display */
+  @private GP = GHParse
 
-  search(req) =
-    path = "/user/search/{req}"
-    GHLib.api_get(path, [], GHUp.multiple_full_users)
+  /* Users */
 
-  show(user:GHUser.t) =
-    (path, data) = match user with
-      | ~{self} ->
-        ("/user/show", [("access_token", self)])
-      | ~{login} ->
-        ("/user/show/{login}", [])
+  get_user(user:GitHub.user_id) =
+    (path, data) = GHLib.userpath(user,"")
     GHLib.api_get(path, data, GHUp.one_full_user)
 
-  /* Follow(/ing/ers) */
-
-  get_following(user) =
-    path = "/user/show/{user}/following"
-    GHLib.api_get(path, [], GHUp.multiple_users_ids)
-
-  get_followers(user) =
-    path = "/user/show/{user}/followers"
-    GHLib.api_get(path, [], GHUp.multiple_users_ids)
-
-  follow(user, token) =
-    path = "/user/follow/{user}"
-    GHLib.api_post_logged(path, token, GHUp.multiple_users_ids)
-
-  unfollow(user, token) =
-    path = "/user/unfollow/{user}"
-    GHLib.api_post_logged(path, token, GHUp.multiple_users_ids)
-
-  /* Public keys */
-
-  get_keys(token) =
-    path = "/user/keys"
-    GHLib.api_get_logged(path, token, GHUp.multiple_public_keys)
-
-  add_key(title, key, token) =
-    path = "/user/key/add"
-    data = [("title", title), ("key", key),
-            ("access_token", token)]
-    GHLib.api_post(path, data, GHUp.multiple_public_keys)
-
-  remove_key(id, token) =
-    path = "/user/key/remove"
-    data = [("id", id), ("access_token", token)]
-    GHLib.api_post(path, data, GHUp.multiple_public_keys)
+  update_user(token:string,
+              name:option(string), email:option(string), blog:option(string),
+              company:option(string), location:option(string), hireable:option(string), bio:option(string)) =
+    json = GHLib.mkopts([{sopt=("name",name)},{sopt=("email",email)},{sopt=("blog",blog)},{sopt=("company",company)},
+                         {sopt=("location",location)},{sopt=("hireable",hireable)},{sopt=("bio",bio)}])
+    GHLib.api_patch_string("/user", token, json, GHUp.one_full_user)
 
   /* Emails */
 
-  get_emails(token) =
-    path = "/user/emails"
-    GHLib.api_get_logged(path, token, GHUp.multiple_emails)
+  get_emails(token:string) =
+    GHLib.api_get_full("/user/emails", token, [], GHUp.multiple_emails)
 
-  add_email(email, token) =
-    path = "/user/email/add"
-    data = [("email", email), ("access_token", token)]
-    GHLib.api_post(path, data, GHUp.multiple_emails)
+  add_emails(token:string, emails:list(string)) =
+    json = GHLib.mkslst(emails)
+    GHLib.api_post_string("/user/emails", token, json, GHUp.multiple_emails)
 
-  remove_email(email, token) =
-    path = "/user/email/remove"
-    data = [("email", email), ("access_token", token)]
-    GHLib.api_post(path, data, GHUp.multiple_emails)
+  remove_emails(token:string, emails:list(string)) =
+    json = GHLib.mkslst(emails)
+    GHLib.api_delete_string("/user/emails", token, json, GP.expect_204)
 
-  /* Not working API call
-   update(updates, token) =
-   */
+  /* Follow(/ing/ers) */
+
+  get_following(user:GitHub.user_id) =
+    (path, data) = GHLib.userpath(user,"following")
+    GHLib.api_get(path, data, GP.multiple_short_users)
+
+  get_followers(user:GitHub.user_id) =
+    (path, data) = GHLib.userpath(user,"followers")
+    GHLib.api_get(path, data, GP.multiple_short_users)
+
+  is_following(token:string, other_user:string) =
+    GHLib.api_get_full("/user/following/{other_user}", token, [], GP.expect_204_404)
+
+  follow(token:string, user:string) =
+    GHLib.api_put_string("/user/following/{user}", token, "", GP.expect_204)
+
+  unfollow(token:string, user:string) =
+    GHLib.api_delete_string("/user/following/{user}", token, "", GP.expect_204)
+
+  /* Public keys */
+
+  get_keys(token:string) =
+    GHLib.api_get_full("/user/keys", token, [], GHUp.multiple_public_keys)
+
+  get_key(token:string, id:int) =
+    GHLib.api_get_full("/user/keys/{id}", token, [], GHUp.one_public_key)
+
+  add_key(token:string, title:string, key:string) =
+    json = GHLib.mkopts([{sreq=("title",title)},{sreq=("key",key)}])
+    GHLib.api_post_string("/user/keys", token, json, GHUp.one_public_key)
+
+  update_key(token:string, id:int, title:string, key:string) =
+    json = GHLib.mkopts([{sreq=("title",title)},{sreq=("key",key)}])
+    GHLib.api_patch_string("/user/keys/{id}", token, json, GHUp.one_public_key)
+
+  remove_key(token:string, id:int) =
+    GHLib.api_delete_string("/user/keys/{id}", token, "", GP.expect_204)
 
 }}

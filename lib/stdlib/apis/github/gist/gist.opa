@@ -21,7 +21,7 @@
  * @destination public
  */
 
-//package stdlib.apis.github.gist
+package stdlib.apis.github.gist
 import stdlib.apis.github
 import stdlib.apis.github.lib
 
@@ -29,21 +29,31 @@ import stdlib.apis.github.lib
 
 type GitHub.gist_comment = {
   id         : int
-  user       : string
-  created_at : Date.date
-  updated_at : Date.date
+  url        : string
   body       : string
+  user       : GitHub.short_user
+  created_at : Date.date
 }
 
-type GitHub.gist = {
-  owner       : string
-  public      : bool
-  repo        : string
-  created_at  : Date.date
-  description : string
-  files       : list(string)
-  comments    : list(GitHub.gist_comment)
-}
+/**
+ * Type of a GitHub gist provided to [GHGist.list_gists]
+ */
+type GHGist.t =
+    { self : string }   /** Gists of authenticated user (self="" means public gists) */
+  / { user : string }   /** Gists of given user */
+  / { `public` }        /** All public gists */
+  / { starred : string} /** Authenticated user's starred gists */
+
+/**
+ * Type of a GitHub gist file update provided to [GHGist.edit_gist]
+ */
+type GHGist.file_update =
+  (string,
+     { update : {content  : string} }
+   / { modify : {filename : string
+                 content  : string } }
+   / { delete })
+
 
 @private GHGp = {{
 
@@ -51,61 +61,91 @@ type GitHub.gist = {
 
   get_comment(srcmap) = 
     m = GP.map_funs(srcmap)
-    { id         = m.int("id")
-      user       = m.str("user")
-      created_at = m.date("created_at")
-      updated_at = m.date("updated_at")
-      body       = m.str("body")
-    } : GitHub.gist_comment
-
-  get_gist(srcmap) =
-    m = GP.map_funs(srcmap)
-    if m.exists("repo") then
-      files = List.map(
-        v -> match v:RPC.Json.json with
-          | {String=s} -> s
-          | _ -> Json.serialize(v),
-        m.list("files"))
-      comments = List.filter_map(
-        v -> match v:RPC.Json.json with
-          | {Record=_} -> some(get_comment(v))
-          | _ -> none,
-        m.list("comments"))
-      res = {
-        owner       = m.str("owner")
-        public      = m.bool("public")
-        repo        = m.str("repo")
-        created_at  = m.date("created_at")
-        description = m.str("description")
-        files       = files
-        comments    = comments
-      } : GitHub.gist
-      some(res)
+    if m.exists("id")
+    then
+      comment = {
+        id         = GP.get_id(m)
+        url        = m.str("url")
+        body       = m.str("body")
+        user       = GP.get_rec(m, "user", GP.get_short_user)
+        created_at = m.date("created_at")
+      } : GitHub.gist_comment
+      {some=comment}
     else none
 
-  multiple_gists(res) =
-    GP.dewrap_list(res, "gists", get_gist)
+  one_gist(res) = GP.dewrap_whole_obj(res, GP.get_gist)
+  multiple_gists(res) = GP.dewrap_whole_list(res, GP.get_gist)
+
+  one_comment(res) = GP.dewrap_whole_obj(res, get_comment)
+  multiple_comments(res) = GP.dewrap_whole_list(res, get_comment)
 
 }}
 
 GHGist = {{
 
-  @private host = "https://gist.github.com/api/v1/json"
+  @private GP = GHParse
 
-  get_gist(gist_id:string) =
-    path = "{host}/{gist_id}"
-    r = GHLib.api_get_full(path, [], GHGp.multiple_gists)
-    match r with
-    | {some=l} ->
-      if l == [] then none else some(List.head(l))
-    | _ -> none
+  @private gist_path(gist:GHGist.t) =
+    match gist with
+    | {~user} -> ("/users/{user}/gists","")
+    | {~self} -> ("/gists",self)
+    | {`public`} -> ("/gists/public","")
+    | {~starred} -> ("/gists/starred",starred)
 
-  get_user_gists(user:string) =
-    path = "{host}/gists/{user}"
-    GHLib.api_get_full(path, [], GHGp.multiple_gists)
+  list_gists(gist:GHGist.t) =
+    (path, token) = gist_path(gist)
+    GHLib.api_get_full(path, token, [], GHGp.multiple_gists)
 
-  get_gist_file(gist_id:string, filename:string) =
-    path = "https://raw.github.com/gist/{gist_id}/{filename}"
-    GHLib.api_get_full(path, [], some)
+  get_gist(gist_id:int) =
+    path = "/gists/{gist_id}"
+    GHLib.api_get_full(path, "", [], GHGp.one_gist)
+
+  create_gist(token:string, description:option(string), public:bool, files:list((string, string))) =
+    files = List.to_string_using("\{","}",",",List.map(((fn,cn) -> "\"{fn}\":\{\"content\":\"{cn}\"}"),files))
+    json = GHLib.mkopts([{sopt=("description",description)},{breq=("public",public)},{req=("files",files)}])
+    GHLib.api_post_string("/gists", token, json, GHGp.one_gist)
+
+  edit_gist(token:string, id:int, description:option(string), files:list(GHGist.file_update)) =
+    files = List.to_string_using("\{","}",",",
+                                 List.map(((fn,fu) ->
+                                           match fu with
+                                           | {update=~{content}} ->
+                                              "\"{fn}\":\{\"content\":\"{content}\"}"
+                                           | {modify=~{filename content}} ->
+                                              "\"{fn}\":\{\"filename\":\"{filename}\",\"content\":\"{content}\"}"
+                                           | {delete} ->
+                                              "\"{fn}\":null}"
+                                       ),files))
+    json = GHLib.mkopts([{sopt=("description",description)},{req=("files",files)}])
+    GHLib.api_patch_string("/gists/{id}", token, json, GHGp.one_gist)
+
+  star_gist(token:string, id:int) = GHLib.api_put_string("/gists/{id}/star", token, "", GP.expect_204)
+
+  unstar_gist(token:string, id:int) = GHLib.api_delete_string("/gists/{id}/star", token, "", GP.expect_204)
+
+  is_gist_starred(token:string, id:int) = GHLib.api_get_full("/gists/{id}/star", token, [], GP.expect_204_404)
+
+  fork_gist(token:string, id:int) = GHLib.api_post_string("/gists/{id}/fork", token, "", GHGp.one_gist)
+
+  delete_gist(token:string, id:int) = GHLib.api_delete_string("/gists/{id}", token, "", GP.expect_204)
+
+  gist_comments(token:string, id:int) = GHLib.api_get_full("/gists/{id}/comments", token, [], GHGp.multiple_comments)
+
+  get_comment(token:string, id:int) = GHLib.api_get_full("/gists/comments/{id}", token, [], GHGp.one_comment)
+
+  create_comment(token:string, gist_id:int, body) =
+    json = GHLib.mkopts([{sreq=("body",body)}])
+    GHLib.api_post_string("/gists/{gist_id}/comments", token, json, GHGp.one_comment)
+
+  edit_comment(token:string, gist_id:int, body) =
+    json = GHLib.mkopts([{sreq=("body",body)}])
+    GHLib.api_patch_string("/gists/comments/{gist_id}", token, json, GHGp.one_comment)
+
+  delete_comment(token:string, id:int) = GHLib.api_delete_string("/gists/comments/{id}", token, "", GP.expect_204)
+
+  // TODO: file urls can be found in the gist data
+  //get_gist_file(gist_id:string, filename:string) =
+  //  path = "https://raw.github.com/gist/{gist_id}/{filename}"
+  //  GHLib.api_get_full(path, "", [], some)
 
 }}

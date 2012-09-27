@@ -21,7 +21,7 @@
  * @destination public
  */
 
-//package stdlib.apis.github.orgs
+package stdlib.apis.github.orgs
 import stdlib.apis.github
 import stdlib.apis.github.lib
 
@@ -36,41 +36,45 @@ type GHOrgs.value =
 /* Types returned by API */
 
 type GitHub.organization = {
-  name              : string
-  login             : string
-  company           : string
-  email             : string
-  gravatar_id       : string
-  location          : string
-  created_at        : Date.date
-  blog              : string
-  public_gist_count : int
-  public_repo_count : int
-  id                : int
-  org_type          : string
-  followers_count   : string
-// permission : ??
+  login        : string
+  id           : int
+  url          : string
+  avatar_url   : string
+  name         : string
+  company      : string
+  blog         : string
+  location     : string
+  email        : string
+  public_repos : int
+  public_gists : int
+  followers    : int
+  following    : int
+  html_url     : string
+  created_at   : Date.date
+  org_type     : string
+  total_private_repos : int
+  owned_private_repos : int
+  private_gists : int
+  disk_usage : int
+  collaborators : int
+  billing_email : string
+  plan: option(GitHub.plan)
 }
 
 type GitHub.permission = {admin} / {push} / {pull}
 
 type GitHub.team = {
-  name       : string
-  id         : int
-  permission : GitHub.permission
+  url           : string
+  name          : string
+  id            : int
+  members_count : int
+  permission    : GitHub.permission
+  repos_count   : int
 }
 
-@private GHOp = {{
+@private GHORp = {{
 
-  explode_orgs_values(v) =
-    ( match v : GHOrgs.value with
-      | ~{name}          -> ("name",name)
-      | ~{email}         -> ("email",email)
-      | ~{blog}          -> ("blog",blog)
-      | ~{company}       -> ("company",company)
-      | ~{location}      -> ("location",location)
-      | ~{billing_email} -> ("billing_email",billing_email)
-    ) |> (a:string,b:string) -> ("organization[{a}]",b)
+  @private GP = GHParse
 
   perm_to_str(p) =
     match p : GitHub.permission with
@@ -85,164 +89,143 @@ type GitHub.team = {
     | "pull"  -> {pull}
     | _       -> {pull}
 
-  @private GP = GHParse
-
   get_org(srcmap) =
     m = GP.map_funs(srcmap)
-    if m.exists("gravatar_id") then
+    if m.exists("id") then
       res = {
-        name              = m.str("name")
-        login             = m.str("login")
-        company           = m.str("company")
-        email             = m.str("email")
-        gravatar_id       = m.str("gravatar_id")
-        location          = m.str("location")
-        created_at        = m.date("created_at")
-        blog              = m.str("blog")
-        public_gist_count = m.int("public_gist_count")
-        public_repo_count = m.int("public_repo_count")
-        id                = m.int("id")
-        org_type          = m.str("org_type")
-        followers_count   = m.str("followers_count")
+        login               = m.str("login")
+        id                  = GP.get_id(m)
+        url                 = m.str("url")
+        avatar_url          = m.str("avatar_url")
+        name                = m.str("name")
+        company             = m.str("company")
+        blog                = m.str("blog")
+        location            = m.str("location")
+        email               = m.str("email")
+        public_repos        = m.int("public_repos")
+        public_gists        = m.int("public_gists")
+        followers           = m.int("followers")
+        following           = m.int("following")
+        html_url            = m.str("html_url")
+        created_at          = m.date("created_at")
+        org_type            = m.str("org_type")
+        total_private_repos = m.int("total_private_repos")
+        owned_private_repos = m.int("owned_private_repos")
+        private_gists       = m.int("private_gists")
+        disk_usage          = m.int("disk_usage")
+        collaborators       = m.int("collaborators")
+        billing_email       = m.str("billing_email")
+        plan                = GP.get_rec(m, "plan", GP.get_plan_opt)
       } : GitHub.organization
       some(res)
     else none
 
   get_team(srcmap) =
     m = GP.map_funs(srcmap)
-    if m.exists("name") then
+    if m.exists("id") then
       res = {
-        name       = m.str("name")
-        id         = m.int("id")
-        permission = m.str("permission") |> perm_from_str
+        id                  = GP.get_id(m)
+        url                 = m.str("url")
+        name                = m.str("name")
+        members_count       = m.int("members_count")
+        permission          = perm_from_str(m.str("permission"))
+        repos_count         = m.int("repos_count")
       } : GitHub.team
       some(res)
     else none
 
-  one_org(res) =
-    GP.dewrap_obj(res, "organizations", get_org)
+  one_org(res) = GP.dewrap_whole_obj(res, get_org)
+  multiple_orgs(res) = GP.dewrap_whole_list(res, get_org)
 
-  multiple_orgs(res) =
-    GP.dewrap_list(res, "organizations", get_org)
+  multiple_repos(res) = GP.dewrap_whole_list(res, GP.get_repo(false))
 
-  multiple_repos(res) =
-    GP.dewrap_list(res, "repositories", GP.get_repo(false))
+  multiple_users(res) = GP.dewrap_list(res, "users", GP.get_user)
 
-  multiple_users(res) =
-    GP.dewrap_list(res, "users", GP.get_user)
-
-  one_team(res) =
-    GP.dewrap_obj(res, "team", get_team)
-
-  multiple_teams(res) =
-    GP.dewrap_list(res, "teams", get_team)
+  one_team(res) = GP.dewrap_whole_obj(res, get_team)
+  multiple_teams(res) = GP.dewrap_whole_list(res, get_team)
 
 }}
 
 GHOrgs = {{
 
-  show(org:string) =
-    path = "/organizations/{org}"
-    GHLib.api_get(path, [], GHOp.one_org)
+  @private GP = GHParse
 
-  update(org:string, updates, token) =
-    path = "/organizations/{org}"
-    data = List.map(GHOp.explode_orgs_values, updates)
-      |> List.add(("access_token", token), _)
-    GHLib.api_post(path, data, GHOp.one_org)
+  list_organizations(user:GitHub.user_id) =
+    (path, data) = GHLib.userpath(user,"orgs")
+    GHLib.api_get(path, data, GP.multiple_short_users)
 
-  get_user_organizations(user:string) =
-    path = "/user/show/{user}/organizations"
-    GHLib.api_get(path, [], GHOp.multiple_orgs)
+  get_organization(token:string, org:string) =
+    GHLib.api_get_full("/orgs/{org}", token, [], GHORp.one_org)
 
-  get_current_user_organizations(token) =
-    path = "/organizations"
-    GHLib.api_get_logged(path, token, GHOp.multiple_orgs)
+  edit_organization(token:string, org:string,
+                    billing_email:option(string), company:option(string), email:option(string),
+                    location:option(string), name:option(string)) =
+    json = GHLib.mkopts([{sopt=("billing_email",billing_email)},{sopt=("company",company)},{sopt=("email",email)},
+                         {sopt=("location",location)},{sopt=("name",name)}])
+    GHLib.api_patch_string("/org/{org}", token, json, GHORp.one_org)
 
- /**
-  * List all repositories across all the organizations
-  * that you can access.
-  *
-  * @param inc_all_owned If [false], returns all repos that current user can explicitly access through teams. If [true], adds all repos from all organizations owned by user.
-  * @param inc_public If [true], adds public repos from organizations that current user has no explicit access to.
-  * @param token User token
-  */
-  get_current_user_repos(inc_all_owned, inc_public, token) =
-    path = "/organizations/repositories"
-    data = [("access_token",token)]
-      |> (if inc_all_owned then List.add(("owned","1"), _)
-          else identity)
-      |> (if inc_public then List.add(("public","1"), _)
-          else identity)
-    GHLib.api_get(path, data, GHOp.multiple_repos)
+  list_members(token:string, org:string) =
+    GHLib.api_get_full("/orgs/{org}/members", token, [], GP.multiple_short_users)
 
-  get_org_owners(org:string, token) =
-    path = "/organizations/{org}/owners"
-    GHLib.api_get_logged(path, token, GHOp.multiple_users)
+  get_member(token:string, org:string, user:string) =
+    GHLib.api_get_full("/orgs/{org}/members/{user}", token, [], GP.expect_204_404)
 
-  get_org_public_members(org:string) =
-    path = "/organizations/{org}/public_members"
-    GHLib.api_get(path, [], GHOp.multiple_users)
+  remove_member(token:string, org:string, user:string) =
+    GHLib.api_delete_string("/orgs/{org}/members/{user}", token, "", GP.expect_204)
 
-  get_org_public_repos(org:string) =
-    path = "/organizations/{org}/public_repositories"
-    GHLib.api_get(path, [], GHOp.multiple_repos)
+  list_public_members(token:string, org:string) =
+    GHLib.api_get_full("/orgs/{org}/public_members", token, [], GP.multiple_short_users)
 
+  is_public_member(token:string, org:string, user:string) =
+    GHLib.api_get_full("/orgs/{org}/public_members/{user}", token, [], GP.expect_204_404)
 
-  get_teams(org:string, token) =
-    path = "/organizations/{org}/teams"
-    GHLib.api_get_logged(path, token, GHOp.multiple_teams)
+  publicize_membership(token:string, org:string, user:string) =
+    GHLib.api_put_string("/orgs/{org}/public_members/{user}", token, "", GP.expect_204)
 
-  create_team(org:string, name, permission, repos, token) =
-    path = "/organizations/{org}/teams"
-    repos = List.map(
-      ((a:string,b:string)-> ("team[repo_names][]","{a}/{b}")),
-      repos)
-    data =
-      [("access_token",token), ("team[name]",name),
-       ("team[permission]",GHOp.perm_to_str(permission))]
-      |> List.append(repos,_)
-    GHLib.api_post(path, data, GHOp.one_team)
+  conceal_membership(token:string, org:string, user:string) =
+    GHLib.api_delete_string("/orgs/{org}/public_members/{user}", token, "", GP.expect_204)
 
-  get_team(id:int, token) =
-    path = "/teams/{id}"
-    GHLib.api_get_logged(path, token, GHOp.one_team)
+  list_teams(token:string, org:string) =
+    GHLib.api_get_full("/orgs/{org}/teams", token, [], GHORp.multiple_teams)
 
-  /* Uncertain: TESTME */
-  del_team(id:int, token) =
-    path = "/teams/{id}/delete"
-    data = [("access_token",token)]
-    GHLib.api_post(path, data, some)
+  get_team(token:string, id:int) =
+    GHLib.api_get_full("/teams/{id}", token, [], GHORp.one_team)
 
-  get_team_members(id:int, token) =
-    path = "/teams/{id}/members"
-    GHLib.api_get_logged(path, token, some)
+  create_team(token:string, org:string,
+              name:string, repo_names:list(string), permission:option(GitHub.permission)) =
+    json = GHLib.mkopts([{sreq=("name",name)},{slst=("repo_names",repo_names)},
+                         {ocst=("permission",GHORp.perm_to_str,permission)}])
+    GHLib.api_post_string("/orgs/{org}/teams", token, json, GHORp.one_team)
 
-  add_team_member(id:int, name, token) =
-    path = "/teams/{id}/members"
-    data = [("access_token",token),("name",name)]
-    GHLib.api_post(path, data, some)
+  edit_team(token:string, id:int, name:string, permission:option(GitHub.permission)) =
+    json = GHLib.mkopts([{sreq=("name",name)},{ocst=("permission",GHORp.perm_to_str,permission)}])
+    GHLib.api_patch_string("/teams/{id}", token, json, GHORp.one_team)
 
-  /* Uncertain: TESTME */
-  remove_team_member(id:int, name, token) =
-    path = "/teams/{id}/members/delete"
-    data = [("access_token",token),("name",name)]
-    GHLib.api_post(path, data, some)
+  delete_team(token:string, id:int) =
+    GHLib.api_delete_string("/teams/{id}", token, "", GP.expect_204)
 
+  list_team_members(token:string, id:int) =
+    GHLib.api_get_full("/teams/{id}/members", token, [], GP.multiple_short_users)
 
-  get_team_repos(id:int, token) =
-    path = "/teams/{id}/repositories"
-    GHLib.api_get_logged(path, token, GHOp.multiple_repos)
+  get_team_member(token:string, id:int, user:string) =
+    GHLib.api_get_full("/teams/{id}/members/{user}", token, [], GP.expect_204_404)
 
-  add_team_repo(id:int, owner:string, repo:string, token) =
-    path = "/teams/{id}/repositories"
-    data = [("access_token",token),("name","{owner}/{repo}")]
-    GHLib.api_post(path, data, some)
+  add_team_member(token:string, id:int, user:string) =
+    GHLib.api_put_string("/teams/{id}/members/{user}", token, "", GP.expect_204)
 
-  /* Uncertain: TESTME */
-  remove_team_repo(id:int, owner:string, repo:string, token) =
-    path = "/teams/{id}/repositories/delete"
-    data = [("access_token",token),("name","{owner}/{repo}")]
-    GHLib.api_post(path, data, some)
+  remove_team_member(token:string, id:int, user:string) =
+    GHLib.api_delete_string("/teams/{id}/members/{user}", token, "", GP.expect_204)
+
+  list_team_repos(token:string, id:int) =
+    GHLib.api_get_full("/teams/{id}/repos", token, [], GHORp.multiple_repos)
+
+  get_team_repo(token:string, id:int, user:string, repo:string) =
+    GHLib.api_get_full("/teams/{id}/repos/{user}/{repo}", token, [], GP.expect_204_404)
+
+  add_team_repo(token:string, id:int, user:string, repo:string) =
+    GHLib.api_put_string("/teams/{id}/repos/{user}/{repo}", token, "", GP.expect_204)
+
+  remove_team_repo(token:string, id:int, user:string, repo:string) =
+    GHLib.api_delete_string("/teams/{id}/repos/{user}/{repo}", token, "", GP.expect_204)
 
 }}
