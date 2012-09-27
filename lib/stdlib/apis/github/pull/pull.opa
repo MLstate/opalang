@@ -13,7 +13,7 @@
  * Author    : Nicolas Glondu <nicolas.glondu@mlstate.com>
  **/
 
-//package stdlib.apis.github.pull
+package stdlib.apis.github.pull
 import stdlib.apis.github
 import stdlib.apis.github.lib
 
@@ -26,252 +26,137 @@ import stdlib.apis.github.lib
  */
 
 
-type GitHub.Pull.create_params = {
-  base : string
-  head : string
-  description : {title:string body:string}/{issue:string}
-}
-
 /* Types returned by API */
 
-type GitHub.user_simple = {
-  login       : string
-  name        : string
-  gravatar_id : string
-  company     : string
-  user_type   : string
+type GitHub.merge_result = {
+  sha     : string
+  merged  : bool
+  message : string
 }
 
-type GitHub.ref = {
-  label      : string
-  ref        : string
-  sha        : string
-  repository : GitHub.repository
-  user       : GitHub.user_simple
-}
-
-type GitHub.pull_req = {
-  title            : string
-  body             : string
-  user             : GitHub.user_simple
-  comments         : int
-  votes            : int
-  state            : {open}/{closed:Date.date}/{other:string}
-  position         : float
-  number           : int
-  head             : GitHub.ref
-  base             : GitHub.ref
-  gravatar_id      : string
-  diff_url         : string
-  html_url         : string
-  patch_url        : string
-  issue_created_at : Date.date
-  issue_updated_at : Date.date
-  created_at       : Date.date
-  updated_at       : Date.date
-  merged_at        : Date.date
-  labels           : list(string)
-  mergeable        : bool
-}
-
-type GitHub.discussion_elt =
-  { commit_id      : string
-    committed_date : Date.date
-    authored_date  : Date.date
-    user           : GitHub.user_simple
-    author         : GitHub.user_simple
-    parents        : list(list((string,string)))
-    message        : string
-    committer      : GitHub.commit_user
-    tree           : string }
-/ { comment_id     : int
-    gravatar_id    : string
-    user           : GitHub.user_simple
-    created_at     : Date.date
-    updated_at     : Date.date
-    body           : string }
-/ { review_pos     : int
-    diff_hunk      : string
-    user           : GitHub.user_simple
-    commit_id      : string
-    created_at     : Date.date
-    updated_at     : Date.date
-    path           : string
-    body           : string }
-    
-
-type GitHub.full_pull_req = {
-  infos      : GitHub.pull_req
-  discussion : list(GitHub.discussion_elt)
-  issue_user : GitHub.user_simple
+type GitHub.pull_request_comment = {
+  url        : string
+  id         : int
+  body       : string
+  path       : string
+  position   : int
+  commit_id  : string
+  user       : GitHub.short_user
+  created_at : Date.date
+  updated_at : Date.date
+  _links     : GitHub.links
 }
 
 @private GHPp = {{
 
   @private GP = GHParse
 
-  get_user_simple(srcmap) =
+  get_pull_req_comment(srcmap) =
     m = GP.map_funs(srcmap)
-    { login       = m.str("login")
-      name        = m.str("name")
-      gravatar_id = m.str("gravatar_id")
-      company     = m.str("company")
-      user_type   = m.str("type")
-    } : GitHub.user_simple
-
-  get_ref(srcmap) =
-    m = GP.map_funs(srcmap)
-    { label      = m.str("label")
-      ref        = m.str("ref")
-      sha        = m.str("sha")
-      repository = m.record("repository")
-                   |> GP.get_repo(true) |> Option.get
-      user       = get_user_simple(m.record("user"))
-    } : GitHub.ref
-
-  get_pull_req_int(m) =
-    state = match m.str("state") with
-      | "open"   -> {open}
-      | "closed" -> {closed=m.date("closed_at")}
-      | x        -> {other=x}
-    labels = List.filter_map(
-      v -> match v:RPC.Json.json with
-        | {String=s} -> some(s)
-        | _ -> none,
-      m.list("labels"))
-    { title            = m.str("title")
-      body             = m.str("body")
-      user             = get_user_simple(m.record("user"))
-      comments         = m.int("comments")
-      votes            = m.int("votes")
-      state            = state
-      position         = m.float("position")
-      number           = m.int("number")
-      head             = get_ref(m.record("head"))
-      base             = get_ref(m.record("base"))
-      gravatar_id      = m.str("gravatar_id")
-      diff_url         = m.str("diff_url")
-      html_url         = m.str("html_url")
-      patch_url        = m.str("patch_url")
-      issue_created_at = m.date("issue_created_at")
-      issue_updated_at = m.date("issue_updated_at")
-      created_at       = m.date("created_at")
-      updated_at       = m.date("updated_at")
-      merged_at        = m.date("merged_at")
-      labels           = labels
-      mergeable        = m.bool("mergeable")
-    } : GitHub.pull_req    
-
-  get_pull_req(srcmap) =
-    m = GP.map_funs(srcmap)
-    if m.exists("state") then
-      some(get_pull_req_int(m))
-    else none
-
-  get_discussion_elt(srcmap) : option(GitHub.discussion_elt) =
-    m = GP.map_funs(srcmap)
-    match m.str("type") with
-    | "Commit" ->
-      parents = List.filter_map(
-        v -> match v:RPC.Json.json with
-          | {Record=r} ->
-            List.map(
-              (k,v1) -> match v1:RPC.Json.json with
-                | {String=s} -> (k,s)
-                | _ -> (k,Json.serialize(v1)),
-              r) |> some
-          | _ -> none,
-        m.list("parents"))
-      { commit_id      = m.str("id")
-        committed_date = m.date("committed_date")
-        authored_date  = m.date("authored_date")
-        user           = get_user_simple(m.record("user"))
-        author         = get_user_simple(m.record("author"))
-        parents        = parents
-        message        = m.str("message")
-        committer      = GP.get_commit_user(m.record("committer"))
-        tree           = m.str("tree")
-      } |> some
-    | "IssueComment" ->
-      { comment_id     = m.int("id")
-        gravatar_id    = m.str("gravatar_id")
-        user           = get_user_simple(m.record("user"))
-        created_at     = m.date("created_at")
-        updated_at     = m.date("updated_at")
-        body           = m.str("body")
-      } |> some
-    | "PullRequestReviewComment" ->
-      { review_pos     = m.int("position")
-        diff_hunk      = m.str("diff_hunk")
-        user           = get_user_simple(m.record("user"))
-        commit_id      = m.str("commit_id")
-        created_at     = m.date("created_at")
-        updated_at     = m.date("updated_at")
-        path           = m.str("path")
-        body           = m.str("body")
-      } |> some
-    | _ -> none
-
-  get_full_pull_req(srcmap) =
-    m = GP.map_funs(srcmap)
-    if m.exists("state") then
-      infos = get_pull_req_int(m)
-      discussion = List.filter_map(
-        v -> match v : RPC.Json.json with
-          | {Record=_} -> get_discussion_elt(v)
-          | _ -> none,
-        m.list("discussion"))
+    if m.exists("commit_id")
+    then
       res = {
-        infos      = infos
-        discussion = discussion
-        issue_user = get_user_simple(m.record("issue_user"))
-      } : GitHub.full_pull_req
-      some(res)
-    else none
+        url        = m.str("url")
+        id         = GP.get_id(m)
+        body       = m.str("body")
+        path       = m.str("path")
+        position   = m.int("position")
+        commit_id  = m.str("commit_id")
+        user       = GP.get_short_user(m.record("user"))
+        created_at = m.date("created_at")
+        updated_at = m.date("updated_at")
+        _links     = GP.get_rec(m, "_links", GP.get__links)
+       } : GitHub.pull_request_comment
+      {some=res}
+    else {none}
 
-  pull_requests(res) =
-    GP.dewrap_list(res, "pulls", get_pull_req)
+  get_merge_result(srcmap) =
+    m = GP.map_funs(srcmap)
+    if m.exists("sha")
+    then
+      res = {
+        sha     = m.str("sha")
+        merged  = m.bool("merged")
+        message = m.str("message")
+      } : GitHub.merge_result
+      {some=res}
+    else {none}
 
-  one_full_pull_request(res) =
-    GP.dewrap_obj(res, "pull", get_full_pull_req)
+  one_pull_request(res) = GP.dewrap_whole_obj(res, GP.get_pull_req)
+  multiple_pull_requests(res) = GP.dewrap_whole_list(res, GP.get_pull_req)
+
+  one_pull_request_comment(res) = GP.dewrap_whole_obj(res, get_pull_req_comment)
+  multiple_pull_request_comments(res) = GP.dewrap_whole_list(res, get_pull_req_comment)
+
+  one_merge_result(res) = GP.dewrap_whole_obj(res, get_merge_result)
 
 }}
 
+type GitHub.pull_req_input =
+   { title : string body : option(string) }
+ / { issue : int }
+
+type GitHub.pull_req_create_comment_input =
+   { body : string commit_id : string path : string position : int }
+ / { body : string in_reply_to : int }
+
 GHPull = {{
 
-  @private p(o:string,r:string) = "{o}/{r}"
+  @private GP = GHParse
 
-  create(owner, repo, params:GitHub.Pull.create_params, token) =
-    path = "/pulls/{p(owner,repo)}"
-    d = match params.description with
-      | ~{title body} ->
-        [("pull[title]", title), ("pull[body]", body)]
-      | ~{issue} -> [("pull[issue]", issue)]
-    data =
-      [("access_token", token), ("pull[base]", params.base),
-       ("pull[head]", params.head)]
-      |> List.append(d,_)
-    GHLib.api_post(path, data, GHPp.one_full_pull_request)
+  list_pull_requests(token:string, user:string, repo:string, state:option(GitHub.state)) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls", token, GHLib.opt_state(state), GHPp.multiple_pull_requests)
 
-  @private generic_pull(owner, repo, more:string, token:option(string), f) =
-    path = "/pulls/{p(owner,repo)}/{more}"
-    match token with
-    | {none} -> GHLib.api_get(path, [], f)
-    | {some=t} -> GHLib.api_get_logged(path, t, f)
+  get_pull_request(token:string, user:string, repo:string, number:int) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls/{number}", token, [], GHPp.one_pull_request)
 
-  list(owner, repo, state:{open}/{closed}, token:option(string)) =
-    st = match state with
-      | {open}  -> "open"
-      | {closed} -> "closed"
-    generic_pull(owner, repo, st, token, GHPp.pull_requests)
+  create_pull_request(token:string, user:string, repo:string,
+                      head:string, input:GitHub.pull_req_input, base:option(string)) =
+    json =
+      match input with
+      | ~{title body} -> GHLib.mkopts([{sreq=("title",title)},{sopt=("body",body)},{sreq=("head",head)},{sopt=("base",base)}])
+      | ~{issue} -> GHLib.mkopts([{sreq=("issue","{issue}")},{sreq=("head",head)},{sopt=("base",base)}])
+    GHLib.api_post_string("/repos/{user}/{repo}/pulls", token, json, GHPp.one_pull_request)
 
-  number(owner, repo, number:int, token:option(string)) =
-    generic_pull(owner, repo, Int.to_string(number),
-                 token, GHPp.one_full_pull_request)
+  update_pull_request(token:string, user:string, repo:string, number:int,
+                      title:option(string), body:option(string), state:option(GitHub.state)) =
+    json = GHLib.mkopts([{sopt=("title",title)},{sopt=("body",body)},{ocst=("state",GHLib.string_of_state,state)}])
+    GHLib.api_patch_string("/repos/{user}/{repo}/pulls/{number}", token, json, GHPp.one_pull_request)
 
-  merge(owner, repo, number:int, token) =
-    path = "/repos/{p(owner,repo)}/pulls/{number}/merge"
-    data = []
-    GHLib.v3_put(path, data, some(token), some)
+  list_pull_request_commits(token:string, user:string, repo:string, number:int) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls/{number}/commits", token, [], GP.multiple_full_commits)
+
+  list_pull_request_files(token:string, user:string, repo:string, number:int) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls/{number}/files", token, [], GP.multiple_files)
+
+  is_pull_request_merged(token:string, user:string, repo:string, number:int) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls/{number}/merge", token, [], GP.expect_204_404)
+
+  merge_pull_request(token:string, user:string, repo:string, number:int, commit_message:option(string)) =
+    json = GHLib.mkopts([{sopt=("commit_message",commit_message)}])
+    GHLib.api_put_string("/repos/{user}/{repo}/pulls/{number}/merge", token, json, GHPp.one_merge_result)
+
+  list_pull_request_comments(token:string, user:string, repo:string, number:int) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls/{number}/comments", token, [], GHPp.multiple_pull_request_comments)
+
+  get_pull_request_comment(token:string, user:string, repo:string, number:int) =
+    GHLib.api_get_full("/repos/{user}/{repo}/pulls/comments/{number}", token, [], GHPp.one_pull_request_comment)
+
+  create_pull_request_comment(token:string, user:string, repo:string, number:int,
+                              input:GitHub.pull_req_create_comment_input) =
+    json =
+      match input with
+      | ~{body commit_id path position} ->
+          GHLib.mkopts([{sreq=("body",body)},{sreq=("commit_id",commit_id)},{sreq=("path",path)},{ireq=("position",position)}])
+      | ~{body in_reply_to} ->
+          GHLib.mkopts([{sreq=("body",body)},{sreq=("in_reply_to","{in_reply_to}")}])
+    GHLib.api_post_string("/repos/{user}/{repo}/pulls/{number}/comments", token, json, GHPp.one_pull_request_comment)
+
+  edit_comment(token:string, user:string, repo:string, number:int, body:string) =
+    json = GHLib.mkopts([{sreq=("body",body)}])
+    GHLib.api_patch_string("/repos/{user}/{repo}/pulls/comments/{number}", token, json, GHPp.one_pull_request_comment)
+
+  delete_comment(token:string, user:string, repo:string, number:int) =
+    GHLib.api_delete_string("/repos/{user}/{repo}/pulls/comments/{number}", token, "", GP.expect_204)
 
 }}
