@@ -151,15 +151,18 @@ let filewatcher_stop _ = assert false
 let readdir dir cont =
   let cont t = QmlCpsServerLib.return cont (BslUtils.opa_tuple_2 t) in
   try
-    let dir_handle = Unix.opendir dir in
-    let rec next l () =
-      try
-        let l = (Unix.readdir dir_handle)::l in
-        Scheduler.push Scheduler.default (next l)
-      with
-      | ex -> (
-        Unix.closedir dir_handle;
-        cont ((if ex=End_of_file then "" else "error while reading directory"),(Array.of_list (List.rev l)))
-      )
-    in Scheduler.push Scheduler.default (next [])
+      let dir_handle = Unix.opendir dir in
+      let rec next l () =
+	try
+	  let dir = Unix.readdir dir_handle in
+	  let l =
+	    if dir = "." || dir = ".." then l
+	    else (dir)::l
+	  in Scheduler.push Scheduler.default (next l)
+	with
+	| ex -> (
+            Unix.closedir dir_handle;
+            cont ((if ex=End_of_file then "" else "error while reading directory"),(Array.of_list (List.rev l)))
+	  )
+      in Scheduler.push Scheduler.default (next [])
   with ex -> cont ("can not open dir "^dir,[||])
