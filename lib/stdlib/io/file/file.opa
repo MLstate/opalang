@@ -111,6 +111,29 @@ File = {{
     then {success=r}
     else {failure=err}
 
+  /**
+   * Recursively fold on a directory, and apply a function
+   * to each file in this directory (or one of its sub-directory)
+   *
+   * @param f(acc, filename, path) The function to apply
+   * @param acc The accumultor to give to f
+   * @param dir The directory to fold
+   */
+  fold_dir_rec(f, acc, dir) =
+    rec aux(rpath, name, acc) =
+      path = List.rev([name|rpath])
+      pathstr = String.concat("/", path)
+      if File.is_directory(pathstr) then
+        v = File.readdir(pathstr)
+        match v
+        {success=array} ->
+          LowLevelArray.fold((v, acc ->
+            aux([name|rpath], v, acc)
+          ), array, acc)
+        {failure=_} -> acc
+      else f(acc, name, pathstr)
+    aux([], dir, acc)
+
   onchange_default = {persistent=false} : File.onchange
 
   /** if the path of the file is changed, the behaviour is undefined */
