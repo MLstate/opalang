@@ -1,3 +1,4 @@
+package facebook
 /*
     Copyright © 2011 MLstate
 
@@ -22,9 +23,9 @@
  */
 
 import stdlib.apis.common
-import stdlib.apis.facebook
-import stdlib.apis.facebook.lib
-import stdlib.apis.facebook.dialog
+//import stdlib.apis.facebook
+//import stdlib.apis.facebook.lib
+//import stdlib.apis.facebook.dialog
 
 /**
  * {1 About this module}
