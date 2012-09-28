@@ -1,12 +1,27 @@
 Feature:
 
   * New Dropbox database backend (experimental)
+  * Added is_module and opacapi info in the doc API JSON file (generated with --api)
 
 Updated APIs:
 
   * File:
     - depreacted `content` and `content_opt`, replaced by `read` and `read_opt`
     - added `write` and `mkdir` function
+
+  * System;
+    - added which function
+
+  * Int:
+    - added succ and pred function
+
+Build:
+  * Packaging:
+    - changed the package names for debian, self-extractible and mac
+
+Other:
+  - removed the warning about system lang not found (en by default)
+
 
 2012.09.10, Version 1.0.6 (stable), v3375
 
