@@ -1,3 +1,4 @@
+package facebook
 /*
     Copyright © 2011 MLstate
 
@@ -28,7 +29,8 @@
  * @stability Work in progress
  */
 
-import stdlib.apis.{common, facebook, facebook.lib}
+//import stdlib.apis.{common, facebook, facebook.lib}
+import stdlib.apis.common
 import stdlib.crypto
 
 /**
@@ -1043,6 +1045,13 @@ FbRest = {{
       aux(elt, acc:string) = "{acc},{FbRest_private._perm_to_string(elt)}"
       List.fold(aux, List.tail(permissions), "&ext_perm={FbRest_private._perm_to_string(List.head(permissions))}")
     "http://www.facebook.com/connect/prompt_permissions.php?api_key={api_key}&v=1.0&next={next_url}{perms_text}&enable_profile_selector=1"
+
+  oauth_dialog_url(api_key:string, permissions, next_url:string) =
+    perms_text = if permissions == [] then ""
+    else
+      aux(elt, acc:string) = "{acc},{FbRest_private._perm_to_string(elt)}"
+      List.fold(aux, List.tail(permissions), "&scope={FbRest_private._perm_to_string(List.head(permissions))}")
+    "http://www.facebook.com/dialog/oauth/?client_id={api_key}&redirect_uri={next_url}&state={Random.string(20)}{perms_text}"
 
 /**
  * Helper for construction of event_info

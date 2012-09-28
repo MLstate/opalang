@@ -1,3 +1,4 @@
+package facebook
 /*
     Copyright © 2011 MLstate
 
@@ -22,7 +23,7 @@
  */
 
 import stdlib.apis.common
-import stdlib.apis.facebook
+//import stdlib.apis.facebook
 
 /**
  * {1 About this module}
@@ -42,6 +43,7 @@ FbLib = {{
    */
   fb_get(base, path, data) =
     final_path = generic_build_path("{base}{path}", data)
+    do jlog("fb_get: final_path={final_path}")
     match Uri.of_string(final_path) with
     | {none} -> none
     | {some=uri} ->
@@ -51,7 +53,7 @@ FbLib = {{
       end
 
   /**
-   * Make a HTTP GET on [path] at [base] with [data]
+   * Make a HTTP POST on [path] at [base] with [data]
    */
   fb_post(base, path, data) =
     txtdata = API_libs.form_urlencode(data)
@@ -59,6 +61,19 @@ FbLib = {{
     | {none} -> none
     | {some=uri} ->
       match WebClient.Post.try_post(uri,txtdata) with
+      | {failure=_} -> none
+      | {success=s} -> {some=s.content}
+      end
+
+  /**
+   * Make a HTTP DELETE on [path] at [base] with [data]
+   */
+  fb_delete(base, path, data) =
+    final_path = generic_build_path("{base}{path}", data)
+    match Uri.of_string(final_path) with
+    | {none} -> none
+    | {some=uri} ->
+      match WebClient.Delete.try_delete(uri) with
       | {failure=_} -> none
       | {success=s} -> {some=s.content}
       end
