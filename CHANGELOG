@@ -15,6 +15,9 @@ Updated APIs:
   * Int:
     - added succ and pred function
 
+  * File:
+    - added fold_dir_rec function
+
 Build:
   * Packaging:
     - changed the package names for debian, self-extractible and mac
@@ -22,6 +25,7 @@ Build:
 Other:
   - removed the warning about system lang not found (en by default)
   - incomplete pattern matching are now errors and not only warnings
+
 
 2012.09.10, Version 1.0.6 (stable), v3375
 
