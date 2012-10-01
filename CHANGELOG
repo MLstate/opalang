@@ -18,6 +18,9 @@ Updated APIs:
   * File:
     - added fold_dir_rec function
 
+  * ServerArg:
+    - filter function only filters on real arguments, not exectuable name anymore
+
 Build:
   * Packaging:
     - changed the package names for debian, self-extractible and mac
