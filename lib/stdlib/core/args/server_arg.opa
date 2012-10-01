@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -16,9 +16,9 @@ type ServerArg.instruction('a) = option(CommandLine.change_state('a))
 
 ServerArg = {{
 
-  @private sa_args = ServerReference.create(%%BslSys.argv%%():list(string))
-  get_argv() = ServerReference.get(sa_args)
-  set_argv(args) = ServerReference.set(sa_args,args)
+  @private sa_args = ServerReference.create(List.tail(%%BslSys.argv%%():list(string)))
+  @private get_args() = ServerReference.get(sa_args)
+  @private set_args(args) = ServerReference.set(sa_args,args)
 
   bool_of_string(str:string) : option(bool) = Parser.try_parse(Rule.bool, str)
   int_of_string(str:string) : option(int) = Parser.try_parse(Rule.integer, str)
@@ -66,7 +66,7 @@ ServerArg = {{
        match
          List.fold((x, res ->
                     match res with
-                    | {some=l} -> 
+                    | {some=l} ->
                        match parse([x]) with
                        | ({some=x}, [], []) -> {some=[x|l]}
                        | _ -> none
@@ -265,11 +265,11 @@ ServerArg = {{
     do_args((acc0,[]),args0)
 
   sa_filter(acc,parse) =
-    args = get_argv()
+    args = get_args()
     match parse(acc,args) with
     | ({none}, _, _) -> acc
     | ({some=acc}, skipped_args, args) ->
-        do set_argv(List.append(skipped_args,args))
+        do set_args(List.append(skipped_args,args))
         acc
 
   filter(topic,args,init) =
