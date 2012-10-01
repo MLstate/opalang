@@ -1358,10 +1358,10 @@ let tag_mismatch ((ns1,_annot), (tag1,tag1_annot)) ((ns2,_annot), (tag2,{QmlLoc.
   if not matched then (
      (*restore tag stack*)
       push_tag (tag1, tag1_annot) ;
-      (error1 (sprintf "Open and close tag mismatch <%s>,found at %s, vs </%s>."
+      (error1 (sprintf "tag mismatch: opened with <%s>, closed with </%s>. Found at %s"
                 (hint_color (nstag_to_string ns1 tag1))
-                (QmlLoc.pos_to_short_string (pos1, false)) 
                 (hint_color (nstag_to_string ns2 tag2))) _annot)
+                (QmlLoc.pos_to_short_string (pos1, false)) 
     )
     else ()
 
@@ -1370,7 +1370,7 @@ let nochild_elem nstag close_tag has_children create =
   let ((ns2,_),(tag2,_)) = close_tag in
   if tag1 = tag2 && ns1 = ns2 then begin
     if not has_children then Some (create ())
-    else error1 (sprintf "<%s> is a void element: it can't have childreni.\n <%s> found at %s"
+    else error1 (sprintf "<%s> element must be empty, it contains attributes only.\n <%s> found at %s"
                   (hint_color (nstag_to_string ns1 tag1))
                   (nstag_to_string ns1 tag1)
                   (FilePos.to_string pos1))
