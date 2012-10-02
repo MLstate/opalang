@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -48,6 +48,8 @@
 *)
 
 val process :
+  (OpaEnv.opa_back_end -> ((BslPluginInterface.plugin -> unit) option)) ->
+  (OpaEnv.opa_back_end -> BslLanguage.t) ->
   options: OpaEnv.opa_options ->
   code:(((_, _) SurfaceAst.code_elt ObjectFiles.parsed_code) as 'code) ->
   OpaEnv.opa_options * 'code * BslLib.env_bsl

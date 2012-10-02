@@ -57,8 +57,8 @@
 <opa_parse.ml>: use_opalib, use_opalang, use_opapasses
 
 # s3 main
-<s3Passes.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlslicer, use_passlib, use_opapasses, use_qml2ocaml, use_opalang, use_libbsl, use_qmlfakecompiler, use_qmlflatcompiler, use_ocamllang, use_qmlpasses, use_qml2js, use_jslang
-<{main,gen_opa_manpage}.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib
+<{s3Passes,qmljsPasses,qmlflatPasses}.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlslicer, use_passlib, use_opapasses, use_qml2ocaml, use_opalang, use_libbsl, use_qmlfakecompiler, use_ocamllang, use_qmlpasses, use_qml2js, use_jslang, use_qmlflatcompiler
+<{main,compiler,gen_opa_manpage}.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib, use_libbsl, use_qmlflatcompiler, use_qml2ocaml, use_qml2js
 <syntaxHelper.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib
 
 # linking

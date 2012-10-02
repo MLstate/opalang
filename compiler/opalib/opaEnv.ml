@@ -102,22 +102,6 @@ let cwd = Sys.getcwd ()
 let available_js_back_end_list = Qml2jsOptions.backend_names ()
 let available_js_back_end_of_string = Qml2jsOptions.find_backend
 
-type available_back_end = [ `qmlflat | `qmljs ]
-let available_back_end_list = [ "qmlflat" ; "qmljs" ; "native" ; "node" ; "js" ; "nodejs"; "node.js" ]
-let available_back_end_of_string : string -> available_back_end option = function
-  | "native"
-  | "qmlflat" -> Some `qmlflat
-  | "node"
-  | "js"
-  | "nodejs"
-  | "node.js"
-  | "qmljs" -> Some `qmljs
-  | _ -> None
-let string_of_available_back_end : available_back_end -> string = function
-  | `qmlflat -> "qmlflat"
-  | `qmljs -> "qmljs"
-
-
 let available_js_bypass_syntax_list = ["classic"; "jsdoc"; "new"]
 let js_bypass_syntax_of_string = function
   | "classic" -> Some `classic
@@ -127,6 +111,10 @@ let js_bypass_syntax_of_string = function
 let js_bypass_syntax : [`classic | `jsdoc] ref = ref `classic
 let set_js_bypass_syntax s =
   js_bypass_syntax := Option.get (js_bypass_syntax_of_string s)
+
+type opa_back_end = Backend of string
+
+let string_of_available_back_end = function | Backend s -> s
 
 type opa_options = {
 
@@ -140,7 +128,7 @@ type opa_options = {
   mllopt : string list ;
 
   makefile_rule : Qml2ocamlOptions.makefile_rule ;
-  back_end : available_back_end ;
+  back_end : opa_back_end ;
   js_back_end : (module Qml2jsOptions.JsBackend) ;
   hacker_mode : bool ;
 
@@ -214,7 +202,7 @@ let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.tem
 
 module Options :
 sig
-  val parse_options : unit -> unit
+  val parse_options : string list list -> unit
   val get_options : unit -> opa_options
   val echo_help : unit -> unit
 
@@ -303,21 +291,20 @@ struct
     let set_package_version version =
       package_version := version
 
-    let backtrace = ref false
-    let back_end_wanted = ref ( `qmljs : available_back_end )
+    let modular_plugins = ref false
+	let backtrace = ref false
+    let default_back_end = "qmljs"
+    let back_end_wanted = ref (Backend default_back_end : opa_back_end)
     let back_end s =
-      let back_end =
-        match available_back_end_of_string s with
-        | None -> assert false (* use symbol in Arg.parse *)
-        | Some back_end -> back_end in
+      let back_end = Backend s in
       back_end_wanted := back_end;
       match back_end with
-      | `qmlflat ->
-          js_serialize := `adhoc;
-          QmlAstUtils.Const.set_limits `ml
-      | `qmljs ->
+      | Backend "qmljs" ->
           js_serialize := `ast;
           QmlAstUtils.Const.set_limits `js
+      | _ ->
+          js_serialize := `adhoc;
+          QmlAstUtils.Const.set_limits `ml
     let js_back_end_wanted_name = ref "qmljsimp"
     let js_back_end s = js_back_end_wanted_name := s
     let dump_dbgen_schema = ref false
@@ -474,7 +461,7 @@ struct
        (the function is updated just after the definition of the options list) *)
       (* ===== *)
 
-    let speclist =
+    let speclist available_back_end_list =
       let standard = (* Please preverse the alphabetical order for lisibility *)
         OManager.Arg.options @
         WarningClass.Arg.options @
@@ -496,10 +483,15 @@ struct
           Arg.Set generate_interface,
           " Generate interfaces (json and text) and exit"
           ;
+	] @ (
+	  if List.length available_back_end_list > 1 then [
 
-          ("--back-end", Arg.Symbol (available_back_end_list, back_end),
-           (Printf.sprintf "Select a backend between (default is %s)"
-              (string_of_available_back_end !back_end_wanted)));
+	    let available_back_end_list = List.flatten available_back_end_list in
+            ("--back-end", Arg.Symbol (available_back_end_list, back_end),
+             (Printf.sprintf "Select the backend (default is %s)"
+		(default_back_end)));
+	  ] else []
+	) @ [
 
           (* b *)
           "--build-dir",
@@ -710,7 +702,7 @@ struct
           )
         )
 
-  let parse () =
+  let parse available_back_end_list =
     let anon_fun arg =
         let ext = File.extension arg in
         match ext with
@@ -778,24 +770,24 @@ struct
         let opack_options = Sys.argv.(0) :: (List.rev opack_options) in
         let opack_options = Array.of_list opack_options in
         try
-          Arg.parse_argv ~current:(ref 0) opack_options speclist anon_fun ("")
+          Arg.parse_argv ~current:(ref 0) opack_options (speclist available_back_end_list) anon_fun ("")
         with
         | Arg.Bad message ->
             OManager.error "error while reading opack file @{<bright>%S@} :@\n%s@" file message
         | Arg.Help _ ->
-            help_menu speclist () ;
+            help_menu (speclist available_back_end_list) () ;
             OManager.error "error, the opack file @{<bright>%S@} contains the option --help" file
       in
       (** updating options depending on options *)
       let _ =
         opack_file_function := opack_file_rule ;
-        full_help := help_menu speclist
+        full_help := help_menu (speclist available_back_end_list)
       in
       (** Default opack file *)
       let default_opack = File.concat (Lazy.force File.mlstate_dir) "default.opack" in
       let _ = if File.is_regular default_opack then opack_file_rule default_opack in
       (** Main Command line *)
-      Arg.parse speclist anon_fun "";
+      Arg.parse (speclist available_back_end_list) anon_fun "";
       (** Print_help **)
       if !print_help then begin
         do_print_help ();
@@ -809,8 +801,8 @@ struct
       filenames := MutableList.to_list mutable_filenames;
       target := (
         let ext = match !back_end_wanted with
-          | `qmljs -> ".js"
-          | `qmlflat -> ".exe"
+          | Backend "qmljs" -> ".js"
+          | _ -> ".exe"
         in
         Option.default (!last_target_from_file ^ ext) !target_opt);
       target_only_qml := Option.default (!last_target_from_file ^ ".qml") !target_opt;
@@ -820,8 +812,8 @@ struct
   end
 
   (* Parse and get options, work with a side effect on module ArgParser *)
-  let parse_options () =
-    ArgParser.parse ();
+  let parse_options available_back_end_list =
+    ArgParser.parse available_back_end_list;
     begin
       OpaWalker.Options.disp := match !ArgParser.opa_walker with
       | Some true -> OpaWalker.Options.True
@@ -955,7 +947,7 @@ struct
       let module JsCC = (val options.js_back_end : Qml2jsOptions.JsBackend) in
       Pprocess.add_env "OPA_JS_COMPILER" JsCC.name env
     in let env =
-      if options.back_end = `qmljs then
+      if options.back_end = Backend "qmljs" then
         let env = Pprocess.add_env "OPA_BACKEND_QMLJS" "1" env in
         let env = Pprocess.add_env "OPA_CHANNEL" "1" env in
         Pprocess.add_env "OPA_FULL_DISPATCHER" "1" env
@@ -970,7 +962,7 @@ struct
       ~centerheader:"Opa Manual"
       ~synopsis:ArgParser.synopsis
       ~description:"The Opa compiler allows you to compile Opa projects into executable files. Please refer to the online manual on http://doc.opalang.org for a detailed description of the language and its tools.\n"
-      ~options:ArgParser.speclist
+      ~options:(ArgParser.speclist [["qmljs"]])
       ~other:[("VERSION", ArgParser.str_version)]
       file
 

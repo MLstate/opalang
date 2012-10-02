@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 open Passes
 
 (** Pass and pass utils for Opa S3. *)
@@ -41,43 +42,17 @@ type ('env, 'env2) opa_old_pass =
 *)
 type env_bothFinalCompile = (env_NewFinalCompile * env_NewFinalCompile)
 
-(**
-   Environment returned by the QmlCompilation.
-*)
-type env_QmlCompilation = {
-  qmlCompilation_options : Qml2ocamlOptions.argv_options ;
-  qmlCompilation_env_ocaml_input : Qml2ocaml.env_ocaml_input ;
-}
-
-(**
-   Environment returned after splitting ocaml code into smaller files
-*)
-type env_OcamlSplitCode = {
-  ocamlSplitCode_options : Qml2ocamlOptions.argv_options ;
-  ocamlSplitCode_env_ocaml_split : Qml2ocaml.env_ocaml_split ;
-}
-
-(**
-   Environment returned by the OcamlGeneration.
-*)
-type env_OcamlGeneration = {
-  ocamlGeneration_options : Qml2ocamlOptions.argv_options ;
-  ocamlGeneration_env_ocaml_output : Qml2ocaml.env_ocaml_output ;
-}
-
-(**
-   Environment returned by the OcamlCompilation.
-*)
-type env_OcamlCompilation = {
-  ocamlCompilation_returned_code : int ;
-}
+module EnvUtils :
+sig
+  val jsutils_from_renamings : here:QmlRenamingMap.t -> other:QmlRenamingMap.t -> (Ident.t -> bool) * QmlRenamingMap.t
+end
 
 (**{6 S3 Passes} All value bellow should be type of
    [opa_pass].*)
 
-val pass_Welcome : (unit, opa_options, unit, unit) PassHandler.pass
+val pass_Welcome : string list list -> (unit, opa_options, unit, unit) PassHandler.pass
 
-val pass_CheckOptions : (unit, env_ArgParse) opa_pass
+val pass_CheckOptions : (OpaEnv.opa_back_end -> OpaEnv.opa_back_end) -> (unit, env_ArgParse) opa_pass
 
 (**
    {6 Stdlib files}
@@ -124,6 +99,8 @@ val pass_DbEngineImportation :
   opa_pass
 
 val pass_BslLoading :
+  (OpaEnv.opa_back_end -> ((BslPluginInterface.plugin -> unit) option)) ->
+  (OpaEnv.opa_back_end -> BslLanguage.t) ->
   ((((SurfaceAst.nonuid, SurfaceAst.parsing_directive)
     SurfaceAst.code_elt) ObjectFiles.parsed_code) as 'parsed_code
     ,
@@ -239,6 +216,7 @@ val pass_FunActionLifting :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_TypesDefinitions :
+  (OpaEnv.opa_back_end -> (string -> unit)) ->
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_DbSchemaGeneration :
@@ -308,6 +286,7 @@ val pass_BypassHoisting :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_RegisterFields :
+  (OpaEnv.opa_back_end -> (string -> unit)) ->
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_QmlUndot :
@@ -323,6 +302,7 @@ val pass_NoSlicer :
   (unit env_Gen, unit env_Gen_sliced) opa_pass
 
 val pass_SimpleSlicer :
+  (OpaEnv.opa_back_end -> BslLanguage.t) ->
   (unit env_Gen, unit env_Gen_sliced) opa_pass
 
 val pass_ExplicitInstantiation :
@@ -398,43 +378,14 @@ val pass_InitializeBslValues :
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
 
 val pass_ServerCpsRewriter :
+  (OpaEnv.opa_back_end -> BslLanguage.t) ->
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
 
 val pass_QmlConstantSharing :
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
 
-(* ***********************************************)
-(* FINAL QMLFLAT COMPILATION *********************)
-
 val pass_ServerQmlClosure :
   (env_NewFinalCompile, env_NewFinalCompile) opa_pass
-
-val pass_QmlCompilation :
-  (env_NewFinalCompile, env_QmlCompilation) opa_pass
-
-val pass_OcamlSplitCode :
-  (env_QmlCompilation, env_OcamlSplitCode) opa_pass
-
-val pass_OcamlGeneration :
-  (env_OcamlSplitCode, env_OcamlGeneration) opa_pass
-
-val pass_OcamlCompilation :
-  (env_OcamlGeneration, int) opa_pass
-
-(* ***********************************************)
-(* FINAL QMLJS COMPILATION ***********************)
-
-(** Environment needed by the final JavasScript compilation. *)
-type env_JsCompilation
-
-val pass_ServerJavascriptCompilation :
-  (env_NewFinalCompile, env_JsCompilation) opa_pass
-
-val pass_ServerJavascriptOptimization :
-  (env_JsCompilation, env_JsCompilation) opa_pass
-
-val pass_ServerJavascriptGeneration :
-  (env_JsCompilation, int) opa_pass
 
 (* ***********************************************)
 (* END OF COMPILATION *****************************)
@@ -442,7 +393,6 @@ val pass_ServerJavascriptGeneration :
 val pass_CleanUp : ('opt, 'opt, int, int) PassHandler.pass
 
 val pass_ByeBye : (_, unit, int, unit) PassHandler.pass
-
 
 (* ***********************************************)
 (* UNUSED PASSES *********************************)

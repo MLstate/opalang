@@ -300,6 +300,8 @@ let find_used_plugins bypass_map code =
   used_plugins_names
 
 let process
+    backend_dynloader_switcher
+    backend_bsl_lang_switcher
     ~options
     ~code
     =
@@ -487,11 +489,12 @@ let process
   let client_back_end_dynload, client_bsl_lang =
     let module M = (val client_back_end : Qml2jsOptions.JsBackend) in
     (M.dynloader, BslLanguage.js) in
-  let server_back_end_dynload, server_bsl_lang =
-    match server_back_end with
-    | `qmlflat -> (Flat_Compiler.dynloader, BslLanguage.ml)
-    | `qmljs -> (client_back_end_dynload, BslLanguage.nodejs)
+  let server_back_end_dynload =
+    match backend_dynloader_switcher server_back_end with
+    | Some dynload -> dynload
+    | None -> client_back_end_dynload
   in
+  let server_bsl_lang = backend_bsl_lang_switcher server_back_end in
   (* Register plug-ins with actual backend.*)
   List.iter
     (fun plugin ->

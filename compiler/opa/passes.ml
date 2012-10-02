@@ -309,7 +309,7 @@ let pass_no_slicer ~options:(_:opa_options) (env:'tmp_env env_Gen) =
     }
 
 
-let pass_simple_slicer ~(options:opa_options) (env:'tmp_env env_Gen) =
+let pass_simple_slicer backend_bsl_lang_switcher ~(options:opa_options) (env:'tmp_env env_Gen) =
   let make_sliced_env env_gen ~server ~client =
     { env_gen;
       sliced_env = {
@@ -319,10 +319,7 @@ let pass_simple_slicer ~(options:opa_options) (env:'tmp_env env_Gen) =
     }
   in
   let client_bsl_lang = BslLanguage.js in
-  let server_bsl_lang = match options.OpaEnv.back_end with
-    | `qmlflat -> BslLanguage.ml
-    | `qmljs   -> BslLanguage.nodejs
-  in
+  let server_bsl_lang = backend_bsl_lang_switcher options.OpaEnv.back_end in
   let stdlib_gamma, typer_env, client, server =
        QmlSimpleSlicer.process_code
       ~test_mode:options.OpaEnv.slicer_test
@@ -557,24 +554,20 @@ let pass_DbCodeGeneration ~options:(_:opa_options) env =
                      annotmap = annotmap} in
   {env with qmlAst = code; typerEnv = typerEnv; temporary_env = ()}
 
-let pass_QmlCpsRewriter client ~(options:opa_options) (env:env_NewFinalCompile) : env_NewFinalCompile =
+let pass_QmlCpsRewriter backend_bsl_lang_switcher client ~(options:opa_options) (env:env_NewFinalCompile) : env_NewFinalCompile =
   (* Passing options to qmlCpsRewriter : use syntax { with } like ever *)
   let opaoptions = options in
   let qml_closure =
     match options.OpaEnv.back_end with
-    | `qmljs -> false
-    | `qmlflat -> options.OpaEnv.closure
+    | OpaEnv.Backend "qmljs" -> false
+    | _ -> options.OpaEnv.closure
   in
   let server_side =
     match options.OpaEnv.back_end with
-    | `qmljs -> false
-    | `qmlflat -> not client;
+    | OpaEnv.Backend "qmljs" -> false
+    | _ -> not client;
   in
-  let lang =
-    match options.OpaEnv.back_end with
-    | `qmljs -> BslLanguage.nodejs
-    | `qmlflat -> BslLanguage.ml
-  in
+  let lang = backend_bsl_lang_switcher options.OpaEnv.back_end in
   let options =
     { QmlCpsRewriter.default_options with QmlCpsRewriter.
         no_assert = options.OpaEnv.no_assert ;
@@ -704,7 +697,7 @@ let pass_QmlCompiler ~(options:opa_options) (env:env_NewFinalCompile) : env_Bina
   let env_bsl = env.newFinalCompile_bsl in
   let argv_options = pass_OpaOptionsToQmlOptions ~options qml_milkshake in
   (** Choice of back-end *)
-  assert (`qmlflat = options.OpaEnv.back_end);
+  assert (OpaEnv.Backend "qmlflat" = options.OpaEnv.back_end);
   let qml_to_ocaml = Flat_Compiler.qml_to_ocaml in
   (* This pass is splitten in 3 in opas3 *)
   let return = Qml2ocaml.Sugar.for_opa qml_to_ocaml argv_options env_bsl qml_milkshake in

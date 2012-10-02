@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
+
 (* shorthands *)
 module O = OpaEnv
 module P = Passes
@@ -35,25 +36,6 @@ type ('env, 'env2) opa_old_pass =
     (opa_options, 'env, 'env2) PassHandler.old_pass
 
 type env_bothFinalCompile = (Passes.env_NewFinalCompile * Passes.env_NewFinalCompile)
-
-type env_QmlCompilation = {
-  qmlCompilation_options : Qml2ocamlOptions.argv_options ;
-  qmlCompilation_env_ocaml_input : Qml2ocaml.env_ocaml_input ;
-}
-
-type env_OcamlSplitCode = {
-  ocamlSplitCode_options : Qml2ocamlOptions.argv_options ;
-  ocamlSplitCode_env_ocaml_split : Qml2ocaml.env_ocaml_split ;
-}
-
-type env_OcamlGeneration = {
-  ocamlGeneration_options : Qml2ocamlOptions.argv_options ;
-  ocamlGeneration_env_ocaml_output : Qml2ocaml.env_ocaml_output ;
-}
-
-type env_OcamlCompilation = {
-  ocamlCompilation_returned_code : int ;
-}
 
 (* when propagating to all environment is overkill
    ensures that their is no package mismatch, and no mutability of extra env *)
@@ -345,11 +327,11 @@ end = struct
 
 end
 
-(** Select the good register function according to back-end *)
-let register_fields options =
-  match options.O.back_end with
-  | `qmlflat -> Flat_Compiler.register_field_name
-  | _ -> (fun _ -> ())
+(* (\** Select the good register function according to back-end *\) *)
+(* let register_fields options = *)
+(*   match options.O.back_end with *)
+(*   | OpaEnv.Backend "qmlflat" -> *)
+(*   | _ -> (fun _ -> ()) *)
 
 
 (**********************************************************)
@@ -359,17 +341,17 @@ let register_fields options =
 (* AND COMPLETE MLI ***************************************)
 (**********************************************************)
 
-let pass_Welcome =
+let pass_Welcome available_back_end_list =
   PassHandler.make_pass
     (fun {PH.env=()} ->
-       OpaEnv.Options.parse_options ();
+       OpaEnv.Options.parse_options available_back_end_list;
        let options = OpaEnv.Options.get_options () in
        OManager.verbose "Opa version %s" BuildInfos.opa_version_name ;
        OManager.verbose "(c) 2007-%s MLstate, All Rights Reserved." BuildInfos.year;
        OManager.verbose "Build: %s" BuildInfos.version_id;
        PassHandler.make_env options ())
 
-let pass_CheckOptions =
+let pass_CheckOptions unify_backend_name =
   PassHandler.make_pass
     (fun e ->
        if List.is_empty e.PH.options.O.filenames
@@ -381,7 +363,8 @@ let pass_CheckOptions =
          exit 1;
        ) else (
          let filenames = e.PH.options.O.filenames in
-         PassHandler.make_env e.PH.options filenames
+	 let back_end = unify_backend_name e.PH.options.O.back_end in
+	 PassHandler.make_env { e.PH.options with O.back_end = back_end } filenames
        )
     )
 
@@ -552,13 +535,13 @@ let pass_DbEngineImportation =
        e
     )
 
-let pass_BslLoading =
+let pass_BslLoading backend_dynloader_switcher backend_bsl_lang_switcher =
   PassHandler.make_pass
     (fun e ->
        let options = e.PH.options in
        let env = e.PH.env in
        let options, env, env_bsl =
-         Pass_BslLoading.process ~options ~code:env
+         Pass_BslLoading.process backend_dynloader_switcher backend_bsl_lang_switcher ~options ~code:env
        in
        PassHandler.make_env options (env, env_bsl)
     )
@@ -876,7 +859,7 @@ let pass_FunActionLifting =
                          } })
 
 
-let pass_TypesDefinitions =
+let pass_TypesDefinitions register_fields =
   let precond =
     [
       (* TODO: add precondition *)
@@ -898,7 +881,7 @@ let pass_TypesDefinitions =
        let typerEnv = env.Passes.typerEnv in
        let code = env.Passes.qmlAst in
        let local_typedefs, typerEnv, code, stdlib_gamma = Pass_TypeDefinition.process_code
-         (register_fields e.PH.options) typerEnv code in
+         (register_fields e.PH.options.O.back_end) typerEnv code in
        let env = { env with Passes.typerEnv; local_typedefs; stdlib_gamma; qmlAst = code; } in
        { e with PH.env = env }
     )
@@ -1134,10 +1117,10 @@ let pass_BypassHoisting =
   )
     ~invariant ()
 
-let pass_RegisterFields =
+let pass_RegisterFields register_fields =
   PassHandler.make_pass
     (fun e ->
-       Pass_RegisterFields.perform (register_fields e.PH.options) e.PH.env.P.qmlAst;
+       Pass_RegisterFields.perform (register_fields e.PH.options.O.back_end) e.PH.env.P.qmlAst;
        e
     )
     ~invariant
@@ -1292,7 +1275,8 @@ let pass_GenericSlicer slicer =
        } )
 
 let pass_NoSlicer = pass_GenericSlicer Passes.pass_no_slicer
-let pass_SimpleSlicer = pass_GenericSlicer Passes.pass_simple_slicer
+let pass_SimpleSlicer backend_bsl_lang_switcher =
+  pass_GenericSlicer (Passes.pass_simple_slicer backend_bsl_lang_switcher)
 
 let pass_CleanLambdaLiftingDirectives =
   PassHandler.make_pass
@@ -1399,7 +1383,7 @@ let pass_InsertMemoizedTypes =
       in
       Pass_ExplicitInstantiation.finalize_memoized_defintions
 
-        (e.PH.options.O.back_end <> `qmlflat);
+        (e.PH.options.O.back_end <> OpaEnv.Backend "qmlflat");
       let server_code = List.tail_append new_server_code server_code in
       let client_code = List.tail_append new_client_code client_code in
       let env_gen =
@@ -1592,7 +1576,7 @@ let pass_ExplicitInstantiation =
       (* desactivated for flat because breaks OCaml compilation
          TODO : Fix it *)
       Pass_ExplicitInstantiation.init_memoized_definitions
-        (e.PH.options.O.back_end <> `qmlflat);
+        (e.PH.options.O.back_end <> OpaEnv.Backend "qmlflat");
 
       (* TODO: optimize by adding only dummy arguments for published functions,
          if there is no explicit instantiation to be done there;
@@ -1793,7 +1777,7 @@ let pass_SlicedToFinal =
 (* FINAL CLIENT COMPILATION **********************)
 
 let pass_ClientCpsRewriter =
-  Adapter.adapt_sliced_on_client (P.pass_QmlCpsRewriter true)
+  Adapter.adapt_sliced_on_client (P.pass_QmlCpsRewriter (fun _ -> BslLanguage.js) true)
 
 let pass_ClientLambdaLifting =
   Adapter.adapt_sliced_on_client (P.pass_LambdaLifting2 ~typed:true ~side:`client)
@@ -1997,12 +1981,12 @@ let pass_InitializeBslValues =
        {e with PH.env = env}
     )
 
-let pass_ServerCpsRewriter =
+let pass_ServerCpsRewriter backend_bsl_lang_switcher =
   let transform pass_env =
     let options = pass_env.PassHandler.options in
     let env = pass_env.PassHandler.env in
     { pass_env with PassHandler.
-        env = Passes.pass_QmlCpsRewriter false ~options env
+        env = Passes.pass_QmlCpsRewriter backend_bsl_lang_switcher false ~options env
     }
   in
   (* invariants, and pre/post conds *)
@@ -2023,11 +2007,6 @@ let pass_ServerCpsRewriter =
       *)
     ] in
   PassHandler.make_pass ~invariant ~precond ~postcond transform
-
-let pass_ServerQmlClosure =
-  PassHandler.make_pass
-    (fun e ->
-       { e with PH.env = P.pass_QmlClosure2 ~typed:false ~side:`server ~options:e.PH.options e.PH.env })
 
 let pass_QmlConstantSharing_gen side =
   let transform pass_env =
@@ -2060,300 +2039,10 @@ let pass_ClientQmlConstantSharing =
   let pass_QmlConstantSharing = pass_QmlConstantSharing_gen `client in
   Adapter.adapt_new_sliced_on_client pass_QmlConstantSharing
 
-let pass_QmlCompilation =
-  let transform pass_env =
-    let options = pass_env.PH.options in
-    let env = pass_env.PH.env in
-    (* get env entities *)
-    let qml2ocaml_env_bsl = env.Passes.newFinalCompile_bsl in
-    let qml2ocaml_qml_milkshake = env.Passes.newFinalCompile_qml_milkshake in
-    (* renaming is not used *)
-    (* 1) transform options *)
-    let qmlCompilation_options = Passes.pass_OpaOptionsToQmlOptions ~options qml2ocaml_qml_milkshake in
-    (* 2) selection of the back-end *)
-    assert (options.O.back_end = `qmlflat);
-    let qml_to_ocaml =Flat_Compiler.qml_to_ocaml in
-    (* proceed *)
-    let qmlCompilation_env_ocaml_input = qml_to_ocaml qmlCompilation_options qml2ocaml_env_bsl qml2ocaml_qml_milkshake in
-    (* build env *)
-    let qmlCompilation_env =
-      {
-        qmlCompilation_options = qmlCompilation_options ;
-        qmlCompilation_env_ocaml_input = qmlCompilation_env_ocaml_input
-      }
-    in
-    let empty _ = [] in
-    {
-      pass_env with PassHandler.
-        env = qmlCompilation_env ;
-        printers = OcamlTrack.printers (fun env -> env.qmlCompilation_env_ocaml_input.Qml2ocaml.ocaml_code) ;
-        trackers = empty
-    }
-  in
-  let invariant =
-    [
-      (* TODO: add invariants *)
-    ] in
-  let precond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  let postcond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  PassHandler.make_pass ~invariant ~precond ~postcond transform
-
-let pass_OcamlSplitCode =
-  let transform pass_env =
-    let env = pass_env.PassHandler.env in
-    (* get env entities *)
-    let ocamlSplitCode_options = env.qmlCompilation_options in
-    let qmlCompilation_env_ocaml_input = env.qmlCompilation_env_ocaml_input in
-    (* proceed *)
-    let ocamlSplitCode_env_ocaml_split =
-      Qml2ocaml.OcamlCompilation.ocaml_split_code ocamlSplitCode_options qmlCompilation_env_ocaml_input in
-    (* build env *)
-    let env = {
-      ocamlSplitCode_options = ocamlSplitCode_options ;
-      ocamlSplitCode_env_ocaml_split = ocamlSplitCode_env_ocaml_split ;
-    }
-    in
-    let empty _ = [] in
-    {
-      pass_env with PassHandler.
-        env = env ;
-        printers = empty ;
-        trackers = empty
-    }
-  in
-  let invariant =
-    [
-      (* TODO: add invariants *)
-    ] in
-  let precond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  let postcond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  PassHandler.make_pass ~invariant ~precond ~postcond transform
-
-let pass_OcamlGeneration =
-  let transform pass_env =
-    let env = pass_env.PassHandler.env in
-    (* get env entities *)
-    let ocamlGeneration_options = env.ocamlSplitCode_options in
-    let ocamlSplitCode_env_ocaml_split = env.ocamlSplitCode_env_ocaml_split in
-    (* proceed *)
-    let ocamlGeneration_env_ocaml_output =
-      Qml2ocaml.OcamlCompilation.ocaml_generation ocamlGeneration_options ocamlSplitCode_env_ocaml_split in
-    (* build env *)
-    let ocamlGeneration_env =
-      {
-        ocamlGeneration_options = ocamlGeneration_options ;
-        ocamlGeneration_env_ocaml_output = ocamlGeneration_env_ocaml_output
-      }
-    in
-    let empty _ = [] in
-    {
-      pass_env with PassHandler.
-        env = ocamlGeneration_env ;
-        printers = empty ;
-        trackers = empty
-    }
-  in
-  let invariant =
-    [
-      (* TODO: add invariants *)
-    ] in
-  let precond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  let postcond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  PassHandler.make_pass ~invariant ~precond ~postcond transform
-
-let pass_OcamlCompilation =
-  let transform pass_env =
-    let env = pass_env.PassHandler.env in
-    (* get env entities *)
-    let ocamlGeneration_options = env.ocamlGeneration_options in
-    let ocamlGeneration_env_ocaml_output = env.ocamlGeneration_env_ocaml_output in
-    (* proceed *)
-    let ocamlCompilation_returned_code =
-      Qml2ocaml.OcamlCompilation.ocaml_compilation ocamlGeneration_options ocamlGeneration_env_ocaml_output in
-    let empty _ = [] in
-    {
-      pass_env with PassHandler.
-        env = ocamlCompilation_returned_code ;
-        printers = empty ;
-        trackers = empty ;
-    }
-  in
-  let invariant =
-    [
-      (* TODO: add invariants *)
-    ] in
-  let precond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  let postcond =
-    [
-      (* TODO: add pre conditions *)
-    ] in
-  PassHandler.make_pass ~invariant ~precond ~postcond transform
-
-
-(* ***********************************************)
-(* FINAL QMLJS COMPILATION ***********************)
-
-type env_JsCompilation = {
-  env_js_input : Qml2jsOptions.env_js_input;
-  jsoptions : Qml2jsOptions.t;
-  env_bsl : BslLib.env_bsl;
-  loaded_bsl : Qml2js.loaded_bsl;
-  is_distant : JsIdent.t -> bool;
-  depends : string list;
-}
-
-let pass_ServerJavascriptCompilation =
+let pass_ServerQmlClosure =
   PassHandler.make_pass
     (fun e ->
-       let options = e.PH.options in
-       let env = e.PH.env in
-       assert (options.OpaEnv.back_end == `qmljs);
-       let module JsBackend = (val (options.OpaEnv.js_back_end) : Qml2jsOptions.JsBackend) in
-       let compilation_directory =
-         match ObjectFiles.compilation_mode () with
-         | `compilation -> Option.get (ObjectFiles.get_compilation_directory ())
-         | `init | `linking -> "_build"
-         | `prelude -> assert false
-       in
-       let jsoptions =
-         let argv_options = Qml2jsOptions.Argv.default () in
-         { argv_options with Qml2jsOptions.
-             cps = options.OpaEnv.cps;
-             cps_toplevel_concurrency = options.OpaEnv.cps_toplevel_concurrency ;
-             qml_closure = options.OpaEnv.closure;
-             extra_lib = options.OpaEnv.extrajs;
-             alpha_renaming = options.OpaEnv.js_local_renaming;
-             check_bsl_types = options.OpaEnv.js_check_bsl_types;
-             cleanup = options.OpaEnv.js_cleanup;
-             inlining = options.OpaEnv.js_local_inlining;
-             global_inlining = options.OpaEnv.js_global_inlining;
-             no_assert = options.OpaEnv.no_assert;
-             target = options.OpaEnv.target;
-             compilation_directory;
-             package_version = options.OpaEnv.package_version;
-             lang = `node;
-         } in
-       let jsoptions =
-         match options.OpaEnv.run_server_options with
-         | None -> jsoptions
-         | Some exe_argv ->
-             { jsoptions with Qml2jsOptions. exe_argv; exe_run = true }
-       in
-       let env_bsl = env.Passes.newFinalCompile_bsl in
-       let loaded_bsl =
-         Qml2js.JsTreat.js_bslfilesloading jsoptions env_bsl in
-       let is_distant, renaming =
-         let other = env.P.newFinalCompile_renaming_client in
-         let here  = env.P.newFinalCompile_renaming_server in
-         EnvUtils.jsutils_from_renamings ~here ~other
-       in
-       let exported = env.Passes.newFinalCompile_exported in
-       let env_js_input = JsBackend.compile
-         ~runtime_ast:false
-         ~bsl:loaded_bsl.Qml2js.generated_ast
-         ~val_:OpaMapToIdent.val_
-         ~closure_map:env.Passes.newFinalCompile_closure_map
-         ~is_distant
-         ~renaming
-         ~bsl_lang:BslLanguage.nodejs
-         ~exported
-         jsoptions
-         env_bsl
-         env.Passes.newFinalCompile_qml_milkshake.QmlBlender.env
-         env.Passes.newFinalCompile_qml_milkshake.QmlBlender.code
-       in
-       let is_distant ident =
-         match ident with
-         | JsIdent.ExprIdent i ->
-             (try
-                ignore
-                  (QmlRenamingMap.new_from_original
-                     env.P.newFinalCompile_renaming_client
-                i);
-                true
-              with Not_found -> false)
-         | _ -> false
-       in
-       PH.make_env options {
-         env_js_input;
-         jsoptions;
-         env_bsl;
-         loaded_bsl;
-         is_distant;
-         depends = [];
-       }
-    )
-
-let pass_ServerJavascriptOptimization =
-  PassHandler.make_pass
-    (fun e ->
-       let env = e.PH.env in
-       let options = e.PH.options in
-       let exported = env.env_js_input.Qml2jsOptions.exported in
-       let is_exported i = JsIdentSet.mem i exported || env.is_distant i in
-       let depends, js_code =
-         Pass_ServerJavascriptOptimization.process_code
-           options.O.extrajs
-           env.env_bsl
-           is_exported
-           env.env_js_input.Qml2jsOptions.js_code
-       in
-       let js_init_contents =
-         List.map
-           (fun (x, c) -> x,
-              match c with
-              | `string _ -> assert false
-              | `ast proj -> `ast
-                  (List.map
-                     (fun (i, e) ->
-                        (i, Pass_ServerJavascriptOptimization.process_code_elt
-                           is_exported e))
-                     proj)
-           ) env.env_js_input.Qml2jsOptions.js_init_contents
-       in
-       PH.make_env options
-         { env with
-             depends;
-             env_js_input =
-             { env.env_js_input with Qml2jsOptions. js_code; js_init_contents }
-         }
-    )
-
-let pass_ServerJavascriptGeneration =
-  PassHandler.make_pass
-    (fun e ->
-       let env = e.PH.env in
-       let jsoptions = env.jsoptions in
-       let env_bsl = env.env_bsl in
-       let loaded_bsl = env.loaded_bsl in
-       let env_js_output =
-         Qml2js.JsTreat.js_generation ~depends:env.depends jsoptions env_bsl
-           loaded_bsl env.env_js_input
-       in
-       let code = Qml2js.JsTreat.js_treat jsoptions env_js_output in
-       PH.make_env e.PH.options code
-    )
+       { e with PH.env = P.pass_QmlClosure2 ~typed:false ~side:`server ~options:e.PH.options e.PH.env })
 
 let pass_CleanUp =
   { PH.
@@ -2464,9 +2153,6 @@ let () =
      | "ServerQmlClosure"
      | "QmlConstantSharing" -> Some (Obj.magic final_printers)
 
-     | "QmlCompilation"
-     | "OcamlGeneration"
-     | "OcamlCompilation"
      | "ByeBye" -> None
 
      | _ -> None)

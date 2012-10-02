@@ -16,7 +16,7 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 type relevant_options =
-    { back_end : OpaEnv.available_back_end
+    { back_end : OpaEnv.opa_back_end
     ; js_back_end : string
     ; closure : bool
     ; cps : bool

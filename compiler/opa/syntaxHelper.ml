@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -16,7 +16,7 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(** The main program for the Opa compiler. S3 version. *)
+(** The main program for Opa translate tool. *)
 
 (* Opening the generic pass system. *)
 module PH = PassHandler
@@ -50,9 +50,9 @@ let _ = WarningClass.load_set S3Warnings.warning_set
 let _ =
   PH.init
 
-  |+> ("Welcome", S3.pass_Welcome)
+  |+> ("Welcome", S3.pass_Welcome [["qmljs"]])
 
-  |+> ("CheckOptions", S3.pass_CheckOptions)
+  |+> ("CheckOptions", S3.pass_CheckOptions Base.identity)
 
   |+> ("AddStdlibFiles", S3.pass_AddStdlibFiles)
 

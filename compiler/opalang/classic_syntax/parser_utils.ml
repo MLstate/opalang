@@ -122,7 +122,7 @@ let hint_color = Ansi.print `magenta
 let error1 s annot =
   raise (Specific_parse_error (annot.QmlLoc.pos,s))
 
-let error_rbrace_in_html = 
+let error_rbrace_in_html =
   error1 (sprintf ("%s is treated as a special character in html,\n if you want to use it you have to escape it: %s")
            (hint_color "}") (hint_color "\\}"))
 let error_comment = error1 "you start an unterminated comment (the `/*' is not matched by a `*/')."
@@ -1131,7 +1131,7 @@ let xhtml_mode () = Stack.top xml_stack = Xhtml
 let xml_typename () = if xhtml_mode () then Opacapi.Types.xhtml else Opacapi.Types.xml
 
 exception No_tag
-let tag_stack : (string * QmlLoc.annot) Stack.t = (Stack.create ()) 
+let tag_stack : (string * QmlLoc.annot) Stack.t = (Stack.create ())
 let push_tag s = Stack.push s tag_stack
 let get_tag_with_annot () = try Stack.top tag_stack with | Stack.Empty -> raise No_tag
 let get_tag () = undecorate (get_tag_with_annot ())
@@ -1152,7 +1152,7 @@ let rec find_next_tag context pos tag_open tag_close=
     then (s1, false)
   else find_next_tag context (s1+1) tag_open tag_close
   )
-  with Not_found -> (String.length context, true) 
+  with Not_found -> (String.length context, true)
 
 
 let count_close_tags_in_string content tag =
@@ -1160,15 +1160,15 @@ let count_close_tags_in_string content tag =
   let tag_name = "<" ^ undecorate tag ^ ">" in
   let end_tag = "</" ^ undecorate tag ^ ">" in
   let rec aux current_pos (next_tag_pos, starting_tag) =
-    if next_tag_pos < String.length content 
+    if next_tag_pos < String.length content
      then (
         if starting_tag then decr num else incr num ;
-        let finish_tag = 
-          current_pos + 
-         (if starting_tag 
-           then String.length tag_name 
+        let finish_tag =
+          current_pos +
+         (if starting_tag
+           then String.length tag_name
            else String.length end_tag) in
-      let (new_tag_pos, new_starting_tag) = 
+      let (new_tag_pos, new_starting_tag) =
         find_next_tag content current_pos tag_name end_tag in
       aux finish_tag (new_tag_pos, new_starting_tag)
     )
@@ -1598,7 +1598,7 @@ and rewrite_record_extend (e:(_,_) expr) (ts:tree list) =
       else
         let i = fresh_name () in
         (Ident i, nlabel e), (fun body -> (LetIn (false, [i, e], body), nlabel e)) in
-  wrapper ( 
+  wrapper (
     (Directive(`extendwith, [
       wrapper (ExtendRecord (
        List.rev_map (fun (((s,_),_) as t) -> (s, rewrite_record_extend_aux path t)) ts,

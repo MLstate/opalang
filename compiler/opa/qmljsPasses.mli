@@ -15,12 +15,19 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
-(**
-   Checks that options for the current package
-   are compatible with the options for the packages that
-   it depends on (or the one we link with)
-   For instance, you can't compile just half of your packages
-   with closures. This pass prevents this from happening.
-*)
 
-val process_code : options:OpaEnv.opa_options -> 'code -> 'code
+(* FINAL QMLJS COMPILATION ***********************)
+
+(** Environment needed by the final JavasScript compilation. *)
+type env_JsCompilation
+
+val pass_ServerJavascriptCompilation :
+  (Passes.env_NewFinalCompile, env_JsCompilation) S3Passes.opa_pass
+
+val pass_ServerJavascriptOptimization :
+  (env_JsCompilation, env_JsCompilation) S3Passes.opa_pass
+
+val pass_ServerJavascriptGeneration :
+  (env_JsCompilation, int) S3Passes.opa_pass
+
+(* ***********************************************)
