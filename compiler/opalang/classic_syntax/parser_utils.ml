@@ -1360,8 +1360,8 @@ let tag_mismatch ((ns1,_annot), (tag1,tag1_annot)) ((ns2,_annot), (tag2,{QmlLoc.
       push_tag (tag1, tag1_annot) ;
       (error1 (sprintf "tag mismatch: opened with <%s>, closed with </%s>. Found at %s"
                 (hint_color (nstag_to_string ns1 tag1))
-                (hint_color (nstag_to_string ns2 tag2))) _annot)
-                (QmlLoc.pos_to_short_string (pos1, false)) 
+                (hint_color (nstag_to_string ns2 tag2))
+                (QmlLoc.pos_to_short_string (pos1, false))) _annot)
     )
     else ()
 
