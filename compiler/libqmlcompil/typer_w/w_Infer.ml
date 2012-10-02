@@ -642,7 +642,7 @@ let rec infer_expr_type ~bypass_typer typing_env original_expr =
          arguments in negative part. *)
       let tmp_arrow_type = W_CoreTypes.type_arrow args_tys ty_app_result in
       W_TypeInfo.add_loc_object tmp_arrow_type.W_Algebra.sty_desc loc ;
-      (try W_Unify.unify_simple_type typing_env fun_part_ty tmp_arrow_type
+      (try W_Unify.unify_simple_type_in_coercion typing_env tmp_arrow_type fun_part_ty
        with W_Unify.Unification_simple_type_conflict (err_t1, err_t2, detail) ->
          raise
            (W_InferErrors.Infer_detailled_unification_conflict
