@@ -174,9 +174,6 @@ install-bin:
 	@tools/utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
 	@printf "Installation to $(INSTALL_DIR)/bin done.[K\n"
 
-install:: install-bin install-lib install-share install-plugins install-node-packages install-man
-	@printf "Installation into $(INSTALL_DIR) done.[K\n"
-
 install-lib:
 	@printf "Installing into $(INSTALL_DIR)/lib/opa[K\r"
 	@rm -f $(BUILD_DIR)/lib/opa/static/opabslMLRuntime.cmi
@@ -199,6 +196,10 @@ install-man:
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
 install-node: install-bin install-lib install-share install-plugins install-node-packages install-man
+	@printf "Installation into $(INSTALL_DIR) done.[K\n"
+
+.PHONY: install
+install: install-node
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
@@ -227,6 +228,13 @@ install-bld:
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
 	@$(INSTALL) $(BUILD_PATH)/gen_myocamlbuild.sh $(BUILD_PATH)/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
+
+# installs some dev tools on top of the normal install; these should not change often
+install-all:: install install-bld tools/maxmem
+	@$(INSTALL) tools/platform_helper.sh $(INSTALL_DIR)/bin/
+	@$(INSTALL) tools/maxmem $(INSTALL_DIR)/bin/
+	@rm tools/maxmem
+	@$(INSTALL) tools/plotmem $(INSTALL_DIR)/bin/
 
 ##
 ## DOCUMENTATION
