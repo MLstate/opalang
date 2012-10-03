@@ -77,6 +77,12 @@ type FbAuth.token = {
 type FbAuth.token_res =
   { token : FbAuth.token } / { error : Facebook.error }
 
+/**
+ * Parsed result of a app page token request
+ */
+type FbAuth.page_token_res =
+  { page_token : string } / { error : Facebook.error }
+
 
 FbAuth(conf:Facebook.config) = {{
 
@@ -162,5 +168,44 @@ FbAuth(conf:Facebook.config) = {{
     data = [ ("client_id",conf.app_id), ("client_secret",conf.app_secret)
            , ("grant_type","client_credentials") ]
     access_token_internal(data)
+
+  /**
+   * Gets an application page access token. These tokens do not expire.
+   *
+   * @param id The [APP_ID] of the app you want the page token for.
+   * @param page_name The name of the app
+   * @param token Your access token, must have [manage_pages] permission
+   *
+   * @return A [FbAuth.page_token_res] with either a page token or
+   * an error in case of failure
+   */
+  application_page_token(id, page_name, token) : FbAuth.page_token_res =
+     match FbLib.fb_get(graph_url, "/{id}/accounts?access_token={token}", []) with
+     | {none} -> {error=Facebook.make_error("application_page_token","Network error")}
+     | {some=r} ->
+       match Json.of_string(r) with
+       | {some={Record=r}} ->
+          match List.assoc("data",r) with
+          | {some={List=l}} ->
+             match List.find((o ->
+                              match o with
+                              | {Record=r} ->
+                                 match List.assoc("name",r) with
+                                 | {some={String=name}} -> name == page_name
+                                 | _ -> false
+                                 end
+                              | _ -> false
+                              end),l) with
+             | {some={Record=r}} ->
+                match List.assoc("access_token",r) with
+                | {some={String=page_token}} -> ~{page_token} : FbAuth.page_token_res
+                | _ -> {error=Facebook.make_error("application_page_token","No access token in response")}
+                end
+             | _ -> {error=Facebook.make_error("application_page_token","No matching page name")}
+             end
+          | _ -> {error=Facebook.make_error("application_page_token","No data")}
+          end
+       | _ -> {error=Facebook.make_error("application_page_token","Json parse error")}
+       end
 
 }}
