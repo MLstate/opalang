@@ -11,7 +11,7 @@ This repository contains all the sources of both the Opa compiler and the Opa li
 
 ## Getting Started ##
 
-Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-Opa).
+Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-started).
 
 ## Quick build instructions ##
 
