@@ -53,9 +53,6 @@ Details of the doc directory:
 * copyright: some copyright information used in our binary package, which
   includes external software (as obtained from the dependency installation
   helper)
-* manual.omd: source of the Opa manual available in various languages (currently English and Chinese) viewable at [doc.opalang.org](http://doc.opalang.org)
-* manual.src: source code of the examples of the manual
-* `*.omd`: custom markdown file format (aka. Opa markdown)
 * `*-LICENSE`: licenses used by the Opa project
 
 Details of the tools directory:
