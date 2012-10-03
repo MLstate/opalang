@@ -51,8 +51,3 @@ val process :
   options: OpaEnv.opa_options ->
   code:(((_, _) SurfaceAst.code_elt ObjectFiles.parsed_code) as 'code) ->
   OpaEnv.opa_options * 'code * BslLib.env_bsl
-
-(* (\** *)
-(*    The set of warnings raised by this pass. *)
-(* *\) *)
-(* val warning_set : WarningCalss.Set.t *)
