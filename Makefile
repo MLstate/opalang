@@ -21,10 +21,6 @@ ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += --rebuild
 endif
 
-ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
-DISABLED_LIBS = libnattraversal
-endif
-
 export
 
 include tools/build/Makefile.bld
@@ -38,17 +34,7 @@ node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
-
-.PHONY: all
-all: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-both-packages.stamp
-	@$(call copy-tools,$(ALL_TOOLS))
-	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
-
-.PHONY: build
-build: all
+	$(MAKE) opa_tools
 
 .PHONY: runtime-libs
 runtime-libs: $(MYOCAMLBUILD)
@@ -63,21 +49,15 @@ $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
 
-.PHONY: opa-flat-packages opa-node-packages opa-both-packages
-opa-flat-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-packages.stamp
+.PHONY: opa-node-packages
 opa-node-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-node-packages.stamp
-opa-both-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-both-packages.stamp
 
-.PHONY: stdlib stdlib-flat stdlib-node
-stdlib: opa-both-packages
-stdlib-flat: opa-flat-packages
+.PHONY: stdlib-node
 stdlib-node: opa-node-packages
 
 .PHONY: opa_tools
-opa_tools:
+opa_tools: $(MYOCAMLBUILD)
 ifndef NO_TOOLS
 	$(MAKE) opa-create
 else
@@ -93,13 +73,6 @@ distrib: $(MYOCAMLBUILD)
 	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
 	$(MAKE) manpages
 	$(MAKE) opa_tools
-
-.PHONY: distrib-all
-distrib-all: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-both-packages.stamp
-	@$(call copy-tools,$(DISTRIB_TOOLS))
-	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
 
 ##
 ## MANPAGES
@@ -140,18 +113,6 @@ install-opa-create:
 
 STDLIB_DIR = $(INSTALL_DIR)/lib/opa/stdlib
 
-FLAT_STDLIB_SUFFIX_DIR=stdlib.qmlflat
-STDLIB_FLAT_DIR=$(STDLIB_DIR)/$(FLAT_STDLIB_SUFFIX_DIR)
-BUILD_FLAT_DIR=$(BUILD_DIR)/$(FLAT_STDLIB_SUFFIX_DIR)
-define install-package
-@printf "Installing into $(STDLIB_FLAT_DIR)/$*.opx[K\r"
-@mkdir -p "$(STDLIB_FLAT_DIR)/$*.opx/_build"
-@find "$(BUILD_FLAT_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_FLAT_DIR)/$*.opx/" \;
-@$(INSTALL) $(BUILD_FLAT_DIR)/$*.opx/_build/*.a "$(STDLIB_FLAT_DIR)/$*.opx/_build/"
-@$(INSTALL) $(BUILD_FLAT_DIR)/$*.opx/_build/*.cmi "$(STDLIB_FLAT_DIR)/$*.opx/_build/"
-@$(INSTALL) $(BUILD_FLAT_DIR)/$*.opx/_build/*.cmxa "$(STDLIB_FLAT_DIR)/$*.opx/_build/"
-endef
-
 NODE_STDLIB_SUFFIX_DIR=stdlib.qmljs
 STDLIB_NODE_DIR=$(STDLIB_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
 BUILD_NODE_DIR=$(BUILD_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
@@ -169,7 +130,6 @@ define install-plugin
 @$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
 @$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js "$(STDLIB_DIR)/$*.opp/")
 @$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json "$(STDLIB_DIR)/$*.opp/")
-@$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*MLRuntime.*), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/")
 endef
 
 
@@ -189,26 +149,14 @@ OPA_PLUGINS  := $(shell cd lib/stdlib && ./all_plugins.sh && echo "opabsl")
 # This doesn't install the other libs though, use target install-libs
 # for that
 
-install-packageopt-%:
-	$(if $(wildcard $(BUILD_FLAT_DIR)/$*.opx/_build/*),$(install-package))
-
 install-node-packageopt-%:
 	$(if $(wildcard $(BUILD_NODE_DIR)/$*.opx/*.js),$(install-node-package))
-
-install-package-%:
-	$(install-package)
 
 install-node-package-%:
 	$(install-node-package)
 
-install-packages: $(addprefix install-packageopt-,$(OPA_PACKAGES))
-	@printf "Installation to $(STDLIB_FLAT_DIR) done.[K\n"
-
 install-node-packages: $(addprefix install-node-packageopt-,$(OPA_PACKAGES))
 	@printf "Installation to $(STDLIB_NODE_DIR) done.[K\n"
-
-install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
-	@printf "Installation to $(STDLIB_FLAT_DIR) done.[K\n"
 
 install-pluginopt-%:
 	$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/),$(install-plugin))
@@ -218,11 +166,6 @@ install-plugin-%:
 
 install-plugins: $(addprefix install-pluginopt-,$(OPA_PLUGINS))
 	@printf "Installation to $(STDLIB_DIR) done.[K\n"
-
-install-all-plugins: $(addprefix install-plugin-,$(OPA_PLUGINS))
-	@printf "Installation to $(STDLIB_DIR) done.[K\n"
-
-
 
 install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
@@ -251,9 +194,6 @@ install-man:
 	fi
 	@$(if $(wildcard $(BUILD_DIR)/man/man1/*.1.gz),$(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1)
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
-
-install: install-bin install-lib install-share install-plugins install-packages install-node-packages install-man
-	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 install-node: install-bin install-lib install-share install-plugins install-node-packages install-man
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
@@ -284,24 +224,6 @@ install-bld:
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
 	@$(INSTALL) tools/build/gen_myocamlbuild.sh tools/build/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
-
-# Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
-install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocamlbuild twice
-	@mkdir -p $(INSTALL_DIR)/bin $(INSTALL_DIR)/share/opa/mlstatebsl
-	@$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/opabsl.opp/lib/plugins/opabsl/mlstatebsl/opabsl_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
-	@echo "#!/usr/bin/env bash" > $(INSTALL_DIR)/bin/qmlflat
-	@echo "set -e" >> $(INSTALL_DIR)/bin/qmlflat
-	@echo "set -u" >> $(INSTALL_DIR)/bin/qmlflat
-	@chmod 755 $(INSTALL_DIR)/bin/qmlflat
-	@echo 'exec opa --parser classic --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $(STDLIB_DIR)/opabsl.opp $$(if ! grep -qE "(^| )--no-stdlib( |$$)" <<<"$$*"; then echo $(INSTALL_DIR)/share/opa/mlstatebsl/*.opa; fi) "$$@"' \
-	>> $(INSTALL_DIR)/bin/qmlflat
-
-# installs some dev tools on top of the normal install; these should not change often
-install-all: install install-bld install-qmlflat tools/maxmem
-	@$(INSTALL) tools/platform_helper.sh $(INSTALL_DIR)/bin/
-	@$(INSTALL) tools/maxmem $(INSTALL_DIR)/bin/
-	@rm tools/maxmem
-	@$(INSTALL) tools/plotmem $(INSTALL_DIR)/bin/
 
 ##
 ## DOCUMENTATION
