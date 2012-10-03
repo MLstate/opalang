@@ -10,9 +10,9 @@
 .PHONY: default
 default: node
 
-CONFIG_PATH = tools/build
+BUILD_PATH = tools/build
 
-include $(CONFIG_PATH)/config.make
+include $(BUILD_PATH)/config.make
 
 MAKE ?= $_
 OCAMLBUILD_OPT ?= -j 6
@@ -23,7 +23,7 @@ endif
 
 export
 
-include tools/build/Makefile.bld
+include $(BUILD_PATH)/Makefile.bld
 
 ##
 ## STANDARD TARGETS
@@ -222,7 +222,7 @@ install-bld:
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
 	@echo "_build/myocamlbuild -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
-	@$(INSTALL) tools/build/gen_myocamlbuild.sh tools/build/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
+	@$(INSTALL) $(BUILD_PATH)/gen_myocamlbuild.sh $(BUILD_PATH)/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
 ##
