@@ -96,6 +96,13 @@ type FbGraph.Read.object =
   / { error : Facebook.error } /** Request failed */
 
 /**
+ * Result of an raw request, just the response content.
+ */
+type FbGraph.Read.raw =
+    { content : string location : string content_type : string}
+  / { error : Facebook.error }
+
+/**
  * Result of a multiple object request
  */
 type FbGraph.Read.objects =
@@ -205,6 +212,14 @@ type FbGraph.event = {
 }
 
 /**
+ * Type of a Facebook achievement(instance)
+ */
+type FbGraph.achievement = {
+  achievement : string
+  message     : string
+}
+
+/**
  * Type of a Facebook album
  */
 type FbGraph.album = {
@@ -212,6 +227,36 @@ type FbGraph.album = {
   message  : string
   location : string
   link     : string
+}
+
+/**
+ * Type of a Facebook photo
+ */
+type FbGraph.photo = {
+  filename     : string
+  content_type : string
+  source       : string
+  message      : string
+}
+
+/**
+ * Type of a Facebook video
+ */
+type FbGraph.video = {
+  filename     : string
+  content_type : string
+  source       : string
+  title        : string
+  description  : string
+}
+
+/**
+ * Type of a Facebook picture
+ */
+type FbGraph.picture = {
+  filename     : string
+  content_type : string
+  source       : string
 }
 
 /**
@@ -287,11 +332,28 @@ type FbGraph.Insight.insights_res =
     { insights : FbGraph.Insight.insights }
   / { error : Facebook.error }
 
+type FbGraph.property_value0('a) =
+    { string : string }
+  / { int : int }
+  / { bool : bool }
+  / { object : list((string,'a)) }
+  / { array : list('a) }
+type FbGraph.property_value =  FbGraph.property_value0(FbGraph.property_value)
+
+type FbGraph.property = (string,FbGraph.property_value)
+
+type FbGraph.properties = list(FbGraph.property)
+
+type FbGraph.object_type = {user} / {permissions} / {page}
+
+type FbGraph.order_status = {placed} / {settled} / {refunded} / {disputed} / {cancelled}
+
 FbGraph = {{
 
   /* Static */
 
   @private graph_url  = "https://graph.facebook.com"
+  @private video_url  = "https://graph-video.facebook.com"
 
   /* Generic private functions */
 
@@ -375,9 +437,8 @@ FbGraph = {{
       check_for_error(r, on_ok, (x -> { error = x }))
     | _ -> { error = Facebook.data_error }
 
-  @private @publish generic_action(path, data, token) : FbGraph.Post.result =
-    data = List.add(("access_token", token), data)
-    match FbLib.fb_post(graph_url, path, data) with
+  generic_return(res) : FbGraph.Post.result =
+    match res with
     | {none} -> { error = Facebook.network_error }
     | {some=r} ->
       match Json.of_string(r) with
@@ -390,8 +451,36 @@ FbGraph = {{
       | {some={Bool=r}} ->
         if r then { success = "" }
         else { error = Facebook.data_error }
+      | {some={Int=number}} -> {success="{number}"}
       | _ -> { error = Facebook.data_error }
       end
+
+  @private @publish generic_action(path, data, token) : FbGraph.Post.result =
+    data = List.add(("access_token", token), data)
+    generic_return(FbLib.fb_post(graph_url, path, data))
+
+  @private @publish generic_action_multi(path, forms, token) : FbGraph.Post.result =
+    forms = List.add({form=("access_token", token)}, forms)
+    generic_return(FbLib.fb_post_multi(graph_url, path, forms))
+
+  @private @publish generic_action_multi_base(base, path, forms, token) : FbGraph.Post.result =
+    forms = List.add({form=("access_token", token)}, forms)
+    generic_return(FbLib.fb_post_multi(base, path, forms))
+
+  @private @publish generic_delete(path, data, token) : FbGraph.Post.result =
+    data = List.add(("access_token", token), data)
+    generic_return(FbLib.fb_delete(graph_url, path, data))
+
+  string_of_object_type(ot:FbGraph.object_type) =
+    match ot with
+    | {user} -> "user"
+    | {permissions} -> "permissions"
+    | {page} -> "page"
+
+  multiuser(id, users, pathname, fieldname) =
+    match users with
+    | [user_id] -> ("/{id}/{pathname}/{user_id}",[])
+    | _ -> ("/{id}/{pathname}",[(fieldname,String.concat(",",users))])
 
   /* Submodules */
 
@@ -401,13 +490,65 @@ FbGraph = {{
      * Deletes object [id]
      */
     object(id, token) =
-      generic_action("/{id}", [("method","delete")], token)
+      generic_delete("/{id}", [], token)
 
     /**
-     * Unlike object [id]
+     * Delete achievement(instance) object [id]
+     */
+    achievement(id, token) =
+      generic_delete("/{id}/achievements", [], token)
+
+    /**
+     * Unlike object [id] (works with various types of id)
      */
     unlike(id, token) =
-      generic_action("/{id}/likes", [("method","delete")], token)
+      generic_delete("/{id}/likes", [], token)
+
+    /**
+     * Unban a user from an application.  The token must be an application access token.
+     */
+    unban(user_id, token) =
+      generic_delete("/{user_id}", [], token)
+
+    /** Remove currency association from app. */
+    payment_currency(app_id, currency_url, token) =
+      generic_delete("/{app_id}", [("currency_url",currency_url)], token)
+
+    /** Remove user role from app. */
+    role(app_id, user, token) =
+      generic_delete("/{app_id}/roles", [("user",user)], token)
+
+    /** Delete subscriptions. */
+    subscriptions(app_id, object:option(FbGraph.object_type), token) =
+      data = FbLib.add_if_filled_opt("object", string_of_object_type, object, [])
+      generic_delete("/{app_id}/subscriptions", data, token)
+
+    /** Delete translations.
+     * The native_hashes actually come from the "Translations" app.
+     */
+    translations(app_id, native_hashes:list((string,string)), token) =
+      data = [("native_hashes",List.to_string_using("[","]",",",List.map(((s,d) -> "\{\"{s}\":\"{d}\"}"),native_hashes)))]
+      generic_delete("/{app_id}/translations", data, token)
+
+    /** Delete all scores. */
+    scores(app_id, token) = generic_delete("/{app_id}/scores", [], token)
+
+    /** Delete a comment. */
+    comment(comment_id, token) = generic_delete("/{comment_id}", [], token)
+
+    /** Uninvite a user. */
+    invited(event_id, user_id, token) = generic_delete("/{event_id}/invited/{user_id}", [], token)
+
+    /** Delete picture. */
+    picture(id, token) = generic_delete("/{id}/picture", [], token)
+
+    /** Delete friendlist. */
+    friendlist = object
+
+    /** Delete members. */
+    members(id, users, token) =
+      (path, data) = multiuser(id, users, "members", "members")
+      generic_delete(path, data, token)
 
   }}
 
@@ -505,6 +646,205 @@ FbGraph = {{
 
   Post = {{
 
+    string_of_property_value(pv:FbGraph.property_value) =
+      match pv with
+      | {~string} -> "\"{string}\""
+      | {~int} -> "{int}"
+      | {~bool} -> "{bool}"
+      | {~object} -> List.to_string_using("\{","}",",",List.map(((n,v) -> "\"{n}\":{string_of_property_value(v)}"),object))
+      | {~array} -> List.to_string_using("[","]",",",List.map(string_of_property_value,array))
+
+    options_of_properties(properties:FbGraph.properties) =
+      List.map(((n,pv) -> (n,string_of_property_value(pv))),properties)
+
+    generic_properties(id, properties, token) =
+      generic_action("/{id}", options_of_properties(properties), token)
+
+    /**
+     * Create achievement(instance) for [user_id]
+     */
+    achievement(user_id, achievement:FbGraph.achievement, token) =
+      data = FbGraph_to_string.achievement_to_data(achievement)
+      generic_action("/{user_id}/achievements", data, token)
+
+    /**
+     * Create migration for [app_id], [name]:[value]
+     */
+    migration(app_id, name, value:int, token) =
+      properties = [("migrations",{object=[(name,{int=(if value == 0 then 0 else 1)})]})]
+      generic_properties(app_id, properties, token)
+
+    /**
+     * Create restriction for [app_id], [name]:"[value]"
+     */
+    restriction(app_id, name, value:string, token) =
+      properties = [("restrictions",{object=[(name,{string=value})]})]
+      generic_properties(app_id, properties, token)
+
+    /**
+     * Modify properties for [app_id]
+     */
+    properties(app_id, properties, token) =
+      generic_properties(app_id, properties, token)
+
+    /**
+     * Create a test user for [app_id].
+     * NOTE: uses the application access token *NOT* the application Page access token.
+     */
+    test_user(app_id, installed:option(bool), permissions:list(Facebook.permission), name:string, token) =
+      data = 
+        FbLib.add_if_filled("installed", Option.default("",Option.map(Bool.to_string,installed)), [])
+        |> FbLib.add_if_filled("permissions", String.concat(",",List.map(Facebook.permission_to_string,permissions)), _)
+        |> FbLib.add_if_filled("name", name, _)
+      generic_action("/{app_id}/accounts/test-users", data, token)
+
+    ban(app_id, users, token) =
+      data = [("uid",String.concat(",",users))]
+      generic_action("/{app_id}/banned", data, token)
+
+    simple_link(app_id, link, message, token) =
+      data =
+        [("link", link)]
+        |> FbLib.add_if_filled("message", message, _)
+      generic_action("/{app_id}/feed", data, token)
+
+    payment_currency(app_id, currency_url, token) =
+      data = [("currency_url", currency_url)]
+      generic_action("/{app_id}/payment_currencies", data, token)
+
+    /**
+     * Create a post on an application's profile page.
+     * Token needs [publish_stream] permissions.
+     * Works on various ids.
+     */
+    post(id, p:Facebook.post, token) =
+      data =
+        [("message",p.message),("link", p.link)]
+        |> FbLib.add_if_filled("picture", p.picture, _)
+        |> FbLib.add_if_filled("name", p.name, _)
+        |> FbLib.add_if_filled("caption", p.caption, _)
+        |> FbLib.add_if_filled("description", p.description, _)
+        |> FbLib.add_array_if_filled("actions", FbLib.actions_to_json, p.actions, _)
+        |> FbLib.add_if_filled("privacy", p.privacy, _)
+      generic_action("/{id}/feed", data, token)
+
+    /** Add user role for app. */
+    role(app_id, user, role, token) =
+      data = [("user",user),("role", role)]
+      generic_action("/{app_id}/roles", data, token)
+
+    /** Post a status message on an object.  Various objects supported. */
+    status(id, message, token) =
+      data = [("message",message)]
+      generic_action("/{id}/feed", data, token)
+
+    /**
+     * Set up a subscription.
+     * Needs application page access token.
+     */
+    subscriptions(app_id, ot:FbGraph.object_type, fields:Facebook.properties, callback_url:string, verify_token:string, token) =
+      data =
+        [("object",string_of_object_type(ot))]
+        |> FbLib.add_json("fields", FbLib.fb_properties_to_json, fields, _)
+        |> List.add(("callback_url",callback_url),_)
+        |> FbLib.add_if_filled("verify_token", verify_token, _)
+      generic_action("/{app_id}/subscriptions", data, token)
+
+    /**
+     * Upload application strings for translation.
+     * Needs application page access token.
+     */
+    native_strings_to_json(native_strings:list({text:string; description:string})) : RPC.Json.json =
+      aux(ns) : RPC.Json.json =
+        {Record=[("text", {String=ns.text}:RPC.Json.json),
+                 ("description", {String=ns.description}:RPC.Json.json)]}
+      {List=List.map(aux, native_strings)}
+
+    translations(app_id, native_strings:list({text:string; description:string}), token) =
+      data = FbLib.add_json("native_strings",native_strings_to_json,native_strings,[])
+      generic_action("/{app_id}/translations", data, token)
+
+    /**
+     * Requires multipart/form-data forms.
+     * NOTE: should also work with USER_ID and EVENT_ID (and maybe others).
+     * NOTE: this currently doesn't work because of facebook internal errors...
+     */
+    photos(album_id, photo, token) =
+      forms = FbGraph_to_string.photo_to_form(photo)
+      generic_action_multi("/{album_id}/photos", forms, token)
+
+    /**
+     * Publish a video to an Application.
+     * Also works with event_id.
+     * Requires multipart/form-data forms.
+     * NOTE: this currently doesn't work because of facebook internal errors...
+     */
+    videos(page_id, v:FbGraph.video, token) =
+      forms =
+        [{file=("source", v.filename, v.content_type, v.source)}]
+        |> FbLib.add_form_if_filled("title", v.title, _)
+        |> FbLib.add_form_if_filled("description", v.description, _)
+      generic_action_multi_base(video_url, "/{page_id}/videos", forms, token)
+
+    /**
+     * Requires multipart/form-data forms.
+     * NOTE: this currently doesn't work because of facebook internal errors...
+     */
+    picture(id, p:FbGraph.picture, token) =
+      forms = [{file=("source", p.filename, p.content_type, p.source)}]
+      generic_action_multi("/{id}/picture", forms, token)
+
+    users_generic(id, users:list(string), pathname, fieldname, token) =
+      if users == []
+      then {error=Facebook.make_error("FbGraph.Post.{pathname}","No users")}
+      else
+        (path,data) = multiuser(id, users, pathname, fieldname)
+        generic_action(path, data, token)
+
+    /**
+     * Invite users to an event.
+     * Needs [create_event] permission.
+     */
+    invited(event_id, invited:list(string), token) = users_generic(event_id, invited, "invited", "users", token)
+
+    /**
+     * Create a FriendList for a user.
+     * Maximum name length is 25 chars.
+     * Needs manage_friendlists permission.
+     */
+    friendlist(profile_id, name, token) =
+      if String.length(name) > 25
+      then {error=Facebook.make_error("friendlist","Name longer than 25 characters")}
+      else
+        data = [("name",name)]
+        generic_action("/{profile_id}/friendlists", data, token)
+
+    /**
+     * Invite users to an event.
+     * Needs [create_event] permission.
+     */
+    members(friendlist_id, members:list(string), token) = users_generic(friendlist_id, members, "members", "members", token)
+
+    string_of_order_status(os:FbGraph.order_status) =
+      match os with
+      | {placed} -> "placed" 
+      | {settled} -> "settled" 
+      | {refunded} -> "refunded" 
+      | {disputed} -> "disputed" 
+      | {cancelled} -> "cancelled"
+
+    /**
+     * Update an order.
+     * Docs don't say which kind of token/permission is needed.
+     * The params value is: "optional JSON-encoded dictionary {'comment' => }", however that is encoded.
+     */
+    order(id, status:FbGraph.order_status, message:string, params:string, token) =
+      data =
+        [("status",string_of_order_status(status))]
+        |> List.add(("message",message),_)
+        |> FbLib.add_if_filled("params", params, _)
+      generic_action("/{id}", data, token)
+
     /**
      * Post a new element in user's feed
      * You can control the target of the feed with [feed.to].
@@ -522,7 +862,7 @@ FbGraph = {{
       generic_action("/{object_id}/comments", data, token)
 
     /**
-     * Like [object_id] element on behalf of logger user
+     * Like [object_id] element on behalf of logger user (works with various types of id)
      */
     like(object_id, token) =
       generic_action("/{object_id}/likes", [], token)
@@ -614,17 +954,13 @@ FbGraph = {{
     }
 
     /**
-     * Post a field
+     * Post an album
      */
     album(profile_id, album, token) =
       data = FbGraph_to_string.album_to_data(album)
       generic_action("/{profile_id}/albums", data, token)
 
-    /* Requires multipart/form-data forms
-    photos(album_id, photo)
-    */
-
-    /* Quite recent feature and extremely poorly documented, so TODO later
+    /* NOTE: Publishing a Checkin object is deprecated in favor of creating a Post with a location attached.
     checkins(profile_id, checkin)
     */
 
@@ -704,6 +1040,20 @@ FbGraph = {{
         | _ -> { error = Facebook.data_error }
         end
 
+    redirect(id, options) =
+      data = prepare_object_option(options)
+      FbLib.fb_get_redirect(graph_url, "/{id}", data)
+
+    /**
+     * Return the raw content of a request.
+     * Eg. profile pictures return jpeg data.
+     */
+    raw(id, options) : FbGraph.Read.raw =
+      data = prepare_object_option(options)
+      match FbLib.fb_get_ct(graph_url, "/{id}", data) with
+      | {none} -> { error = Facebook.network_error }
+      | {some=(content_type,location,content)} -> ~{ content; location; content_type }
+
     /**
      * Get information about objects with given ids, Results depends of options
      * If no token is provided, only public information is available. Else,
@@ -776,6 +1126,41 @@ FbGraph = {{
     picture_url(id, size) : string =
       data = [("type",FbGraph_to_string.pic_size_to_string(size))]
       FbLib.generic_build_path("{graph_url}/{id}/picture", data)
+
+    /**
+     * Performs a read on [app_id] with added fields="migrations".
+     */
+    migrations(app_id, options) = object(app_id, {options with fields=List.add("migrations",options.fields)})
+
+    /**
+     * Performs a read on [app_id] with added fields="restrictions".
+     */
+    restrictions(app_id, options) = object(app_id, {options with fields=List.add("restrictions",options.fields)})
+
+    /**
+     * Returns a list of properties for an app.
+     */
+    properties(app_id, options, properties:list(Facebook.property)) =
+      props = String.concat(",",List.map(Facebook.string_of_property,properties))
+      object(app_id, {options with fields=List.add(props,options.fields)})
+
+    banned(app_id, options) = object("{app_id}/banned", options)
+    is_banned(app_id, user_id, options) = object("{app_id}/banned/{user_id}", options)
+    payment_currency(app_id, options) = object("{app_id}/payment_currencies", options)
+    roles(app_id, options) = object("{app_id}/roles", options)
+    scores(app_id, options) = object("{app_id}/scores", options)
+    invited(event_id, options) = object("{event_id}/invited", options)
+    is_invited(event_id, user_id, options) = object("{event_id}/invited/{user_id}", options)
+    attending(event_id, options) = object("{event_id}/attending", options)
+    is_attending(event_id, user_id, options) = object("{event_id}/attending/{user_id}", options)
+    maybe(event_id, options) = object("{event_id}/maybe", options)
+    is_maybe(event_id, user_id, options) = object("{event_id}/maybe/{user_id}", options)
+    declined(event_id, options) = object("{event_id}/declined", options)
+    is_declined(event_id, user_id, options) = object("{event_id}/declined/{user_id}", options)
+    noreply(event_id, options) = object("{event_id}/noreply", options)
+    photos(id, options) = object("{id}/photos", options)
+    picture(id, options) = redirect("{id}/photos", options)
+    friendlist = object
 
   }}
 
@@ -895,10 +1280,18 @@ FbGraph = {{
     |> FbLib.add_if_filled("start_time", aux_date(e.start_time), _)
     |> FbLib.add_if_filled("end_time", aux_date(e.end_time), _)
 
+  achievement_to_data(a:FbGraph.achievement) =
+    [("achievement", a.achievement)]
+    |> FbLib.add_if_filled("message", a.message, _)
+
   album_to_data(a:FbGraph.album) =
     [("name", a.name)]
     |> FbLib.add_if_filled("message", a.message, _)
     |> FbLib.add_if_filled("location", a.location, _)
     |> FbLib.add_if_filled("link", a.link, _)
+
+  photo_to_form(p:FbGraph.photo) =
+    [{file=("source", p.filename, p.content_type, p.source)}]
+    |> FbLib.add_form_if_filled("message", p.message, _)
 
 }}
