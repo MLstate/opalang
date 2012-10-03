@@ -92,6 +92,11 @@ String =
   length = %% BslString.length %%
 
   /**
+   * Returns the length of the string
+   */
+  byte_length = %% BslPervasivesServer.byte_length %%
+
+  /**
    * Determine if a string is empty
    *
    * @return true if the string is empty, false otherwise
