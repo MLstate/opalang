@@ -242,7 +242,7 @@ WireProtocol = {{
   undefined(name) = estart0(el_undefined, name)
 
   string_base(name,value,typ) =
-    valuesize = String.length(value)
+    valuesize = String.byte_length(value)
     (7+String.length(name)+valuesize,[{Byte=typ}, {Cstring=name}, {Long=valuesize+1}, {Cstring=value}])
   string(name,value) = string_base(name,value,el_string)
   symbol(name,value) = string_base(name,value,el_symbol)

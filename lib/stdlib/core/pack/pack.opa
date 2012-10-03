@@ -663,7 +663,7 @@ Pack = {{
      * @param str string
      **/
     string(buf:Pack.t, le:bool, size:Pack.s, payload:Pack.data, str:string): outcome(void,string) =
-      len = String.length(str)
+      len = String.byte_length(str)
       if len > sizemax(size)
       then {failure="Pack.Encode.string: string too long for {sizename(size)} length \"{String.sub(0,30,str)^"..."}\""}
       else
@@ -1050,7 +1050,7 @@ Pack = {{
       | {~Bound} -> (s,0,Bound)
       | {Void} -> (s,1,0)
       | {Bool=_} -> (s,1,0)
-      | {Cstring=str} -> (s,String.length(str)+1,0)
+      | {Cstring=str} -> (s,String.byte_length(str)+1,0)
       | {String=str; ~payload; ~size; ...} ->
          (_,payload_size) = packdatasize(size,payload)
          (s,sizesize(size)+payload_size+String.length(str),0)
@@ -2146,7 +2146,7 @@ Pack = {{
              | {~failure} -> {~failure})
          | {Cstring=_} ->
             (match cstring(bin, pos) with
-             | {success=s} -> {success=(le, signed, size, pos+String.length(s)+1, [{Cstring=s}|data])}
+             | {success=s} -> {success=(le, signed, size, pos+String.byte_length(s)+1, [{Cstring=s}|data])}
              | {~failure} -> {~failure})
          | {String=_} -> unpack_string(data, {none}, le, signed, {none}, size, [], bin, pos)
          | {String=_; size=actual_size} -> unpack_string(data, {none}, le, signed, {some=actual_size}, size, [], bin, pos)
@@ -2486,7 +2486,7 @@ Pack = {{
     cstring(input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.cstring", input)
       match Decode.cstring(input.binary, input.pos) with
-      | {success=s} -> {success=({input with pos=input.pos+1+String.length(s)},s)}
+      | {success=s} -> {success=({input with pos=input.pos+1+String.byte_length(s)},s)}
       | {~failure} -> {~failure}
 
     /** Unpack fixed-length string **/
@@ -2513,7 +2513,7 @@ Pack = {{
     string(le:bool, size:Pack.s, input:Pack.input) : Pack.result(string) =
       do pinput("Pack.Unser.string", input)
       match Decode.string([], le, size, input.binary, input.pos) with
-      | {success=(_,s)} -> {success=({input with pos=input.pos+sizesize(size)+String.length(s)},s)}
+      | {success=(_,s)} -> {success=({input with pos=input.pos+sizesize(size)+String.byte_length(s)},s)}
       | {~failure} -> {~failure}
 
     /** Unpack 8-bit int-prefixed string **/
