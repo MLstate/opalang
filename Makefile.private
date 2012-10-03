@@ -74,7 +74,7 @@ install-plugin-%:
 install-all-plugins: $(addprefix install-plugin-,$(OPA_PLUGINS))
 	@printf "Installation to $(STDLIB_DIR) done.[K\n"
 
-install: install-bin install-lib install-share install-plugins install-packages install-node-packages install-man
+install:: install-packages
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 # Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
