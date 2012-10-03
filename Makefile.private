@@ -1,13 +1,20 @@
 #!/usr/bin/env make
 
 .PHONY: default
-default: all
+default: flat
 
 include Makefile
 
 ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
 DISABLED_LIBS = libnattraversal
 endif
+
+.PHONY: flat
+flat: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
+	@$(call copy-tools,$(ALL_TOOLS))
+	$(MAKE) manpages
+	$(MAKE) opa_tools
 
 .PHONY: all
 all: $(MYOCAMLBUILD)
