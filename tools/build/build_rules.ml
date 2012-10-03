@@ -185,7 +185,7 @@ let opa_opacapi_plugins = ["badop"] in
 (* used in mkinstall *)
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
-  ~deps:("compiler/opa/checkopacapi.native" :: opa_opacapi_files
+  ~deps:(tool_deps "checkopacapi" @ opa_opacapi_files
          @ List.map (fun x -> Printf.sprintf "lib/plugins/%s/%s.oppf" x x)
          opa_opacapi_plugins)
   ~prod:opacapi_validation

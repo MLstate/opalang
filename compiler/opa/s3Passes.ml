@@ -327,12 +327,6 @@ end = struct
 
 end
 
-(* (\** Select the good register function according to back-end *\) *)
-(* let register_fields options = *)
-(*   match options.O.back_end with *)
-(*   | OpaEnv.Backend "qmlflat" -> *)
-(*   | _ -> (fun _ -> ()) *)
-
 
 (**********************************************************)
 (* Public : MAKE YOUR PASSES HERE *************************)

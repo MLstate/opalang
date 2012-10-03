@@ -50,6 +50,7 @@ internal odeplink 		tools/odeplink.native
 internal opa2opa		compiler/opalang/opa2opa.native
 internal ofile                	tools/ofile.native
 internal opa-translate        	compiler/opa/syntaxHelper.native
+internal checkopacapi          	compiler/opa/checkopacapi.native
 
 # The name of opa raw executable, following unix guidelines (e.g. firefox distrib)
 # when there is a wraper used to call a raw exe
