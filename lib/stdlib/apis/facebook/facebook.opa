@@ -231,6 +231,69 @@ type Facebook.feed = {
   actions     : list(Facebook.feed_link)
 }
 
+/** A Facebook post for [FbGraph.Post.post]. */
+type Facebook.post = {
+  message     : string
+  link        : string
+  picture     : string
+  name        : string
+  caption     : string
+  description : string
+  actions     : list(Facebook.feed_link)
+  privacy     : string
+}
+
+type Facebook.property =
+   { id } /** The application ID string */
+ / { name } /** The title of the application string */
+ / { description } /** The description of the application written by the 3rd party developers string */
+ / { category } /** The category of the application string */
+ / { company } /** The company the application belongs to string */
+ / { icon_url } /** The URL of the application's icon string */
+ / { subcategory } /** The subcategory of the application string */
+ / { link } /** A link to the Application's profile page string */
+ / { logo_url } /** The URL of the application's logo string */
+ / { daily_active_users } /** The number of daily active users the application has string */
+ / { weekly_active_users } /** The number of weekly active users the application has string */
+ / { monthly_active_users } /** The number of monthly active users the application has string */
+ / { migrations } /** Migrations settings for app profile */
+ / { namespace } /** The namespace for the app */
+ / { restrictions } /** Demographic restrictions set for this app (Object with one or more of the following fields: type, location, age, and age_distr) */
+ / { app_domains } /** Domains and subdomains this app can use (array) */
+ / { auth_dialog_data_help_url } /** The URL of a special landing page that helps users of an app begin publishing Open Graph activity (string) */
+ / { auth_dialog_description } /** The description of an app that appears in the Auth Dialog (string) */
+ / { auth_dialog_headline } /** One line description of an app that appears in the Auth Dialog (string) */
+ / { auth_dialog_perms_explanation } /** The text to explain why an app needs additional permissions that appears in the Auth Dialog (string) */
+ / { auth_referral_user_perms } /** Basic user permissions that a user must grant when Authenticated Referrals are enabled (array) */
+ / { auth_referral_friend_perms } /** Basic friends permissions that a user must grant when Authenticated Referrals are enabled (array) */
+ / { auth_referral_default_activity_privacy } /** The default privacy setting selected for Open Graph activities in the Auth Dialog (string which is one of: SELF, EVERYONE, ALL_FRIENDS or NONE) */
+ / { auth_referral_enabled } /** Indicates whether Authenticated Referrals are enabled (bool) */
+ / { auth_referral_extended_perms } /** Extended permissions that a user can choose to grant when Authenticated Referrals are enabled (array) */
+ / { auth_referral_response_type } /** The format that an app receives the Auth token from the Auth Dialog in (string which is one of: code or token) */
+ / { canvas_fluid_height } /** Indicates whether app uses fluid or settable height values for Canvas (bool) */
+ / { canvas_fluid_width } /** Indicates whether app uses fluid or fixed width values for Canvas (bool) */
+ / { canvas_url } /** The non-secure URL from which Canvas app content is loaded (string) */
+ / { contact_email } /** Email address listed for users to contact developers (string) */
+ / { created_time } /** Unix timestamp that indicates when the app was created int */
+ / { creator_uid } /** User ID of the creator of this app int */
+ / { deauth_callback_url } /** URL that is pinged whenever a user removes the app (string) */
+ / { iphone_app_store_id } /** ID of the app in the iPhone App Store string */
+ / { hosting_url } /** Webspace created with one of our hosting partners for this app string */
+ / { mobile_web_url } /** URL to which Mobile users will be directed when using the app (string) */
+ / { page_tab_default_name } /** The title of the app when used in a Page Tab (string) */
+ / { page_tab_url } /** The non-secure URL from which Page Tab app content is loaded (string) */
+ / { privacy_policy_url } /** The URL that links to a Privacy Policy for the app (string) */
+ / { secure_canvas_url } /** The secure URL from which Canvas app content is loaded (string) */
+ / { secure_page_tab_url } /** The secure URL from which Page Tab app content is loaded (string) */
+ / { server_ip_whitelist } /** App requests must originate from this comma-separated list of IP addresses (string) */
+ / { social_discovery } /** Indicates whether app usage stories show up in the Ticker or News Feed (bool) */
+ / { terms_of_service_url } /** URL to Terms of Service which is linked to in Auth Dialog (string) */
+ / { user_support_email } /** Main contact email for this app (string) */
+ / { user_support_url } /** URL of support for users of an app shown in Canvas footer (string) */
+ / { website_url } /** URL of a website that integrates with this app (string) */
+
+type Facebook.properties = list(Facebook.property)
+
 Facebook = {{
 
   /* Facebook static */
@@ -443,6 +506,127 @@ Facebook = {{
     | "friends_photo_video_tags"                    -> {some={friends_photo_video_tags}}
     | "bookmarked"                                  -> {some={bookmarked}}
     | _                                             -> {none}
+
+  string_of_property(property:Facebook.property) : string =
+    match property with
+    | { id } -> "id"
+    | { name } -> "name"
+    | { description } -> "description"
+    | { category } -> "category"
+    | { company } -> "company"
+    | { icon_url } -> "icon_url"
+    | { subcategory } -> "subcategory"
+    | { link } -> "link"
+    | { logo_url } -> "logo_url"
+    | { daily_active_users } -> "daily_active_users"
+    | { weekly_active_users } -> "weekly_active_users"
+    | { monthly_active_users } -> "monthly_active_users"
+    | { migrations } -> "migrations"
+    | { namespace } -> "namespace"
+    | { restrictions } -> "restrictions"
+    | { app_domains } -> "app_domains"
+    | { auth_dialog_data_help_url } -> "auth_dialog_data_help_url"
+    | { auth_dialog_description } -> "auth_dialog_description"
+    | { auth_dialog_headline } -> "auth_dialog_headline"
+    | { auth_dialog_perms_explanation } -> "auth_dialog_perms_explanation"
+    | { auth_referral_user_perms } -> "auth_referral_user_perms"
+    | { auth_referral_friend_perms } -> "auth_referral_friend_perms"
+    | { auth_referral_default_activity_privacy } -> "auth_referral_default_activity_privacy"
+    | { auth_referral_enabled } -> "auth_referral_enabled"
+    | { auth_referral_extended_perms } -> "auth_referral_extended_perms"
+    | { auth_referral_response_type } -> "auth_referral_response_type"
+    | { canvas_fluid_height } -> "canvas_fluid_height"
+    | { canvas_fluid_width } -> "canvas_fluid_width"
+    | { canvas_url } -> "canvas_url"
+    | { contact_email } -> "contact_email"
+    | { created_time } -> "created_time"
+    | { creator_uid } -> "creator_uid"
+    | { deauth_callback_url } -> "deauth_callback_url"
+    | { iphone_app_store_id } -> "iphone_app_store_id"
+    | { hosting_url } -> "hosting_url"
+    | { mobile_web_url } -> "mobile_web_url"
+    | { page_tab_default_name } -> "page_tab_default_name"
+    | { page_tab_url } -> "page_tab_url"
+    | { privacy_policy_url } -> "privacy_policy_url"
+    | { secure_canvas_url } -> "secure_canvas_url"
+    | { secure_page_tab_url } -> "secure_page_tab_url"
+    | { server_ip_whitelist } -> "server_ip_whitelist"
+    | { social_discovery } -> "social_discovery"
+    | { terms_of_service_url } -> "terms_of_service_url"
+    | { user_support_email } -> "user_support_email"
+    | { user_support_url } -> "user_support_url"
+    | { website_url } -> "website_url"
+
+  property_of_string(s:string) : option(Facebook.property) =
+    match s with
+    | "id" -> {some={ id }}
+    | "name" -> {some={ name }}
+    | "description" -> {some={ description }}
+    | "category" -> {some={ category }}
+    | "company" -> {some={ company }}
+    | "icon_url" -> {some={ icon_url }}
+    | "subcategory" -> {some={ subcategory }}
+    | "link" -> {some={ link }}
+    | "logo_url" -> {some={ logo_url }}
+    | "daily_active_users" -> {some={ daily_active_users }}
+    | "weekly_active_users" -> {some={ weekly_active_users }}
+    | "monthly_active_users" -> {some={ monthly_active_users }}
+    | "migrations" -> {some={ migrations }}
+    | "namespace" -> {some={ namespace }}
+    | "restrictions" -> {some={ restrictions }}
+    | "app_domains" -> {some={ app_domains }}
+    | "auth_dialog_data_help_url" -> {some={ auth_dialog_data_help_url }}
+    | "auth_dialog_description" -> {some={ auth_dialog_description }}
+    | "auth_dialog_headline" -> {some={ auth_dialog_headline }}
+    | "auth_dialog_perms_explanation" -> {some={ auth_dialog_perms_explanation }}
+    | "auth_referral_user_perms" -> {some={ auth_referral_user_perms }}
+    | "auth_referral_friend_perms" -> {some={ auth_referral_friend_perms }}
+    | "auth_referral_default_activity_privacy" -> {some={ auth_referral_default_activity_privacy }}
+    | "auth_referral_enabled" -> {some={ auth_referral_enabled }}
+    | "auth_referral_extended_perms" -> {some={ auth_referral_extended_perms }}
+    | "auth_referral_response_type" -> {some={ auth_referral_response_type }}
+    | "canvas_fluid_height" -> {some={ canvas_fluid_height }}
+    | "canvas_fluid_width" -> {some={ canvas_fluid_width }}
+    | "canvas_url" -> {some={ canvas_url }}
+    | "contact_email" -> {some={ contact_email }}
+    | "created_time" -> {some={ created_time }}
+    | "creator_uid" -> {some={ creator_uid }}
+    | "deauth_callback_url" -> {some={ deauth_callback_url }}
+    | "iphone_app_store_id" -> {some={ iphone_app_store_id }}
+    | "hosting_url" -> {some={ hosting_url }}
+    | "mobile_web_url" -> {some={ mobile_web_url }}
+    | "page_tab_default_name" -> {some={ page_tab_default_name }}
+    | "page_tab_url" -> {some={ page_tab_url }}
+    | "privacy_policy_url" -> {some={ privacy_policy_url }}
+    | "secure_canvas_url" -> {some={ secure_canvas_url }}
+    | "secure_page_tab_url" -> {some={ secure_page_tab_url }}
+    | "server_ip_whitelist" -> {some={ server_ip_whitelist }}
+    | "social_discovery" -> {some={ social_discovery }}
+    | "terms_of_service_url" -> {some={ terms_of_service_url }}
+    | "user_support_email" -> {some={ user_support_email }}
+    | "user_support_url" -> {some={ user_support_url }}
+    | "website_url" -> {some={ website_url }}
+    | _ -> {none}
+
+  is_editable_property(property:Facebook.property) : bool =
+    match property with
+    | { id } -> false
+    | { name } -> false
+    | { description } -> false
+    | { category } -> false
+    | { company } -> false
+    | { icon_url } -> false
+    | { subcategory } -> false
+    | { link } -> false
+    | { logo_url } -> false
+    | { daily_active_users } -> false
+    | { weekly_active_users } -> false
+    | { monthly_active_users } -> false
+    | { created_time } -> false
+    | { creator_uid } -> false
+    | { iphone_app_store_id } -> false
+    | { hosting_url } -> false
+    | _ -> true
 
   empty_feed = {
     from        = ""
