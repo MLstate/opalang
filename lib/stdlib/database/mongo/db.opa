@@ -73,7 +73,7 @@ type DbMongo.private.path_t('kind, 'data) = {
 /**
  * {1 Interface}
  */
-
+@server_private
 DbMongo = {{
 
    /**
@@ -738,7 +738,7 @@ type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine('a))
 /**
  * {1 Interface}
  */
-
+@server_private
 DbMongoSet = {{
 
   @package path_to_id(path) = List.to_string_using("", "", ".", path)
