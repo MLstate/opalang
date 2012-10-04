@@ -10,7 +10,9 @@ set -e
 # You can then run your compilations with:
 # $ <build_dir>/myocamlbuild -no-plugin -j 6 <targets>
 
-CONFIG_PATH=tools/build
+
+TOOLS_PATH=$OPALANG_REPO/tools
+CONFIG_PATH=$TOOLS_PATH/build
 
 CONFIG_SH=$CONFIG_PATH/config.sh
 if [ ! -e $CONFIG_SH ]; then
@@ -24,7 +26,7 @@ fi
 
 . $CONFIG_SH
 
-. tools/platform_helper.sh
+. $TOOLS_PATH/platform_helper.sh
 
 : ${BLDDIR:="$PWD"/tools/build}
 

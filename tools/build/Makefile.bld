@@ -36,7 +36,7 @@
 #
 
 BUILD_DIR ?= _build
-BLDDIR ?= tools/build
+BLDDIR ?= $(OPALANG_REPO)/tools/build
 MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild
 OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin $(OCAMLBUILD_OPT) $(OCAMLBUILD_FLAGS)
 
@@ -46,7 +46,7 @@ DESTDIR ?=
 INSTALL_DIR = $(DESTDIR)$(PREFIX)
 LIB_INSTALL_DIR = $(INSTALL_DIR)/lib/opa/static
 
-CONFIG_PATH = tools/build
+CONFIG_PATH = $(OPALANG_REPO)/tools/build
 
 .PHONY: clean
 clean::
@@ -129,12 +129,12 @@ $(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS)
 	        dir = $$4 ? $$4 : "bin"; dirs[i++] = dir; \
 	        printf ".PHONY: %s\n", tool; \
 	        printf "%s: $$(MYOCAMLBUILD)\n", tool; \
-	        printf "\t$$(OCAMLBUILD) %s\n", target; \
+	        printf "\t$$(OCAMLBUILD) $$(BUILD_PREFIX)%s\n", target; \
 	        printf "\t@$$(copy-tool-%s)\n", tool; \
 	        printf ".PHONY: install-%s\n", tool; \
 	        printf "install-%s:\n\t@$$(install-%s)", tool, tool; \
 	        printf "\n"; \
-	        printf "target-tool-%s = %s\n", tool, target; \
+	        printf "target-tool-%s = $$(BUILD_PREFIX)%s\n", tool, target; \
 	        printf "copy-tool-%s = ", tool; \
 	        printf "mkdir -p $$(BUILD_DIR)/%s && $$(INSTALL) $$(BUILD_DIR)/%s $$(BUILD_DIR)/%s/%s", \
 	          dir, target, dir, tool; \
