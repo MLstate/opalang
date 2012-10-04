@@ -29,6 +29,7 @@ include $(BUILD_PATH)/Makefile.bld
 ## STANDARD TARGETS
 ##
 
+# ALL_TOOLS is built by Makefile.bld from build_tools files
 .PHONY: node
 node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
