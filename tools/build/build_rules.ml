@@ -855,10 +855,6 @@ let all_plugins_file = stdlib_packages_dir/"all.plugins" in
 let () = List.iter
   plugin_building
   [ "opabsl"; ]
-  (*   "badop"; *)
-  (*   "browser_canvas"; "crypto"; "gcharts"; "hlnet"; "iconv"; *)
-  (*   "irc"; "mail"; "mongo"; "qos"; "server"; "socket"; "unix" *)
-  (* ] *)
 in
 
 (** This rule generates rules for all plugins *)
