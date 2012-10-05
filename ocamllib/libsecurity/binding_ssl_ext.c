@@ -45,7 +45,7 @@
 #define SSL_val(v) (*((SSL**)Data_custom_val(v)))
 #define ONELINE_NAME(X) X509_NAME_oneline(X, 0, 0)
 
-#include "ocamllib/libbase/mlstate_platform.h"
+#include "mlstate_platform.h"
 
 #if defined (__APPLE__)
 /* Disable depricated-declarations on OS X */

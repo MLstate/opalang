@@ -37,7 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "ocamllib/libbase/mlstate_platform.h"
+#include "mlstate_platform.h"
 
 #ifdef MLSTATE_WINDOWS
 #include <Winsock2.h>

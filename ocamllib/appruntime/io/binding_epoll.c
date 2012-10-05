@@ -31,7 +31,7 @@
 #include <caml/fail.h>
 #include <caml/threads.h>
 
-#include "ocamllib/libbase/mlstate_platform.h"
+#include "mlstate_platform.h"
 
 #define EXPORT(name,v)					\
   CAMLprim value ep_##name()                            \

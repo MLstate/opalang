@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -23,7 +23,7 @@
 #include <caml/fail.h>
 
 
-#include "../../libbase/mlstate_platform.h"
+#include "mlstate_platform.h"
 
 #ifdef MLSTATE_WINDOWS
 

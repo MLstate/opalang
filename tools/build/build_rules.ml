@@ -139,17 +139,15 @@ let generate_ocamldep_rule ml_or_mli =
 generate_ocamldep_rule "ml";
 generate_ocamldep_rule "mli";
 
-(* -- Macro-rules generating mlstate_platform.h files -- *)
-(* TODO BUG 2 : droits du script invalides *)
-(* TODO BUG 3 : path du fichier généré foireux *)
-rule "mlstate_platform: () -> ocamllib/libbase/mlstate_platform.h"
+(* -- Macro-rule generating mlstate_platform.h file -- *)
+rule "mlstate_platform: () -> mlstate_platform.h"
   ~deps:(tool_deps mlstate_platform)
-  ~prods:[libbase_dir/"mlstate_platform.h"]
+  ~prods:["mlstate_platform.h"]
   (fun env build ->
      Seq[
-       Cmd(S[Sh"chmod +x"; P (libbase_dir/"gen_platform")]);
+       (* TODO : we should not need to change mode manually *)
+       chmod (A"+x") (libbase_dir/"gen_platform");
        Cmd(S[get_tool mlstate_platform; A (if is_win32 then "WIN" else "")]);
-       Cmd(S[Sh"mv"; A"mlstate_platform.h"; P(libbase_dir/"mlstate_platform.h")])
      ]
   );
 
