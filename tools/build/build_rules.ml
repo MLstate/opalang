@@ -295,7 +295,7 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
 
 (* -- Internal use of built tools -- *)
 
-rule " ofile"
+rule "ofile"
   ~deps:("%.of" :: tool_deps "ofile")
   ~prod:"%.ml"
   (fun env build ->

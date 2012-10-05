@@ -95,7 +95,8 @@ let proto_deps dep prod env build =
 let opa_plugin_deps dep prod env build =
   Cmd(S[Sh(Printf.sprintf "cp \"%s\" \"%s\"" dep prod)])
 
-let build_list build targets = List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))
+let build_list build targets =
+  List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))
 
 let mlstatelibs = try Sys.getenv "MLSTATELIBS" with
     Not_found -> Pathname.pwd / !Options.build_dir
@@ -154,7 +155,8 @@ let trx_build_aux ~just_binary src dst ext ops = fun env build ->
             let prefix =
 	      let p = Pathname.to_string (Pathname.dirname f) in
 	      if p = "." then "" else p^"/" in
-            let deps = List.map ((^) prefix) (string_list_of_file (f -.- "depends")) in
+	    let deps = string_list_of_file (f -.- "depends") in
+	    let deps = List.map ((^) prefix) deps in
             let dep_files = List.map (fun d -> d -.- "depends") deps in
             build_list build dep_files;
             build_list build deps;
