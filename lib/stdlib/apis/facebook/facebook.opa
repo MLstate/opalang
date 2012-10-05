@@ -233,14 +233,14 @@ type Facebook.feed = {
 
 /** A Facebook post for [FbGraph.Post.post]. */
 type Facebook.post = {
-  message     : string
-  link        : string
-  picture     : string
-  name        : string
-  caption     : string
-  description : string
+  message     : option(string)
+  link        : option(string)
+  picture     : option(string)
+  name        : option(string)
+  caption     : option(string)
+  description : option(string)
   actions     : list(Facebook.feed_link)
-  privacy     : string
+  privacy     : option(string)
 }
 
 type Facebook.property =
@@ -360,7 +360,7 @@ Facebook = {{
     | { friends_about_me }             -> "friends_about_me"
     | { friends_activities }           -> "friends_activities"
     | { friends_birthday }             -> "friends_birthday"
-    | { friends_checkins }	     -> "friends_checkins"
+    | { friends_checkins }             -> "friends_checkins"
     | { friends_education_history }    -> "friends_education_history"
     | { friends_events }               -> "friends_events"
     | { friends_groups }               -> "friends_groups"
