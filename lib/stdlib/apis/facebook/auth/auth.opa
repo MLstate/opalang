@@ -179,6 +179,8 @@ FbAuth(conf:Facebook.config) = {{
    * @return A [FbAuth.page_token_res] with either a page token or
    * an error in case of failure
    */
+  // TODO: We should really get this from /PAGE_ID?fields=access_token but that
+  // just says that it has no access_token field. ????
   application_page_token(id, page_name, token) : FbAuth.page_token_res =
      match FbLib.fb_get(graph_url, "/{id}/accounts?access_token={token}", []) with
      | {none} -> {error=Facebook.make_error("application_page_token","Network error")}

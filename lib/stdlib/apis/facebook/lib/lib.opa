@@ -34,6 +34,18 @@ import stdlib.apis.common
 
 FbLib = {{
 
+  @private tzfmt = Date.generate_printer("%z")
+  @private fmt = Date.generate_printer("%FT%T")
+
+  date_to_string(d:Date.date) =
+    tz = Date.to_formatted_string(tzfmt, d)
+    tz =
+      match String.length(tz) with
+      | 4 -> String.sub(0,2,tz)^":"^String.sub(2,2,tz)
+      | 5 -> String.sub(0,3,tz)^":"^String.sub(3,2,tz)
+      | _ -> tz
+    "{Date.to_formatted_string(fmt, d)}{tz}"
+
   generic_build_path(path, options) =
     if options == [] then path
     else "{path}?{API_libs.form_urlencode(options)}"
@@ -109,9 +121,9 @@ FbLib = {{
     mimetype = "multipart/form-data; boundary={bound}"
     forms = List.map((f ->
                       match f with
-                      | {form=(name, content)} ->
+                      | ~{name; content} ->
                          "--{bound}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{content}\r\n"
-                      | {file=(name, filename, content_type, content)} ->
+                      | ~{name; filename; content_type; content} ->
                          "--{bound}\r\nContent-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\nContent-Type={content_type}\r\n\r\n{content}\r\n"
                      ),forms)
     content = some(String.concat("",List.append(forms,["--{bound}--\r\n"])))
@@ -161,15 +173,13 @@ FbLib = {{
     then data
     else List.add((name, tostr(Option.get(v))), data)
 
-  add_if_filled_generic(name, tostr, v, data) =
-    str = tostr(v)
-    if str == ""
-    then data
-    else List.add((name, str), data)
+  add_if_filled_generic(name, tostr, v, data) = add_if_filled(name, tostr(v), data)
 
   add_bool_if_filled(name, v:option(bool), data) = add_if_filled_opt(name, Bool.to_string, v, data)
 
   add_int_if_filled(name, v:option(int), data) = add_if_filled_opt(name, Int.to_string, v, data)
+
+  add_date_if_filled(name, v:option(Date.date), data) = add_if_filled_opt(name, date_to_string, v, data)
 
   add_array_if_filled(name, tojson:list('a)->RPC.Json.json, v:list('a), data) =
     if v == []
@@ -179,21 +189,64 @@ FbLib = {{
   add_json(name, tojson:'a->RPC.Json.json, v:'a, data) =
     List.add((name, Json.serialize(tojson(v))), data)
 
+  add(parameters, data) =
+    List.fold((p, data ->
+      match p with
+      | {sreq=(name,v)} -> List.add((name,v),data)
+      | {sopt=(name,v)} -> if Option.is_none(v) then data else List.add((name, Option.get(v)), data)
+      | {ireq=(name,v)} -> List.add((name,Int.to_string(v)),data)
+      | {iopt=(name,v)} -> add_int_if_filled(name, v, data)
+      | {breq=(name,v)} -> List.add((name,Bool.to_string(v)),data)
+      | {bopt=(name,v)} -> add_bool_if_filled(name, v, data)
+      | {dreq=(name,v)} -> List.add((name,date_to_string(v)),data)
+      | {dopt=(name,v)} -> add_date_if_filled(name, v, data)
+      | {jreq=(name,toj,v)} -> add_json(name, toj, v, data)
+      | {jopt=(name,toj,v)} -> if Option.is_none(v) then data else add_json(name, toj, Option.get(v), data)
+      | {creq=(name,tos,v)} -> List.add((name,tos(v)),data)
+      | {copt=(name,tos,v)} -> if Option.is_none(v) then data else List.add((name, tos(Option.get(v))),data)
+      | {aopt=(name,toj,v)} -> if v == [] then data else List.add((name, Json.serialize({List=List.map(toj,v)})), data)
+      | {lopt=(name,tos,v)} -> if v == [] then data else List.add((name, String.concat(",",List.map(tos,v))), data)
+     ),parameters,data)
+
   add_form_if_filled(name, v, data) =
     if v == ""
     then data
-    else List.add({form=(name, v)}, data)
+    else List.add({~name; content=v}, data)
+
+  forms(forms) =
+    List.fold((f, forms ->
+      match f with
+      | {file=(name,filename,content_type,content)} -> List.add(~{name; filename; content_type; content},forms)
+      | {sreq=(name,v)} -> List.add({~name; content=v},forms)
+      | {sopt=(name,v)} -> if Option.is_none(v) then forms else List.add({~name; content=Option.get(v)},forms)
+      | {breq=(name,v)} -> List.add({~name; content=Bool.to_string(v)},forms)
+      | {bopt=(name,v)} -> if Option.is_none(v) then forms else List.add({~name; content=Bool.to_string(Option.get(v))},forms)
+      | {dreq=(name,v)} -> List.add({~name; content=date_to_string(v)},forms)
+      | {dopt=(name,v)} -> if Option.is_none(v) then forms else List.add({~name; content=date_to_string(Option.get(v))},forms)
+      | {ireq=(name,v)} -> List.add({~name; content=Int.to_string(v)},forms)
+      | {iopt=(name,v)} -> if Option.is_none(v) then forms else List.add({~name; content=Int.to_string(Option.get(v))},forms)
+      | {jreq=(name,toj,v)} -> List.add({~name; content=Json.serialize(toj(v))}, forms)
+      | {jopt=(name,toj,v)} ->
+         if Option.is_none(v) then forms else List.add({~name; content=Json.serialize(toj(Option.get(v)))},forms)
+      | {creq=(name,tos,v)} -> List.add({~name; content=tos(v)},forms)
+      | {copt=(name,tos,v)} -> if Option.is_none(v) then forms else List.add({~name; content=tos(Option.get(v))},forms)
+      | {aopt=(name,toj,v)} ->
+         if v == [] then forms else List.add({~name; content=Json.serialize({List=List.map(toj,v)})}, forms)
+   ),forms,[])
 
  /* Feed to data */
 
   fb_properties_to_json(properties:Facebook.properties) : RPC.Json.json =
     {List=List.map((p -> {String=Facebook.string_of_property(p)}),properties)}
 
-  actions_to_json(actions) : RPC.Json.json =
-    aux(l:Facebook.feed_link) : RPC.Json.json =
-      {Record=[("name", {String=l.text}:RPC.Json.json),
-               ("link", {String=l.href}:RPC.Json.json)]}
-    {List=List.map(aux, actions)}
+  feed_link_to_json(l:Facebook.feed_link) : RPC.Json.json =
+    {Record=[("name", {String=l.text}:RPC.Json.json),
+             ("link", {String=l.href}:RPC.Json.json)]}
+  actions_to_json(actions) : RPC.Json.json = {List=List.map(feed_link_to_json, actions)}
+
+  s2j(s:string) : RPC.Json.json = {String=s}
+  l2j(toj:'a->RPC.Json.json, l:list('a)) : RPC.Json.json = {List=List.map(toj, l)}
+  sl2j = l2j(s2j,_)
 
   @private properties_to_json(properties) : RPC.Json.json =
     sub(l:Facebook.feed_link) : RPC.Json.json =
