@@ -21,7 +21,7 @@
 -generate client
 -protocol IRC
 -debugvar PROTOCOL_DEBUG
--include "ocamllib/libirc/ircMessages.proto"
+-include "ircMessages.proto"
 
 -type irc = {
     username:string;

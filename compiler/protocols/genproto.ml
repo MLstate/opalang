@@ -300,19 +300,21 @@ let gen_functor ~protocol parserprefix parsername arg lst types startfun =
         )]
       else stru)
 
-let rec resolve_includes lst =
-  List.fold_right (fun expr lst ->
-                     match expr with
-                     | G.Include name ->
-                         (*Printf.eprintf "resolve_includes: name=%s\n%!" name;*)
-                         let str = File.content name in
-                         let pos,partial = G.parse_grammar_prog str in
-                         if pos < String.length str then
-                           failwith <| Printf.sprintf "Parse error at char: %d in file %s" pos name
-                         else
-                           let lst2 = resolve_includes (partial) in
-                           lst2@lst
-                     | expr -> expr::lst) lst []
+let rec resolve_includes prefix lst =
+  List.fold_right (
+    fun expr lst ->
+      match expr with
+      | G.Include name ->
+	  let name = prefix ^ name in
+          (* Printf.eprintf "resolve_includes: name=%s\n%!" name; *)
+          let str = File.content name in
+          let pos,partial = G.parse_grammar_prog str in
+          if pos < String.length str then
+            failwith <| Printf.sprintf "Parse error at char: %d in file %s" pos name
+          else
+            let lst2 = resolve_includes prefix (partial) in
+            lst2@lst
+      | expr -> expr::lst) lst []
 
 let () =
   if Array.length Sys.argv <> 5 then
@@ -332,7 +334,7 @@ let () =
     if pos < String.length str then
       failwith <| Printf.sprintf "Parse error at char: %d in file %s" pos src
     else
-      let complete = resolve_includes partial in
+      let complete = resolve_includes dst_dir partial in
 
       let tmpl = List.filter (function
                         | G.Generate _ -> false

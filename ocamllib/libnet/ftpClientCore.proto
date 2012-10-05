@@ -67,7 +67,7 @@
 -define (ENs (num : int, str)) = num "-" str "\r\n"
 -define (Ns (num : int, str))  = num " " str "\r\n"
 
--include "ocamllib/libnet/ftpMessages.proto"
+-include "ftpMessages.proto"
 
 {{
 let dlog sep code _msg = Logger.debug "<<< %d%s%s" code sep _msg

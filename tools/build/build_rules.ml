@@ -314,15 +314,17 @@ rule "proto: proto & proto_depends -> ml & mli & trx_parse"
   ~deps:("%.proto" :: "%.proto.depends" :: tool_deps "genproto")
   ~prods: [ "%.ml" ; "%.mli" ; "%_parse.trx" ]
   (fun env build ->
-    let dir = Pathname.dirname (env "%.proto") in
-    let proto_deps = (string_list_of_file (env "%.proto.depends")) in
-    if proto_deps <> [] then build_list build proto_deps;
-    Cmd(S[get_tool "genproto"
-         ; P (env "%.proto")
-         ; P dir
-         ; P (Pathname.basename (env "%"))
-         ; P (Pathname.basename (env "%") ^ "_parse")
-         ]));
+     let dir = Pathname.dirname (env "%.proto") in
+     let prefix = if dir = "." then "" else dir^"/" in
+     let proto_deps = string_list_of_file (env "%.proto.depends") in
+     let proto_deps = List.map ((^) prefix) proto_deps in
+     if proto_deps <> [] then build_list build proto_deps;
+     Cmd(S[get_tool "genproto"
+          ; P (env "%.proto")
+          ; P dir
+          ; P ((Pathname.basename (env "%")))
+          ; P ((Pathname.basename (env "%") ^ "_parse"))
+          ]));
 
 (* -- Wsdl2ml rules -- *)
 

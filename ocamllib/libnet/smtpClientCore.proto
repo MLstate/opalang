@@ -53,7 +53,7 @@
 }
 
 -type payload = unit
--include "ocamllib/libnet/rt_proto.proto"
+-include "rt_proto.proto"
 %-type rt_proto = {
 %  rt_block_size : int;
 %  rt_backtrace : bool;
