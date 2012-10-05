@@ -10,9 +10,9 @@
 .PHONY: default
 default: node
 
-OPALANG_REPO ?= $(PWD)
+OPALANG_DIR ?= .
 
-BUILD_PATH = $(OPALANG_REPO)/tools/build
+BUILD_PATH = $(OPALANG_DIR)/tools/build
 
 include $(BUILD_PATH)/config.make
 
@@ -137,8 +137,8 @@ endef
 
 
 # List all packages and plugins in stdlib
-OPA_PACKAGES := $(shell cd $(OPALANG_REPO)/lib/stdlib && ./all_packages.sh)
-OPA_PLUGINS  := $(shell cd $(OPALANG_REPO)/lib/stdlib && ./all_plugins.sh && echo "opabsl")
+OPA_PACKAGES := $(shell cd $(OPALANG_DIR)/lib/stdlib && ./all_packages.sh)
+OPA_PLUGINS  := $(shell cd $(OPALANG_DIR)/lib/stdlib && ./all_plugins.sh && echo "opabsl")
 
 # Rules installing everything that has been compiled
 #

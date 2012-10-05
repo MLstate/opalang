@@ -36,7 +36,7 @@
 #
 
 BUILD_DIR ?= _build
-BLDDIR ?= $(OPALANG_REPO)/tools/build
+BLDDIR ?= $(OPALANG_DIR)/tools/build
 MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild
 OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin $(OCAMLBUILD_OPT) $(OCAMLBUILD_FLAGS)
 
@@ -46,7 +46,7 @@ DESTDIR ?=
 INSTALL_DIR = $(DESTDIR)$(PREFIX)
 LIB_INSTALL_DIR = $(INSTALL_DIR)/lib/opa/static
 
-CONFIG_PATH = $(OPALANG_REPO)/tools/build
+CONFIG_PATH = $(OPALANG_DIR)/tools/build
 
 .PHONY: clean
 clean::

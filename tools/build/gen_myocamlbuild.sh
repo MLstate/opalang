@@ -11,7 +11,7 @@ set -e
 # $ <build_dir>/myocamlbuild -no-plugin -j 6 <targets>
 
 
-TOOLS_PATH=$OPALANG_REPO/tools
+TOOLS_PATH=$OPALANG_DIR/tools
 CONFIG_PATH=$TOOLS_PATH/build
 
 CONFIG_SH=$CONFIG_PATH/config.sh
@@ -28,7 +28,7 @@ fi
 
 . $TOOLS_PATH/platform_helper.sh
 
-: ${BLDDIR:="$PWD"/tools/build}
+: ${BLDDIR:=$TOOLS_PATH/build}
 
 CONFIG_ML=$CONFIG_PATH/config.ml
 if [ ! -e $CONFIG_ML ]; then
@@ -46,9 +46,9 @@ fi
 
 
 BUILD_DIR="_build"
-BUILD_RULES="tools/build/build_rules.ml"
-BUILD_LIBS="tools/build/build_libs"
-BUILD_TOOLS="tools/build/build_tools"
+BUILD_RULES=$BLDDIR/build_rules.ml
+BUILD_LIBS=$BLDDIR/build_libs
+BUILD_TOOLS=$BLDDIR/build_tools
 
 while [ $# -gt 0 ]; do
     case $1 in
