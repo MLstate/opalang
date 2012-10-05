@@ -14,6 +14,10 @@ open Ocamlbuild_plugin
 
 open Command
 
+let opalang_prefix =
+  try Sys.getenv "BUILD_PREFIX" with Not_found -> ""
+
+let prefix_me s = opalang_prefix ^ s
 
 (**
    {6 Portability utility functions }
@@ -556,13 +560,20 @@ let _ = dispatch begin function
           (fun acc d -> let sub = subdirs d in sub @ rec_subdirs sub @ acc) [] dlist in
       let set_common_context dirlist =
         List.iter (fun dir -> Pathname.define_context dir dirlist) dirlist in
-      let shared_namespace_dir dir = set_common_context (dir::rec_subdirs [dir]) in
-      let include_subdirs dir = Pathname.define_context dir (dir::subdirs dir) in
+      let shared_namespace_dir dir =
+	let dir = prefix_me dir in
+	set_common_context (dir::rec_subdirs [dir])
+      in
+      let include_subdirs dir =
+	let dir = prefix_me dir in
+	Pathname.define_context dir (dir::subdirs dir)
+      in
 
       (* -- Stubs -- *)
 
       let def_stubs ~dir name =
         let tag = "use_"^name in
+	let dir = prefix_me dir in
         let file = dir / "lib" ^ name -.- !Options.ext_lib in
         dep ["ocaml"; tag] [file];
         flag ["ocaml"; "byte"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name);A"-custom"]);

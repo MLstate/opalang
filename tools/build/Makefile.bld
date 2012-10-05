@@ -95,7 +95,7 @@ $(BUILD_DIR)/build_libs.make: $(BUILD_LIBS)
 	        printf "%s: $$(MYOCAMLBUILD)\n\t$$(OCAMLBUILD) $$@.cmxa\n",lib; \
 	        printf "install-%s:\n\t@$$(install-%s)", lib, lib; \
 	        printf "\n"; \
-	        printf "lib-cmi-%s = $$(call lib-cmi,%s,%s)\n", lib, lib, dir; \
+	        printf "lib-cmi-%s = $$(call lib-cmi,%s,$$(BUILD_PREFIX)%s)\n", lib, lib, dir; \
 	        printf "install-%s = mkdir -p $$(LIB_INSTALL_DIR) && ", lib; \
 	        printf "$$(INSTALL)"; \
 	        printf " $$(addprefix $$(BUILD_DIR)/,%s.$(EXT_LIB) %s.cmxa $$(lib-cmi-%s))", lib, lib, lib; \
@@ -136,7 +136,7 @@ $(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS)
 	        printf "\n"; \
 	        printf "target-tool-%s = $$(BUILD_PREFIX)%s\n", tool, target; \
 	        printf "copy-tool-%s = ", tool; \
-	        printf "mkdir -p $$(BUILD_DIR)/%s && $$(INSTALL) $$(BUILD_DIR)/%s $$(BUILD_DIR)/%s/%s", \
+	        printf "mkdir -p $$(BUILD_DIR)/%s && $$(INSTALL) $$(BUILD_DIR)/$$(BUILD_PREFIX)%s $$(BUILD_DIR)/%s/%s", \
 	          dir, target, dir, tool; \
 	        if (dir=="bin") printf " && chmod a+x $$(BUILD_DIR)/%s/%s\n",dir,tool; \
 	        else printf "\n"; \

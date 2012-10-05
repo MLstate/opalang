@@ -99,8 +99,8 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
         if [ -e "$i" ]; then
             echo "#1 \"$i\""
             sed "$SED_FILTER" $i |
-            awk '/^external/ { print "set_tool ~internal:false \""$2"\" \""$3"\";" }
-                 /^internal/ { print "set_tool ~internal:true \""$2"\" \""$3"\";" }'
+            awk '/^external/ { print "set_tool ~internal:false \""$2"\" (prefix_me \""$3"\");" }
+                 /^internal/ { print "set_tool ~internal:true \""$2"\" (prefix_me \""$3"\");" }'
         fi
     done
     for i in $BUILD_LIBS; do
@@ -109,7 +109,7 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
             awk 'BEGIN { split (ENVIRON["DISABLED_LIBS"],a); for (i in a) disabled[a[i]] = 1 }
                  /^external/ { print "mlstate_lib ~dir:\"lib/opa/static\" \""$2"\";" }
                  /^internal/ && ! ($2 in disabled) \
-                   { print "internal_lib", $3 ? "~dir:\""$3"\"" : "", "\""$2"\";" }' $i
+                   { print "internal_lib", $3 ? "~dir:(prefix_me \""$3"\")" : "", "\""$2"\";" }' $i
         fi
     done
     for i in $BUILD_RULES; do

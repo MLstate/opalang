@@ -28,8 +28,8 @@
           P (pp_script "mlstate_nodebug"),
           P (pp_script "pa_ulex")
         else
-          P (Pathname.pwd/"tools"/"utils"/"ppdebug.pl"),
-          S [ P (Pathname.pwd/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
+          P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"),
+          S [ P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
           S [ P Config.camlp4o;
               (match Config.Libdir.ulex with
                | Some dir -> S [A "-I"; P dir]

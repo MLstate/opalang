@@ -32,8 +32,8 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 
 (* PATHS *)
 
-let plugins_dir = "lib" / "plugins" in
-let libbase_dir = "ocamllib" / "libbase" in
+let plugins_dir = prefix_me "lib" / "plugins" in
+let libbase_dir = prefix_me "ocamllib" / "libbase" in
 let opa_prefix = Pathname.pwd / !Options.build_dir in
 
 let extralib_opt = function
@@ -88,7 +88,7 @@ end;
 
 (* -- Ocamldoc plugin -- *)
 
-flag_and_dep ["ocaml"; "doc"] (S[A"-g";P"tools/utils/ocamldoc_plugin.cmxs"]);
+flag_and_dep ["ocaml"; "doc"] (S[A"-g";P(prefix_me "tools/utils/ocamldoc_plugin.cmxs")]);
 
 
 (* ------------------------------------------------------------ *)
@@ -153,26 +153,21 @@ rule "mlstate_platform: () -> mlstate_platform.h"
 
 (* -- Opa stdlib -- *)
 
-(*
-  <!> Mathieu Fri Oct 22 10:54:50 CEST 2010
-  !! IF YOU NEED TO PATCH THE FOLLOWING RULE !!
-  ---> come to me, we have to talk first.
-*)
 let stdlib_files =
   (* keep in sync with s3passes@pass_AddStdlibFiles*)
-  let core_dir = "lib/stdlib/core" in
-  let tests_dir = "lib/stdlib/tests" in
+  let core_dir = prefix_me "lib/stdlib/core" in
+  let tests_dir = prefix_me "lib/stdlib/tests" in
   let dirs = core_dir :: tests_dir :: rec_subdirs [ core_dir ] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "js" dir @ dir_ext_files "opa" dir @ acc) dirs [] in
   files
 in
 rule "stdlib embedded: stdlib_files -> opalib/staticsInclude.of"
   ~deps:stdlib_files
-  ~prod:"compiler/opalib/staticsInclude.of"
-  (fun env build -> Echo (List.map (fun f -> f^"\n") stdlib_files, "compiler/opalib/staticsInclude.of"));
+  ~prod:(prefix_me "compiler/opalib/staticsInclude.of")
+  (fun env build -> Echo (List.map (fun f -> f^"\n") stdlib_files, (prefix_me "compiler/opalib/staticsInclude.of")));
 
 let opa_opacapi_files =
-  let dirs = rec_subdirs ["lib/stdlib"] in
+  let dirs = rec_subdirs [prefix_me "lib/stdlib"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "opa" dir @ acc) dirs [] in
   files
 in
@@ -183,12 +178,12 @@ let opa_opacapi_plugins = ["badop"] in
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
   ~deps:(tool_deps "checkopacapi" @ opa_opacapi_files
-         @ List.map (fun x -> Printf.sprintf "lib/plugins/%s/%s.oppf" x x)
+         @ List.map (fun x -> prefix_me (Printf.sprintf "lib/plugins/%s/%s.oppf" x x))
          opa_opacapi_plugins)
   ~prod:opacapi_validation
   (fun env build ->
      Cmd(S ([
-              P "./compiler/opa/checkopacapi.native" ;
+              P (prefix_me "compiler/opa/checkopacapi.native") ;
               A "-o" ;
               P opacapi_validation ;
             ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
@@ -199,11 +194,11 @@ rule "Opa Compiler Interface Validation (opacapi)"
 (* -- Build infos and runtime version handling -- *)
 
 (* TODO: probably same bugs than mlstate_platform *)
-let generate_buildinfos = "compiler/buildinfos/generate_buildinfos.sh" in
-let version_buildinfos = "compiler/buildinfos/version_major.txt" in
-let pre_buildinfos = "compiler/buildinfos/buildInfos.ml.pre" in
-let post_buildinfos = "compiler/buildinfos/buildInfos.ml.post" in
-let buildinfos = "compiler/buildinfos/buildInfos.ml" in
+let generate_buildinfos = prefix_me "compiler/buildinfos/generate_buildinfos.sh" in
+let version_buildinfos = prefix_me "compiler/buildinfos/version_major.txt" in
+let pre_buildinfos = prefix_me "compiler/buildinfos/buildInfos.ml.pre" in
+let post_buildinfos = prefix_me "compiler/buildinfos/buildInfos.ml.post" in
+let buildinfos = prefix_me "compiler/buildinfos/buildInfos.ml" in
 rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
   ~deps:[version_buildinfos; pre_buildinfos; generate_buildinfos; post_buildinfos]
   ~prods:(buildinfos :: (if Config.is_release then ["always_rebuild"] else []))
@@ -231,11 +226,14 @@ let get_version_buildinfos () =
   List.hd (string_list_of_file (opa_prefix/version_buildinfos)) in
 
 let parser_files =
-  let dir = ["compiler/opalang/classic_syntax";"compiler/opalang/js_syntax"] in
+  let dir = [
+    prefix_me "compiler/opalang/classic_syntax";
+    prefix_me "compiler/opalang/js_syntax"
+  ] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "trx" dir @ dir_ext_files "ml" dir) dir ["general/surfaceAst.ml"] in
   files
 in
-let opaParserVersion = "compiler"/"opalang"/"classic_syntax"/"opaParserVersion.ml" in
+let opaParserVersion = prefix_me "compiler"/"opalang"/"classic_syntax"/"opaParserVersion.ml" in
 rule "opa parser version: compiler/opalang/*_syntax/* stdlib -> compiler/opalang/classic_syntax/opaParserVersion.ml"
   ~deps:parser_files
   ~prod:opaParserVersion
@@ -248,10 +246,10 @@ rule "opa parser version: compiler/opalang/*_syntax/* stdlib -> compiler/opalang
     ]
   );
 
-let dependencies_path = "tools"/"dependencies" in
+let dependencies_path = prefix_me "tools"/"dependencies" in
 let launch_helper_script = dependencies_path/"launch_helper.sh" in
 let launch_helper_js = dependencies_path/"launch_helper.js" in
-let qml2js_path = "compiler"/"qml2js" in
+let qml2js_path = prefix_me "compiler"/"qml2js" in
 let qml2js_file = qml2js_path/"qml2js.ml" in
 let launchHelper = qml2js_path/"launchHelper.ml" in
 
@@ -411,20 +409,20 @@ let opa_plugin_builder_name = "opa-plugin-builder-bin" in
 let opa_plugin_builder = get_tool opa_plugin_builder_name in
 
 let client_lib_validation_externs = [
-  "lib"/"plugins"/"opabsl"/"jsbsl"/"jquery_ext_bslanchor.externs.js";
-  "lib"/"plugins"/"opabsl"/"jsbsl"/"jquery_ext_jQueryExtends.externs.js";
-  "lib"/"plugins"/"opabsl"/"jsbsl"/"selection_ext_bsldom.externs.js";
-  "lib"/"plugins"/"opabsl"/"jsbsl"/"jquery_extra.externs.js"
+  prefix_me "lib"/"plugins"/"opabsl"/"jsbsl"/"jquery_ext_bslanchor.externs.js";
+  prefix_me "lib"/"plugins"/"opabsl"/"jsbsl"/"jquery_ext_jQueryExtends.externs.js";
+  prefix_me "lib"/"plugins"/"opabsl"/"jsbsl"/"selection_ext_bsldom.externs.js";
+  prefix_me "lib"/"plugins"/"opabsl"/"jsbsl"/"jquery_extra.externs.js"
 ] in
 
 let client_lib_files = [
-  "compiler"/"qmljsimp"/"qmlJsImpClientLib.js";
-  "compiler"/"qmlcps"/"qmlCpsClientLib.js";
-  "compiler"/"qml2js"/"clientLibLib.js"
+  prefix_me "compiler"/"qmljsimp"/"qmlJsImpClientLib.js";
+  prefix_me "compiler"/"qmlcps"/"qmlCpsClientLib.js";
+  prefix_me "compiler"/"qml2js"/"clientLibLib.js"
 ] in
 
 let client_lib_validation_output =
-  "lib"/"plugins"/"opabsl"/"js_validation"/"imp_client_lib.js" in
+  prefix_me "lib"/"plugins"/"opabsl"/"js_validation"/"imp_client_lib.js" in
 
 rule "Client lib JS validation"
   ~deps:(tool_deps "jschecker.jar" @
@@ -436,7 +434,7 @@ rule "Client lib JS validation"
  (fun env build ->
    let concat_map f l = List.concat (List.map f l) in
    Seq[
-     Cmd(S [Sh"mkdir"; A"-p";P "lib/plugins/opabsl/js_validation"]);
+     Cmd(S [Sh"mkdir"; A"-p";P (prefix_me "lib/plugins/opabsl/js_validation")]);
      Cmd(S(
        js_checker @
          [A"--externs"; get_tool ~local:is_win32 "jschecker_externals.js";
@@ -495,8 +493,8 @@ rule "opa-bslgenMLRuntime JS documentation"
 
 (* -- OPA compiler rules -- *)
 
-let stdlib_packages_dir = "lib"/"stdlib" in
-let build_tools_dir = "tools"/"build" in
+let stdlib_packages_dir = prefix_me "lib"/"stdlib" in
+let build_tools_dir = prefix_me "tools"/"build" in
 
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
 
@@ -750,7 +748,7 @@ let plugin_building name =
             match Tags.mem "with_mlstate_debug" (tags_of_pathname mlfile) with
             | true ->
                 A"--pp-file"
-                :: P (Printf.sprintf "%s:%s" mlfile (Pathname.pwd/"tools"/"utils"/"ppdebug.pl"))
+                :: P (Printf.sprintf "%s:%s" mlfile (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"))
                 :: options
             | false -> options
        ) options (List.rev mlfiles)
@@ -947,8 +945,7 @@ all_packages_building true;
 all_packages_building false;
 
 
-
-let opa_create_prefix = "tools/opa-create/src/opa-create" in
+let opa_create_prefix = prefix_me "tools/opa-create/src/opa-create" in
 let opa_create_src = opa_create_prefix ^ ".opa" in
 let opa_create_dst = opa_create_prefix ^ ".exe" in
 
@@ -962,7 +959,7 @@ let dir_rec_all_files dir =
 in
 
 rule "opa application creator"
-  ~deps:(dir_rec_all_files "tools/opa-create")
+  ~deps:(dir_rec_all_files (prefix_me "tools/opa-create"))
   ~prods: [opa_create_dst]
   (fun env build ->
       Cmd(S[
