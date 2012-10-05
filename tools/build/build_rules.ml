@@ -216,10 +216,14 @@ rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
      let post_prod = env post_buildinfos in
      Seq[
        Cmd(S[Sh "cat" ; P pre_prod ; Sh ">" ; P prod]);
-       Cmd(S[P "bash"; A "-e"; P generate_buildinfos; P Pathname.pwd;
+       Cmd(S([P "bash"; A "-e"; P generate_buildinfos; P Pathname.pwd;
              if Config.is_release then A "--release" else N;
-             A "--version" ; P version ;
-             Sh ">>" ; P prod]);
+             A "--version" ; P version ] @ (
+	     try
+	       let suffix = Sys.getenv "VERSION_SUFFIX" in
+	       [ A "--version-suffix"; A suffix ]
+	     with Not_found -> []
+	   ) @ [Sh ">>" ; P prod]));
        Cmd(S[Sh "cat" ; P post_prod ; Sh ">>" ; P prod]);
      ]
   );

@@ -28,22 +28,24 @@ MLSTATE_DIFFING=${MLSTATE_DIFFING:-"0"}
 
 help () {
     cat <<EOF
-generating buildInfos.ml
+Generator for buildInfos.ml
 Use:
-   $0 opageneral-dir [options]
+   $0 opalang-dir [options]
 Options:
         --version file.txt     precise the file to read the name of opa version
+        --version-suffix TXT   precise the text to be append to opa version
         --release              release mode
 EOF
 }
 
 OPA_VERSION="S?"
-ROOTDIR=""
+OPA_VERSION_SUFFIX=""
+ROOTDIR="."
 IS_RELEASE="false"
 
 if [ -z "$1" ]; then
     help
-    echo "opageneral-dir is not specified"
+    echo "opalang-dir is not specified"
     exit 1
 else
     ROOTDIR="$1"
@@ -64,6 +66,11 @@ while [ "$#" -gt 0 ]; do
             shift;
             OPA_VERSION="$(cat $1)"
             ;;
+        --version-suffix)
+            if [ -z "$2" ]; then echo "Error: option $1 requires an argument"; exit 1; fi
+            shift;
+            OPA_VERSION_SUFFIX=$1
+            ;;
         *)
             help
             exit 1
@@ -72,7 +79,7 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-ROOT_REPO="opalang"
+: ${ROOT_REPO:="opalang"}
 REPOS="$ROOT_REPO"
 PATH_TO_REPOS="repos"
 
@@ -129,7 +136,7 @@ EOF
 fi
 
 # opa version
-echo "let opa_version_name = \"${OPA_VERSION}\""
+echo "let opa_version_name = \"${OPA_VERSION}${OPA_VERSION_SUFFIX}\""
 
 # git infos
 for repo in $REPOS ; do
