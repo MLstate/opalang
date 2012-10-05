@@ -411,6 +411,7 @@ type 'b dom_tag_args = {
   args : (string * string * (string, 'b) expr) list;
   class_ : (string, 'b) expr option;
   style : (string, 'b) expr option;
+  bool_attributes : ((string, 'b) expr) list;
   xmlns_declaration: (string * (string, 'b) expr) list;
   events : ((string, 'b) expr) list;
   events_expr : (string, 'b) expr option;
@@ -453,6 +454,11 @@ val add_arg :
   'a dom_tag_args option * annot ->
   (string * annot) * (string * annot) ->
   (string, 'a) expr option -> 'a dom_tag_args
+val add_bool_attribute :
+  'a dom_tag_args option * annot ->
+  string * annot ->
+  ((string, 'a) expr) option -> 'a dom_tag_args
+val bool_record : (string, [> `coerce ] as 'a) expr -> (string, 'a) expr
 val to_handle : string * annot -> (string, [> `coerce ]) expr
 val add_event :
   'a dom_tag_args option * annot ->

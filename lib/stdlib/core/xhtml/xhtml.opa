@@ -82,10 +82,20 @@ type xhtml_href =
 /   {typed:Uri.uri}   /**Typed structure, we assume that it has already been checked, so no additional check.*/
 /   {none}            /**No URI*/
 
+@opacapi
+type xhtml_bool_attribute_value =
+    {string:string}
+/   {bool:bool}
+/   {none}
+
+@opacapi
+type xhtml_bool_attribute = { name:string value:xhtml_bool_attribute_value }
+
 type xhtml_specific_attributes =
   {
         class:list(string)/**The classes of this element.*/
         style:Css.properties /**The style properties of this element*/
+        bool_attributes:list(xhtml_bool_attribute)
         events:list(handle_assoc(xhtml_event)) /**The event handlers associated with this element, as a list of pairs event name (_not_ attribute name) * event handler */
         events_options:list(handle_assoc(list(Dom.event_option)))
         href: xhtml_href/**Possibly a hyperlink.*/
@@ -180,7 +190,7 @@ Xmlns =
      | {xml_dialect = {none}} as v -> {some = v}
      | {xml_dialect = {some=_}} -> {none}
      | ~{namespace tag args content xmlns specific_attributes={none}}
-     | ~{namespace tag args content xmlns specific_attributes={some = {style=[] class=[] events=[] events_options=[] href={none}}}} ->
+     | ~{namespace tag args content xmlns specific_attributes={some = {style=[] class=[] bool_attributes=[] events=[] events_options=[] href={none}}}} ->
         match List.map_while_opt(of_xhtml,content) with
         | {none} -> {none}
         | {some=content} ->
@@ -717,7 +727,7 @@ Xhtml =
       (c -> "&#{c};")
     )
 
-  default_attributes = {style=[] class=[] events=[] events_options=[] href={none}} : xhtml_specific_attributes
+  default_attributes = {style=[] class=[] bool_attributes=[] events=[] events_options=[] href={none}} : xhtml_specific_attributes
 
   createFragment : list(xhtml) -> xhtml = Xml.create_fragment
 
@@ -941,7 +951,7 @@ Xhtml =
 
           do match specific_attributes with
              | {none} -> void
-             | {some=~{class style events events_options href}} ->
+             | {some=~{class style bool_attributes events events_options href}} ->
           //Normalize tags
                do (
                  match tag with
@@ -966,6 +976,14 @@ Xhtml =
                      end
                    | _ -> void
                )
+
+               do List.iter(~{name value} ->
+                  match value with
+                  | {string=value} -> print_arg(sassoc(name,value))
+                  | {bool=b} -> if b then print_arg(sassoc(name,name)) else void
+                  | {none} -> print_arg(sassoc(name,name))
+                  end,
+                  bool_attributes)
 
                (load_events, other_events) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events)
                (_,   other_events_options) = List.partition((a -> match a.name:Dom.event.kind {ready} -> true | _ -> false), events_options)
@@ -1463,7 +1481,7 @@ Replaced by a default value.")
                 {a with value="/*unsafe attribute from a client*/"}
               | _ -> a
               , _)
-          check_sargs({class=_ style=_ ~events events_options=_ href=_} as a) =
+          check_sargs({class=_ style=_ bool_attributes=_ ~events events_options=_ href=_} as a) =
             { a with events = List.map(
               | ~{name value=~{value}} ->
                 do Log.warning("Xhtml",

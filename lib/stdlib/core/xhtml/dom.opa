@@ -2008,7 +2008,7 @@ Dom = {{
                  ),
                (_nsenv, tag, args, element, attribute ->
                  match attribute with
-                 | ~{class style events events_options href} ->
+                 | ~{class style bool_attributes events events_options href} ->
                    //Handle classes
                    do List.iter(
                         class -> add_class_name(element, class),
@@ -2018,6 +2018,14 @@ Dom = {{
                         (| ~{name value} ->
                            add_style_application(cons, element, name, value)),
                            Css_printer.to_xhtml_style(style))
+                   //Handle boolean attributes like "checked" or "selected"
+                   do List.iter(~{name value} ->
+                        match value with
+                        | {string=value} -> set_attribute(element, name, value)
+                        | {bool=b} -> if b then set_attribute(element, name, name) else void
+                        | {none} -> set_attribute(element, name, name)
+                        end,
+                        bool_attributes)
                    //Handle events
                    do List.iter(
                         (|~{name value} ->

@@ -210,6 +210,7 @@ just_args <-
     }}
   / xhtml_specific style_insensitive spacing "=" spacing style_value:v spacing args_option:tl               {{ {(arg_default tl) with style  = Some v} }}
   / xhtml_specific class_insensitive spacing "=" spacing class_value:v spacing args_option:tl               {{ {(arg_default tl) with class_ = Some v} }}
+  / xhtml_specific boolean_attribute_incensitive:s spacing boolean_attribute_value?:v spacing args_option:tl               {{ add_bool_attribute tl s v }}
   / xhtml_specific event_insensitive deco_sname:s spacing "=" spacing event_value:ev spacing args_option:tl {{ add_event tl s ev }}
   / xhtml_specific options_on_event_insensitive deco_sname:s spacing "=" spacing options_on_event_value:ev spacing args_option:tl  {{ add_event_option tl s ev }}
   / xhtml_specific "events_unsafe" spacing "=" spacing opa_expr:e spacing args_option:tl                           {{ add_events tl e }}
@@ -533,6 +534,24 @@ class_value        <-
   / dquot class_attr:p dquot                                                         {{ let (l,pos) = p in list_expr_of_expr_list (l) pos }}
   / deco_ename:e                                                                     {{ list_expr_of_expr_list [string2 e] (label e)}}
   / opa_expr:e                                                                       {{ e }}
+
+#####################################################################################
+## BOOLEAN ATTRIBUTE ################################################################
+#####################################################################################
+
+boolean_attribute_incensitive = deco boolean_attribute_incensitive_aux
+boolean_attribute_incensitive_aux <- 
+  / "checked"~ / "compact"~ / "declare"~ / "defer"~ / "disabled"~
+  / "ismap"~ / "multiple"~ / "nohref"~ / "noresize"~ / "noshade"~
+  / "nowrap"~ / "readonly"~ / "selected"~
+
+boolean_attribute_value <- "=" spacing boolean_attribute_value_aux:v {{ v }}
+
+boolean_attribute_value_aux <-
+  / squot deco_svalue:s squot {{ record ["string", string2 s] }}
+  / String_expr.string_with_opa:e spacing {{ record ["string", e] }}
+  / opa_expr:e {{ bool_record e }}
+  / deco_ename:s {{ record ["string", string2 s] }}
 
 #####################################################################################
 ## HANDLERS ASSIGNATION #############################################################

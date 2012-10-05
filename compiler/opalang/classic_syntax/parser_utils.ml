@@ -1187,6 +1187,9 @@ type 'b dom_tag_args = {
   (* CSS styles -- special probably because we want to preprocess them *)
   style : (string, 'b) expr option;
 
+  (* Boolean attributes like "checked", "selected" *)
+  bool_attributes : ((string, 'b) expr) list;
+
   (* Namespace bindings of the form [xmlns:bar = "foo"] or [xmlns = "foo"] *)
   xmlns_declaration: (string(*prefix, possibly empty*) * (string, 'b) expr(*unique uri*)) list;
 
@@ -1216,7 +1219,13 @@ let css_build1' s e = css_build (s,nlabel e) []
 let hyphen_to_underscore s = String.replace s "-" "_"
 let map_tuple4 f (a,b,c,d) = (f a, f b, f c, f d)
 
-
+let xhtml_bool_attribute name value =
+  let value = match value with
+    | Some v -> v
+    | None -> simple_record_expr "none" (nlabel name)
+  in
+  let value = coerce_name_expr value Opacapi.Types.xhtml_bool_attribute_value in
+  coerce_name_expr (record [("name", string2 name);  ("value", value)]) Opacapi.Types.xhtml_bool_attribute
 
 let to_handle (name : string * QmlLoc.annot) : (_,_) expr  =
   coerce_name_expr (record [(undecorate name, void (label name))]) Opacapi.Types.Dom.Event.kind
@@ -1230,6 +1239,7 @@ let hassoc_event name value =
 let empty_args _label = { args = [];
                          class_ = None;
                          style = None;
+                         bool_attributes = [];
                          events = [];
                          events_options = [];
                          events_expr = None;
@@ -1237,8 +1247,8 @@ let empty_args _label = { args = [];
                          href = None
                        }
 
-let is_empty_args {args=_; class_; style; events; events_options; events_expr; xmlns_declaration=_; href} =
-  events = [] && events_options = [] && events_expr = None && href = None &&
+let is_empty_args {args=_; class_; style; bool_attributes; events; events_options; events_expr; xmlns_declaration=_; href} =
+  events = [] && events_options = [] && bool_attributes = [] && events_expr = None && href = None &&
   class_ = None && style = None
 
 let arg_default (o,label) =
@@ -1302,7 +1312,8 @@ let create_element (ns,tag) args children =
   let record =
     if xhtml_mode () && not (is_empty_args args) then (
       let events         = list_expr_of_expr_list args.events         (nlabel tag)
-      and events_options = list_expr_of_expr_list args.events_options (nlabel tag) in
+      and events_options = list_expr_of_expr_list args.events_options (nlabel tag)
+      and bool_attributes = list_expr_of_expr_list args.bool_attributes (nlabel tag) in
       let class_ =
         match args.class_ with
         | None -> list_nil (label ns)
@@ -1314,11 +1325,12 @@ let create_element (ns,tag) args children =
       let specific_attributes =
         record [("class",class_);
                 ("style",style);
+                ("bool_attributes", bool_attributes);
                 ("events",appendlo events args.events_expr);
                 ("events_options", events_options);
                 ("href", match args.href with
                  | None   -> coerce_name_expr (simple_record_expr "none" (nlabel tag)) Opacapi.Types.xhtml_href
-                 | Some s -> s)
+                 | Some s -> s);
                ] in
       record [("namespace",tag_ns);
               ("tag",unc2 string tag);
@@ -1381,8 +1393,14 @@ let add_arg src ((prefix,_),name) value =
   let old = arg_default src in
   { old with args = (prefix, fst name, Option.default (unc2 string name) value) :: old.args }
 
+let add_bool_attribute src name value =
+  let name = match name with (s,pos) -> (String.lowercase s, pos) in
+  let old = arg_default src in
+    { old with bool_attributes = (xhtml_bool_attribute name value ) :: old.bool_attributes }
 
-
+let bool_record e =
+  let e = coerce_name_expr e Opacapi.Types.bool in
+  record [("bool", e)]
 
 let add_event src name value =
   let name = match name with (s,pos) -> (String.lowercase s, pos) in

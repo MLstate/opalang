@@ -434,6 +434,8 @@ struct
 
   let void = !! "void"
   let xhtml = !! "xhtml"
+  let xhtml_bool_attribute_value = !! "xhtml_bool_attribute_value"
+  let xhtml_bool_attribute = !! "xhtml_bool_attribute"
   let xhtml_event = !! "xhtml_event"
   let xhtml_href   = !! "xhtml_href"
   let xml = !! "xml"

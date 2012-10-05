@@ -1,6 +1,11 @@
 Feature:
 
+  * Xhtml boolean attributes ("checked", "selected"...) now accept boolean values:
+    <input type="checkbox" checked={true}> produces <input type="checkbox" checked="checked">
+    <input type="checkbox" checked={false}> produces <input type="checkbox">
+
   * New Dropbox database backend (experimental)
+
   * Added is_module and opacapi info in the doc API JSON file (generated with --api)
 
 Updated APIs:
