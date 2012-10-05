@@ -87,7 +87,7 @@ $(if $(call cmi-in-lib,$(2)/$(notdir $(basename $(cmi))),$(2)),\
 $(cmi:$(BUILD_DIR)/%=%)))
 
 # Generate a specialised Makefile from build_libs
-$(BUILD_DIR)/build_libs.make: $(BUILD_LIBS)
+$(BUILD_DIR)/build_libs.make: $(BUILD_LIBS) $(BLDDIR)/Makefile.bld
 	@mkdir -p $(BUILD_DIR)
 	@awk '/^internal/ { \
 	        lib = $$2; libs[i++] = $$2; \
@@ -122,7 +122,7 @@ install-libs:
 	@$(foreach lib,$(ALL_LIBS),$(install-lib-$(lib));)
 
 # Generate a specialised Makefile from build_tools
-$(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS)
+$(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS) $(BLDDIR)/Makefile.bld
 	@mkdir -p $(BUILD_DIR)
 	@awk '/^internal/ && ! /\.(cmx|cmo|o|xml|js)/ { \
 	        tool = $$2; tools[i] = tool; \
