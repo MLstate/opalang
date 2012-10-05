@@ -332,7 +332,7 @@ let is_separated () = !separated <> `no
 (*----- a few utils -------*)
 (*-------------------------*)
 (* for simplicity, every time the compiler changes, the object files are invalid *)
-let this_file_version = BuildInfos.opalang_git_sha
+let this_file_version = BuildInfos.opa_git_sha
 let opxdir = ref "."
 let unprefixed_dirname (package:package_name) : filename = package ^ "." ^ Name.object_ext
 let dirname (package:package_name) : filename = Filename.concat !opxdir (unprefixed_dirname package)

@@ -38,8 +38,8 @@ let infos_ident =
                         ))
                         );
 
-    "opa_git_version",      (fun _ -> C.E.int BuildInfos.opalang_git_version);
-    "opa_git_version_hash", (fun _ -> C.E.string BuildInfos.opalang_git_sha);
+    "opa_git_version",      (fun _ -> C.E.int BuildInfos.opa_git_version);
+    "opa_git_version_hash", (fun _ -> C.E.string BuildInfos.opa_git_sha);
     "opa_date",             (fun _ -> C.E.string BuildInfos.date);
     "opa_is_release",       (fun _ -> C.E.bool BuildInfos.is_release);
   ]

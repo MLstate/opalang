@@ -161,7 +161,7 @@ let fail action filename message =
   OManager.error "@[<2>@{<bright>Hint@}:@\n%s@]@\n" message
 
 (* for simplicity, every time the compiler changes, the object files are invalid *)
-let this_file_version = BuildInfos.opalang_git_sha
+let this_file_version = BuildInfos.opa_git_sha
 
 (* I/O : beware, read the ocaml doc, Marshal should be used with binary
    channel for a Windows OS compatibility *)

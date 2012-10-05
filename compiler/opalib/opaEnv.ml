@@ -419,7 +419,7 @@ struct
         "Opa compiler (c) MLstate -- version %s -- build %d"
       )
         BuildInfos.opa_version_name
-        BuildInfos.opalang_git_version
+        BuildInfos.opa_git_version
 
     let print_version () = prerr_endline str_version
 
@@ -560,7 +560,7 @@ struct
                             )
                               s
                               BuildInfos.opa_version_name
-                              BuildInfos.opalang_git_version
+                              BuildInfos.opa_git_version
                         | Some true -> ()
                      ),
           "<version> Ensure that the compiler is newer than the given version"
@@ -584,7 +584,7 @@ struct
                             )
                               s
                               BuildInfos.opa_version_name
-                              BuildInfos.opalang_git_version
+                              BuildInfos.opa_git_version
                         | Some true -> ()
                      ),
           "<version> Ensure that the compiler is older than the given version"

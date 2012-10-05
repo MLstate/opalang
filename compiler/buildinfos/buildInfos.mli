@@ -60,7 +60,7 @@ val opa_version_name : string
 *)
 (** *)
 
-val opalang_git_version : int
+val opa_git_version : int
 
 (**
    Git sha of HEAD. A string indicated the short sha of the last commit.
@@ -72,7 +72,7 @@ val opalang_git_version : int
    ]}
 *)
 (** *)
-val opalang_git_sha : string
+val opa_git_sha : string
 
 (** {6 Date} *)
 

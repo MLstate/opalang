@@ -141,11 +141,11 @@ for repo in $REPOS ; do
         echo "let ${repo}_git_sha = \"\""
     else
         if [ "$repo" = "$ROOT_REPO" ] ; then
-            echo "let ${repo}_git_version = $(in_repo $repo git_opalang_version_cmd)"
+            echo "let opa_git_version = $(in_repo $repo git_opalang_version_cmd)"
         else
-            echo "let ${repo}_git_version = $(in_repo $repo git_version_cmd)"
+            echo "let opa_git_version = $(in_repo $repo git_version_cmd)"
         fi
-        echo "let ${repo}_git_sha = \"$(in_repo $repo git_sha_cmd)\""
+        echo "let opa_git_sha = \"$(in_repo $repo git_sha_cmd)\""
     fi
 done
 echo

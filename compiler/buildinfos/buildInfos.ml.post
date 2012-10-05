@@ -1,11 +1,11 @@
 (* this is the post infos *)
 
 let git_version_counter =
-  opalang_git_version
+  opa_git_version
 
 let version_id = Printf.sprintf "%d-(%s)"
   git_version_counter
-  opalang_git_sha
+  opa_git_sha
 
 let assert_minimal_version s =
   let check_int version =
@@ -17,7 +17,7 @@ let assert_minimal_version s =
       *)
       true
     else
-      version <= opalang_git_version
+      version <= opa_git_version
   in
   try
     let version = int_of_string s in
@@ -51,7 +51,7 @@ let assert_maximal_version s =
       *)
       false
     else
-      version >= opalang_git_version
+      version >= opa_git_version
   in
   try
     let version = int_of_string s in
