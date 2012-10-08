@@ -126,6 +126,7 @@ type FbGraph.Read.pic_size =
  * - [until] Date of newest element returned
  * - [since] Date of oldest element returned
  */
+// TODO: Cursor-based pagination
 type FbGraph.paging_options = {
   limit  : int
   offset : int
@@ -209,14 +210,6 @@ type FbGraph.event = {
   location    : string
   place       : FbGraph.event_place
   privacy     : FbGraph.event_privacy
-}
-
-/**
- * Type of a Facebook achievement(instance)
- */
-type FbGraph.achievement = {
-  achievement : string
-  message     : string
 }
 
 /**
@@ -366,6 +359,49 @@ type FbGraph.setting = {users_can_post} / {users_can_post_photos} / {users_can_t
 
 type FbGraph.privacy_type = {open} / {secret} / {friends}
 
+type FbGraph.method = {get} / {put} / {post} / {delete}
+type FbGraph.header = {name:string value:string}
+type FbGraph.batch_type = {object} / {post} / {delete}
+
+type FbGraph.batch_request = {
+  typ          : FbGraph.batch_type
+  metadata     : bool
+  method       : FbGraph.method
+  name         : option(string)
+  relative_url : string
+  headers      : list(FbGraph.header)
+  body         : option(string)
+}
+
+type FbGraph.batch_requests = list(FbGraph.batch_request)
+
+type FbGraph.batch_result =
+   {typ      : FbGraph.batch_type
+    metadata : bool
+    code     : int
+    headers  : list(FbGraph.header)
+    body     : option(string)}
+ / {error    : Facebook.error}
+
+type FbGraph.batch_results =
+   {batch_results : list(FbGraph.batch_result)}
+ / {error         : Facebook.error}
+
+type FbGraph.Post.token_or_batch =
+   {token : string}
+ / {batch : string}
+
+type FbGraph.result =
+   {object        : FbGraph.Read.object}
+ / {post          : FbGraph.Post.result}
+ / {delete        : FbGraph.Post.result}
+ / {batch_request : FbGraph.batch_request}
+ / {error         : Facebook.error}
+
+type FbGraph.processed_batch_results =
+   {processed_batch_results : list(FbGraph.result)}
+ / {error                   : Facebook.error}
+
 FbGraph = {{
 
   /* Static */
@@ -426,10 +462,10 @@ FbGraph = {{
 
   @private prepare_paging(options) =
     sub_int(n) = if n>0 then "{n}" else ""
-    FbLib.add_if_filled("limit", sub_int(options.limit), [])
-    |> FbLib.add_if_filled("offset", sub_int(options.offset), _)
-    |> FbLib.add_if_filled("until", (Option.map(Date.to_string,options.until))?"", _)
-    |> FbLib.add_if_filled("since", (Option.map(Date.to_string,options.since))?"", _)
+    FbLib.params([{nes=("limit", sub_int(options.limit))},
+                  {nes=("offset",sub_int(options.offset))},
+                  {nes=("until", (Option.map(Date.to_string,options.until))?"")},
+                  {nes=("since", (Option.map(Date.to_string,options.since))?"")}])
 
   @private check_for_error(data, on_ok, on_error) =
     match List.assoc("error", data) with
@@ -455,27 +491,36 @@ FbGraph = {{
       check_for_error(r, on_ok, (x -> { error = x }))
     | _ -> { error = Facebook.data_error }
 
-  generic_return(res) : FbGraph.Post.result =
+  @private generic_return(res) : FbGraph.Post.result =
     match res with
     | {none} -> { error = Facebook.network_error }
-    | {some=r} ->
-      match Json.of_string(r) with
-      | {none} -> { error = Facebook.parse_error(r) }
-      | {some={Record=r}} ->
-        on_ok(x:list((string,RPC.Json.json))) =
-          id = FbLib.fetch_json_string("id", x)
-          { success = id }
-        check_for_error(r, on_ok, (y -> { error = y }))
-      | {some={Bool=r}} ->
-        if r then { success = "" }
-        else { error = Facebook.data_error }
-      | {some={Int=number}} -> {success="{number}"}
-      | _ -> { error = Facebook.data_error }
-      end
+    | {some=r} -> process_post(r)
 
-  @private @publish generic_action(path, data, token) : FbGraph.Post.result =
-    data = List.add(("access_token", token), data)
-    generic_return(FbLib.fb_post(graph_url, path, data))
+  @private process_post(r) : FbGraph.Post.result =
+    match Json.of_string(r) with
+    | {none} -> { error = Facebook.parse_error(r) }
+    | {some={Record=r}} ->
+      on_ok(x:list((string,RPC.Json.json))) =
+        id = FbLib.fetch_json_string("id", x)
+        { success = id }
+      check_for_error(r, on_ok, (y -> { error = y }))
+    | {some={Bool=r}} ->
+      if r then { success = "" }
+      else { error = Facebook.data_error }
+    | {some={Int=number}} -> {success="{number}"}
+    | _ -> { error = Facebook.data_error }
+    end
+
+  @private @publish generic_action(path, data, token:FbGraph.Post.token_or_batch) : FbGraph.result =
+    match token with
+    | {~token} ->
+       data = List.add(("access_token", token), data)
+       {post=generic_return(FbLib.fb_post(graph_url, path, data))}
+    | {~batch} ->
+       name = if batch == "" then none else {some=batch}
+       body = {some=API_libs.form_urlencode(data)}
+       path = if String.has_prefix("/",path) then String.sub(1,String.length(path)-1,path) else path
+       {batch_request={typ={post}; ~name; metadata=false; method={post}; relative_url=path; headers=[]; ~body}}
 
   @private @publish generic_action_multi(path, forms, token) : FbGraph.Post.result =
     forms = List.add({name="access_token"; content=token}, forms)
@@ -485,17 +530,24 @@ FbGraph = {{
     forms = List.add({name="access_token"; content=token}, forms)
     generic_return(FbLib.fb_post_multi(base, path, forms))
 
-  @private @publish generic_delete(path, data, token) : FbGraph.Post.result =
-    data = List.add(("access_token", token), data)
-    generic_return(FbLib.fb_delete(graph_url, path, data))
+  @private @publish generic_delete(path, data, token) : FbGraph.result =
+    match token with
+    | {~token} ->
+       data = List.add(("access_token", token), data)
+       {delete=generic_return(FbLib.fb_delete(graph_url, path, data))}
+    | {~batch} ->
+       name = if batch == "" then none else {some=batch}
+       body = {some=API_libs.form_urlencode(data)}
+       path = if String.has_prefix("/",path) then String.sub(1,String.length(path)-1,path) else path
+       {batch_request={typ={delete}; ~name; metadata=false; method={post}; relative_url=path; headers=[]; ~body}}
 
-  string_of_object_type(ot:FbGraph.object_type) =
+  @private string_of_object_type(ot:FbGraph.object_type) =
     match ot with
     | {user} -> "user"
     | {permissions} -> "permissions"
     | {page} -> "page"
 
-  multiuser(id, users, pathname, fieldname) =
+  @private multiuser(id, users, pathname, fieldname) =
     match users with
     | [user_id] -> ("/{id}/{pathname}/{user_id}",[])
     | _ -> ("/{id}/{pathname}",[(fieldname,String.concat(",",users))])
@@ -538,7 +590,7 @@ FbGraph = {{
 
     /** Delete subscriptions. */
     subscriptions(app_id, object:option(FbGraph.object_type), token) =
-      data = FbLib.add_if_filled_opt("object", string_of_object_type, object, [])
+      data = FbLib.params([{copt=("object", string_of_object_type, object)}])
       generic_delete("/{app_id}/subscriptions", data, token)
 
     /** Delete translations.
@@ -585,6 +637,15 @@ FbGraph = {{
 
     /** Delete photo. */
     photo(profile_id, token) = generic_delete("/{profile_id}/photos", [], token)
+
+    /** De-authorize application. */
+    deauthorize(profile_id, token) = generic_delete("/{profile_id}/permissions", [], token)
+
+    /** Revoke permission. */
+    revoke(profile_id, permission_name, token) = generic_delete("/{profile_id}/permissions/{permission_name}", [], token)
+
+    /** Delete score. */
+    score(user_id, token) = generic_delete("/{user_id}/scores", [], token)
 
   }}
 
@@ -649,7 +710,7 @@ FbGraph = {{
      * Get all statistics available about [elt_id] element
      * Unlike most other API calls, the token used can be an application token,
      * you can obtain one using [FbAuth.app_login]. You can also use a user token
-     * with the permission [manage_pages] and manage this user's elemnts.
+     * with the permission [manage_pages] and manage this user's elements.
      */
     full(elt_id, token, paging) : FbGraph.Insight.insights_res =
       generic_insights("/{elt_id}/insights", token, paging)
@@ -660,7 +721,7 @@ FbGraph = {{
      * {{:https://developers.facebook.com/docs/reference/fql/insights/}metrics documentation}
      * Unlike most other API calls, the token used can be an application token,
      * you can obtain one using [FbAuth.app_login]. You can also use a user token
-     * with the permission [manage_pages] and manage this user's elemnts.
+     * with the permission [manage_pages] and manage this user's elements.
      */
     metric(metric, elt_id, token, paging) : FbGraph.Insight.insights_res =
       generic_insights("/{elt_id}/insights/{metric}", token, paging)
@@ -673,7 +734,7 @@ FbGraph = {{
      * documentation for more information.
      * Unlike most other API calls, the token used can be an application token,
      * you can obtain one using [FbAuth.app_login]. You can also use a user token
-     * with the permission [manage_pages] and manage this user's elemnts.
+     * with the permission [manage_pages] and manage this user's elements.
      */
     metric_period(metric, period, elt_id, token, paging) : FbGraph.Insight.insights_res =
       generic_insights("/{elt_id}/insights/{metric}/{period_to_string(period)}", token, paging)
@@ -682,7 +743,7 @@ FbGraph = {{
 
   Post = {{
 
-    string_of_property_value(pv:FbGraph.property_value) =
+    @private string_of_property_value(pv:FbGraph.property_value) =
       match pv with
       | {~string} -> "\"{string}\""
       | {~int} -> "{int}"
@@ -690,7 +751,7 @@ FbGraph = {{
       | {~object} -> List.to_string_using("\{","}",",",List.map(((n,v) -> "\"{n}\":{string_of_property_value(v)}"),object))
       | {~array} -> List.to_string_using("[","]",",",List.map(string_of_property_value,array))
 
-    options_of_properties(properties:FbGraph.properties) =
+    @private options_of_properties(properties:FbGraph.properties) =
       List.map(((n,pv) -> (n,string_of_property_value(pv))),properties)
 
     generic_properties(id, properties, token) =
@@ -699,8 +760,8 @@ FbGraph = {{
     /**
      * Create achievement(instance) for [user_id]
      */
-    achievement(user_id, achievement:FbGraph.achievement, token) =
-      data = FbGraph_to_string.achievement_to_data(achievement)
+    achievement(user_id, achievement:string, message:option(string), token) =
+      data = FbLib.params([{sreq=("achievement", achievement)},{sopt=("message",message)}])
       generic_action("/{user_id}/achievements", data, token)
 
     /**
@@ -727,11 +788,10 @@ FbGraph = {{
      * Create a test user for [app_id].
      * NOTE: uses the application access token *NOT* the application Page access token.
      */
-    test_user(app_id, installed:option(bool), permissions:list(Facebook.permission), name:string, token) =
-      data = 
-        FbLib.add_if_filled("installed", Option.default("",Option.map(Bool.to_string,installed)), [])
-        |> FbLib.add_if_filled("permissions", String.concat(",",List.map(Facebook.permission_to_string,permissions)), _)
-        |> FbLib.add_if_filled("name", name, _)
+    test_user(app_id, installed:option(bool), permissions:list(Facebook.permission), name:option(string), token) =
+      data = FbLib.params([{bopt=("installed",installed)},
+                           {lopt=("permissions",Facebook.permission_to_string,permissions)},
+                           {sopt=("name",name)}])
       generic_action("/{app_id}/accounts/test-users", data, token)
 
     ban(app_id, users, token) =
@@ -739,9 +799,7 @@ FbGraph = {{
       generic_action("/{app_id}/banned", data, token)
 
     simple_link(app_id, link, message, token) =
-      data =
-        [("link", link)]
-        |> FbLib.add_if_filled("message", message, _)
+      data = FbLib.params([{sreq=("link",link)},{sopt=("message",message)}])
       generic_action("/{app_id}/feed", data, token)
 
     payment_currency(app_id, currency_url, token) =
@@ -751,16 +809,21 @@ FbGraph = {{
     /**
      * Create a post on an application's profile page.
      * Token needs [publish_stream] permissions.
-     * Works on various ids.
+     * Works on various ids but this is a generic post, not all
+     * fields are accepted by all targets.
      */
     post(id, p:Facebook.post, token) =
-      data = FbLib.add([{sopt=("message",p.message)},{sopt=("link",p.link)},
-                        {sopt=("picture",p.picture)},
-                        {sopt=("name",p.name)},
-                        {sopt=("caption",p.caption)},
-                        {sopt=("description",p.description)},
-                        {aopt=("actions",FbLib.feed_link_to_json,p.actions)},
-                        {sopt=("privacy",p.privacy)}],[])
+      data = FbLib.params([{sopt=("message",p.message)},
+                           {sopt=("link",p.link)},
+                           {sopt=("picture",p.picture)},
+                           {sopt=("name",p.name)},
+                           {sopt=("caption",p.caption)},
+                           {sopt=("description",p.description)},
+                           {aopt=("actions",FbLib.feed_link_to_json,p.actions)},
+                           {sopt=("place",p.place)},
+                           {lopt=("tags",(s->s),p.tags)},
+                           {sopt=("privacy",p.privacy)},
+                           {sopt=("object_attachment",p.object_attachment)}])
       generic_action("/{id}/feed", data, token)
 
     /** Add user role for app. */
@@ -777,12 +840,12 @@ FbGraph = {{
      * Set up a subscription.
      * Needs application page access token.
      */
-    subscriptions(app_id, ot:FbGraph.object_type, fields:Facebook.properties, callback_url:string, verify_token:string, token) =
-      data =
-        [("object",string_of_object_type(ot))]
-        |> FbLib.add_json("fields", FbLib.fb_properties_to_json, fields, _)
-        |> List.add(("callback_url",callback_url),_)
-        |> FbLib.add_if_filled("verify_token", verify_token, _)
+    subscriptions(app_id, ot:FbGraph.object_type, fields:Facebook.properties,
+                          callback_url:string, verify_token:option(string), token) =
+      data = FbLib.params([{creq=("object",string_of_object_type,ot)},
+                           {jreq=("fields",FbLib.fb_properties_to_json,fields)},
+                           {sreq=("callback_url",callback_url)},
+                           {sopt=("verify_token", verify_token)}])
       generic_action("/{app_id}/subscriptions", data, token)
 
     /**
@@ -796,7 +859,7 @@ FbGraph = {{
       {List=List.map(aux, native_strings)}
 
     translations(app_id, native_strings:list({text:string; description:string}), token) =
-      data = FbLib.add_json("native_strings",native_strings_to_json,native_strings,[])
+      data = FbLib.params([{jreq=("native_strings",native_strings_to_json,native_strings)}])
       generic_action("/{app_id}/translations", data, token)
 
     /**
@@ -815,10 +878,9 @@ FbGraph = {{
      * NOTE: this currently doesn't work because of facebook internal errors...
      */
     videos(page_id, v:FbGraph.video, token) =
-      forms =
-        [{name="source"; filename=v.filename; content_type=v.content_type; content=v.source}]
-        |> FbLib.add_form_if_filled("title", v.title, _)
-        |> FbLib.add_form_if_filled("description", v.description, _)
+      forms = FbLib.forms([{file=("source",v.filename,v.content_type,v.source)},
+                           {nes=("title", v.title)},
+                           {nes=("description", v.description)}])
       generic_action_multi_base(video_url, "/{page_id}/videos", forms, token)
 
     /**
@@ -873,11 +935,10 @@ FbGraph = {{
      * Docs don't say which kind of token/permission is needed.
      * The params value is: "optional JSON-encoded dictionary {'comment' => }", however that is encoded.
      */
-    order(id, status:FbGraph.order_status, message:string, params:string, token) =
-      data =
-        [("status",string_of_order_status(status))]
-        |> List.add(("message",message),_)
-        |> FbLib.add_if_filled("params", params, _)
+    order(id, status:FbGraph.order_status, message:string, params:option(string), token) =
+      data = FbLib.params([{creq=("status",string_of_order_status,status)},
+                           {sreq=("message",message)},
+                           {sopt=("params", params)}])
       generic_action("/{id}", data, token)
 
     // Page section
@@ -885,27 +946,27 @@ FbGraph = {{
     /**
      * update a Page's basic attributes or About section
      */
-    page_attributes(page_id, about:string, description:string, general_info:string, website:string, phone:string, token) =
-      data =
-           FbLib.add_if_filled("about", about, [])
-        |> FbLib.add_if_filled("description", description, _)
-        |> FbLib.add_if_filled("general_info", general_info, _)
-        |> FbLib.add_if_filled("website", website, _)
-        |> FbLib.add_if_filled("phone", phone, _)
+    page_attributes(page_id, about:option(string), description:option(string), general_info:option(string),
+                             website:option(string), phone:option(string), token) =
+      data = FbLib.params([{sopt=("about", about)},
+                           {sopt=("description", description)},
+                           {sopt=("general_info", general_info)},
+                           {sopt=("website", website)},
+                           {sopt=("phone", phone)}])
       generic_action("/{page_id}", data, token)
 
     /**
      * set a cover photo for a Page
      */
     page_cover_photo(page_id, cover:int, offset_y:option(int), no_feed_story:option(bool), token) =
-      data = FbLib.add([{ireq=("cover",cover)},{iopt=("offset_y",offset_y)},{bopt=("no_feed_story",no_feed_story)}],[])
+      data = FbLib.params([{ireq=("cover",cover)},{iopt=("offset_y",offset_y)},{bopt=("no_feed_story",no_feed_story)}])
       generic_action("/{page_id}", data, token)
 
     /**
      * hide a Page post that is published by a non-admin user
      */
     hide_page_post(page_id, is_hidden:bool, token) =
-      data = FbLib.add([{breq=("is_hidden",is_hidden)}],[])
+      data = FbLib.params([{breq=("is_hidden",is_hidden)}])
       generic_action("/{page_id}", data, token)
 
     /**
@@ -914,9 +975,9 @@ FbGraph = {{
     create_page_event(page_id, name:string, start_time:string,
                                end_time:option(string), description:option(string),
                                location:option(string), location_id:option(string), token) =
-      data = FbLib.add([{sreq=("name",name)},{sreq=("start_time",start_time)},
+      data = FbLib.params([{sreq=("name",name)},{sreq=("start_time",start_time)},
                         {sopt=("end_time",end_time)},{sopt=("description",description)},
-                        {sopt=("location",location)},{sopt=("location_id",location_id)}],[])
+                        {sopt=("location",location)},{sopt=("location_id",location_id)}])
       generic_action("/{page_id}/events", data, token)
 
     /**
@@ -925,9 +986,9 @@ FbGraph = {{
     edit_page_event(event_id, name:option(string), start_time:option(string),
                               end_time:option(string), description:option(string),
                               location:option(string), location_id:option(string), token) =
-      data = FbLib.add([{sopt=("name",name)},{sopt=("start_time",start_time)},
+      data = FbLib.params([{sopt=("name",name)},{sopt=("start_time",start_time)},
                         {sopt=("end_time",end_time)},{sopt=("description",description)},
-                        {sopt=("location",location)},{sopt=("location_id",location_id)}],[])
+                        {sopt=("location",location)},{sopt=("location_id",location_id)}])
       generic_action("/{event_id}", data, token)
 
     /**
@@ -935,15 +996,15 @@ FbGraph = {{
      */
     create_page_link(page_id, link:string, message:option(string),
                               published:option(bool), scheduled_publish_time:option(string), token) =
-      data = FbLib.add([{sreq=("link",link)},{sopt=("message",message)},
-                        {bopt=("published",published)},{sopt=("scheduled_publish_time",scheduled_publish_time)}],[])
+      data = FbLib.params([{sreq=("link",link)},{sopt=("message",message)},
+                        {bopt=("published",published)},{sopt=("scheduled_publish_time",scheduled_publish_time)}])
       generic_action("/{page_id}/feed", data, token)
 
     /**
      * create a note on a Page
      */
     create_page_note(page_id, subject:string, message:string, token) =
-      data = FbLib.add([{sreq=("subject",subject)},{sreq=("message",message)}],[])
+      data = FbLib.params([{sreq=("subject",subject)},{sreq=("message",message)}])
       generic_action("/{page_id}/notes", data, token)
 
     /**
@@ -966,15 +1027,15 @@ FbGraph = {{
     create_page_post(page_id, p:Facebook.post,
                               targeting:option(RPC.Json.json), published:option(bool), scheduled_publish_time:option(string),
                      token) =
-      data = FbLib.add([{sopt=("message",p.message)},{sopt=("link",p.link)},
-                        {sopt=("picture",p.picture)},
-                        {sopt=("name",p.name)},
-                        {sopt=("caption",p.caption)},
-                        {sopt=("description",p.description)},
-                        {aopt=("actions",FbLib.feed_link_to_json,p.actions)},
-                        {jopt=("targeting",(j->j),targeting)},
-                        {bopt=("published",published)},
-                        {sopt=("scheduled_publish_time",scheduled_publish_time)}],[])
+      data = FbLib.params([{sopt=("message",p.message)},{sopt=("link",p.link)},
+                           {sopt=("picture",p.picture)},
+                           {sopt=("name",p.name)},
+                           {sopt=("caption",p.caption)},
+                           {sopt=("description",p.description)},
+                           {aopt=("actions",FbLib.feed_link_to_json,p.actions)},
+                           {jopt=("targeting",(j->j),targeting)},
+                           {bopt=("published",published)},
+                           {sopt=("scheduled_publish_time",scheduled_publish_time)}])
       generic_action("/{page_id}/feed", data, token)
 
     /**
@@ -984,42 +1045,42 @@ FbGraph = {{
                                   options:list(string), allow_new_options:option(bool),
                                   published:option(bool), scheduled_publish_time:option(string),
                          token) =
-      data = FbLib.add([{sreq=("question",question)},
-                        {aopt=("options",FbLib.s2j,options)},
-                        {bopt=("allow_new_options",allow_new_options)},
-                        {bopt=("published",published)},
-                        {sopt=("scheduled_publish_time",scheduled_publish_time)}],[])
+      data = FbLib.params([{sreq=("question",question)},
+                           {aopt=("options",(s->{String=s}),options)},
+                           {bopt=("allow_new_options",allow_new_options)},
+                           {bopt=("published",published)},
+                           {sopt=("scheduled_publish_time",scheduled_publish_time)}])
       generic_action("/{page_id}/questions", data, token)
 
     /**
      * add a milestone
      */
     create_page_milestone(page_id, title:string, description:string, start_time:string, token) =
-      data = FbLib.add([{sreq=("title",title)},{sreq=("description",description)},{sreq=("start_time",start_time)}],[])
+      data = FbLib.params([{sreq=("title",title)},{sreq=("description",description)},{sreq=("start_time",start_time)}])
       generic_action("/{page_id}/milestones", data, token)
 
     /**
      * create an Offer for a page
      */
     create_page_offer(page_id, o:FbGraph.offer, token) =
-      data = FbLib.add([{sreq=("title",o.title)},
-                        {sreq=("expiration_time",o.expiration_time)},
-                        {sopt=("terms",o.terms)},
-                        {sopt=("image_url",o.image_url)},
-                        {sopt=("image",o.image)},
-                        {iopt=("claim_limit",o.claim_limit)},
-                        {sopt=("coupon_type",o.coupon_type)},
-                        {sopt=("qrcode",o.qrcode)},
-                        {sopt=("barcode",o.barcode)},
-                        {sopt=("redemption_link",o.redemption_link)},
-                        {sopt=("redemption_code",o.redemption_code)}],[])
+      data = FbLib.params([{sreq=("title",o.title)},
+                           {sreq=("expiration_time",o.expiration_time)},
+                           {sopt=("terms",o.terms)},
+                           {sopt=("image_url",o.image_url)},
+                           {sopt=("image",o.image)},
+                           {iopt=("claim_limit",o.claim_limit)},
+                           {sopt=("coupon_type",o.coupon_type)},
+                           {sopt=("qrcode",o.qrcode)},
+                           {sopt=("barcode",o.barcode)},
+                           {sopt=("redemption_link",o.redemption_link)},
+                           {sopt=("redemption_code",o.redemption_code)}])
       generic_action("/{page_id}/offers", data, token)
 
     /**
      * reply to a user's message
      */
     reply(id, message:string, token) =
-      data = FbLib.add([{sreq=("message",message)}],[])
+      data = FbLib.params([{sreq=("message",message)}])
       generic_action("/{id}/messages", data, token)
 
     string_of_setting(s:FbGraph.setting) =
@@ -1033,16 +1094,16 @@ FbGraph = {{
      * change whether users can post to the Wall of a page
      */
     settings(id, setting:FbGraph.setting, value:bool, token) =
-      data = FbLib.add([{creq=("setting",string_of_setting,setting)},{breq=("value",value)}],[])
+      data = FbLib.params([{creq=("setting",string_of_setting,setting)},{breq=("value",value)}])
       generic_action("/{id}/settings", data, token)
 
     /**
      * post a status message on a Page
      */
     create_page_status(id, message:string, published:option(bool), scheduled_publish_time:option(string), token) =
-      data = FbLib.add([{sreq=("message",message)},
-                        {bopt=("published",published)},
-                        {sopt=("scheduled_publish_time",scheduled_publish_time)}],[])
+      data = FbLib.params([{sreq=("message",message)},
+                           {bopt=("published",published)},
+                           {sopt=("scheduled_publish_time",scheduled_publish_time)}])
       generic_action("/{id}/feed", data, token)
 
     /**
@@ -1061,7 +1122,7 @@ FbGraph = {{
      * install a profile_tab at the end of the current list of installed tabs for a page
      */
     create_page_tab(page_id, app_id:string, token) =
-      data = FbLib.add([{sreq=("app_id",app_id)}],[])
+      data = FbLib.params([{sreq=("app_id",app_id)}])
       generic_action("/{page_id}/tabs", data, token)
 
     /**
@@ -1072,19 +1133,18 @@ FbGraph = {{
                     is_non_connection_landing_tab:option(bool), custom_image_url:option(string),
                     custom_image:option(string),
                     token) =
-      data = FbLib.add([{iopt=("position",position)},
-                        {sopt=("custom_name",custom_name)},
-                        {bopt=("is_non_connection_landing_tab",is_non_connection_landing_tab)},
-                        {sopt=("custom_image_url",custom_image_url)},
-                        {sopt=("custom_image",custom_image)}
-                       ],[])
+      data = FbLib.params([{iopt=("position",position)},
+                           {sopt=("custom_name",custom_name)},
+                           {bopt=("is_non_connection_landing_tab",is_non_connection_landing_tab)},
+                           {sopt=("custom_image_url",custom_image_url)},
+                           {sopt=("custom_image",custom_image)}])
       generic_action("/{page_id}/tabs/{tab_id}", data, token)
 
     /**
      * block a user from posting content to your page
      */
     block(page_id, users:list(string), token) =
-      data = FbLib.add([{lopt=("users",(s->s),users)}],[])
+      data = FbLib.params([{lopt=("users",(s->s),users)}])
       generic_action("/{page_id}/blocked", data, token)
 
     /**
@@ -1094,43 +1154,43 @@ FbGraph = {{
       if Option.is_none(to) && Option.is_none(tag_text)
       then {error=Facebook.make_error("create_photo_tag","Must have either 'to' or 'tag_text'")}
       else
-        data = FbLib.add([{sopt=("to",to)},
-                          {sopt=("tag_text",tag_text)},
-                          {iopt=("x",x)},
-                          {iopt=("y",y)}],[])
+        data = FbLib.params([{sopt=("to",to)},
+                             {sopt=("tag_text",tag_text)},
+                             {iopt=("x",x)},
+                             {iopt=("y",y)}])
         generic_action("/{photo_id}/tags", data, token)
 
     /**
      * update the position of a tag for a particular user in the photo
      */
     update_photo_tag(photo_id, to:string, x:option(int), y:option(int), token) =
-      data = FbLib.add([{sreq=("to",to)},
-                        {iopt=("x",x)},
-                        {iopt=("y",y)}],[])
+      data = FbLib.params([{sreq=("to",to)},
+                           {iopt=("x",x)},
+                           {iopt=("y",y)}])
       generic_action("/{photo_id}/tags", data, token)
 
     /**
      * post a option to the question
      */
     create_question_option(questions_id, option:option(string), token) =
-      data = FbLib.add([{sopt=("option",option)}],[])
+      data = FbLib.params([{sopt=("option",option)}])
       generic_action("/{questions_id}/options", data, token)
 
     /**
      * create an album for a user
      */
     create_user_album(profile_id, name:string, message:option(string), privacy:option(RPC.Json.json), token) =
-      data = FbLib.add([{sreq=("name",name)},
-                        {sopt=("message",message)},
-                        {jopt=("privacy",(j->j),privacy)}],[])
+      data = FbLib.params([{sreq=("name",name)},
+                           {sopt=("message",message)},
+                           {jopt=("privacy",(j->j),privacy)}])
       generic_action("/{profile_id}/albums", data, token)
 
     /**
      * post a apprequest for a user
      */
     create_user_apprequest(user_id, message:string, data:option(string), token) =
-      reqdata = FbLib.add([{sreq=("message",message)},
-                           {sopt=("data",data)}],[])
+      reqdata = FbLib.params([{sreq=("message",message)},
+                              {sopt=("data",data)}])
       generic_action("/{user_id}/apprequests", reqdata, token)
 
     /**
@@ -1139,13 +1199,12 @@ FbGraph = {{
     create_user_checkin(profile_id, place:string, coordinates:string,
                         tags:list(string), message:option(string), link:option(string), picture:option(string),
                         token) =
-      data = FbLib.add([{sreq=("place",place)},
-                        {sreq=("coordinates",coordinates)},
-                        {lopt=("tags",(s->s),tags)},
-                        {sopt=("message",message)},
-                        {sopt=("link",link)},
-                        {sopt=("picture",picture)}
-                       ],[])
+      data = FbLib.params([{sreq=("place",place)},
+                           {sreq=("coordinates",coordinates)},
+                           {lopt=("tags",(s->s),tags)},
+                           {sopt=("message",message)},
+                           {sopt=("link",link)},
+                           {sopt=("picture",picture)}])
       generic_action("/{profile_id}/checkins", data, token)
 
     string_of_privacy_type(pt:FbGraph.privacy_type) = 
@@ -1161,14 +1220,13 @@ FbGraph = {{
                       end_time:option(Date.date), description:option(string), location:option(string), location_id:option(string),
                       privacy_type:option(FbGraph.privacy_type),
                       token) =
-      data = FbLib.add([{sreq=("name",name)},
-                        {dreq=("start_time",start_time)},
-                        {dopt=("end_time",end_time)},
-                        {sopt=("description",description)},
-                        {sopt=("location",location)},
-                        {sopt=("location_id",location_id)},
-                        {copt=("privacy_type",string_of_privacy_type,privacy_type)}
-                       ],[])
+      data = FbLib.params([{sreq=("name",name)},
+                           {dreq=("start_time",start_time)},
+                           {dopt=("end_time",end_time)},
+                           {sopt=("description",description)},
+                           {sopt=("location",location)},
+                           {sopt=("location_id",location_id)},
+                           {copt=("privacy_type",string_of_privacy_type,privacy_type)}])
       generic_action("/{profile_id}/events", data, token)
 
     /**
@@ -1178,42 +1236,41 @@ FbGraph = {{
                       end_time:option(Date.date), description:option(string), location:option(string), location_id:option(string),
                       privacy_type:option(FbGraph.privacy_type),
                       token) =
-      data = FbLib.add([{sopt=("name",name)},
-                        {dopt=("start_time",start_time)},
-                        {dopt=("end_time",end_time)},
-                        {sopt=("description",description)},
-                        {sopt=("location",location)},
-                        {sopt=("location_id",location_id)},
-                        {copt=("privacy_type",string_of_privacy_type,privacy_type)}
-                       ],[])
+      data = FbLib.params([{sopt=("name",name)},
+                           {dopt=("start_time",start_time)},
+                           {dopt=("end_time",end_time)},
+                           {sopt=("description",description)},
+                           {sopt=("location",location)},
+                           {sopt=("location_id",location_id)},
+                           {copt=("privacy_type",string_of_privacy_type,privacy_type)}])
       generic_action("/{event_id}", data, token)
 
     /**
      * create a friend list for a user
      */
     create_user_friendlist(profile_id, name:string, token) =
-      data = FbLib.add([{sreq=("name",name)}],[])
+      data = FbLib.params([{sreq=("name",name)}])
       generic_action("/{profile_id}/friendlists", data, token)
 
     /**
      * post a link on the user's behalf
      */
     create_user_link(profile_id, link:string, message:option(string), token) =
-      data = FbLib.add([{sreq=("link",link)},{sopt=("message",message)}],[])
+      data = FbLib.params([{sreq=("link",link)},{sopt=("message",message)}])
       generic_action("/{profile_id}/feed", data, token)
 
     /**
      * create a note on behalf of the user
      */
     create_user_note(profile_id, subject:string, message:string, token) =
-      data = FbLib.add([{sreq=("subject",subject)},{sreq=("message",message)}],[])
+      data = FbLib.params([{sreq=("subject",subject)},{sreq=("message",message)}])
       generic_action("/{profile_id}/notes", data, token)
 
     /**
      * send app notifications to users of your app
      */
     create_user_notification(user_id, template:string, href:string, token) =
-      data = FbLib.add([{sreq=("template",template)},{sreq=("href",href)}],[])
+      data = FbLib.params([{sreq=("template",template)},{sreq=("href",href)}])
       generic_action("/{user_id}/notifications", data, token)
 
     /**
@@ -1224,9 +1281,39 @@ FbGraph = {{
                                  no_story:option(bool),
                      token) =
       forms = FbLib.forms([{file=("source",filename,content_type,source)},
-                           {sopt=("message",message)},{sopt=("place",place)},
+                           {sopt=("message",message)},
+                           {sopt=("place",place)},
                            {bopt=("no_story",no_story)}])
       generic_action_multi("/{profile_id}/photos", forms, token)
+
+    /**
+     * post a question on behalf of the user
+     */
+    create_user_question(profile_id, question:string,
+                                     options:list(string), allow_new_options:option(bool),
+                         token) =
+      data = FbLib.params([{sreq=("question",question)},
+                           {aopt=("options",(s->{String=s}),options)},
+                           {bopt=("allow_new_options",allow_new_options)}])
+      generic_action("/{profile_id}/questions", data, token)
+
+    /**
+     * publish a video on behalf of a user
+     */
+    create_user_video(profile_id, filename:string, content_type:string, source:string,
+                                  title:option(string), description:option(string),
+                      token) =
+      forms = FbLib.forms([{file=("source",filename,content_type,source)},
+                           {sopt=("title",title)},
+                           {sopt=("description",description)}])
+      generic_action_multi("/{profile_id}/videos", forms, token)
+
+    /**
+     * post a score for a user
+     */
+    create_user_score(user_id, score:int, token) =
+      data = FbLib.params([{ireq=("score",score)}])
+      generic_action("/{user_id}/scores", data, token)
 
     /**
      * Post a new element in user's feed
@@ -1351,10 +1438,10 @@ FbGraph = {{
 
   Read = {{
 
-    @private prepare_object_option(o) =
-      FbLib.add_if_filled("access_token", o.token, [])
-      |> FbLib.add_if_filled("fields", String.concat(",",o.fields), _)
-      |> FbLib.add_if_filled("metadata", (if o.metadata then "1" else ""), _)
+    prepare_object_option(o:FbGraph.Read.object_options) =
+      FbLib.params([{nes=("access_token", o.token)},
+                    {lopt=("fields", (s->s), o.fields)},
+                    {nes=("metadata", (if o.metadata then "1" else ""))}])
 
     empty_metadata = {
       obj_type    = ""
@@ -1408,21 +1495,27 @@ FbGraph = {{
       data = prepare_object_option(options)
       match FbLib.fb_get(graph_url, "/{id}", data) with
       | {none} -> { error = Facebook.network_error }
-      | {some=r} ->
-        match Json.of_string(r) with
-        | {none} -> { error = Facebook.parse_error(r) }
-        | {some={Record=r}} ->
-          on_ok(x:list((string,RPC.Json.json))) =
-            if options.metadata then
-              { object_metadata = extract_metadata(x) }
-            else { object = build_data(x) }
-          check_for_error(r, on_ok, (y -> { error = y }))
-        | {some={Bool=b}} ->
-          if b then { error = Facebook.data_error }
-          else { error = Facebook.access_denied }
-        | _ -> { error = Facebook.data_error }
-        end
+      | {some=content} -> process_object(options.metadata, content)
 
+    process_object(metadata, content) : FbGraph.Read.object =
+      match Json.of_string(content) with
+      | {none} -> { error = Facebook.parse_error(content) }
+      | {some={Record=r}} ->
+        on_ok(x:list((string,RPC.Json.json))) =
+          if metadata
+          then { object_metadata = extract_metadata(x) }
+          else { object = build_data(x) }
+        check_for_error(r, on_ok, (y -> { error = y }))
+      | {some={Bool=b}} ->
+        if b
+        then { error = Facebook.data_error }
+        else { error = Facebook.access_denied }
+      | _ -> { error = Facebook.data_error }
+      end
+
+    /**
+     * Perform a standard get object call but process the reply for a 302 Redirect response.
+     */
     redirect(id, options) =
       data = prepare_object_option(options)
       FbLib.fb_get_redirect(graph_url, "/{id}", data)
@@ -1491,8 +1584,8 @@ FbGraph = {{
     /**
      * Get all permissions available for current app with current user
      */
-    permissions(token) : list(Facebook.permission) =
-      match connection("me", "permissions", token, default_paging) with
+    permissions(user_id, token) : list(Facebook.permission) =
+      match connection(user_id, "permissions", token, default_paging) with
       | {error=_}   -> []
       | {success=s} ->
         if s.data == [] then []
@@ -1561,6 +1654,9 @@ FbGraph = {{
     likes(profile_id, options) = object("{profile_id}/likes", options)
     likespage(profile_id, page_id, options) = object("{profile_id}/likes/{page_id}", options)
     mutualfriends(profile_id, options) = object("{profile_id}/mutualfriends", options)
+    permissions_raw(user_id, options) = object("{user_id}/permissions", options)
+    subscribedto(user_id, options) = object("{user_id}/subscribedto", options)
+    subscribers(user_id, options) = object("{user_id}/subscribers", options)
 
   }}
 
@@ -1622,6 +1718,134 @@ FbGraph = {{
 
   }}
 
+  Batch = {{
+
+    // TODO: uploading binary data in a batch, see http://developers.facebook.com/docs/reference/api/batch/
+
+    @private string_of_method(m:FbGraph.method) : string =
+      match m with
+      | {get} -> "GET"
+      | {put} -> "PUT"
+      | {post} -> "POST"
+      | {delete} -> "DELETE"
+
+    @private header2j(h:FbGraph.header) : RPC.Json.json =
+      {Record=[("name",{String=h.name}),("value",{String=h.value})]}
+
+    @private br2j(br:FbGraph.batch_request) : RPC.Json.json =
+      {Record=List.flatten([[("method",{String=string_of_method(br.method)}),
+                             ("relative_url",{String=br.relative_url})],
+                            if Option.is_none(br.name) then [] else [("name",{String=Option.get(br.name)})],
+                            if br.headers == [] then [] else [("headers",{List=List.map(header2j,br.headers)})],
+                            if Option.is_none(br.body) then [] else [("body",{String=Option.get(br.body)})]
+                           ])}
+
+    @private get_header(h:RPC.Json.json) : option(FbGraph.header) =
+      match h with
+      | {Record=r} ->
+         match (List.assoc("name",r), List.assoc("value",r)) with
+         | ({some={String=name}},{some={String=value}}) -> {some=~{name value}}
+         | _ -> none
+         end
+      | _ -> none
+
+    @private get_br(req:FbGraph.batch_request, br:RPC.Json.json) : FbGraph.batch_result =
+      match br with
+      | {Record=r} ->
+         code = match List.assoc("code",r) with {some={Int=code}} -> code | _ -> -1 end
+         headers = match List.assoc("headers",r) with {some={List=l}} -> List.filter_map(get_header,l) | _ -> [] end
+         body = match List.assoc("body",r) with | {some={String=s}} -> {some=s} | _ -> none end
+         ~{typ=req.typ; metadata=req.metadata; code; headers; body}
+      | _ -> {error=Facebook.make_error("get batch result","bad data: {br}")}
+
+    /**
+     * Perform a batch call on the given list of requests (max: 50 requests).
+     * Returns the raw batch objects, use [process_batch_result(s)] to get the
+     * usual return processing on results.
+     */
+    batch(requests:FbGraph.batch_requests, token) : FbGraph.batch_results =
+      if requests == [] || List.length(requests) > 50
+      then {error=Facebook.data_error}
+      else
+        path = API_libs.form_urlencode([("access_token",token)])
+        batch = "batch={Json.serialize({List=List.map(br2j,requests)})}"
+        match FbLib.fb_post_raw(graph_url, "/?{path}", batch) with
+        | {none} -> {error=Facebook.network_error}
+        | {some=r} ->
+          match Json.of_string(r) with
+          | {some={List=l}} ->
+             if List.length(requests) != List.length(l)
+             then {error=Facebook.make_error("batch","Number of replies doesn't match number of requests")}
+             else {batch_results=List.map2(get_br,requests,l)}
+          | {some={Record=r}} ->
+             match List.assoc("error",r) with
+             | {some={Record=e}} ->
+                match (List.assoc("message",e),List.assoc("type",e)) with
+                | ({some={String=message}},{some={String=typ}}) ->
+                   {error=Facebook.make_error(typ,message)}
+                | _ -> {error=Facebook.make_error("bad JSON","{{Record=e}}")}
+                end
+             | _ -> {error=Facebook.make_error("bad JSON","{{Record=r}}")}
+             end
+          | {some=j} -> {error=Facebook.make_error("batch","bad JSON: {j}")}
+          | {none} -> {error=Facebook.parse_error(r)}
+          end
+
+    /**
+     * Make a batch request element from a standard object read call.
+     * The resultant batch request will be a GET to the implied url.
+     * Unnamed, use something like: [\{object(id,options) with ~name\}]
+     */
+    object(id, options) : FbGraph.batch_request =
+      data = Read.prepare_object_option(options)
+      relative_url = FbLib.generic_build_path("{id}", data)
+      {typ={object}; name=none; metadata=options.metadata; method={get}; ~relative_url; headers=[]; body=none}
+
+    /**
+     * Process generic result from batch operation.
+     * Note that we don't support multiple_objects here, seems redundant in a batch call.
+     */
+    process_batch_result(br:FbGraph.batch_result) : FbGraph.result =
+     match br with
+     | {~error} -> {~error}
+     | {typ={object}; ~metadata; ~body; ...} ->
+        match body with
+        | {none} -> {error=Facebook.make_error("process_batch_result","no content")}
+        | {some=r} ->
+           match Read.process_object(metadata, r) with
+           | {~error} -> {~error}
+           | object -> {~object}
+           end
+        end
+     | {typ={post}; ~body; ...} ->
+        match body with
+        | {none} -> {error=Facebook.make_error("process_batch_result","no content")}
+        | {some=r} ->
+           match process_post(r) with
+           | {~error} -> {~error}
+           | post -> {~post}
+           end
+        end
+     | {typ={delete}; ~body; ...} ->
+        match body with
+        | {none} -> {error=Facebook.make_error("process_batch_result","no content")}
+        | {some=r} ->
+           match process_post(r) with
+           | {~error} -> {~error}
+           | delete -> {~delete}
+           end
+        end
+
+    /**
+     * Process return value from Read.batch.
+     */
+    process_batch_results(brs:FbGraph.batch_results) : FbGraph.processed_batch_results =
+      match brs with
+      | {~batch_results} -> {processed_batch_results=List.map(process_batch_result,batch_results)}
+      | {~error} -> {~error}
+
+  }}
+
 }}
 
 /* to_string functions */
@@ -1662,36 +1886,30 @@ FbGraph = {{
       }:RPC.Json.json |> Json.serialize
 
   link_to_data(link) =
-    FbLib.add_if_filled("message", link.message, [])
-    |> FbLib.add_if_filled("link", link.link, _)
-    |> FbLib.add_if_filled("picture", link.picture, _)
-    |> FbLib.add_if_filled("name", link.name, _)
-    |> FbLib.add_if_filled("caption", link.caption, _)
-    |> FbLib.add_if_filled("description", link.description, _)
+    FbLib.params([{nes=("message", link.message)},
+                  {nes=("link", link.link)},
+                  {nes=("picture", link.picture)},
+                  {nes=("name", link.name)},
+                  {nes=("caption", link.caption)},
+                  {nes=("description", link.description)}])
 
   event_to_data(e:FbGraph.event) =
-    aux_date(date) =
-      date = Date.in_milliseconds(date) / 1000
-      Int.to_string(date)
-    [("name", e.name), ("venue", place_to_string(e.place)),
-     ("privacy", privacy_to_string(e.privacy))]
-    |> FbLib.add_if_filled("description", e.description, _)
-    |> FbLib.add_if_filled("location", e.location, _)
-    |> FbLib.add_if_filled("start_time", aux_date(e.start_time), _)
-    |> FbLib.add_if_filled("end_time", aux_date(e.end_time), _)
-
-  achievement_to_data(a:FbGraph.achievement) =
-    [("achievement", a.achievement)]
-    |> FbLib.add_if_filled("message", a.message, _)
+    FbLib.params([{sreq=("name", e.name)},
+                  {sreq=("venue", place_to_string(e.place))},
+                  {sreq=("privacy", privacy_to_string(e.privacy))},
+                  {nes=("description", e.description)},
+                  {nes=("location", e.location)},
+                  {dreq=("start_time", e.start_time)},
+                  {dreq=("end_time", e.end_time)}])
 
   album_to_data(a:FbGraph.album) =
-    [("name", a.name)]
-    |> FbLib.add_if_filled("message", a.message, _)
-    |> FbLib.add_if_filled("location", a.location, _)
-    |> FbLib.add_if_filled("link", a.link, _)
+    FbLib.params([{sreq=("name", a.name)},
+                  {nes=("message", a.message)},
+                  {nes=("location", a.location)},
+                  {nes=("link", a.link)}])
 
   photo_to_form(p:FbGraph.photo) =
-    [{name="source"; filename=p.filename; content_type=p.content_type; content=p.source}]
-    |> FbLib.add_form_if_filled("message", p.message, _)
+    FbLib.forms([{file=("source",p.filename,p.content_type,p.source)},
+                 {nes=("message", p.message)}])
 
 }}
