@@ -275,9 +275,9 @@ type 'a value =
 
 type information = (* TODO: explicit the invariants *)
     { (* fields that aren't computed *)
-      mutable privacy : privacy;
+      privacy : privacy;
       implemented_both : bool;
-      mutable user_annotation : user_annotation option;
+      user_annotation : user_annotation option;
       ident : Ident.t;
       async : bool;
       mutable expr : Q.expr value; (* this field is muted only at the very end
@@ -1077,9 +1077,6 @@ let inline_informations_lambda_lifted env =
            match enclosing_info_if_not_toplevel_and_not_annotated env info with
            | None -> ()
            | Some orig_info ->
-               (* Inherit of annotations of enclosing function *)
-               info.user_annotation <- orig_info.user_annotation;
-               info.privacy <- orig_info.privacy;
                (* merging @sliced_expr, @call_*_bypass
                 * because these are the only properties that would
                 * be different if the the lifted functions were inlined
@@ -1156,9 +1153,11 @@ let choose_sides env =
            ) group;
 
          (* third step: dispatch according the annotation *)
-         List.iter
-           (fun node -> look_at_user_annotation env pp_pos node node.user_annotation)
-           group
+         List.iter (fun node ->
+                      match enclosing_info_if_not_toplevel_and_not_annotated env node with
+                      | Some _ -> (* this is treated below *) ()
+                      | None -> look_at_user_annotation env pp_pos node node.user_annotation
+                   ) group
        )
     ) groups;
 
@@ -1167,7 +1166,7 @@ let choose_sides env =
        List.iter
          (fun node ->
             match enclosing_info_if_not_toplevel_and_not_annotated env node with
-            | Some ({user_annotation=Some _; _} as node_i) ->
+            | Some node_i ->
                 (* never publish those for now at least, because it adds type
                  * variables in unwanted places like the runtime of the serialization *)
                 let relax = function
@@ -1182,7 +1181,7 @@ let choose_sides env =
                       Some None in
                 node.on_the_server <- relax (node_i.on_the_server :> client_code_kind option option);
                 node.on_the_client <- relax node_i.on_the_client;
-            | _ -> ()
+            | None -> ()
          ) group
     ) groups
 
@@ -1358,7 +1357,7 @@ let is_a_lambda info =
   let rec aux = function
       (* this check should be kept consistent with the one in qmlUncurry presumably *)
     | Q.Coerce (_, e, _)
-    | Q.Directive (_, #ignored_directive, [e], _) -> aux e
+    | Q.Directive (_, #Q.type_directive, [e], _) -> aux e
     | Q.Lambda _ -> true
     | _ -> false in
   match info.expr with
