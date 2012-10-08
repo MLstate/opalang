@@ -815,6 +815,7 @@ FbRest_private = {{
  * automatically added to all functions
  */
 
+@deprecated({hint="Deprecated by Facebook, use the Graph API instead"})
 FbRest = {{
   /* -------------------- */
   /* Specific to Facebook */

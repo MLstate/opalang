@@ -98,19 +98,25 @@ FbLib = {{
   fb_get_redirect(base, path, data) = fb_get_(base, path, data, redirect)
 
   /**
-   * Make a HTTP POST on [path] at [base] with [data]
+   * Make a HTTP POST on [path] at [base] with string [data]
    */
-  fb_post(base, path, data) =
-    txtdata = API_libs.form_urlencode(data)
-    do jlog("POST {base}{path}\n{txtdata}\n")
+  fb_post_raw(base, path, content) =
+    do jlog("POST {base}{path}\n{content}\n")
     match Uri.of_string("{base}{path}") with
     | {none} -> none
     | {some=uri} ->
-      match WebClient.Post.try_post(uri,txtdata) with
+      match WebClient.Post.try_post(uri,content) with
       | {failure=_} -> none
       | {success=s} -> do jlog("HTTP {s.code}\n{s.content}") {some=s.content}
       end
 
+  /**
+   * Make a HTTP POST on [path] at [base] with form [data]
+   */
+  fb_post(base, path, data) =
+    content = API_libs.form_urlencode(data)
+    fb_post_raw(base, path, content)
+    
   @private memdump = (%% BslPervasives.memdump %%: string -> string)
 
   /**
@@ -168,55 +174,35 @@ FbLib = {{
     then data
     else List.add((name, v), data)
 
-  add_if_filled_opt(name, tostr, v, data) =
-    if Option.is_none(v)
-    then data
-    else List.add((name, tostr(Option.get(v))), data)
+  /** Generic HTTP parameters, sreq=required string, bopt=optional bool etc. */
 
-  add_if_filled_generic(name, tostr, v, data) = add_if_filled(name, tostr(v), data)
-
-  add_bool_if_filled(name, v:option(bool), data) = add_if_filled_opt(name, Bool.to_string, v, data)
-
-  add_int_if_filled(name, v:option(int), data) = add_if_filled_opt(name, Int.to_string, v, data)
-
-  add_date_if_filled(name, v:option(Date.date), data) = add_if_filled_opt(name, date_to_string, v, data)
-
-  add_array_if_filled(name, tojson:list('a)->RPC.Json.json, v:list('a), data) =
-    if v == []
-    then data
-    else List.add((name, Json.serialize(tojson(v))), data)
-
-  add_json(name, tojson:'a->RPC.Json.json, v:'a, data) =
-    List.add((name, Json.serialize(tojson(v))), data)
-
-  add(parameters, data) =
+  params(parameters) =
     List.fold((p, data ->
       match p with
+      | {nes=(name,v)} -> if v == "" then data else List.add((name,v),data)
       | {sreq=(name,v)} -> List.add((name,v),data)
       | {sopt=(name,v)} -> if Option.is_none(v) then data else List.add((name, Option.get(v)), data)
       | {ireq=(name,v)} -> List.add((name,Int.to_string(v)),data)
-      | {iopt=(name,v)} -> add_int_if_filled(name, v, data)
+      | {iopt=(name,v)} -> if Option.is_none(v) then data else List.add((name, Int.to_string(Option.get(v))),data)
       | {breq=(name,v)} -> List.add((name,Bool.to_string(v)),data)
-      | {bopt=(name,v)} -> add_bool_if_filled(name, v, data)
+      | {bopt=(name,v)} -> if Option.is_none(v) then data else List.add((name, Bool.to_string(Option.get(v))),data)
       | {dreq=(name,v)} -> List.add((name,date_to_string(v)),data)
-      | {dopt=(name,v)} -> add_date_if_filled(name, v, data)
-      | {jreq=(name,toj,v)} -> add_json(name, toj, v, data)
-      | {jopt=(name,toj,v)} -> if Option.is_none(v) then data else add_json(name, toj, Option.get(v), data)
+      | {dopt=(name,v)} -> if Option.is_none(v) then data else List.add((name, date_to_string(Option.get(v))),data)
+      | {jreq=(name,toj,v)} -> List.add((name, Json.serialize(toj(v))), data)
+      | {jopt=(name,toj,v)} -> if Option.is_none(v) then data else List.add((name, Json.serialize(toj(Option.get(v)))), data)
       | {creq=(name,tos,v)} -> List.add((name,tos(v)),data)
       | {copt=(name,tos,v)} -> if Option.is_none(v) then data else List.add((name, tos(Option.get(v))),data)
       | {aopt=(name,toj,v)} -> if v == [] then data else List.add((name, Json.serialize({List=List.map(toj,v)})), data)
       | {lopt=(name,tos,v)} -> if v == [] then data else List.add((name, String.concat(",",List.map(tos,v))), data)
-     ),parameters,data)
+     ),parameters,[])
 
-  add_form_if_filled(name, v, data) =
-    if v == ""
-    then data
-    else List.add({~name; content=v}, data)
+  /** Generic HTTP forms, file=binary file definition, bopt=optional bool etc. */
 
   forms(forms) =
     List.fold((f, forms ->
       match f with
       | {file=(name,filename,content_type,content)} -> List.add(~{name; filename; content_type; content},forms)
+      | {nes=(name,v)} -> if v == "" then forms else List.add({~name; content=v},forms)
       | {sreq=(name,v)} -> List.add({~name; content=v},forms)
       | {sopt=(name,v)} -> if Option.is_none(v) then forms else List.add({~name; content=Option.get(v)},forms)
       | {breq=(name,v)} -> List.add({~name; content=Bool.to_string(v)},forms)
@@ -243,10 +229,6 @@ FbLib = {{
     {Record=[("name", {String=l.text}:RPC.Json.json),
              ("link", {String=l.href}:RPC.Json.json)]}
   actions_to_json(actions) : RPC.Json.json = {List=List.map(feed_link_to_json, actions)}
-
-  s2j(s:string) : RPC.Json.json = {String=s}
-  l2j(toj:'a->RPC.Json.json, l:list('a)) : RPC.Json.json = {List=List.map(toj, l)}
-  sl2j = l2j(s2j,_)
 
   @private properties_to_json(properties) : RPC.Json.json =
     sub(l:Facebook.feed_link) : RPC.Json.json =
