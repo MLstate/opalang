@@ -1,4 +1,3 @@
-package facebook
 /*
     Copyright © 2011 MLstate
 
@@ -29,7 +28,7 @@ package facebook
  * @stability Work in progress
  */
 
-//import stdlib.apis.{common, facebook, facebook.lib}
+import stdlib.apis.{common, facebook, facebook.lib}
 import stdlib.apis.common
 import stdlib.crypto
 
