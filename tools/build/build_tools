@@ -9,6 +9,8 @@
 # tool_name is the common name of your tool, as it is installed and referred to.
 # the build_target is the name of the exe as understood by ocamlbuild.
 # install dir is relative to the installation prefix, default is "bin/"
+#
+# processed by Makefile.bld
 
 # from opageneral itself
 internal ppdebug		compiler/pplib/ppml.native

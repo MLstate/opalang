@@ -105,6 +105,7 @@ type tool_type = Internal of Pathname.t | External of Pathname.t
 let tools_table = (Hashtbl.create 17: (string, tool_type) Hashtbl.t)
 
 let set_tool ~internal ?(env="") name f =
+  (* Printf.printf "Set Tool: %s (%b)\n" name internal; *)
   let tool =
     if internal then Internal f
     else External (if env = "" then mlstatelibs/f else try Sys.getenv env with Not_found -> mlstatelibs/f)
@@ -310,6 +311,7 @@ let _ = dispatch begin function
         in
         let internal_lib ?dir lib =
           let dir = match dir with None -> lib | Some dir -> dir in
+	  (* Printf.printf "Internal Lib: %s\n" dir; *)
           Hashtbl.add mlstate_libs_table lib ([lib],dir);
           ocaml_lib ~dir lib;
 	  let pfx = Pathname.dirname dir in

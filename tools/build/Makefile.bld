@@ -36,9 +36,10 @@
 #
 
 BUILD_DIR ?= _build
-BLDDIR ?= $(OPALANG_DIR)/tools/build
 MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild
 OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin $(OCAMLBUILD_OPT) $(OCAMLBUILD_FLAGS)
+
+BLDDIR ?= $(OPALANG_DIR)/tools/build
 
 INSTALL ?= cp -u
 
@@ -60,18 +61,13 @@ distclean: clean
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
 
-# FIXME: duplicated in gen_myocamlbuild.sh
-ifdef private
-  BUILD_RULES := $(wildcard $(BLDDIR)/build_rules*.ml)
-  BUILD_LIBS := $(wildcard $(BLDDIR)/build_libs*)
-  BUILD_TOOLS := $(wildcard $(BLDDIR)/build_tools*)
-else
-  BUILD_RULES := $(BLDDIR)/build_rules.ml
-  BUILD_LIBS := $(BLDDIR)/build_libs
-  BUILD_TOOLS := $(BLDDIR)/build_tools
-endif
+export BUILD_RULES := $(BLDDIR)/build_rules.ml $(BUILD_RULES)
+export BUILD_LIBS := $(BLDDIR)/build_libs $(BUILD_LIBS)
+export BUILD_TOOLS := $(BLDDIR)/build_tools $(BUILD_TOOLS)
 
-MYOCAMLBUILD_SOURCES = $(BLDDIR)/gen_myocamlbuild.sh
+MYOCAMLBUILD_SOURCES = \
+	$(BLDDIR)/gen_myocamlbuild.sh \
+	$(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
 
 $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
 	@echo "Ocamlbuild plugin generation"
@@ -92,11 +88,14 @@ $(BUILD_DIR)/build_libs.make: $(BUILD_LIBS) $(BLDDIR)/Makefile.bld
 	@awk '/^internal/ { \
 	        lib = $$2; libs[i++] = $$2; \
 	        dir = $$3 ? $$3 : lib; \
+		split(FILENAME, path, "/"); \
+		if (path[1] == ".") prefix = ""; \
+		else prefix = path[1] "/"; \
 	        printf ".PHONY: %s\n",lib; \
 	        printf "%s: $$(MYOCAMLBUILD)\n\t$$(OCAMLBUILD) $$@.cmxa\n",lib; \
 	        printf "install-%s:\n\t@$$(install-%s)", lib, lib; \
 	        printf "\n"; \
-	        printf "lib-cmi-%s = $$(call lib-cmi,%s,$$(BUILD_PREFIX)%s)\n", lib, lib, dir; \
+		printf "lib-cmi-%s = $$(call lib-cmi,%s,%s%s)\n", lib, lib, prefix, dir; \
 	        printf "install-%s = mkdir -p $$(LIB_INSTALL_DIR) && ", lib; \
 	        printf "$$(INSTALL)"; \
 	        printf " $$(addprefix $$(BUILD_DIR)/,%s.$(EXT_LIB) %s.cmxa $$(lib-cmi-%s))", lib, lib, lib; \
@@ -128,17 +127,19 @@ $(BUILD_DIR)/build_tools.make: $(BUILD_TOOLS) $(BLDDIR)/Makefile.bld
 	        tool = $$2; tools[i] = tool; \
 	        target = $$3; targets[i] = target; \
 	        dir = $$4 ? $$4 : "bin"; dirs[i++] = dir; \
+		split(FILENAME, path, "/"); \
+		if (path[1] == ".") prefix = ""; \
+		else prefix = path[1] "/"; \
 	        printf ".PHONY: %s\n", tool; \
 	        printf "%s: $$(MYOCAMLBUILD)\n", tool; \
-	        printf "\t$$(OCAMLBUILD) $$(BUILD_PREFIX)%s\n", target; \
+		printf "\t$$(OCAMLBUILD) %s%s\n", prefix, target; \
 	        printf "\t@$$(copy-tool-%s)\n", tool; \
 	        printf ".PHONY: install-%s\n", tool; \
 	        printf "install-%s:\n\t@$$(install-%s)", tool, tool; \
 	        printf "\n"; \
-	        printf "target-tool-%s = $$(BUILD_PREFIX)%s\n", tool, target; \
+		printf "target-tool-%s = %s%s\n", tool, prefix, target; \
 	        printf "copy-tool-%s = ", tool; \
-	        printf "mkdir -p $$(BUILD_DIR)/%s && $$(INSTALL) $$(BUILD_DIR)/$$(BUILD_PREFIX)%s $$(BUILD_DIR)/%s/%s", \
-	          dir, target, dir, tool; \
+		printf "mkdir -p $$(BUILD_DIR)/%s && $$(INSTALL) $$(BUILD_DIR)/%s%s $$(BUILD_DIR)/%s/%s", dir, prefix, target, dir, tool; \
 	        if (dir=="bin") printf " && chmod a+x $$(BUILD_DIR)/%s/%s\n",dir,tool; \
 	        else printf "\n"; \
 	        printf "install-%s = ", tool; \

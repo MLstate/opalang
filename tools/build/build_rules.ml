@@ -499,10 +499,15 @@ let build_tools_dir = prefix_me "tools"/"build" in
 
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
 
-let opacomp_deps_js = string_list_of_file (build_tools_dir/"opa-run-js-libs.itarget") in
-let opacomp_deps_js_cps = string_list_of_file (build_tools_dir/"opa-run-js-cps-libs.itarget") in
-let opacomp_deps_js_no_cps = string_list_of_file (build_tools_dir/"opa-run-js-no-cps-libs.itarget") in
-let opacomp_deps_native = string_list_of_file (build_tools_dir/"opa-run-libs.itarget") in
+let prefixed_string_list_of_file f =
+  let l = string_list_of_file f in
+  List.map prefix_me l
+in
+
+let opacomp_deps_js = prefixed_string_list_of_file (build_tools_dir/"opa-run-js-libs.itarget") in
+let opacomp_deps_js_cps = prefixed_string_list_of_file (build_tools_dir/"opa-run-js-cps-libs.itarget") in
+let opacomp_deps_js_no_cps = prefixed_string_list_of_file (build_tools_dir/"opa-run-js-no-cps-libs.itarget") in
+let opacomp_deps_native = prefixed_string_list_of_file (build_tools_dir/"opa-run-libs.itarget") in
 let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) opacomp_deps_native in
 
 let opacomp_deps_native = opacomp_deps_native @ opacomp_deps_js in
@@ -526,7 +531,8 @@ let copy_lib_to_runtime lib =
     List.map (Pathname.update_extension !Options.ext_lib) (dir_ext_files "clib" (mlstate_lib_dir lib))
   in
   let files = stubs @ files in
-  Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f)) files @ [ P (opa_prefix / opa_libs_dir) ]))
+  Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f)) files
+	@ [ P (opa_prefix / opa_libs_dir) ]))
 in
 
 let globalizer_prods dest = [dest/"package.json"; dest/"main.js"] in
@@ -903,7 +909,7 @@ in
 
 let module RuleFailure = struct exception E end in
 let files_of_package pkg =
-  let pkdir = "lib" / package_to_dir pkg in
+  let pkdir = prefix_me ("lib" / package_to_dir pkg) in
   if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
     let () = Printf.eprintf "Error: can not find sources for package %s (directory %s does not exist)\n" pkg pkdir in
     raise RuleFailure.E
@@ -926,8 +932,13 @@ let files_of_package pkg =
     files in
 
 let packages_exclude_node = "node.exclude" in
-let make_all_packages = [stdlib_packages_dir/"all_packages.sh"; stdlib_packages_dir/packages_exclude_node] in
-let all_packages_file nodebackend = if nodebackend then stdlib_packages_dir/"all.node.packages" else stdlib_packages_dir/"all.packages" in
+let make_all_packages = [
+  stdlib_packages_dir/"all_packages.sh";
+  stdlib_packages_dir/packages_exclude_node
+] in
+let all_packages_file nodebackend =
+  if nodebackend then stdlib_packages_dir/"all.node.packages"
+  else stdlib_packages_dir/"all.packages" in
 
 let all_packages_building nodebackend =
   let prod = all_packages_file nodebackend in
@@ -989,12 +1000,13 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
      try
        let packages = string_list_of_file (all_packages_file nodebackend) in
        let packages =
-         if stdlib_only
-         then
+         if stdlib_only then
            let stdlib = "stdlib.core" in
-           List.filter (fun package ->
-                          String.length package >= String.length stdlib &&
-                            stdlib = String.sub package 0 (String.length stdlib)) packages
+           List.filter (
+	     fun package ->
+               String.length package >= String.length stdlib &&
+                 stdlib = String.sub package 0 (String.length stdlib)
+	   ) packages
          else packages in
        let list_package_files = List.map
          (fun pkg ->
@@ -1034,7 +1046,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
          (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
          [A"--conf-opa-files"]
        in
-       let opx_dir = if nodebackend then "stdlib.qmljs" else "" in
+       let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
        let version = get_version_buildinfos () in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
        let extra_opt =
@@ -1051,7 +1063,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
            if nodebackend then
 	     (* we do not give --back-end because qmljs is the default one *)
 	     extra_opt
-           else A"--back-end"::A""::extra_opt
+           else extra_opt (* A"--back-end"::A""::extra_opt *)
        in
        Seq[
          Echo(conf, "conf");
@@ -1063,7 +1075,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
                 (* A"--verbose-build"; *)
                 A"--conf";P "conf";
                 A"--slicer-check"; A "low";
-                A"--project-root"; P Pathname.pwd; (* because the @static_resource in the stdlib expect this *)
+                A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"--parser"; A"classic";
                 A"--opx-dir"; P opa_prefix;

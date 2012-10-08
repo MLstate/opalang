@@ -46,17 +46,9 @@ fi
 
 
 BUILD_DIR="_build"
-BUILD_RULES=$BLDDIR/build_rules.ml
-BUILD_LIBS=$BLDDIR/build_libs
-BUILD_TOOLS=$BLDDIR/build_tools
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -private)
-            BUILD_RULES="tools/build/build_rules*.ml"
-            BUILD_LIBS="tools/build/build_libs*"
-            BUILD_TOOLS="tools/build/build_tools*"
-            ;;
         -build-dir)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
@@ -97,19 +89,31 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
     cat $BLDDIR/myocamlbuild_prefix.ml
     for i in $BUILD_TOOLS; do
         if [ -e "$i" ]; then
+	    DIR=$(echo $i | cut -d "/" -f1)
+	    if [ $DIR = "." ]; then
+		PREFIX=""
+	    else
+		PREFIX="$DIR/"
+	    fi
             echo "#1 \"$i\""
             sed "$SED_FILTER" $i |
-            awk '/^external/ { print "set_tool ~internal:false \""$2"\" (prefix_me \""$3"\");" }
-                 /^internal/ { print "set_tool ~internal:true \""$2"\" (prefix_me \""$3"\");" }'
+            awk -v prefix=$PREFIX '/^external/ { print "set_tool ~internal:false \""$2"\" \""prefix$3"\";" }
+                 /^internal/ { print "set_tool ~internal:true \""$2"\" (\""prefix$3"\");" }'
         fi
     done
     for i in $BUILD_LIBS; do
         if [ -e "$i" ]; then
+	    DIR=$(echo $i | cut -d "/" -f1)
+	    if [ $DIR = "." ]; then
+		PREFIX=""
+	    else
+		PREFIX="$DIR/"
+	    fi
             echo "#1 \"$i\""
-            awk 'BEGIN { split (ENVIRON["DISABLED_LIBS"],a); for (i in a) disabled[a[i]] = 1 }
+            awk -v prefix=$PREFIX 'BEGIN { split (ENVIRON["DISABLED_LIBS"],a); for (i in a) disabled[a[i]] = 1 }
                  /^external/ { print "mlstate_lib ~dir:\"lib/opa/static\" \""$2"\";" }
                  /^internal/ && ! ($2 in disabled) \
-                   { print "internal_lib", $3 ? "~dir:(prefix_me \""$3"\")" : "", "\""$2"\";" }' $i
+                   { print "internal_lib", $3 ? "~dir:\""prefix$3"\"" : "", "\""$2"\";" }' $i
         fi
     done
     for i in $BUILD_RULES; do
