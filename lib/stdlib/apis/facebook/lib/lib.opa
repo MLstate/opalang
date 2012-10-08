@@ -1,4 +1,3 @@
-package facebook
 /*
     Copyright © 2011 MLstate
 
@@ -23,7 +22,7 @@ package facebook
  */
 
 import stdlib.apis.common
-//import stdlib.apis.facebook
+import stdlib.apis.facebook
 
 /**
  * {1 About this module}
