@@ -233,14 +233,17 @@ type Facebook.feed = {
 
 /** A Facebook post for [FbGraph.Post.post]. */
 type Facebook.post = {
-  message     : option(string)
-  link        : option(string)
-  picture     : option(string)
-  name        : option(string)
-  caption     : option(string)
-  description : option(string)
-  actions     : list(Facebook.feed_link)
-  privacy     : option(string)
+  message           : option(string)
+  link              : option(string)
+  picture           : option(string)
+  name              : option(string)
+  caption           : option(string)
+  description       : option(string)
+  actions           : list(Facebook.feed_link)
+  place             : option(string)
+  tags              : list(string)
+  privacy           : option(string)
+  object_attachment : option(string)
 }
 
 type Facebook.property =
