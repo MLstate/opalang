@@ -1,12 +1,14 @@
-Feature:
+2012.10.08, Version 1.0.7 (stable), v3523
+New features:
+
+  * Database:
+    - New Dropbox database backend (experimental)
+    - Opa-based mongo driver, stdlib.apis.mongo avialable for node.js backend
+      removed stdlib.apis.mongo.node and stdlib.apis.mongo.common
 
   * Xhtml boolean attributes ("checked", "selected"...) now accept boolean values:
     <input type="checkbox" checked={true}> produces <input type="checkbox" checked="checked">
     <input type="checkbox" checked={false}> produces <input type="checkbox">
-
-  * New Dropbox database backend (experimental)
-
-  * Added is_module and opacapi info in the doc API JSON file (generated with --api)
 
 Updated APIs:
 
@@ -26,14 +28,63 @@ Updated APIs:
   * ServerArg:
     - filter function only filters on real arguments, not exectuable name anymore
 
-Build:
-  * Packaging:
+  * Rule:
+    - added Rule.pipe
+
+  * Crypto:
+    - Refactoring of crypto functions:
+      - Now the crypto functions takes and returns binaries datas instead of (invalid) string
+      - Added Crypto.HMAC.{md5, sha1, sha256, ripemd160}, Crypto.Hash.{sha256, ripemd160}
+      - Removed Crypto.Hash.{hmac_*, sha2}
+      - Removed deprecated function expoted to the global namespace.
+
+  * Binary:
+    - Added standard binary <-> string conversion,
+      - Binary.of_{hex, base64, raw} (string -> binary)
+      - Binary.to_{hex, base64, raw} (binary -> string)
+    - Added String.byte_length
+
+Improvements:
+
+  * Runtime:
+    - Scheduler: schedule sometimes to the node scheduler, for more server availability
+
+  * Compiler:
+    - incomplete pattern matching are now errors and not only warnings
+    - Added option -j for parallel compilation
+    - JsImp: Share duplicated javascript code
+    - JsImp: Remove inlined declarations
+    - JsImp: Clean declarations which are private and unused
+    - JsServer: Better 'require' graph (avoid useless require to speedup initialisation)
+
+  * Other:
     - changed the package names for debian, self-extractible and mac
+    - Added is_module and opacapi info in the doc API JSON file (generated with --api)
+    - removed the warning about system lang not found (en by default)
 
-Other:
-  - removed the warning about system lang not found (en by default)
-  - incomplete pattern matching are now errors and not only warnings
+Bug fixes:
 
+  * Plugins:
+    - In some cases with bypasses wich returns void the bypass could be not called
+
+  * Stdlib:
+    - Server: Decode urls for bundled ressources
+    - JsAst: Rename also ident define as a JS key (more compact Js client)
+    - Values which has been serialized by server on the client toplevel could be misnamed
+    - Mongo and utf8 multibyte characters
+      Credit:Bug reported by Alok Menghrajani (http://forum.opalang.org/0_313)
+
+  * Compiler:
+    - The aysnchronous toplevel declaration was broken,
+      Credit:Bug reported by Philip Müller (https://github.com/MLstate/opalang/issues/84)
+
+  * Runtime:
+    - Fix spawn
+    - Fix Int_of_string
+      Credit:Pull request of Arthur Azevedo de Amorim (https://github.com/MLstate/opalang/pull/85)
+
+  * Other:
+    - Some fixes for exotic compiler options (no-cps, no-server, ...)
 
 2012.09.10, Version 1.0.6 (stable), v3375
 
