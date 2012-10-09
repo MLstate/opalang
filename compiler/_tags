@@ -3,10 +3,10 @@
 # COMPILER TAGS
 #
 
-<{backend_passes,buildinfos,compilerlib,jslang,libbsl,libqmlcompil,libtrx,ocamllang,opa,opacapi,opalang,opalib,opatop,passes,passlib,pplib,protocols,qml2js,qml2ocaml,qmlcompilers,qmlcps,qmljsimp,qmlpasses,qmlslicer}>: traverse
+<{js_passes,buildinfos,compilerlib,jslang,libbsl,libqmlcompil,libtrx,ocamllang,opa,opacapi,opalang,opalib,opatop,passes,passlib,pplib,protocols,qml2js,qml2ocaml,qmlcompilers,qmlcps,qmljsimp,qmlpasses,qmlslicer}>: traverse
 
-<main.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib, use_libbsl, use_qml2ocaml, use_qml2js, use_backend_passes, use_opa
+<main.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib, use_libbsl, use_qml2ocaml, use_qml2js, use_js_passes, use_opa
 
-<main.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qml2ocaml, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi, use_backend_passes, use_opa
+<main.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qml2ocaml, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi, use_js_passes, use_opa
 
 <main.ml>: with_mlstate_debug

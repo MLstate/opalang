@@ -22,7 +22,7 @@ internal libsession	  	      ocamllib/libsession
 internal libtools	  	      ocamllib/libtools
 internal oparuntime	  	      ocamllib/oparuntime
 
-internal backend_passes	  	      compiler/backend_passes
+internal js_passes	  	      compiler/js_passes
 internal buildinfos		      compiler/buildinfos
 internal compilerlib	  	      compiler/compilerlib
 internal jslang		      	      compiler/jslang
