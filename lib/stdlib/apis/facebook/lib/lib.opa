@@ -54,7 +54,7 @@ FbLib = {{
    */
   @private fb_get_(base, path, data, process) =
     final_path = generic_build_path("{base}{path}", data)
-    do jlog("GET {final_path}")
+    //do jlog("GET {final_path}")
     match Uri.of_string(final_path) with
     | {none} -> none
     | {some=uri} -> process(WebClient.Get.try_get(uri))
@@ -62,7 +62,7 @@ FbLib = {{
   @private content_only(res) =
     match res with
     | {failure=_} -> none
-    | {success=s} -> do jlog("HTTP {s.code}\n{s.content}") {some=s.content}
+    | {success=s} -> /*do jlog("HTTP {s.code}\n{s.content}")*/ {some=s.content}
 
   // header_get doesn't work on node.
   find_header(name,headers) =
@@ -77,17 +77,17 @@ FbLib = {{
     match res with
     | {failure=_} -> none
     | {success=s} ->
-       do jlog("hdrs=\n{String.concat("\n",s.headers)}")
+       //do jlog("hdrs=\n{String.concat("\n",s.headers)}")
        content_type = Option.default("unknown/unknown",find_header("content-type",s.headers))
        location = Option.default("",find_header("location",s.headers))
-       do jlog("HTTP {s.code} type={content_type} location={location}")
+       //do jlog("HTTP {s.code} type={content_type} location={location}")
        {some=(content_type,location,s.content)}
 
   @private redirect(res) =
     match res with
     | {failure=_} -> none
     | {success=s} ->
-       do jlog("HTTP {s.code}")
+       //do jlog("HTTP {s.code}")
        if s.code == 302
        then find_header("location",s.headers)
        else none
@@ -100,13 +100,13 @@ FbLib = {{
    * Make a HTTP POST on [path] at [base] with string [data]
    */
   fb_post_raw(base, path, content) =
-    do jlog("POST {base}{path}\n{content}\n")
+    //do jlog("POST {base}{path}\n{content}\n")
     match Uri.of_string("{base}{path}") with
     | {none} -> none
     | {some=uri} ->
       match WebClient.Post.try_post(uri,content) with
       | {failure=_} -> none
-      | {success=s} -> do jlog("HTTP {s.code}\n{s.content}") {some=s.content}
+      | {success=s} -> /*do jlog("HTTP {s.code}\n{s.content}")*/ {some=s.content}
       end
 
   /**
@@ -133,13 +133,13 @@ FbLib = {{
                      ),forms)
     content = some(String.concat("",List.append(forms,["--{bound}--\r\n"])))
     options = ~{ WebClient.Post.default_options with mimetype content }
-    do jlog("POST {base}{path}\n{memdump(Option.get(content))}\n")
+    //do jlog("POST {base}{path}\n{memdump(Option.get(content))}\n")
     match Uri.of_string("{base}{path}") with
     | {none} -> none
     | {some=uri} ->
       match WebClient.Post.try_post_with_options(uri,options) with
       | {failure=_} -> none
-      | {success=s} -> do jlog("HTTP {s.code}\n{s.content}") {some=s.content}
+      | {success=s} -> /*do jlog("HTTP {s.code}\n{s.content}")*/ {some=s.content}
       end
 
   /**
@@ -147,13 +147,13 @@ FbLib = {{
    */
   fb_delete(base, path, data) =
     final_path = generic_build_path("{base}{path}", data)
-    do jlog("DELETE {final_path}")
+    //do jlog("DELETE {final_path}")
     match Uri.of_string(final_path) with
     | {none} -> none
     | {some=uri} ->
       match WebClient.Delete.try_delete(uri) with
       | {failure=_} -> none
-      | {success=s} -> do jlog("HTTP {s.code}\n{s.content}") {some=s.content}
+      | {success=s} -> /*do jlog("HTTP {s.code}\n{s.content}")*/ {some=s.content}
       end
 
   /* Generic JSON functions */
