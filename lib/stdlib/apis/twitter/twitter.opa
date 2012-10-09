@@ -35,6 +35,19 @@ import stdlib.apis.oauth
 /* ---------------- */
 
 /**
+ * Twitter error
+ */
+type Twitter.error = {
+  code    : int
+  message : string
+}
+
+type Twitter.failure =
+   { twitter : list(Twitter.error) }
+
+type Twitter.outcome('res) = outcome('res,Twitter.failure)
+
+/**
  * Twitter configuration
  */
 type Twitter.configuration = {
@@ -109,11 +122,33 @@ type Twitter.oauth_mode =
  * A Twitter trend.
  *
  * A trend on Twitter in one of the words mostly used in messages at a given date.
- * Trends are currently [April 2010] available for hours and days.
  */
 type Twitter.trend = {
-  name : string; /** The name of the trend */
-  query : string; /** A query to access messages containing this trend */
+  name             : string; /** The name of the trend */
+  query            : string; /** A query to access messages containing this trend */
+  url              : string;
+  promoted_content : string;
+  events           : string;
+}
+
+type Twitter.location = {
+  name  : string
+  woeid : int
+}
+
+type Twitter.place_type = {
+  code : int
+  name : string
+}
+
+type Twitter.full_location = {
+  country     : string
+  countryCode : string
+  name        : string
+  parentid    : int
+  placeType   : Twitter.place_type
+  url         : string
+  woeid       : int
 }
 
 /**
@@ -123,8 +158,10 @@ type Twitter.trend = {
  * Trends are currently [April 2010] available for hours and days.
  */
 type Twitter.trends = {
-  date : string; /** The date of the trends (the week of the day, according to the precision) */
-  tmap : map(string,list(Twitter.trend)); /** A map(string, list(Twitter.trend)) where the value is a list of the trends for a given date which is the key. If the main date is a day, the keys will be precise to an hour, if it is a week, th keys will be precise to a day.*/
+  as_of      : string
+  created_at : string
+  locations  : list(Twitter.location)
+  trends     : list(Twitter.trend)
 }
 
 /**
@@ -343,24 +380,77 @@ type Twitter.rate_limit = {
     data = API_libs_private.parse_json(rawdata)
     _build_tweet_from_json_2_int(data)
 
-  _build_trend_response(rawtrends) =
-    json_2_trend_list(jsonlist) =
-      eltlist = JsonOpa.to_list(jsonlist) ? []
-      transf(elt) =
-        elt = JsonOpa.record_fields(elt) ? Map.empty
-        { name  = API_libs_private.map_get_string("name", elt);
-          query = API_libs_private.map_get_string("query", elt);
-        }:Twitter.trend
-      List.map(transf, eltlist)
+  get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
+  get_obj(name, map, get_elt) = get_elt((Map.get(name, map)) ? {Record=[]})
+  get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
+  get_list(name, map, get_elt) = get_raw_list(Map.get(name, map) ? {List=[]}, get_elt)
+  get_map(name, map, get_elt) =
+    tmap = JsonOpa.record_fields(Map.get(name, map) ? { Record = [] } ) ? Map.empty
+    API_libs_private.remap(get_elt, tmap)
 
-    trends = API_libs_private.parse_json(rawtrends)
-    map = JsonOpa.record_fields(trends) ? Map.empty
-    date = Json.to_string(Map.get("as_of", map) ? {String = "Error in date" })
-    tmap = JsonOpa.record_fields(Map.get("trends", map) ?  { Record = [] } ) ? Map.empty
-    tmap = API_libs_private.remap(json_2_trend_list, tmap)
-    { date = date;
-      tmap = tmap
-    }:Twitter.trends
+  get_trend_elt(elt) =
+    elt = JsonOpa.record_fields(elt) ? Map.empty
+    { name  = API_libs_private.map_get_string("name", elt);
+      query = API_libs_private.map_get_string("query", elt);
+      url = API_libs_private.map_get_string("url", elt);
+      promoted_content = API_libs_private.map_get_string("promoted_content", elt);
+      events = API_libs_private.map_get_string("events", elt);
+    } : Twitter.trend
+
+  get_location_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    { name  = API_libs_private.map_get_string("name", map);
+      woeid = API_libs_private.map_get_int("woeid", map)
+    } : Twitter.location
+
+  get_place_type(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    { code = API_libs_private.map_get_int("code", map)
+      name  = API_libs_private.map_get_string("name", map);
+    } : Twitter.place_type
+
+  get_full_location_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    { 
+      country  = API_libs_private.map_get_string("country", map);
+      countryCode  = API_libs_private.map_get_string("countryCode", map);
+      name  = API_libs_private.map_get_string("name", map);
+      parentid = API_libs_private.map_get_int("parentid", map)
+      placeType = get_obj("placeType", map, get_place_type)
+      url  = API_libs_private.map_get_string("url", map);
+      woeid = API_libs_private.map_get_int("woeid", map)
+    } : Twitter.full_location
+
+  get_trends_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    as_of = get_date("as_of", map)
+    created_at = get_date("created_at", map)
+    locations = get_list("locations", map, get_location_elt)
+    trends = get_list("trends", map, get_trend_elt)
+    ~{ as_of; created_at; locations; trends } : Twitter.trends
+
+  get_error_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    { code  = API_libs_private.map_get_int("code", map);
+      message = API_libs_private.map_get_string("message", map)
+    } : Twitter.error
+
+  _check_errors(json, on_ok) =
+    match json with
+    | {Record=r} ->
+       match List.assoc("errors",r) with
+       | {some=errs} -> {failure={twitter=get_raw_list(errs, get_error_elt)}}
+       | {none} -> {success=on_ok(json)}
+       end
+   | _ -> {success=on_ok(json)}
+
+  _build_trend_place_response(s:string) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_trends_elt))
+
+  _build_trend_locations_response(s:string) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_full_location_elt))
 
   _build_search_response(rawresult) =
     json_2_search_result(jsres) =
@@ -506,13 +596,13 @@ type Twitter.rate_limit = {
     if cond(elt) then List.cons((key, "{elt}"), list)
     else list
 
-  _build_trend_params(exhashtags:bool, date) =
-    [] |> add_if("date", date, TwitParse._check_date)
-       |> add_if("exclude", "hashtags", (_ -> exhashtags))
+  _get_trends_place(params, credentials) : Twitter.outcome(list(Twitter.trends)) =
+    path = "/1.1/trends/place.json"
+    _get_res(path, params, credentials, TwitParse._build_trend_place_response)
 
-  _get_trends_generic(trend_type, params, credentials) =
-    path = "/1/trends/" ^ trend_type ^ ".json"
-    _get_res(path, params, credentials, TwitParse._build_trend_response)
+  _get_trends_locations(trends_type, params, credentials) : Twitter.outcome(list(Twitter.full_location)) =
+    path = "/1.1/trends/{trends_type}.json"
+    _get_res(path, params, credentials, TwitParse._build_trend_locations_response)
 
   _get_generic_timeline(path, p:Twitter.timeline_options, more, credentials) =
     params = more
@@ -622,7 +712,7 @@ Twitter(conf:Twitter.configuration) = {{
  * Custom POST request (advanced)
  *
  * Allows the user to do a custom POST request on Twitter.
- * Returns the API_libs.answer resulting to final_fun applyed to the
+ * Returns the API_libs.answer resulting to final_fun applied to the
  * raw result from Twitter as a string.
  *
  * @param path Path corrsponding to request built according to the Twitter's API
@@ -659,50 +749,45 @@ Twitter(conf:Twitter.configuration) = {{
     Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_search_response)
 
 /**
- * Current trends
+ * trends/place
  *
  * (The trends on Twitter are the words mostly used in messages during a given period.)
- * This function returns current trends.
- * Returns a Twitter.trends object.
+ * This function returns trends/place where id is a WOEID.
+ * Returns a Twitter.trends outcome.
  *
- * @param exhashtags Indicates whether or not hashtags (#abcd) should be excluded from the trends result
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.trends and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param id The place WOEID (eg. France = 23424819)
+ * @param exclude Indicates whether or not hashtags (#abcd) should be excluded from the trends result
+ * @param credentials Valid access credentials
  */
-  get_current_trends(exhashtags, credentials) =
-    params = if (exhashtags) then [("exclude","hashtags")] else []
-    Twitter_private(c)._get_trends_generic("current", params, credentials)
+  get_trends_place(id:int, exclude:bool, credentials) =
+    params = List.append([("id",Int.to_string(id))],if (exclude) then [("exclude","hashtags")] else [])
+    Twitter_private(c)._get_trends_place(params, credentials)
 
 /**
- * Daily trends
+ * trends/available
  *
  * (The trends on Twitter are the words mostly used in messages during a given period.)
- * This function returns the trends for each hour (approximately) the given day. If no
- * day is given it returns the trends of /yesterday/.
- * Returns a Twitter.trends object.
+ * This function returns a list of locations for which trends are available.
+ * Returns an outcome of a list of Twitter.full_location objects.
  *
- * @param exhashtags Indicates whether or not hashtags (#abcd) should be excluded from the trends result
- * @param date (optional) The day when should start the trend report. Should be formatted YYYY-MM-DD
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.trends and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param credentials Valid access credentials
  */
-  get_daily_trends(exhashtags, date, credentials) =
-    params = Twitter_private(c)._build_trend_params(exhashtags, date)
-    Twitter_private(c)._get_trends_generic("daily", params, credentials)
+  get_trends_available(credentials) =
+    Twitter_private(c)._get_trends_locations("available", [], credentials)
 
 /**
- * Weekly trends
+ * trends/closest
  *
  * (The trends on Twitter are the words mostly used in messages during a given period.)
- * This function returns the trends for each day one week (7 days) starting the given day.
- * If no day is given it returns the trends of the week ending /yesterday/.
- * Returns a Twitter.trends object.
+ * This function returns a list of locations which are closest to the given latitude and longitude.
+ * Returns an outcome of a list of Twitter.full_location objects.
  *
- * @param exhashtags Indicates whether or not hashtags (#abcd) should be excluded from the trends result
- * @param date (optional) The day when should start the trend report. Should be formatted YYYY-MM-DD
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.trends and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param credentials Valid access credentials
  */
-  get_weekly_trends(exhashtags, date, credentials) =
-    params = Twitter_private(c)._build_trend_params(exhashtags, date)
-    Twitter_private(c)._get_trends_generic("weekly", params, credentials)
+  get_trends_closest(lat:option(float), long:option(float), credentials) =
+    params = List.append(if Option.is_some(lat) then [("lat",Float.to_string(Option.get(lat)))] else [],
+                         if Option.is_some(long) then [("long",Float.to_string(Option.get(long)))] else [])
+    Twitter_private(c)._get_trends_locations("closest", params, credentials)
 
 /**
  * Public timeline
