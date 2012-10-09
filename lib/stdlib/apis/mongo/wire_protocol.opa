@@ -415,7 +415,7 @@ WireProtocol = {{
                   (match U.skip(input, if stbin == 2 then 4 else 0) with
                    | {success=(input,_)} ->
                       {success=({input with pos=input.pos+size},
-                                {some={~name; value={String=Binary.get_string(input.binary,input.pos,size)}}})}
+                                {some={~name; value={Binary=Binary.get_binary(input.binary,input.pos,size)}}})}
                    | {~failure} -> {~failure})
                | {~failure} -> {~failure})
             | /*el_oid*/7 ->
