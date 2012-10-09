@@ -257,10 +257,9 @@ and project_option level gamma expr ty way =
         (snd (project level gamma expr ty way))
   | `js2opa _ ->
       let tmp = get_tmp_var () in
-      let _, expr = project level gamma expr ty way in
       CE.cond (CE.equality (CE.assign (CE.ident tmp) expr) (CE.undefined ()))
         (CE.obj ["none", CE.obj []])
-        (CE.obj ["some", (CE.ident tmp)])
+        (CE.obj ["some", snd (project level gamma (CE.ident tmp) ty way)])
 
 and project_bool expr way =
   match way with
