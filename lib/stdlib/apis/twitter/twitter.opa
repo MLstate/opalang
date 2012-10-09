@@ -1,3 +1,4 @@
+package twitter
 /*
     Copyright © 2011 MLstate
 
@@ -478,33 +479,18 @@ type Twitter.rate_limit = {
     host = _api_host
     do API_libs_private.apijlog("-- Fetching {host} - {path} \n data --")
     (t, res) = Duration.execution_time( -> wget_fun("{host}{path}"))
+    do jlog("_wget_generic: got={res}")
     do API_libs_private.apijlog("Download: {Duration.in_seconds(t)} seconds")
     (t, res) = Duration.execution_time( -> parse_fun(res))
+    do jlog("_wget_generic: parsed={res}")
     do API_libs_private.apijlog("Parsing:  {Duration.in_seconds(t)} seconds")
     res
 
-  _get_res_unlogged(path, params, parse_fun) =
-    data = API_libs.form_urlencode(params)
-    f(uri) =
-      full_uri = if data == "" then uri else "{uri}?{data}"
-      match Uri.of_string(full_uri) with
-      | {none} -> ""
-      | {some=u} ->
-        match WebClient.Get.try_get(u) with
-        | {failure=_} -> ""
-        | {success=s} -> s.content
-    _wget_generic(path, f, parse_fun)
-
-  _get_res_logged(path, params, credentials:Twitter.credentials, parse_fun) =
+  _get_res(path, params, credentials:Twitter.credentials, parse_fun) =
     f(uri) =
       twOAuth({GET}).get_protected_resource(uri,params,
                         credentials.access_token,credentials.access_secret);
     _wget_generic(path, f, parse_fun)
-
-  _get_res(path, params, credentials:option(Twitter.credentials), parse_fun) =
-    match credentials with
-    | {some=c} -> _get_res_logged(path, params, c, parse_fun)
-    | {none}   -> _get_res_unlogged(path, params, parse_fun)
 
   _post_res(path, params, credentials:Twitter.credentials, parse_fun) =
     f(uri) =
@@ -524,9 +510,9 @@ type Twitter.rate_limit = {
     [] |> add_if("date", date, TwitParse._check_date)
        |> add_if("exclude", "hashtags", (_ -> exhashtags))
 
-  _get_trends_generic(trend_type, params) =
+  _get_trends_generic(trend_type, params, credentials) =
     path = "/1/trends/" ^ trend_type ^ ".json"
-    _get_res_unlogged(path, params, TwitParse._build_trend_response)
+    _get_res(path, params, credentials, TwitParse._build_trend_response)
 
   _get_generic_timeline(path, p:Twitter.timeline_options, more, credentials) =
     params = more
@@ -663,14 +649,14 @@ Twitter(conf:Twitter.configuration) = {{
  * @param request The request (will be url encoded)
  * @param options
  */
-  search(request, options:Twitter.search_options) =
+  search(request, options:Twitter.search_options, credentials) =
     path = "/search.json"
     params = [("q", request)]
       |> add_if("lang", options.lang, (_!=""))
       |> add_if("rpp", options.rpp, (_!=0))
       |> add_if("page", options.page, (_!=0))
       |> add_if("since_id", options.since_id, (_!=0))
-    Twitter_private(c)._get_res_unlogged(path, params, TwitParse._build_search_response)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_search_response)
 
 /**
  * Current trends
@@ -682,9 +668,9 @@ Twitter(conf:Twitter.configuration) = {{
  * @param exhashtags Indicates whether or not hashtags (#abcd) should be excluded from the trends result
  * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.trends and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
-  get_current_trends(exhashtags) =
+  get_current_trends(exhashtags, credentials) =
     params = if (exhashtags) then [("exclude","hashtags")] else []
-    Twitter_private(c)._get_trends_generic("current", params)
+    Twitter_private(c)._get_trends_generic("current", params, credentials)
 
 /**
  * Daily trends
@@ -698,9 +684,9 @@ Twitter(conf:Twitter.configuration) = {{
  * @param date (optional) The day when should start the trend report. Should be formatted YYYY-MM-DD
  * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.trends and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
-  get_daily_trends(exhashtags, date) =
+  get_daily_trends(exhashtags, date, credentials) =
     params = Twitter_private(c)._build_trend_params(exhashtags, date)
-    Twitter_private(c)._get_trends_generic("daily", params)
+    Twitter_private(c)._get_trends_generic("daily", params, credentials)
 
 /**
  * Weekly trends
@@ -714,9 +700,9 @@ Twitter(conf:Twitter.configuration) = {{
  * @param date (optional) The day when should start the trend report. Should be formatted YYYY-MM-DD
  * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.trends and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
-  get_weekly_trends(exhashtags, date) =
+  get_weekly_trends(exhashtags, date, credentials) =
     params = Twitter_private(c)._build_trend_params(exhashtags, date)
-    Twitter_private(c)._get_trends_generic("weekly", params)
+    Twitter_private(c)._get_trends_generic("weekly", params, credentials)
 
 /**
  * Public timeline
@@ -728,9 +714,9 @@ Twitter(conf:Twitter.configuration) = {{
  *
  * @param final_fun A API_libs.answer_fun object containing a function taking a list of Twitter.tweet and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
-  get_public_timeline() =
+  get_public_timeline(credentials) =
     path = "/1/statuses/public_timeline.json"
-    Twitter_private(c)._get_res_unlogged(path, [], TwitParse._build_timeline_response)
+    Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_timeline_response)
 
   default_timeline = {
     count    = 0
@@ -883,7 +869,7 @@ Twitter(conf:Twitter.configuration) = {{
  */
   check_credentials(credentials) =
     path = "/1/account/verify_credentials.json"
-    Twitter_private(c)._get_res_logged(path, [], credentials, TwitParse._build_tweet_from_json_2)
+    Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_tweet_from_json_2)
 
 /**
  * Send a private message
