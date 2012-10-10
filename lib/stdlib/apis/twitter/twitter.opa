@@ -68,19 +68,33 @@ type Twitter.user =
   / { screen_name : string } /** Screen name of a user */
   / { id : string } /** A screen or a unique identifier of a user - Warning, a screen name can be a valid uid */
 
+type Twitter.result_type = {mixed} / {recent} / {popular}
+
 /**
  * Options of a Twitter search
  *
+ * - [geocode] Returns tweets by users located within a given radius of the given latitude/longitude.
  * - [lang] Restricts results to given language
- * - [rpp] Tweets returned per page
- * - [page] Page number (rpp * page < 1500)
+ * - [locale] Restricts tweets to the given language, given by an ISO 639-1 code.
+ * - [result_type] Specifies what type of search results you would prefer to receive. (mixed, popular, recent)
+ * - [count] Tweets returned per page
+ * - [until] Returns tweets generated before the given date.
  * - [since_id] Returns only tweets which id greater than since_id
+ * - [max_id] Returns results with an ID less than (that is, older than) or equal to the specified ID.
+ * - [include_entities] The entities node will be disincluded when set to false.
+ * - [callback] If supplied, the response will use the JSONP format with a callback of the given name.
  */
 type Twitter.search_options = {
-  lang     : string
-  rpp      : int
-  page     : int
-  since_id : int
+  geocode          : string
+  lang             : string
+  locale           : string
+  result_type      : option(Twitter.result_type)
+  count            : int
+  until            : option(Date.date)
+  since_id         : int
+  max_id           : int
+  include_entities : option(bool)
+  callback         : string
 }
 
 /**
@@ -115,7 +129,7 @@ type Twitter.oauth_mode =
  *
  * The end user is not supposed to build object with those types. Those types are defined to structure
  * the data passed back to the user. It is hence necessary that the end user knows which information
- * the contains.
+ * the type contains.
  */
 
 /**
@@ -191,36 +205,113 @@ type Twitter.user_extended = {
   bg              : string; /** A url to the background picture of the user. */
 }
 
+type Twitter.metadata = { result_type : string iso_language_code : string }
 
-/**
- * A Twitter search result.
- *
- * A result of a Twitter search. It is in fact a simplified representation of a Twitter message.
- */
-type Twitter.search_result = {
-  date       : string; /** The date of the message. */
-  from_user  : Twitter.user_base; /** Basic information about the poster of the message. */
-  to_user_id : int; /** If defined (>0), the user to whom the message is addressed. */
-  text       : string; /** The text of the message. */
-  message_id : int; /** The id of the message. */
-  iso_lang   : string; /** The ISO 639-1 code of the language of the poster. */
-  source     : string; /** How the message was posted. */
+type Twitter.url = {
+  url          : string
+  expanded_url : string
+  indices      : list(int)
 }
 
-/**
- * Twitter search results.
- *
- * The full result of a Twitter search.
- */
-type Twitter.search_results = {
-  max_id      : int; /** The hightest id present in the search result. Should be used to make another search for newer results. */
-  since_id    : int; /** The lowest id present in the search result. Should be used to get older results. */
-  rpp         : int; /** The current results per page. */
-  page        : int; /** The current page number. */
-  duration    : float; /** The time Twitter servers took to process your request. Note the this does not include the process time of you OPA server. */
-  query       : string; /** The end of the url of your query. */
-  refresh_url : string; /** The end of a url for a "refreshed" result. You can, for instance add "http://search.twitter.com/search" to it to create an external link to the live results. */
-  results     : list(Twitter.search_result); /** A list of Twitter.search_result representing the result of the search. */
+type Twitter.urls = {
+  urls : list(Twitter.url)
+}
+
+type Twitter.hashtag = {
+  text    : string
+  indices : list(int)
+}
+
+type Twitter.entities = {
+  url           : Twitter.urls
+  description   : Twitter.urls
+  hashtags      : list(Twitter.hashtag)
+  user_mentions : RPC.Json.json
+}
+
+type Twitter.full_user = {
+  id : int
+  id_str : string
+  name : string
+  screen_name : string
+  location : string
+  description : string
+  url : string
+  entities : Twitter.entities
+  protected : bool
+  followers_count : int
+  friends_count : int
+  listed_count : int
+  created_at : string
+  favourites_count : int
+  utc_offset : int
+  time_zone : string
+  geo_enabled : bool
+  verified : bool
+  statuses_count : int
+  lang : string
+  contributors_enabled : bool
+  is_translator : bool
+  profile_background_color : string
+  profile_background_image_url : string
+  profile_background_image_url_https : string
+  profile_background_tile : bool
+  profile_image_url : string
+  profile_image_url_https : string
+  profile_banner_url : string
+  profile_link_color : string
+  profile_sidebar_border_color : string
+  profile_sidebar_fill_color : string
+  profile_text_color : string
+  profile_use_background_image : bool
+  show_all_inline_media : bool
+  default_profile : bool
+  default_profile_image : bool
+  following : RPC.Json.json
+  follow_request_sent : RPC.Json.json
+  notifications : RPC.Json.json
+}
+
+type Twitter.statuses = {
+  message : string
+  metadata : Twitter.metadata
+  created_at : string
+  id  : int
+  id_str : string
+  text : string
+  source : string
+  truncated : bool
+  in_reply_to_status_id : int
+  in_reply_to_status_id_str : string
+  in_reply_to_user_id : int
+  in_reply_to_user_id_str : string
+  in_reply_to_screen_name : string
+  user : Twitter.full_user
+  geo : RPC.Json.json
+  coordinates : RPC.Json.json
+  place : RPC.Json.json
+  contributors : RPC.Json.json
+  retweet_count  : int
+  entities : Twitter.entities
+  favourited : bool
+  retweeted : bool
+}
+
+type Twitter.search_metadata = {
+  completed_in : float
+  max_id : int
+  max_id_str : string
+  next_results : string
+  query : string
+  refresh_url : string
+  count : int
+  since_id : int
+  since_id_str : string
+}
+
+type Twitter.search_result = {
+  statuses        : list(Twitter.statuses)
+  search_metadata : Twitter.search_metadata
 }
 
 /**
@@ -329,8 +420,8 @@ type Twitter.rate_limit = {
 
   _build_ext_user_from_json(user_map) =
     map = JsonOpa.record_fields(user_map) ? Map.empty
-    loc_int(name) = API_libs_private.map_get_int(name, map)
-    loc_string(name) = API_libs_private.map_get_string(name, map)
+    loc_int(name) = get_int(name, map)
+    loc_string(name) = get_string(name, map)
     user_base = { user_id   = loc_int("id");
                   screen_name = loc_string("screen_name");
                   pic_url   = loc_string("profile_image_url");
@@ -347,9 +438,9 @@ type Twitter.rate_limit = {
 
   _build_tweet_from_json_and_poster(jsdata, poster) =
     map = JsonOpa.record_fields(jsdata) ? Map.empty
-    loc_int(name) = API_libs_private.map_get_int(name, map)
-    loc_string(name) = API_libs_private.map_get_string(name, map)
-    { truncated               = API_libs_private.map_get_bool("truncated", map, false);
+    loc_int(name) = get_int(name, map)
+    loc_string(name) = get_string(name, map)
+    { truncated               = get_bool("truncated", map, false);
       created_at              = loc_string("created_at");
       source                  = loc_string("source");
       in_reply_to_user_id     = loc_int("in_reply_to_user_id");
@@ -380,6 +471,12 @@ type Twitter.rate_limit = {
     data = API_libs_private.parse_json(rawdata)
     _build_tweet_from_json_2_int(data)
 
+  get_json_int(json) = match json with | {Int=i} -> i | _ -> -1
+  get_unknown(name, map) = Map.get(name, map) ? {String = "missing unknown type" }
+  get_int = API_libs_private.map_get_int
+  get_float = API_libs_private.map_get_float
+  get_string = API_libs_private.map_get_string
+  get_bool = API_libs_private.map_get_bool
   get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
   get_obj(name, map, get_elt) = get_elt((Map.get(name, map)) ? {Record=[]})
   get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
@@ -390,35 +487,35 @@ type Twitter.rate_limit = {
 
   get_trend_elt(elt) =
     elt = JsonOpa.record_fields(elt) ? Map.empty
-    { name  = API_libs_private.map_get_string("name", elt);
-      query = API_libs_private.map_get_string("query", elt);
-      url = API_libs_private.map_get_string("url", elt);
-      promoted_content = API_libs_private.map_get_string("promoted_content", elt);
-      events = API_libs_private.map_get_string("events", elt);
+    { name  = get_string("name", elt);
+      query = get_string("query", elt);
+      url = get_string("url", elt);
+      promoted_content = get_string("promoted_content", elt);
+      events = get_string("events", elt);
     } : Twitter.trend
 
   get_location_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
-    { name  = API_libs_private.map_get_string("name", map);
-      woeid = API_libs_private.map_get_int("woeid", map)
+    { name  = get_string("name", map);
+      woeid = get_int("woeid", map)
     } : Twitter.location
 
   get_place_type(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
-    { code = API_libs_private.map_get_int("code", map)
-      name  = API_libs_private.map_get_string("name", map);
+    { code = get_int("code", map)
+      name  = get_string("name", map);
     } : Twitter.place_type
 
   get_full_location_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     { 
-      country  = API_libs_private.map_get_string("country", map);
-      countryCode  = API_libs_private.map_get_string("countryCode", map);
-      name  = API_libs_private.map_get_string("name", map);
-      parentid = API_libs_private.map_get_int("parentid", map)
+      country  = get_string("country", map);
+      countryCode  = get_string("countryCode", map);
+      name  = get_string("name", map);
+      parentid = get_int("parentid", map)
       placeType = get_obj("placeType", map, get_place_type)
-      url  = API_libs_private.map_get_string("url", map);
-      woeid = API_libs_private.map_get_int("woeid", map)
+      url  = get_string("url", map);
+      woeid = get_int("woeid", map)
     } : Twitter.full_location
 
   get_trends_elt(json) =
@@ -431,8 +528,8 @@ type Twitter.rate_limit = {
 
   get_error_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
-    { code  = API_libs_private.map_get_int("code", map);
-      message = API_libs_private.map_get_string("message", map)
+    { code  = get_int("code", map);
+      message = get_string("message", map)
     } : Twitter.error
 
   _check_errors(json, on_ok) =
@@ -452,38 +549,137 @@ type Twitter.rate_limit = {
     json = API_libs_private.parse_json(s)
     _check_errors(json, get_raw_list(_, get_full_location_elt))
 
-  _build_search_response(rawresult) =
-    json_2_search_result(jsres) =
-      map = JsonOpa.record_fields(jsres) ? Map.empty
-      loc_int(name) = API_libs_private.map_get_int(name, map)
-      loc_string(name) = API_libs_private.map_get_string(name, map)
-      user = { user_id   = loc_int("from_user_id");
-               screen_name = loc_string("from_user");
-               pic_url   = loc_string("profile_image_url");
-             }:Twitter.user_base
-      { date       = loc_string("created_at");
-        from_user  = user;
-        to_user_id = loc_int("to_user_id");
-        text       = loc_string("text");
-        message_id = loc_int("id");
-        iso_lang   = loc_string("iso_language_code");
-        source     = loc_string("source");
-      }:Twitter.search_result
+  get_metadata(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      result_type = get_string("result_type", map)
+      iso_language_code = get_string("iso_language_code", map)
+    } : Twitter.metadata
 
-    result = API_libs_private.parse_json(rawresult)
-    map = JsonOpa.record_fields(result) ? Map.empty
-    loc_int(name) = API_libs_private.map_get_int(name, map)
-    loc_string(name) = API_libs_private.map_get_string(name, map)
-    reslist = JsonOpa.to_list(Map.get("results", map) ? {List = []}:RPC.Json.json) ? []
-    { max_id      = loc_int("max_id");
-      since_id    = loc_int("since_id");
-      refresh_url = loc_string("refresh_url");
-      rpp         = loc_int("results_per_page");
-      page        = loc_int("page");
-      duration    = API_libs_private.map_get_float("completed_in", map);
-      query       = loc_string("query");
-      results     = List.map(json_2_search_result, reslist)
-    }:Twitter.search_results
+  get_url(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      url = get_string("url", map)
+      expanded_url = get_string("expanded_url", map)
+      indices = get_list("indices", map, get_json_int)
+    } : Twitter.url
+
+  get_urls(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+       urls = get_list("urls", map, get_url)
+    } : Twitter.urls
+
+  get_hashtag(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      text = get_string("text", map)
+      indices = get_list("indices", map, get_json_int)
+    } : Twitter.hashtag
+
+  get_entities(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      url = get_obj("url", map, get_urls)
+      description = get_obj("description", map, get_urls)
+      hashtags = get_list("hashtags", map, get_hashtag)
+      user_mentions = get_unknown("user_mentions", map)
+    } : Twitter.entities
+
+  get_user(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      id = get_int("id", map)
+      id_str = get_string("id_str", map)
+      name = get_string("name", map)
+      screen_name = get_string("screen_name", map)
+      location = get_string("location", map)
+      description = get_string("description", map)
+      url = get_string("url", map)
+      entities = get_obj("entities", map, get_entities)
+      protected = get_bool("protected", map, false)
+      followers_count = get_int("followers_count", map)
+      friends_count = get_int("friends_count", map)
+      listed_count = get_int("listed_count", map)
+      created_at = get_date("created_at", map)
+      favourites_count = get_int("favourites_count", map)
+      utc_offset = get_int("utc_offset", map)
+      time_zone = get_string("time_zone", map)
+      geo_enabled = get_bool("get_bool", map, false)
+      verified = get_bool("verified", map, false)
+      statuses_count = get_int("statuses_count", map)
+      lang = get_string("lang", map)
+      contributors_enabled = get_bool("contributors_enabled", map, false)
+      is_translator = get_bool("is_translator", map, false)
+      profile_background_color = get_string("profile_background_color", map)
+      profile_background_image_url = get_string("profile_background_image_url", map)
+      profile_background_image_url_https = get_string("profile_background_image_url_https", map)
+      profile_background_tile = get_bool("profile_background_tile", map, false)
+      profile_image_url = get_string("profile_image_url", map)
+      profile_image_url_https = get_string("profile_image_url_https", map)
+      profile_banner_url = get_string("profile_banner_url", map)
+      profile_link_color = get_string("profile_link_color", map)
+      profile_sidebar_border_color = get_string("profile_sidebar_border_color", map)
+      profile_sidebar_fill_color = get_string("profile_sidebar_fill_color", map)
+      profile_text_color = get_string("profile_text_color", map)
+      profile_use_background_image = get_bool("profile_use_background_image", map, false)
+      show_all_inline_media = get_bool("show_all_inline_media", map, false)
+      default_profile = get_bool("default_profile", map, false)
+      default_profile_image = get_bool("default_profile_image", map, false)
+      following = get_unknown("following", map)
+      follow_request_sent = get_unknown("follow_request_sent", map)
+      notifications = get_unknown("follow_request_sent", map)
+    } : Twitter.full_user
+
+  get_statuses_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      message = get_string("message", map)
+      metadata = get_obj("metadata", map, get_metadata)
+      created_at = get_date("created_at", map)
+      id  = get_int("id", map);
+      id_str = get_string("id_str", map)
+      text = get_string("text", map)
+      source = get_string("source", map)
+      truncated = get_bool("truncated", map, false)
+      in_reply_to_status_id = get_int("in_reply_to_status_id", map)
+      in_reply_to_status_id_str = get_string("in_reply_to_status_id_str", map)
+      in_reply_to_user_id = get_int("in_reply_to_user_id", map)
+      in_reply_to_user_id_str = get_string("in_reply_to_user_id_str", map)
+      in_reply_to_screen_name = get_string("in_reply_to_screen_name", map)
+      user = get_obj("user", map, get_user)
+      geo = get_unknown("geo", map)
+      coordinates = get_unknown("coordinates", map)
+      place = get_unknown("place", map)
+      contributors = get_unknown("contributors", map)
+      retweet_count  = get_int("retweet_count", map)
+      entities = get_obj("entities", map, get_entities)
+      favourited = get_bool("favourited", map, false)
+      retweeted = get_bool("retweeted", map, false)
+    } : Twitter.statuses
+
+  get_search_metadata(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+     completed_in = get_float("completed_in", map)
+     max_id = get_int("max_id", map)
+     max_id_str = get_string("max_id_str", map)
+     next_results = get_string("next_results", map)
+     query = get_string("query", map)
+     refresh_url = get_string("refresh_url", map)
+     count = get_int("count", map)
+     since_id = get_int("since_id", map)
+     since_id_str = get_string("since_id_str", map)
+    } : Twitter.search_metadata
+
+  _build_search_response(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, (json ->
+      map = JsonOpa.record_fields(json) ? Map.empty
+      {
+       statuses = get_list("statuses", map, get_statuses_elt)
+       search_metadata = get_obj("search_metadata", map, get_search_metadata)
+      } : Twitter.search_result))
 
   _build_one_status(rawresponse) =
     response = API_libs_private.parse_json(rawresponse)
@@ -498,7 +694,7 @@ type Twitter.rate_limit = {
     loc_to_int(x) = API_libs_private.json_to_int_unsafe(x) ? 0
     jsgraph = Json.of_string(rawgraph) |> Option.get
     map = JsonOpa.record_fields(jsgraph) ? Map.empty
-    loc_int(name) = API_libs_private.map_get_int(name, map)
+    loc_int(name) = get_int(name, map)
     ids = JsonOpa.to_list(Map.get("ids", map) ? {List = []}:RPC.Json.json) ? []
     ids = List.map(loc_to_int, ids)
     { previous_cursor = loc_int("previous_cursor");
@@ -509,7 +705,7 @@ type Twitter.rate_limit = {
   _build_full_social_graph(rawgraph) =
     jsgraph = Json.of_string(rawgraph) |> Option.get
     map = JsonOpa.record_fields(jsgraph) ? Map.empty
-    loc_int(name) = API_libs_private.map_get_int(name, map)
+    loc_int(name) = get_int(name, map)
     users = JsonOpa.to_list(Map.get("users", map) ? {List = []}:RPC.Json.json) ? []
     users = List.map(_build_tweet_from_json_2_int, users)
     { previous_cursor = loc_int("previous_cursor");
@@ -520,11 +716,11 @@ type Twitter.rate_limit = {
   _build_rate_limit(rawlimit) =
     jslimit = API_libs_private.parse_json(rawlimit)
     map = JsonOpa.record_fields(jslimit) ? Map.empty
-    loc_int(name) = API_libs_private.map_get_int(name, map)
+    loc_int(name) = get_int(name, map)
     { remaining_hits = loc_int("remaining_hits");
       hourly_limit = loc_int("hourly_limit");
       reset_time_secs = loc_int("reset_time_in_seconds");
-      reset_time = API_libs_private.map_get_string("reset_time", map);
+      reset_time = get_string("reset_time", map);
     }:Twitter.rate_limit
 
   _simple_decoder(data) =
@@ -566,9 +762,9 @@ type Twitter.rate_limit = {
 
 
   _wget_generic(path:string, wget_fun, parse_fun) =
-    host = _api_host
-    do API_libs_private.apijlog("-- Fetching {host} - {path} \n data --")
-    (t, res) = Duration.execution_time( -> wget_fun("{host}{path}"))
+    do API_libs_private.apijlog("-- Fetching {_api_host} - {path} \n data --")
+    do jlog("_wget_generic: path={path}")
+    (t, res) = Duration.execution_time( -> wget_fun("{_api_host}{path}"))
     do jlog("_wget_generic: got={res}")
     do API_libs_private.apijlog("Download: {Duration.in_seconds(t)} seconds")
     (t, res) = Duration.execution_time( -> parse_fun(res))
@@ -671,11 +867,17 @@ type Twitter.rate_limit = {
 
 Twitter(conf:Twitter.configuration) = {{
 
-@private c = conf
+  @private c = conf
 
-@private add_if(key, elt, cond) = list ->
-  if cond(elt) then List.cons((key, "{elt}"), list)
-  else list
+  @private add_if(key, elt, cond) = list ->
+    if cond(elt)
+    then List.cons((key, "{elt}"), list)
+    else list
+
+  @private add_opt(key, elt, tos) = list ->
+    if Option.is_some(elt)
+    then List.cons((key, tos(Option.get(elt))), list)
+    else list
 
   oauth_params(mode:Twitter.oauth_mode) = {
     consumer_key      = conf.consumer_key
@@ -705,8 +907,8 @@ Twitter(conf:Twitter.configuration) = {{
  * @param credentials (optional) Credential if required
  * @param final_fun A API_libs.answer_fun object containing a function taking a string and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
- custom_get_request(path, params, credentials) =
-   Twitter_private(c)._get_res(path, params, credentials, (x->x))
+ custom_get_request(path, params, credentials, final_fun) =
+   Twitter_private(c)._get_res(path, params, credentials, final_fun)
 
 /**
  * Custom POST request (advanced)
@@ -720,14 +922,20 @@ Twitter(conf:Twitter.configuration) = {{
  * @param credentials (optional) Credential if required
  * @param final_fun A API_libs.answer_fun object containing a function taking a string and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
- custom_post_request(path, params, credentials) =
-   Twitter_private(c)._post_res(path, params, credentials, (x->x))
+ custom_post_request(path, params, credentials, final_fun) =
+   Twitter_private(c)._post_res(path, params, credentials, final_fun)
 
   default_search = {
-    lang     = ""
-    rpp      = 0
-    page     = 0
-    since_id = 0
+    geocode          = ""
+    lang             = ""
+    locale           = ""
+    result_type      = none
+    count            = 0
+    until            = none
+    since_id         = 0
+    max_id           = 0
+    include_entities = none
+    callback         = ""
   } : Twitter.search_options
 
 /**
@@ -739,13 +947,29 @@ Twitter(conf:Twitter.configuration) = {{
  * @param request The request (will be url encoded)
  * @param options
  */
+  @private string_of_result_type(rt) =
+    match rt with
+    | {mixed} -> "mixed"
+    | {recent} -> "recent"
+    | {popular} -> "popular"
+  @private yyyymmdd_of_date =
+    printer = Date.generate_printer("%F")
+    d -> Date.to_formatted_string(printer,d)
   search(request, options:Twitter.search_options, credentials) =
-    path = "/search.json"
-    params = [("q", request)]
+    path = "/1.1/search/tweets.json"
+    do jlog("yyyymmdd={yyyymmdd_of_date(Date.now())}")
+    params =
+      [("q", request)]
+      |> add_if("geocode", options.geocode, (_!=""))
       |> add_if("lang", options.lang, (_!=""))
-      |> add_if("rpp", options.rpp, (_!=0))
-      |> add_if("page", options.page, (_!=0))
+      |> add_if("locale", options.locale, (_!=""))
+      |> add_opt("result_type", options.result_type, string_of_result_type)
+      |> add_if("count", options.count, (_!=0))
+      |> add_opt("until", options.until, yyyymmdd_of_date)
       |> add_if("since_id", options.since_id, (_!=0))
+      |> add_if("max_id", options.max_id, (_!=0))
+      |> add_opt("include_entities", options.include_entities, Bool.to_string)
+      |> add_if("callback", options.callback, (_!=""))
     Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_search_response)
 
 /**
@@ -760,7 +984,9 @@ Twitter(conf:Twitter.configuration) = {{
  * @param credentials Valid access credentials
  */
   get_trends_place(id:int, exclude:bool, credentials) =
-    params = List.append([("id",Int.to_string(id))],if (exclude) then [("exclude","hashtags")] else [])
+    params =
+      [("id",Int.to_string(id))]
+      |> add_if("exclude", "hashtags", (_ -> exclude))
     Twitter_private(c)._get_trends_place(params, credentials)
 
 /**
@@ -782,11 +1008,12 @@ Twitter(conf:Twitter.configuration) = {{
  * This function returns a list of locations which are closest to the given latitude and longitude.
  * Returns an outcome of a list of Twitter.full_location objects.
  *
+ * @param lat Optional latitude value
+ * @param long Optional longitude value
  * @param credentials Valid access credentials
  */
   get_trends_closest(lat:option(float), long:option(float), credentials) =
-    params = List.append(if Option.is_some(lat) then [("lat",Float.to_string(Option.get(lat)))] else [],
-                         if Option.is_some(long) then [("long",Float.to_string(Option.get(long)))] else [])
+    params = [] |> add_opt("lat",lat,Float.to_string) |> add_opt("long",long,Float.to_string)
     Twitter_private(c)._get_trends_locations("closest", params, credentials)
 
 /**
