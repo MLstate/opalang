@@ -89,35 +89,17 @@ let compile_bypass env key =
       OManager.error
         "bsl-resolution failed for: key %a" BslKey.pp key
   | Some compiled -> (
-      let plugin_prefix =
-        let plugin_name =
-          match BPM.find_opt env.E.private_bymap key with
-          | Some bypass -> BP.plugin_name bypass
-          | None -> assert false (* We know that some binding exists *)
-        in
-        Option.map (fun plugin_name field ->
-          JsCons.Expr.dot
-            (JsCons.Expr.native ("__opa_" ^ plugin_name))
-            field
-        ) plugin_name
-      in
-      let nodejs = BslLanguage.is_nodejs env.E.bsl_lang in
-      let modularize = nodejs && env.E.options.Qml2jsOptions.modular_plugins in
       match
-        I.CompiledFunction.compiler_detailed_repr compiled, plugin_prefix
+        I.CompiledFunction.compiler_detailed_repr compiled
       with
-      | I.Ident ident, Some f when modularize &&
-          not(I.CompiledFunction.is_transtype compiled) ->
-          f (Ident.to_string ident)
-      | I.Ident ident, _ -> JsCons.Expr.exprident ident
-      | I.String _, Some f when modularize -> f (BslKey.to_string key)
-      | I.String s, _ ->
-        match JsParse.String.expr ~globalize:true s with
-        | J.Je_ident (p, J.Native (`global _, s)) ->
-          J.Je_ident (p, J.Native (`global (is_pure key), s))
-        | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
-          assert false
-        | x -> x
+      | I.Ident ident -> JsCons.Expr.exprident ident
+      | I.String s ->
+          match JsParse.String.expr ~globalize:true s with
+          | J.Je_ident (p, J.Native (`global _, s)) ->
+              J.Je_ident (p, J.Native (`global (is_pure key), s))
+          | J.Je_ident (_p, J.Native (`local, _s)) as _x  ->
+              assert false
+          | x -> x
         (*
           No parse error should happen
           This is verified at the moment we build the bypass plugin

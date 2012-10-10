@@ -207,7 +207,6 @@ type opa_options = {
   parallelism : int; (* maximum number of // compilations *)
   package_version: string; (* The version to be used when outputting
                               the package.json file *)
-  modular_plugins: bool;
   js_classic_bypass_syntax: bool;
   backtrace: bool;
 }
@@ -307,7 +306,6 @@ struct
     let set_package_version version =
       package_version := version
 
-    let modular_plugins = ref false
     let backtrace = ref false
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
@@ -610,11 +608,6 @@ struct
           "--mllopt",
           Arg.String add_mllopt,
           "<opt> Give option to ocaml linking"
-          ;
-
-          "--modular-plugins",
-          Arg.Set modular_plugins,
-          " Use plugins as node modules instead of exporting globally. (qmljs)"
           ;
           (* n *)
 
@@ -943,7 +936,6 @@ struct
     static_link = !ArgParser.static_link;
     parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;
-    modular_plugins = !ArgParser.modular_plugins;
     js_classic_bypass_syntax = !js_bypass_syntax = `classic;
     backtrace = !ArgParser.backtrace;
   }
