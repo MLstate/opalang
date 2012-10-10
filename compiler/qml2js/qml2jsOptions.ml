@@ -79,7 +79,6 @@ type t =
       split_js_value : int option ;
       target : string ;
       lang : [`js | `node];
-      static_link : bool;
       package_version : string;
     }
 type env_js_input =
@@ -182,7 +181,6 @@ struct
   let split = ref false
   let split_js_value = ref None
   let target = ref None
-  let static_link = ref false
   let package_version = ref "0.1.0"
 
   let plugin_inclusion file =
@@ -220,7 +218,6 @@ struct
     split := false ;
     split_js_value := None ;
     target := None ;
-    static_link := false ;
     package_version := "0.1.0";
     ()
 
@@ -317,7 +314,6 @@ struct
       split_js_value = !split_js_value ;
       target = target;
       lang = `js;
-      static_link = !static_link;
       package_version = !package_version;
     }
 

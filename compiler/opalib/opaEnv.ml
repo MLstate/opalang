@@ -203,7 +203,6 @@ type opa_options = {
 
   parser_ : OpaSyntax.Args.options;
 
-  static_link : bool; (* Whether or not to link object files statically *)
   parallelism : int; (* maximum number of // compilations *)
   package_version: string; (* The version to be used when outputting
                               the package.json file *)
@@ -298,8 +297,6 @@ struct
     (* in release, force publishing source code ; otherwise, don't
        publish unless --publish-src-code). *)
     let publish_src_code = ref false
-
-    let static_link = ref false
 
     let parallelism = ref 4
     let package_version = ref "0.1.0"
@@ -641,9 +638,6 @@ struct
           ("-h",                  Arg.Set print_help,        " Shorthand for --help");
           ("-help",               Arg.Set print_help,        " Like --help");
           ("--help",              Arg.Set print_help,        " Print this help");
-
-          ("--static-link", Arg.Set static_link, " Link everything in a single object file");
-          ("--no-static-link", Arg.Clear static_link, " Load libraries dynamically (qmljs only)");
         ]
       in
       let non_release = (* Please preserve the alphabetical order *)
@@ -933,7 +927,6 @@ struct
     i18n = !I18n.r;
     parser_ = !OpaSyntax.Args.r;
 
-    static_link = !ArgParser.static_link;
     parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;
     js_classic_bypass_syntax = !js_bypass_syntax = `classic;
