@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -20,7 +20,9 @@ module A = Base.Arg
 module Arg = struct
   let no_pattern_optim = ref false
   let no_alpha_renaming = ref false
-  let options = [
+  let bundle = ref None
+
+  let private_options = [
     "--qmljs-no-pattern-optim",
     A.Unit (fun () -> no_pattern_optim := true ),
     " Disable all optimisations for patterns matching" ;
@@ -29,8 +31,18 @@ module Arg = struct
     A.Unit (fun () -> no_alpha_renaming := true ),
     "disable alpharenaming for local bindings" ;
   ]
+
+  let public_options = [
+    "--bundle", A.String (fun b -> bundle := Some b),
+    "Create a bundle of the application"
+  ]
+
+  let options = public_options @
+    if BuildInfos.is_release then [] else private_options
+
 end
 
 
 let no_pattern_optim () = ! Arg.no_pattern_optim
 let no_alpha_renaming () = ! Arg.no_alpha_renaming
+let bundle () = ! Arg.bundle

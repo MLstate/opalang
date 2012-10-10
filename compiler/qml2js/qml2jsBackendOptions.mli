@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -26,3 +26,4 @@ end
 
 val no_pattern_optim : unit -> bool
 val no_alpha_renaming : unit -> bool
+val bundle : unit -> string option

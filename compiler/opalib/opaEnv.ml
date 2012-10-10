@@ -482,6 +482,7 @@ struct
         I18n.options @
         OpaSyntax.Args.options @
         BslArgs.options @
+        Qml2jsBackendOptions.Arg.options @
         QmlDbGen.Args.options @
         QmlSimpleSlicer.Options.list @
         [
@@ -641,7 +642,6 @@ struct
         ]
       in
       let non_release = (* Please preserve the alphabetical order *)
-        Qml2jsBackendOptions.Arg.options @
         PassHandler.Arg.options @
         Pass_DbSchemaGeneration.Arg.options @
         Flat_Compiler.Arg.options @
