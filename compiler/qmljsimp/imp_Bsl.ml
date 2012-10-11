@@ -243,7 +243,7 @@ struct
                (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
                   [id; JsCons.Expr.string "some"]))
             (JsCons.Expr.ident x)
-            Imp_Common.ClientLib.none
+            (JsCons.Expr.null ())
         )
       | Some (private_env, ast), true ->
         Some (
