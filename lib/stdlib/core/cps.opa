@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -103,8 +103,7 @@ Continuation = {{
           do print_trace_of(k)
           return(k,void)
       )
-     client =
-       error("Continuation.print_trace was called on the client side")
+     client = void
    })
 }}
 
