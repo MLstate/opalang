@@ -247,12 +247,14 @@ function update_cont(k, pk, name, pos, args){
     return [k[0], [tc, k[1][1], k[1][2], {name:name, pos:pos, args:args, parent:parent}]];
 }
 
-function print_trace(k){
+function get_cps_trace(k){
+    var res = "";
     var tmp = k[1][3];
     while (tmp != null){
-        console.log("\t", tmp.name, tmp.pos, tmp.args);
+        res += tmp.name + "called at " + tmp.pos + "\n";
         tmp = tmp.parent;
     }
+    return res;
 }
 
 /**

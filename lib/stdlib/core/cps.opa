@@ -86,25 +86,20 @@ Continuation = {{
   make = @may_cps(%%bslcps.user_cont%%) : ('a -> void) -> continuation('a)
 
   /**
-   * This bypass is defined on both sides, but the client implementation is dummy.
-   * This is done so that the code may not be sliced differently if we add some debug
-   * print of the stack trace in the middle of a client-side code.
-  **/
-  print_trace_of = %% bslcps.print_trace %% : continuation('a) -> void
-
-  /**
-   * see {!Continuation.print_trace_of}
-   * applied on the current continuation.
-  **/
-  print_trace() : void =
+   * Get the backtrace of a continuation
+   * @param kind [{current}] to have the current backtrace or [{from : k}] to have
+   *   the backtrace of [k]
+   * @return A string which represents a backtrace.
+   */
+  get_trace(kind) =
     @sliced_expr({
       server =
-        @callcc(k ->
-          do print_trace_of(k)
-          return(k,void)
-      )
-     client = void
-   })
+        match kind with
+        | {current} -> @callcc(k -> return(k, %%bslcps.get_trace%%(k)))
+        | {from = k} -> %%bslcps.get_trace%%(k)
+      client = ""
+    })
+
 }}
 
 

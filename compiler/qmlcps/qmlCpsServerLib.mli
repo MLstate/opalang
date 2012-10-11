@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -81,6 +81,7 @@ val execute : 'a continuation -> 'a -> unit
 
 val update_cont : 'a continuation -> _ continuation option -> string -> string -> _ -> 'a continuation
 val print_trace : 'a continuation -> unit
+val get_trace : 'a continuation -> string
 
 (** [push_cont k x] Like return but asynchronous. Create a task that
     apply the continuation to the value, and push it to the cps

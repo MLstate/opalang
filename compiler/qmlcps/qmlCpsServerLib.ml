@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -119,8 +119,8 @@ let update_cont cont parent name position args =
                 ; call_position = position
                 ; call_arguments = Obj.repr args } } }
 
-let generic_trace_printer ?(first_line="*** Stack trace:") printer (cont : _ continuation) =
-  Printf.eprintf "%s\n" first_line;
+let generic_trace_printer ?(first_line="*** Stack trace:") printer fmt (cont : _ continuation) =
+  Format.fprintf fmt "%s\n" first_line;
   let rec aux i infos =
     match infos.stack_infos with
     | None -> () (* not calling printer, because this 'infos' a the dummy one introduced above *)
@@ -131,9 +131,9 @@ let generic_trace_printer ?(first_line="*** Stack trace:") printer (cont : _ con
 
 let trace_printer ?(args= #<If:CPS_STACK_TRACE$contains "arg">true#<Else>false#<End>)
                   ?(thread_context= #<If:CPS_STACK_TRACE$contains "th">true#<Else>false#<End>)
-                  ?(transaction_context= #<If:CPS_STACK_TRACE$contains "tr">true#<Else>false#<End>) () =
+                  ?(transaction_context= #<If:CPS_STACK_TRACE$contains "tr">true#<Else>false#<End>) fmt =
   fun index infos stack_infos ->
-    Printf.eprintf "%3d: %20s called at %s%s%s%s\n"
+    Format.fprintf fmt "%3d: %20s called at %s%s%s%s\n"
       index
       stack_infos.callee_name
       stack_infos.call_position
@@ -148,8 +148,17 @@ let trace_printer ?(args= #<If:CPS_STACK_TRACE$contains "arg">true#<Else>false#<
          | None -> ""
          | Some transaction_context -> " with transaction_context=" ^ DebugPrint.print transaction_context
        else "")
-let print_trace_fl first_line cont = generic_trace_printer ~first_line (trace_printer ()) cont
-let print_trace cont = generic_trace_printer (trace_printer ()) cont
+let print_trace_fl first_line cont =
+  generic_trace_printer ~first_line (trace_printer Format.err_formatter)
+    Format.err_formatter cont
+let print_trace cont = generic_trace_printer (trace_printer Format.err_formatter)
+  Format.err_formatter cont
+
+let get_trace cont =
+  let buf = Buffer.create 256 in
+  let fmt = Format.formatter_of_buffer buf in
+  generic_trace_printer (trace_printer fmt) fmt cont;
+  Buffer.contents buf
 
 let thread_context b : _ option = Obj.magic (b.continuation_info.thread_context : Obj.t option)
 let with_thread_context tc b = { b with continuation_info = {b.continuation_info with thread_context = Some (Obj.repr tc) } }
@@ -283,7 +292,7 @@ let push_cont k x =
    initialization, there is not need to schedule in apply or return
    Moreover, this breaks the tail-rec optimization of ocaml code. *)
 let nb_step_apply = ref 10000
-let set_nb_step_apply n = 
+let set_nb_step_apply n =
   nb_step_apply := n
 let max_blocking_step = 1000000
 (* cannot embbed the reference for typing problem *)

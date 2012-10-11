@@ -116,7 +116,7 @@ let user_cont f = QmlCpsServerLib.cont_ml (fun a -> ignore (f a))
 ##register [no-projection] display_backtrace \ `QmlCpsServerLib.display_backtrace` : string -> void
 
 ##register update_cont \ `QmlCpsServerLib.update_cont` : continuation('a), option(continuation(_)), string, string, _ -> continuation('a)
-##register print_trace \ `QmlCpsServerLib.print_trace` : continuation('a) -> void
+##register get_trace \ `QmlCpsServerLib.get_trace` : continuation('a) -> string
 
 ##register [no-projection, restricted : cps] loop_schedule : opa['a] -> void
 let loop_schedule _ = Scheduler.run scheduler

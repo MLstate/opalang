@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -61,21 +61,21 @@ jlog_if(b: bool, msg: -> string) = if b then jlog(msg()) else void
  */
 error_with_stack(mess: string)=
         @fail(  "ERROR = {mess:string}"
-              ^ "Stack =\n {Continuation.print_trace()}" )
+                ^ "Stack =\n {Continuation.get_trace({current})}" )
 
 /**
  * As {!Debug.jlog}, but also displays the current local stack
  */
 jlog_with_stack(mess: string)=
         jlog(  "ERROR = {mess:string}"
-             ^ "Stack =\n {Continuation.print_trace()}" )
+               ^ "Stack =\n {Continuation.get_trace({current})}" )
 
 /**
  * Return a developer-readable printout of the local stack.
  *
  * This only shows the local stack, not the full client-to-server or server-to-client stack.
  */
-@deprecated({use="Continuation.print_trace"}) get_stack = %% Bslpervasives.get_stack %%
+@deprecated({use="Continuation.get_trace"}) get_stack = %% Bslpervasives.get_stack %%
 
 /**
  * Flush all outputs.
