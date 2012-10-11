@@ -235,13 +235,25 @@ function handler_cont(k){
 }
 
 function with_thread_context(tc, k){
-    return [k[0], [tc, k[1][1], k[1][2]]];
+    return [k[0], [tc, k[1][1], k[1][2], k[1][3]]];
 }
 
 function thread_context(k){
     return k[1][0];
 }
 
+function update_cont(k, pk, name, pos, args){
+    var parent = pk ? pk[1][3] : null;
+    return [k[0], [tc, k[1][1], k[1][2], {name:name, pos:pos, args:args, parent:parent}]];
+}
+
+function print_trace(k){
+    var tmp = k[1][3];
+    while (tmp != null){
+        console.log("\t", tmp.name, tmp.pos, tmp.args);
+        tmp = tmp.parent;
+    }
+}
 
 /**
  * {2 The scheduling loop}
