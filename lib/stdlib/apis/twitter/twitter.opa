@@ -101,16 +101,23 @@ type Twitter.search_options = {
  * Options of a timeline request
  *
  * - [count] The number of statuses to return. Default is 20, may not be greater than 200
- * - [page] Number of the page to request. page*number may not be grater tha 3200
  * - [since_id] Allows to get statuses with id greater than this id
  * - [max_id] Allows to get statuses with id smaller than this id
+ * - [trim_user] When set to either true, t or 1, each tweet returned in a timeline will include a user object including only the status authors numerical ID.
+ * - [exclude_replies] This parameter will prevent replies from appearing in the returned timeline. (user_timeline and home_timeline only)
+ * - [contributor_details] This parameter enhances the contributors element of the status response to include the screen_name of the contributor.
+ * - [include_entities] The entities node will be disincluded when set to false.
+ * - [include_rts] When set to false, the timeline will strip any native retweets. (user_timeline only)
  */
 type Twitter.timeline_options = {
-  count    : int
-  page     : int
-  since_id : int
-  max_id   : int
-  include_rts : bool
+  count               : int
+  since_id            : int
+  max_id              : int
+  trim_user           : option(bool)
+  exclude_replies     : option(bool)
+  contributor_details : option(bool)
+  include_entities    : option(bool)
+  include_rts         : option(bool)
 }
 
 /**
@@ -148,6 +155,18 @@ type Twitter.trend = {
 type Twitter.location = {
   name  : string
   woeid : int
+}
+
+type Twitter.place = {
+  name         : string
+  country_code : string
+  country      : string
+  attributes   : RPC.Json.json
+  url          : string
+  id           : string
+  bounding_box : Twitter.coordinates
+  full_name    : string
+  place_type   : string
 }
 
 type Twitter.place_type = {
@@ -226,92 +245,128 @@ type Twitter.entities = {
   url           : Twitter.urls
   description   : Twitter.urls
   hashtags      : list(Twitter.hashtag)
-  user_mentions : RPC.Json.json
+  user_mentions : list(Twitter.user_mention)
 }
 
 type Twitter.full_user = {
-  id : int
-  id_str : string
-  name : string
-  screen_name : string
-  location : string
-  description : string
-  url : string
-  entities : Twitter.entities
-  protected : bool
-  followers_count : int
-  friends_count : int
-  listed_count : int
-  created_at : string
-  favourites_count : int
-  utc_offset : int
-  time_zone : string
-  geo_enabled : bool
-  verified : bool
-  statuses_count : int
-  lang : string
-  contributors_enabled : bool
-  is_translator : bool
-  profile_background_color : string
-  profile_background_image_url : string
+  id                                 : int
+  id_str                             : string
+  name                               : string
+  screen_name                        : string
+  location                           : string
+  description                        : string
+  url                                : string
+  entities                           : Twitter.entities
+  protected                          : bool
+  followers_count                    : int
+  friends_count                      : int
+  listed_count                       : int
+  created_at                         : string
+  favourites_count                   : int
+  utc_offset                         : int
+  time_zone                          : string
+  geo_enabled                        : bool
+  verified                           : bool
+  statuses_count                     : int
+  lang                               : string
+  contributors_enabled               : bool
+  is_translator                      : bool
+  profile_background_color           : string
+  profile_background_image_url       : string
   profile_background_image_url_https : string
-  profile_background_tile : bool
-  profile_image_url : string
-  profile_image_url_https : string
-  profile_banner_url : string
-  profile_link_color : string
-  profile_sidebar_border_color : string
-  profile_sidebar_fill_color : string
-  profile_text_color : string
-  profile_use_background_image : bool
-  show_all_inline_media : bool
-  default_profile : bool
-  default_profile_image : bool
-  following : RPC.Json.json
-  follow_request_sent : RPC.Json.json
-  notifications : RPC.Json.json
+  profile_background_tile            : bool
+  profile_image_url                  : string
+  profile_image_url_https            : string
+  profile_banner_url                 : string
+  profile_link_color                 : string
+  profile_sidebar_border_color       : string
+  profile_sidebar_fill_color         : string
+  profile_text_color                 : string
+  profile_use_background_image       : bool
+  show_all_inline_media              : bool
+  default_profile                    : bool
+  default_profile_image              : bool
+  following                          : RPC.Json.json
+  follow_request_sent                : RPC.Json.json
+  notifications                      : RPC.Json.json
 }
 
 type Twitter.statuses = {
-  message : string
-  metadata : Twitter.metadata
-  created_at : string
-  id  : int
-  id_str : string
-  text : string
-  source : string
-  truncated : bool
-  in_reply_to_status_id : int
+  message                   : string
+  metadata                  : Twitter.metadata
+  created_at                : string
+  id                        : int
+  id_str                    : string
+  text                      : string
+  source                    : string
+  truncated                 : bool
+  in_reply_to_status_id     : int
   in_reply_to_status_id_str : string
-  in_reply_to_user_id : int
-  in_reply_to_user_id_str : string
-  in_reply_to_screen_name : string
-  user : Twitter.full_user
-  geo : RPC.Json.json
-  coordinates : RPC.Json.json
-  place : RPC.Json.json
-  contributors : RPC.Json.json
-  retweet_count  : int
-  entities : Twitter.entities
-  favourited : bool
-  retweeted : bool
+  in_reply_to_user_id       : int
+  in_reply_to_user_id_str   : string
+  in_reply_to_screen_name   : string
+  user                      : Twitter.full_user
+  geo                       : Twitter.coordinates
+  coordinates               : Twitter.coordinates
+  place                     : RPC.Json.json
+  contributors              : RPC.Json.json
+  retweet_count             : int
+  entities                  : Twitter.entities
+  favourited                : bool
+  retweeted                 : bool
 }
 
 type Twitter.search_metadata = {
   completed_in : float
-  max_id : int
-  max_id_str : string
+  max_id       : int
+  max_id_str   : string
   next_results : string
-  query : string
-  refresh_url : string
-  count : int
-  since_id : int
+  query        : string
+  refresh_url  : string
+  count        : int
+  since_id     : int
   since_id_str : string
 }
 
 type Twitter.search_result = {
   statuses        : list(Twitter.statuses)
   search_metadata : Twitter.search_metadata
+}
+
+type Twitter.user_mention = {
+  name        : string
+  id_str      : string
+  screen_name : string
+  indices     : list(int)
+  id          : int
+}
+
+type Twitter.coordinates = {
+  coordinates : RPC.Json.json
+  `type`      : string
+}
+
+type Twitter.new_tweet = {
+  entities                  : Twitter.entities
+  place                     : Twitter.place
+  created_at                : string
+  in_reply_to_status_id_str : string
+  coordinates               : Twitter.coordinates
+  retweet_count             : int
+  id_str                    : string
+  truncated                 : bool
+  in_reply_to_user_id_str   : string
+  geo                       : Twitter.coordinates
+  user                      : Twitter.full_user
+  retweeted                 : bool
+  in_reply_to_screen_name   : string
+  in_reply_to_status_id     : int
+  contributors              : RPC.Json.json
+  source                    : string
+  in_reply_to_user_id       : int
+  id                        : int
+  favorited                 : bool
+  text                      : string
 }
 
 /**
@@ -418,6 +473,35 @@ type Twitter.rate_limit = {
 
   _check_date(date:string) = Parser.try_parse(_check_date_parser, date) ? false
 
+  get_json_int(json) = match json with | {Int=i} -> i | _ -> -1
+  get_unknown(name, map) = Map.get(name, map) ? {String = "missing unknown type" }
+  get_int = API_libs_private.map_get_int
+  get_float = API_libs_private.map_get_float
+  get_string = API_libs_private.map_get_string
+  get_bool = API_libs_private.map_get_bool
+  get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
+  get_obj(name, map, get_elt) = get_elt((Map.get(name, map)) ? {Record=[]})
+  get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
+  get_list(name, map, get_elt) = get_raw_list(Map.get(name, map) ? {List=[]}, get_elt)
+  get_map(name, map, get_elt) =
+    tmap = JsonOpa.record_fields(Map.get(name, map) ? { Record = [] } ) ? Map.empty
+    API_libs_private.remap(get_elt, tmap)
+
+  get_error_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    { code  = get_int("code", map);
+      message = get_string("message", map)
+    } : Twitter.error
+
+  _check_errors(json, on_ok) =
+    match json with
+    | {Record=r} ->
+       match List.assoc("errors",r) with
+       | {some=errs} -> {failure={twitter=get_raw_list(errs, get_error_elt)}}
+       | {none} -> {success=on_ok(json)}
+       end
+   | _ -> {success=on_ok(json)}
+
   _build_ext_user_from_json(user_map) =
     map = JsonOpa.record_fields(user_map) ? Map.empty
     loc_int(name) = get_int(name, map)
@@ -471,19 +555,65 @@ type Twitter.rate_limit = {
     data = API_libs_private.parse_json(rawdata)
     _build_tweet_from_json_2_int(data)
 
-  get_json_int(json) = match json with | {Int=i} -> i | _ -> -1
-  get_unknown(name, map) = Map.get(name, map) ? {String = "missing unknown type" }
-  get_int = API_libs_private.map_get_int
-  get_float = API_libs_private.map_get_float
-  get_string = API_libs_private.map_get_string
-  get_bool = API_libs_private.map_get_bool
-  get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
-  get_obj(name, map, get_elt) = get_elt((Map.get(name, map)) ? {Record=[]})
-  get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
-  get_list(name, map, get_elt) = get_raw_list(Map.get(name, map) ? {List=[]}, get_elt)
-  get_map(name, map, get_elt) =
-    tmap = JsonOpa.record_fields(Map.get(name, map) ? { Record = [] } ) ? Map.empty
-    API_libs_private.remap(get_elt, tmap)
+  get_user_mention(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      name = get_string("name", map)
+      id_str = get_string("id_str", map)
+      screen_name = get_string("screen_name", map)
+      indices = get_list("indices", map, get_json_int)
+      id = get_int("id", map)
+    } : Twitter.user_mention
+
+  get_coordinates(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      coordinates = get_unknown("coordinates", map) // the type varies: list(int), list(list(list(int))) etc.
+      `type`      = get_string("type", map)
+    } : Twitter.coordinates
+
+  get_place(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      name = get_string("name", map)
+      country_code = get_string("country_code", map)
+      country = get_string("country", map)
+      attributes = get_unknown("attributes", map)
+      url = get_string("url", map)
+      id = get_string("id", map)
+      bounding_box = get_obj("bounding_box", map, get_coordinates)
+      full_name = get_string("full_name", map)
+      place_type = get_string("place_type", map)
+    } : Twitter.place
+
+  get_new_tweet(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      entities = get_obj("entities", map, get_entities)
+      place = get_obj("place", map, get_place)
+      created_at = get_date("created_at", map)
+      in_reply_to_status_id_str = get_string("in_reply_to_status_id_str", map)
+      coordinates = get_obj("coordinates", map, get_coordinates)
+      retweet_count = get_int("retweet_count", map)
+      id_str = get_string("id_str", map)
+      truncated = get_bool("truncated", map, false)
+      in_reply_to_user_id_str = get_string("in_reply_to_user_id_str", map)
+      geo = get_obj("geo", map, get_coordinates)
+      user = get_obj("user", map, get_full_user)
+      retweeted = get_bool("retweeted", map, false)
+      in_reply_to_screen_name = get_string("in_reply_to_screen_name", map)
+      in_reply_to_status_id = get_int("in_reply_to_status_id", map)
+      contributors = get_unknown("contributors", map)
+      source = get_string("source", map)
+      in_reply_to_user_id = get_int("in_reply_to_user_id", map)
+      id = get_int("id", map)
+      favorited = get_bool("favorited", map, false)
+      text = get_string("text", map)
+    } : Twitter.new_tweet
+
+  _build_new_tweet_response(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_new_tweet))
 
   get_trend_elt(elt) =
     elt = JsonOpa.record_fields(elt) ? Map.empty
@@ -525,21 +655,6 @@ type Twitter.rate_limit = {
     locations = get_list("locations", map, get_location_elt)
     trends = get_list("trends", map, get_trend_elt)
     ~{ as_of; created_at; locations; trends } : Twitter.trends
-
-  get_error_elt(json) =
-    map = JsonOpa.record_fields(json) ? Map.empty
-    { code  = get_int("code", map);
-      message = get_string("message", map)
-    } : Twitter.error
-
-  _check_errors(json, on_ok) =
-    match json with
-    | {Record=r} ->
-       match List.assoc("errors",r) with
-       | {some=errs} -> {failure={twitter=get_raw_list(errs, get_error_elt)}}
-       | {none} -> {success=on_ok(json)}
-       end
-   | _ -> {success=on_ok(json)}
 
   _build_trend_place_response(s:string) =
     json = API_libs_private.parse_json(s)
@@ -583,10 +698,10 @@ type Twitter.rate_limit = {
       url = get_obj("url", map, get_urls)
       description = get_obj("description", map, get_urls)
       hashtags = get_list("hashtags", map, get_hashtag)
-      user_mentions = get_unknown("user_mentions", map)
+      user_mentions = get_list("user_mentions", map, get_user_mention)
     } : Twitter.entities
 
-  get_user(json) =
+  get_full_user(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     {
       id = get_int("id", map)
@@ -647,9 +762,9 @@ type Twitter.rate_limit = {
       in_reply_to_user_id = get_int("in_reply_to_user_id", map)
       in_reply_to_user_id_str = get_string("in_reply_to_user_id_str", map)
       in_reply_to_screen_name = get_string("in_reply_to_screen_name", map)
-      user = get_obj("user", map, get_user)
-      geo = get_unknown("geo", map)
-      coordinates = get_unknown("coordinates", map)
+      user = get_obj("user", map, get_full_user)
+      geo = get_obj("geo", map, get_coordinates)
+      coordinates = get_obj("coordinates", map, get_coordinates)
       place = get_unknown("place", map)
       contributors = get_unknown("contributors", map)
       retweet_count  = get_int("retweet_count", map)
@@ -760,7 +875,6 @@ type Twitter.rate_limit = {
     custom_headers    = []
   } : OAuth.parameters)
 
-
   _wget_generic(path:string, wget_fun, parse_fun) =
     do API_libs_private.apijlog("-- Fetching {_api_host} - {path} \n data --")
     do jlog("_wget_generic: path={path}")
@@ -792,6 +906,11 @@ type Twitter.rate_limit = {
     if cond(elt) then List.cons((key, "{elt}"), list)
     else list
 
+  add_opt(key, elt, tos) = list ->
+    if Option.is_some(elt)
+    then List.cons((key, tos(Option.get(elt))), list)
+    else list
+
   _get_trends_place(params, credentials) : Twitter.outcome(list(Twitter.trends)) =
     path = "/1.1/trends/place.json"
     _get_res(path, params, credentials, TwitParse._build_trend_place_response)
@@ -803,13 +922,14 @@ type Twitter.rate_limit = {
   _get_generic_timeline(path, p:Twitter.timeline_options, more, credentials) =
     params = more
       |> add_if("count", p.count, (_>0))
-      |> add_if("page", p.page, (_>0))
       |> add_if("since_id", p.since_id, (_>0))
       |> add_if("max_id", p.max_id, (_>0))
-    params =
-      if p.include_rts then [("include_rts", "true")|params]
-      else params
-    _get_res(path, params, credentials, TwitParse._build_timeline_response)
+      |> add_opt("trim_user", p.trim_user, Bool.to_string)
+      |> add_opt("exclude_replies", p.exclude_replies, Bool.to_string)
+      |> add_opt("contributor_details", p.contributor_details, Bool.to_string)
+      |> add_opt("include_entities", p.include_entities, Bool.to_string)
+      |> add_opt("include_rts", p.include_rts, Bool.to_string)
+    _get_res(path, params, credentials, TwitParse._build_new_tweet_response)
 
   _get_generic_socgraph(name, id, cursor, graphtype:string, credentials) =
     path = "/1/{graphtype}/ids.json"
@@ -942,7 +1062,7 @@ Twitter(conf:Twitter.configuration) = {{
  * Search request : http://search.twitter.com/search.json[?q=<search request>&params]
  *
  * Makes a Twitter search of given request.
- * Returns a Twitter.search_results object
+ * Returns a Twitter.outcome of a Twitter.search_result object
  *
  * @param request The request (will be url encoded)
  * @param options
@@ -955,7 +1075,7 @@ Twitter(conf:Twitter.configuration) = {{
   @private yyyymmdd_of_date =
     printer = Date.generate_printer("%F")
     d -> Date.to_formatted_string(printer,d)
-  search(request, options:Twitter.search_options, credentials) =
+  search(request, options:Twitter.search_options, credentials) : Twitter.outcome(Twitter.search_result) =
     path = "/1.1/search/tweets.json"
     do jlog("yyyymmdd={yyyymmdd_of_date(Date.now())}")
     params =
@@ -1016,27 +1136,27 @@ Twitter(conf:Twitter.configuration) = {{
     params = [] |> add_opt("lat",lat,Float.to_string) |> add_opt("long",long,Float.to_string)
     Twitter_private(c)._get_trends_locations("closest", params, credentials)
 
-/**
- * Public timeline
- *
- * This function returns the 20 most recent public (=from non protected users who have set a custom
- * picture) statuses update. The answer is cached for 60 seconds so it is useless to
- * call it more with a shorter period.
- * Returns a list of Twitter.tweet objects.
- *
- * @param final_fun A API_libs.answer_fun object containing a function taking a list of Twitter.tweet and returning a resource (if api_fun_html) or void (if api_fun_void).
- */
-  get_public_timeline(credentials) =
-    path = "/1/statuses/public_timeline.json"
-    Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_timeline_response)
-
   default_timeline = {
     count    = 0
-    page     = 0
     since_id = 0
     max_id   = 0
-    include_rts = true
+    trim_user = none
+    exclude_replies = none
+    contributor_details = none
+    include_entities = none
+    include_rts = none
   } : Twitter.timeline_options
+
+/**
+ * Mentions timeline
+ *
+ * Returns the 20 most recent mentions (tweets containing a users's @screen_name) for the authenticating user.
+ * Returns a Twitter.outcome of a list of Twitter.tweet objects.
+ *
+ */
+  get_mentions_timeline(params, credentials) =
+    path = "/1.1/statuses/mentions_timeline.json"
+    Twitter_private(c)._get_generic_timeline(path, params, [], credentials)
 
 /**
  * Home timeline
@@ -1045,15 +1165,11 @@ Twitter(conf:Twitter.configuration) = {{
  * Will display the same tweets than those displayed in the user's homepage.
  * Returns a list of Twitter.tweet objects.
  *
- * @param count (optional) The number of statuses to return. Default is 20, may not be greater than 200
- * @param page (optional) Number of the page to request. page*number may not be grater tha 3200
- * @param since_id (optional) Allows to get statuses with id greater than this id
- * @param max_id (optional) Allows to get statuses with id smaller than this id
- * @param credentials The credentials of the user formatted as login:password
- * @param final_fun A API_libs.answer_fun object containing a function taking a list of Twitter.tweet and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param params Options of the request [Twitter.timeline_options]
+ * @param credentials The user credentials
  */
   get_home_timeline(params, credentials) =
-    path = "/1/statuses/home_timeline.json"
+    path = "/1.1/statuses/home_timeline.json"
     Twitter_private(c)._get_generic_timeline(path, params, [], credentials)
 
 /**
@@ -1067,11 +1183,12 @@ Twitter(conf:Twitter.configuration) = {{
  * Returns a list of Twitter.tweet objects.
  *
  * @param user The screen name or the unique id of requested user.
- * @param options Options of the request [Twitter.timeline_options]
- * @param credentials (optional) The credentials of the user formatted as login:password
+ * @param include_rts (optional) When set to false, the timeline will strip any native retweets.
+ * @param options Common options of the request [Twitter.timeline_options]
+ * @param credentials The user credentials
  */
   get_user_timeline(user:Twitter.user, options, credentials) =
-    path = "/1/statuses/user_timeline.json"
+    path = "/1.1/statuses/user_timeline.json"
     more = match user with
       | {~uid}         -> [("uid","{uid}")]
       | {~id}          -> [("id",id)]
