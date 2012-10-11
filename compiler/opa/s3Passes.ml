@@ -2306,10 +2306,13 @@ let pass_ServerJavascriptOptimization =
   PassHandler.make_pass
     (fun e ->
        let env = e.PH.env in
+       let options = e.PH.options in
        let exported = env.env_js_input.Qml2jsOptions.exported in
        let is_exported i = JsIdentSet.mem i exported || env.is_distant i in
        let depends, js_code =
          Pass_ServerJavascriptOptimization.process_code
+           options.O.extrajs
+           env.env_bsl
            is_exported
            env.env_js_input.Qml2jsOptions.js_code
        in
@@ -2326,7 +2329,7 @@ let pass_ServerJavascriptOptimization =
                      proj)
            ) env.env_js_input.Qml2jsOptions.js_init_contents
        in
-       PH.make_env e.PH.options
+       PH.make_env options
          { env with
              depends;
              env_js_input =

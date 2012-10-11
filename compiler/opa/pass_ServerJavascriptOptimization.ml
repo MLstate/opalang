@@ -18,6 +18,7 @@
 
 module Format = BaseFormat
 module String = BaseString
+module List = BaseList
 
 module J = JsAst
 module C = JsCons
@@ -53,7 +54,7 @@ let cons_require opx =
       [(JsCons.Expr.string opx)]
   )
 
-let process_code is_exported code =
+let process_code extrajs env_bsl is_exported code =
   (* Exports idents to global node scope *)
   let code = List.map (process_code_elt is_exported) code in
   (* Adding require *)
@@ -104,11 +105,36 @@ let process_code is_exported code =
   let opx_requires =
     List.filter
       (fun opx -> not (StringSet.mem opx already_required))
-      opx_requires in
+      opx_requires
+  in
   R.save opx_requires;
-  let code_requires =
-    List.rev_map
+  let opp_requires =
+    List.filter_map
+      (fun plugin ->
+         if List.is_empty plugin.BslPluginInterface.nodejs_code then None
+         else plugin.BslPluginInterface.basename
+      ) env_bsl.BslLib.direct_external_plugins
+  in
+  let opp_requires = List.map (Printf.sprintf "%s.opp") opp_requires in
+  let extra_requires =
+    List.filter_map
+      (fun extra_lib ->
+         match extra_lib with
+         | `server (name, _) -> Some name
+         | _ -> None
+      ) extrajs
+  in
+  let code =
+    List.rev_map_append
       (fun opx -> cons_require opx)
-      opx_requires in
-  opx_requires, (code_requires @ code)
+      opx_requires code
+  in
+  let code =
+    List.rev_map_append cons_require opp_requires code
+  in
+  let code =
+    List.rev_map_append cons_require extra_requires code
+  in
+
+  extra_requires @ opp_requires @ opx_requires, code
 
