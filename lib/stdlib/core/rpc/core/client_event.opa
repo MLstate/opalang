@@ -45,12 +45,14 @@ ClientEvent = {{
   @private
   error = Log.error("CLIENTEVENT", _)
 
+  @private ClientTbl = PingRegister.ClientTbl
+
   /**
    * The table which store the state of client connection
    */
   @private
-  state_tbl : Hashtbl.t(ThreadContext.client, PingRegister.state) =
-    PingRegister.Utils.make_tctbl()
+  state_tbl : ClientTbl.t(PingRegister.state) =
+    ClientTbl.create()
 
   /**
    * Default delay before raise the disconnect event
@@ -74,13 +76,13 @@ ClientEvent = {{
           if kind == event then Scheduler.push(-> cb(client))
         , binds)
     do aux(binds)
-    match Hashtbl.try_find(state_tbl, ThreadContext.Client.fake)
+    match ClientTbl.try_find(state_tbl, ThreadContext.Client.fake)
     | {none} -> void
     | {some = state} -> aux(Hashtbl.bindings(state.callbacks))
 
   /* The fake client is used for to store default handlers */
   @private
-  _add_fake = Hashtbl.add(state_tbl, ThreadContext.Client.fake, {
+  _add_fake = ClientTbl.add(state_tbl, ThreadContext.Client.fake, {
       ina_delay = Reference.create(-1)
       ina_key   = Reference.create({none})
       dis_delay = Reference.create(-1)
@@ -131,7 +133,7 @@ ClientEvent = {{
     client = match client with
       | {none} -> ThreadContext.Client.fake
       | {some = client} -> client
-    match Hashtbl.try_find(state_tbl, client)
+    match ClientTbl.try_find(state_tbl, client)
     | {none} ->
       do error("Event({client}) No register callback event, client is not present")
       @fail
@@ -172,7 +174,7 @@ ClientEvent = {{
    * @param binding_id The id of the binding event/callback to remove.
    */
   remove_event(key:ClientEvent.key) =
-    @atomic(match Hashtbl.try_find(state_tbl, key.client) with
+    @atomic(match ClientTbl.try_find(state_tbl, key.client) with
       | {none} -> void
       | {some = state} ->
         Hashtbl.remove(state.callbacks, key.ckey))
@@ -216,7 +218,7 @@ ClientEvent = {{
     match ctx with
     | {none} -> Reference.set(inactive_delay, time)
     | {some=client} ->
-      match Hashtbl.try_find(state_tbl, client) with
+      match ClientTbl.try_find(state_tbl, client) with
       | {none} -> void
       | {some = state} -> Reference.set(state.ina_delay, time ? 0)
 
@@ -254,10 +256,10 @@ ClientEvent = {{
     #<Ifstatic:MLSTATE_PING_DEBUG>
     do debug("Event({client}) Remove client state")
     #<End>
-    match @atomic(match Hashtbl.try_find(state_tbl, client) with
+    match @atomic(match ClientTbl.try_find(state_tbl, client) with
       | {none} -> {}
       | {some = _} as e ->
-        do Hashtbl.remove(state_tbl, client)
+        do ClientTbl.remove(state_tbl, client)
         e)
     with
     | {} -> void
@@ -280,7 +282,7 @@ ClientEvent = {{
     do debug("Event({client}) Touch client state")
     #<End>
     ~{delay ref iref idelay} =
-      @atomic(match Hashtbl.try_find(state_tbl, client) with
+      @atomic(match ClientTbl.try_find(state_tbl, client) with
         | {some = state} ->
           aux(ref) =
             match Reference.get(ref) with
@@ -302,7 +304,7 @@ ClientEvent = {{
             dis_key   = Reference.create({none})
             ina_key   = Reference.create({none})
           }
-          do Hashtbl.add(state_tbl, client, state)
+          do ClientTbl.add(state_tbl, client, state)
           {delay = Reference.get(state.dis_delay) ref=state.dis_key
            idelay = Reference.get(state.ina_delay) iref = state.ina_key}
       )
@@ -316,7 +318,7 @@ ClientEvent = {{
     do if active && idelay > 0 then
       k = Scheduler.asleep(idelay,
             -> Option.iter(s -> raise_event(client, {inactive}, Hashtbl.bindings(s.callbacks))
-                           , Hashtbl.try_find(state_tbl, client))
+                           , ClientTbl.try_find(state_tbl, client))
           )
       aux(iref, k)
     aux(ref, Scheduler.asleep(delay, -> remove(client)))

@@ -22,6 +22,9 @@ type PingRegister.entry =
 @private
 type PingRegister.pang_result = {nb:int result:string}
 
+@abstract
+type ClientTbl.t('a) = Hashtbl.t(string, 'a)
+
 @server_private
 PingRegister = {{
 
@@ -32,14 +35,25 @@ PingRegister = {{
   error = Log.error("PING", _)
 
   @package
-  Utils = {{
+  ClientTbl = {{
 
     @private
     hash_client(~{client page}:ThreadContext.client) =
-      "{client}_{page}"
+      @atomic(String.of_int(page) ^ "_" ^ client)
 
-    make_tctbl(): Hashtbl.t(ThreadContext.client, 'a) =
-      Hashtbl.make(hash_client, (_, _ -> true), 1024)
+    create() : ClientTbl.t('a) = Hashtbl.create(1024)
+
+    add(tbl, client, value) =
+      Hashtbl.add(tbl, hash_client(client), value)
+
+    replace(tbl, client, value) =
+      Hashtbl.replace(tbl, hash_client(client), value)
+
+    remove(tbl, client) =
+      Hashtbl.remove(tbl, hash_client(client))
+
+    try_find(tbl, client) =
+      Hashtbl.try_find(tbl, hash_client(client))
 
   }}
 
@@ -55,12 +69,12 @@ PingRegister = {{
       "{client}_{page}"
 
     @private
-    entries : Hashtbl.t(ThreadContext.client, PingRegister.entry) =
-      Utils.make_tctbl()
+    entries : ClientTbl.t(PingRegister.entry) =
+      ClientTbl.create()
 
     @private
-    pangtbl : Hashtbl.t(ThreadContext.client, list(PingRegister.pang_result)) =
-      Utils.make_tctbl()
+    pangtbl : ClientTbl.t(list(PingRegister.pang_result)) =
+      ClientTbl.create()
 
     @private
     ping_delay = 30 * 1000
@@ -70,22 +84,21 @@ PingRegister = {{
      */
     @private
     add(client, entry) =
-      //do @assert(not(Hashtbl.mem(entries, client)))
-      Hashtbl.add(entries, client, entry)
+      ClientTbl.add(entries, client, entry)
 
     /**
      * As add but overwrite the previous association if already exists.
      */
     @private
     replace(client, entry) =
-      Hashtbl.replace(entries, client, entry)
+      ClientTbl.replace(entries, client, entry)
 
     /**
      * Remove the entry association to the [client]
      */
     @private
     remove(client) =
-      Hashtbl.remove(entries, client)
+      ClientTbl.remove(entries, client)
 
     /**
      * Add the [nb]th pang [result] to the pang table.
@@ -93,9 +106,9 @@ PingRegister = {{
     @private
     add_pang(client, nb, result) =
       @atomic(
-        match Hashtbl.try_find(pangtbl, client) with
-        | {none} -> Hashtbl.add(pangtbl, client, [~{result nb}])
-        | {some = pangs} -> Hashtbl.replace(pangtbl, client, [~{result nb} | pangs])
+        match ClientTbl.try_find(pangtbl, client) with
+        | {none} -> ClientTbl.add(pangtbl, client, [~{result nb}])
+        | {some = pangs} -> ClientTbl.replace(pangtbl, client, [~{result nb} | pangs])
       )
 
     /**
@@ -122,7 +135,7 @@ PingRegister = {{
       do debug("PONG({pnb}, {client}) sending")
       #<End>
       match @atomic(
-        match Hashtbl.try_find(entries, client) with
+        match ClientTbl.try_find(entries, client) with
         | {some = ~{ajax nb key=_}} ->
           do remove(client)
           if pnb == nb then {~ajax pong}
@@ -155,7 +168,7 @@ PingRegister = {{
         #<End>
         Scheduler.asleep(ping_delay, -> pong(client, nb))
       match @atomic(
-        match Hashtbl.try_find(entries, client) with
+        match ClientTbl.try_find(entries, client) with
         | {none} ->
           do add(client, {ajax=winfo ~nb key=apong})
           {}
@@ -175,12 +188,24 @@ PingRegister = {{
             do Scheduler.abort(apong)
             {error already=onb}
       ) with
-      | {} -> void
+      | {} ->
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+          do debug("PING({client}) nothing to do, waiting messages")
+        #<End>
+        void
       | {error ~already} ->
         do error("PING({nb}, {client}) not registered PING({already}) already present")
         send_response(winfo, {break})
-      | {~winfo break} -> send_response(winfo, {break})
-      | {msgs=_} as e -> send_response(winfo, e)
+      | {~winfo break} ->
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+        do debug("SEND({client}) break the ping loop")
+        #<End>
+        send_response(winfo, {break})
+      | {msgs=_} as e ->
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+        do debug("SEND({client}) flush pending messages {e}")
+        #<End>
+        send_response(winfo, e)
 
     /**
      * As [iping] plus handles pang mecanism.
@@ -190,18 +215,22 @@ PingRegister = {{
      do debug("PING({nb}, {client}) is received")
      #<End>
       match @atomic(
-        match Hashtbl.try_find(pangtbl, client) with
+        match ClientTbl.try_find(pangtbl, client) with
         | {none}
         | {some = []} -> {}
         | {some = [pang|pangs]} ->
-          do Hashtbl.replace(pangtbl, client, pangs)
+          do ClientTbl.replace(pangtbl, client, pangs)
           do match pangs with
-             | [] -> Hashtbl.remove(pangtbl, client)
+             | [] -> ClientTbl.remove(pangtbl, client)
              | _ -> void
           ~{winfo pang}
       ) with
       | {} -> iping(crush, client, nb, winfo)
-      | ~{winfo pang} -> send_response(winfo, @opensums(pang))
+      | ~{winfo pang} ->
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+        do debug("PANG({pang.nb}, {client}) return waiting pang")
+        #<End>
+        send_response(winfo, @opensums(pang))
 
     /**
      * Handles a pang request, it's like a synchronous ping.
@@ -220,7 +249,7 @@ PingRegister = {{
       do debug("PANG({nb}, {client}) return ")
       #<End>
       match @atomic(
-        match Hashtbl.try_find(entries, client) with
+        match ClientTbl.try_find(entries, client) with
         | {some = ~{ajax key ...}} ->
           do remove(client)
           do Scheduler.abort(key)
@@ -230,7 +259,11 @@ PingRegister = {{
           do add_pang(client, nb, result)
           {}
       ) with
-      | ~{ajax} -> send_response(ajax, ~{result nb})
+      | ~{ajax} ->
+        #<Ifstatic:MLSTATE_PING_DEBUG>
+        do debug("PANG({nb}, {client}) direct return")
+        #<End>
+        send_response(ajax, ~{result nb})
       | {} -> void
 
     send(client, msg:PingRegister.msg) =
@@ -238,16 +271,16 @@ PingRegister = {{
       do debug("SEND({client}) message {msg}")
       #<End>
       match @atomic(
-        match Hashtbl.try_find(entries, client) with
+        match ClientTbl.try_find(entries, client) with
         | {some = ~{ajax key ...}} ->
-          do Hashtbl.remove(entries, client)
+          do remove(client)
           do Scheduler.abort(key)
           ~{ajax}
         | {some = ~{msgs}} ->
-          do Hashtbl.replace(entries, client, {msgs = [msg | msgs]})
+          do replace(client, {msgs = [msg | msgs]})
           {}
         | {none} ->
-          do Hashtbl.add(entries, client, {msgs = [msg]})
+          do add(client, {msgs = [msg]})
           {}
       ) with
       | ~{ajax} ->
