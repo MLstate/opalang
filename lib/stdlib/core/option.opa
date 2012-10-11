@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -140,9 +140,12 @@ Option = {{
 
   /**
    * [get(o)] returns the value of [o]
-   * If [o] is [none], it exits with an error
+   * If [o] is [none], raises a runtime error.
    */
-  get = get_msg(-> "Option.get called on \{none}",_) : option('a) -> 'a
+  @expand
+  get(o:option('a)) = match o with
+    | {none} -> @fail("Option.get called on \{none}")
+    | {some = s} -> s
 
   /**
    * [is_some(o)]
