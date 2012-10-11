@@ -106,9 +106,9 @@ let process_code is_exported code =
       (fun opx -> not (StringSet.mem opx already_required))
       opx_requires in
   R.save opx_requires;
-  let opx_requires =
+  let code_requires =
     List.rev_map
       (fun opx -> cons_require opx)
       opx_requires in
-  opx_requires @ code
+  opx_requires, (code_requires @ code)
 
