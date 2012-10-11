@@ -209,6 +209,7 @@ type opa_options = {
                               the package.json file *)
   modular_plugins: bool;
   js_classic_bypass_syntax: bool;
+  backtrace: bool;
 }
 
 let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.template_po
@@ -307,7 +308,7 @@ struct
       package_version := version
 
     let modular_plugins = ref false
-
+    let backtrace = ref false
     let back_end_wanted = ref ( `qmljs : available_back_end )
     let back_end s =
       let back_end =
@@ -512,6 +513,10 @@ struct
           Arg.String (fun s -> build_dir := s),
           " set the build directory : default is _build. You must set an absolute path."
           ;
+
+          "--backtrace",
+          Arg.Unit (fun () -> backtrace:=true),
+          " Enable backtrace " ;
 
           (* c *)
           "--ccopt",
@@ -937,6 +942,7 @@ struct
     package_version = !ArgParser.package_version;
     modular_plugins = !ArgParser.modular_plugins;
     js_classic_bypass_syntax = !js_bypass_syntax = `classic;
+    backtrace = !ArgParser.backtrace;
   }
 
   let echo_help () = ArgParser.do_print_help ()

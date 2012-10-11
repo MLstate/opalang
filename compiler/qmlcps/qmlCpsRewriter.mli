@@ -93,6 +93,7 @@ val cps_id : string
 *)
 type options =
     {
+      backtrace : bool ;
       no_assert : bool ;
       no_server : bool ;
       qml_closure : bool ;

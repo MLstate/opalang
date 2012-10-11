@@ -569,6 +569,7 @@ let pass_QmlCpsRewriter client ~(options:opa_options) (env:env_NewFinalCompile) 
   let options =
     { QmlCpsRewriter.default_options with QmlCpsRewriter.
         no_assert = options.OpaEnv.no_assert ;
+        backtrace = options.OpaEnv.backtrace ;
         no_server = Option.get options.OpaEnv.no_server;
         qml_closure ;
         toplevel_concurrency = options.OpaEnv.cps_toplevel_concurrency ;

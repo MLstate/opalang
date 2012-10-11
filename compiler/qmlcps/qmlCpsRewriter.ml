@@ -86,6 +86,7 @@ let error fmt =
 
 type options =
     {
+      backtrace : bool ;
       no_assert : bool ;
       no_server : bool;
       qml_closure : bool ;
@@ -97,6 +98,7 @@ type options =
 (* please, keep default values synchronized with the documentation *)
 let default_options =
   {
+    backtrace = false ;
     no_assert = false ;
     no_server = true;
     qml_closure = false ;
@@ -1880,7 +1882,7 @@ let instrument code =
 
 (* utils for backends *)
 let cps_pass ~side env qml_code =
-  let qml_code = #<If:CPS_STACK_TRACE>instrument qml_code#<Else>qml_code#<End> in
+  let qml_code = if env.options.backtrace then instrument qml_code else qml_code in
   let private_env_initial = Package.load_dependencies ~side in
   let private_env, r = code env private_env_initial qml_code in
   Package.save_current ~side ~private_env_initial ~private_env;
