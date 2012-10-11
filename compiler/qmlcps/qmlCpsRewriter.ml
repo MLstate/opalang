@@ -1215,11 +1215,14 @@ let runtime_bt_collection bt_pos _f_string _larg expr =
       let _larg = List.map (fun arg ->
         QC.apply (qml_byobj_magic ()) [QC.ident arg]) _larg
       in
-      let _larg = List.hd _larg in (* TODO: tmp hack; libbsl does not translate lists *)
-      QC.apply fun_args2string [QC.string _f_string; (*QC.list*) _larg]
-        #<Else>
-        QC.string bt_pos
-        #<End>
+      (* TODO: tmp hack; libbsl does not translate lists *)
+      match _larg with
+      | _larg::_ -> QC.apply fun_args2string [QC.string _f_string; (*QC.list*) _larg]
+      | _ -> QC.string bt_pos
+
+    #<Else>
+    QC.string bt_pos
+    #<End>
   in
   let bt_add = qml_other_call Opacapi.Opabsl.BslCps.bt_add in
   QC.letin [Ident.next "_", (QC.apply bt_add [bt_info])]
