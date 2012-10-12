@@ -275,45 +275,48 @@ type Twitter.entities = {
 }
 
 type Twitter.full_user = {
-  id                                 : string
-  name                               : string
-  screen_name                        : string
-  location                           : string
-  description                        : string
-  url                                : string
-  entities                           : Twitter.entities
-  protected                          : bool
-  followers_count                    : int
-  friends_count                      : int
-  listed_count                       : int
-  created_at                         : string
-  favourites_count                   : int
-  utc_offset                         : int
-  time_zone                          : string
-  geo_enabled                        : bool
-  verified                           : bool
-  statuses_count                     : int
-  lang                               : string
-  contributors_enabled               : bool
-  is_translator                      : bool
-  profile_background_color           : string
-  profile_background_image_url       : string
-  profile_background_image_url_https : string
-  profile_background_tile            : bool
-  profile_image_url                  : string
-  profile_image_url_https            : string
-  profile_banner_url                 : string
-  profile_link_color                 : string
-  profile_sidebar_border_color       : string
-  profile_sidebar_fill_color         : string
-  profile_text_color                 : string
-  profile_use_background_image       : bool
-  show_all_inline_media              : bool
-  default_profile                    : bool
-  default_profile_image              : bool
-  following                          : RPC.Json.json
-  follow_request_sent                : RPC.Json.json
-  notifications                      : RPC.Json.json
+  contributors_enabled               : bool /** Indicates that the user has an account with "contributor mode" enabled, allowing for Tweets issued by the user to be co-authored by another account. */
+  created_at                         : string /** The UTC datetime that the user account was created on Twitter. */
+  default_profile                    : bool /** When true, indicates that the user has not altered the theme or background of their user profile. */
+  default_profile_image              : bool /** When true, indicates that the user has not uploaded their own avatar and a default egg avatar is used instead. */
+  description                        : string /** Nullable. The user-defined UTF-8 string describing their account. */
+  entities                           : Twitter.entities /** Entities which have been parsed out of the url or description fields defined by the user. */
+  favourites_count                   : int /** The number of tweets this user has favorited in the account's lifetime. */
+  follow_request_sent                : bool /** Nullable. Perspectival. When true, indicates that the authenticating user has issued a follow request to this protected user account. */
+//following                          : bool /** Nullable. Perspectival. Deprecated. When true, indicates that the authenticating user is following this user. */
+  followers_count                    : int /** The number of followers this account currently has. */
+  friends_count                      : int /** The number of users this account is following (AKA their "followings").  */
+  geo_enabled                        : bool /** When true, indicates that the user has enabled the possibility of geotagging their Tweets. */
+  id                                 : string /** The string representation of the unique identifier for this Tweet. */
+  is_translator                      : bool /** When true, indicates that the user is a participant in Twitter's translator community. */
+  lang                               : string /** The ISO 639-1 two-letter character code for the user's self-declared user interface language. */
+  listed_count                       : int /** The number of public lists that this user is a member of. */
+  location                           : string /** Nullable. The user-defined location for this account's profile. */
+  name                               : string /** The name of the user, as they've defined it. */
+//notifications                      : bool /** Nullable. Deprecated. Indicates whether the authenticated user has chosen to receive this user's tweets by SMS. */
+  profile_background_color           : string /** The hexadecimal color chosen by the user for their background. */
+  profile_background_image_url       : string /** A HTTP-based URL pointing to the background image the user has uploaded for their profile. */
+  profile_background_image_url_https : string /** A HTTPS-based URL pointing to the background image the user has uploaded for their profile. */
+  profile_background_tile            : bool /** When true, indicates that the user's profile_background_image_url should be tiled when displayed. */
+  profile_banner_url                 : string /** The HTTPS-based URL pointing to the standard web representation of the user's uploaded profile banner. */
+  profile_image_url                  : string /** A HTTP-based URL pointing to the user's avatar image. */
+  profile_image_url_https            : string /** A HTTPS-based URL pointing to the user's avatar image. */
+  profile_link_color                 : string /** The hexadecimal color the user has chosen to display links with in their Twitter UI. */
+  profile_sidebar_border_color       : string /** The hexadecimal color the user has chosen to display sidebar borders with in their Twitter UI. */
+  profile_sidebar_fill_color         : string /** The hexadecimal color the user has chosen to display sidebar backgrounds with in their Twitter UI. */
+  profile_text_color                 : string /** The hexadecimal color the user has chosen to display text with in their Twitter UI. */
+  profile_use_background_image       : bool /** When true, indicates the user wants their uploaded background image to be used. */
+  protected                          : bool /** When true, indicates that this user has chosen to protect their Tweets. */
+  screen_name                        : string /** The screen name, handle, or alias that this user identifies themselves with. */
+  show_all_inline_media              : bool /** Indicates that the user would like to see media inline. Somewhat disused. */
+  status                             : RPC.Json.json /** Nullable. If possible, the user's most recent tweet or retweet. */
+  statuses_count                     : int /** The number of tweets (including retweets) issued by the user. */
+  time_zone                          : string /** Nullable. A string describing the Time Zone this user declares themselves within. */
+  url                                : string /** Nullable. A URL provided by the user in association with their profile. */
+  utc_offset                         : int /** Nullable. The offset from GMT/UTC in seconds. */
+  verified                           : bool /** When true, indicates that the user has a verified account. */
+  withheld_in_countries              : string /** When present, indicates a textual representation of the two-letter country codes this user is withheld from. */
+  withheld_scope                     : string /** When present, indicates whether the content being withheld is the "status" or a "user." */
 }
 
 type Twitter.statuses = {
@@ -461,6 +464,28 @@ type Twitter.rate_limit = {
   hourly_limit    : int; /** Current hourly limit. */
   reset_time_secs : int; /** The seconds Unix Epoch time of the reset */
   reset_time      : string; /** A string representing the time of the reset */
+}
+
+type Twitter.direct_messages_options = {
+  since_id         : string
+  max_id           : string
+  count            : int
+  page             : int
+  include_entities : option(bool)
+  skip_status      : option(bool)
+}
+
+type Twitter.message_result = {
+  entities              : Twitter.entities
+  sender_screen_name    : string
+  id                    : string
+  created_at            : string
+  recipient             : Twitter.full_user
+  sender                : Twitter.full_user
+  recipient_screen_name : string
+  recipient_id          : int
+  sender_id             : int
+  text                  : string
 }
 
 /**
@@ -755,45 +780,46 @@ type Twitter.rate_limit = {
   get_full_user(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     {
-      id = get_string("id_str", map)
-      name = get_string("name", map)
-      screen_name = get_string("screen_name", map)
-      location = get_string("location", map)
+      contributors_enabled = get_bool("contributors_enabled", map, false)
+      created_at = get_date("created_at", map)
+      default_profile = get_bool("default_profile", map, false)
+      default_profile_image = get_bool("default_profile_image", map, false)
       description = get_string("description", map)
-      url = get_string("url", map)
       entities = get_obj("entities", map, get_entities)
-      protected = get_bool("protected", map, false)
+      favourites_count = get_int("favourites_count", map)
+      follow_request_sent = get_bool("follow_request_sent", map, false)
       followers_count = get_int("followers_count", map)
       friends_count = get_int("friends_count", map)
-      listed_count = get_int("listed_count", map)
-      created_at = get_date("created_at", map)
-      favourites_count = get_int("favourites_count", map)
-      utc_offset = get_int("utc_offset", map)
-      time_zone = get_string("time_zone", map)
       geo_enabled = get_bool("get_bool", map, false)
-      verified = get_bool("verified", map, false)
-      statuses_count = get_int("statuses_count", map)
-      lang = get_string("lang", map)
-      contributors_enabled = get_bool("contributors_enabled", map, false)
+      id = get_string("id_str", map)
       is_translator = get_bool("is_translator", map, false)
+      lang = get_string("lang", map)
+      listed_count = get_int("listed_count", map)
+      location = get_string("location", map)
+      name = get_string("name", map)
       profile_background_color = get_string("profile_background_color", map)
       profile_background_image_url = get_string("profile_background_image_url", map)
       profile_background_image_url_https = get_string("profile_background_image_url_https", map)
       profile_background_tile = get_bool("profile_background_tile", map, false)
+      profile_banner_url = get_string("profile_banner_url", map)
       profile_image_url = get_string("profile_image_url", map)
       profile_image_url_https = get_string("profile_image_url_https", map)
-      profile_banner_url = get_string("profile_banner_url", map)
       profile_link_color = get_string("profile_link_color", map)
       profile_sidebar_border_color = get_string("profile_sidebar_border_color", map)
       profile_sidebar_fill_color = get_string("profile_sidebar_fill_color", map)
       profile_text_color = get_string("profile_text_color", map)
       profile_use_background_image = get_bool("profile_use_background_image", map, false)
+      protected = get_bool("protected", map, false)
+      screen_name = get_string("screen_name", map)
       show_all_inline_media = get_bool("show_all_inline_media", map, false)
-      default_profile = get_bool("default_profile", map, false)
-      default_profile_image = get_bool("default_profile_image", map, false)
-      following = get_unknown("following", map)
-      follow_request_sent = get_unknown("follow_request_sent", map)
-      notifications = get_unknown("follow_request_sent", map)
+      status = get_unknown("status", map)
+      statuses_count = get_int("statuses_count", map)
+      time_zone = get_string("time_zone", map)
+      url = get_string("url", map)
+      utc_offset = get_int("utc_offset", map)
+      verified = get_bool("verified", map, false)
+      withheld_in_countries = get_string("withheld_in_countries", map)
+      withheld_scope = get_string("withheld_scope", map)
     } : Twitter.full_user
 
   get_statuses_elt(json) =
@@ -841,19 +867,6 @@ type Twitter.rate_limit = {
        search_metadata = get_obj("search_metadata", map, get_search_metadata)
       } : Twitter.search_result))
 
-  _build_one_status(s) : Twitter.outcome(Twitter.tweet) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, _build_tweet_from_json)
-
-//  _build_statuses(s) : Twitter.outcome(list(Twitter.new_tweet)) =
-//    json = API_libs_private.parse_json(s)
-//    _check_errors(json, get_raw_list(_, _build_new_tweet_response))
-
-  _build_timeline_response(rawresponse) =
-    response = API_libs_private.parse_json(rawresponse)
-    list = JsonOpa.to_list(response) ? []
-    List.map(_build_tweet_from_json, list)
-
   _build_social_graph(rawgraph) = // *Must* use stringify_ids
     //loc_to_int(x) = API_libs_private.json_to_int_unsafe(x) ? 0
     loc_to_str(x) = API_libs_private.json_to_string_unsafe(x) ? ""
@@ -887,6 +900,29 @@ type Twitter.rate_limit = {
       reset_time_secs = loc_int("reset_time_in_seconds");
       reset_time = get_string("reset_time", map);
     }:Twitter.rate_limit
+
+  get_message_result(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      entities = get_obj("entities", map, get_entities)
+      sender_screen_name = get_string("sender_screen_name", map)
+      id = get_string("id_str", map)
+      created_at = get_string("created_at", map)
+      recipient = get_obj("recipient", map, get_full_user)
+      sender = get_obj("sender", map, get_full_user)
+      recipient_screen_name = get_string("recipient_screen_name", map)
+      recipient_id = get_int("recipient_id", map)
+      sender_id = get_int("sender_id", map)
+      text = get_string("text", map)
+    }
+
+  _build_message_result(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_message_result)
+
+  _build_message_results(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_message_result))
 
   _simple_decoder(data) =
     decode_data =
@@ -1082,7 +1118,7 @@ Twitter(conf:Twitter.configuration) = {{
  *
  * @param path Path corrsponding to request built according to the Twitter's API
  * @param params (optional) Parameters as a (key, value) list if required
- * @param credentials Credential if required
+ * @param credentials User credentials.
  * @param final_fun A API_libs.answer_fun object containing a function taking a string and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
  custom_get_request(path, params, credentials, final_fun) =
@@ -1097,7 +1133,7 @@ Twitter(conf:Twitter.configuration) = {{
  *
  * @param path Path corrsponding to request built according to the Twitter's API
  * @param params (optional) Parameters as a (key, value) list if required
- * @param credentials Credential if required
+ * @param credentials User credentials.
  * @param final_fun A API_libs.answer_fun object containing a function taking a string and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
  custom_post_request(path, params, credentials, final_fun) =
@@ -1410,37 +1446,116 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_bopt("trim_user", trim_user)
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_one_new_tweet)
 
+// TODO: (unlikely) streaming API
+
 /**
  * Check credentials
  *
  * This function checks if provided credentials are correct.
  * Returns a Twitter.tweet object corresponding to the last status of the user if the credentials are correct. If incorrect, returns an empty Twitter.tweet object.
  *
- * @param credentials The credentials of the user formatted as login:password
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.tweet and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
  */
-  check_credentials(credentials) =
-    path = "/1/account/verify_credentials.json"
-    Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_tweet_from_json_2)
+  check_credentials(include_entities:option(bool), skip_status:option(bool), credentials) =
+    path = "/1.1/account/verify_credentials.json"
+    params =
+      []
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_one_new_tweet)
+
+  default_direct_messages = {
+    since_id = ""
+    max_id = ""
+    count = 20
+    page = 0
+    include_entities = none
+    skip_status = none
+  } : Twitter.direct_messages_options
 
 /**
- * Send a private message
+ * Get a single direct message
  *
- * This function sends a private message to a user
- * from authenticated user.
- *
- * @param user The recipient if the message
- * @param text The message. Like all messages on Twitter, it should not exceed 140 characters
+ * @param id The ID of the direct message.
  */
-  private_message(user:Twitter.user, message, credentials) =
-    path = "/1/direct_messages/new.json"
+  direct_message(id:string, credentials) =
+    path = "/1.1/direct_messages/show.json"
+    params = [("id",id)]
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_result)
+
+/**
+ * Get the most recent direct messsages.
+ *
+ * This function returns the messages received by the authenticated user.
+ *
+ * @param options The command options.
+ */
+  direct_messages(options:Twitter.direct_messages_options, credentials) =
+    path = "/1.1/direct_messages.json"
     params =
-      ( match user with
-        | ~{uid} -> [("user_id", "{uid}")]
-        | ~{screen_name} -> [("screen_name", screen_name)]
-        | ~{id} -> [("user", id)]
-      ) |> List.cons(("text",message),_)
-    Twitter_private(c)._post_res(path, params, credentials, identity)
+      []
+      |> add_if("since_id", options.since_id, (_!=""))
+      |> add_if("max_id", options.max_id, (_!=""))
+      |> add_if("count", options.count, (_>0))
+      |> add_if("page", options.page, (_>0))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_results)
+
+/**
+ * Get the most recent direct messsages sent.
+ *
+ * This function returns the messages sent by the authenticated user.
+ *
+ * @param options The command options.
+ */
+  sent_direct_messages(options:Twitter.direct_messages_options, credentials) =
+    path = "/1.1/direct_messages/sent.json"
+    params =
+      []
+      |> add_if("since_id", options.since_id, (_!=""))
+      |> add_if("max_id", options.max_id, (_!=""))
+      |> add_if("count", options.count, (_>0))
+      |> add_if("page", options.page, (_>0))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_results)
+
+/**
+ * Send a direct message
+ *
+ * This function sends a direct message to a user from the authenticated user.
+ *
+ * @param user The recipient of the message.
+ * @param text The text of your direct message. Keep the message under 140 characters.
+ */
+  send_direct_message(user:Twitter.user, message, credentials) =
+    path = "/1.1/direct_messages/new.json"
+    params =
+      (match user with
+       | ~{uid} -> [("user_id", "{uid}")]
+       | ~{screen_name} -> [("screen_name", screen_name)]
+       | ~{id} -> [("user", id)])
+      |> List.cons(("text",message),_)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
+
+/**
+ * Delete a direct message
+ *
+ * This function deletes the direct message with the given ID.
+ * Returns the deleted message, if successful.
+ *
+ * @param id The ID of the message.
+ * @param include_entities The entities node will not be included when set to false.
+ */
+  delete_direct_message(id:string, include_entities:option(bool), credentials) =
+    path = "/1.1/direct_messages/destroy.json"
+    params =
+      [("id",id)]
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
 
   Statuses = {{
 
