@@ -261,6 +261,9 @@ List = {{
     | [] -> none
     | [hd | tl ] -> if Int.equals(n, 0) then some(hd) else get(n - 1, tl)
 
+  random_elt(l: list('a)): option('a) =
+   get(Random.int(length(l)), l)
+
   /**
    * Get and remove the [nth] element of a list.
    *
