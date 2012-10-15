@@ -15,8 +15,7 @@ package twitter
  *
  * This file provides the implemented methods of Twitter API
  * IMPORTANT NOTE: This API implementation has been updated to use
- * OAuth but the documentation is not yet fully up to date. Please
- * disregard any reference to credentials "formatted as login:password"
+ * OAuth but the documentation is not yet fully up to date.
  *
  * @category web
  * @author Nicolas Glondu, 2010
@@ -64,9 +63,8 @@ type Twitter.credentials = {
 }
 
 type Twitter.user =
-    { uid : int } /** Unique identifier of a user */
+    { user_id : string } /** Unique identifier of a user */
   / { screen_name : string } /** Screen name of a user */
-  / { id : string } /** A screen or a unique identifier of a user - Warning, a screen name can be a valid uid */
 
 type Twitter.result_type = {mixed} / {recent} / {popular}
 
@@ -429,8 +427,8 @@ type Twitter.tweet = {
  * for instance ) than a true graph.
  */
 type Twitter.social_graph = {
-  previous_cursor : int; /** The cursor to the previous page of the graph. */
-  next_cursor     : int; /** The cursor to the next page of the graph. */
+  previous_cursor : string; /** The cursor to the previous page of the graph. */
+  next_cursor     : string; /** The cursor to the next page of the graph. */
   ids             : list(string); /** A list of ids corresponding to the requested social graph. */
 }
 
@@ -442,8 +440,8 @@ type Twitter.social_graph = {
  * for instance ) than a true graph.
  */
 type Twitter.full_social_graph = {
-  previous_cursor : int; /** The cursor to the previous page of the graph. */
-  next_cursor     : int; /** The cursor to the next page of the graph. */
+  previous_cursor : string; /** The cursor to the previous page of the graph. */
+  next_cursor     : string; /** The cursor to the next page of the graph. */
   users           : list(Twitter.tweet); /** A list containing the last status of each follower/friend. */
 }
 
@@ -486,6 +484,33 @@ type Twitter.message_result = {
   recipient_id          : int
   sender_id             : int
   text                  : string
+}
+
+type Twitter.connection = {following} / {following_requested} / {followed_by} / {none}
+
+type Twitter.friendship = {
+  name        : string
+  id          : string
+  connections : list(Twitter.connection)
+  screen_name : string
+}
+
+type Twitter.relation = {
+  id : string
+  screen_name : string
+  following : bool
+  followed_by : bool
+  can_dm : bool
+  blocking : bool
+  all_replies : bool
+  want_retweets : bool
+  marked_spam : bool
+  notifications_enabled : bool
+}
+
+type Twitter.relationship = {
+  target : Twitter.relation
+  source : Twitter.relation
 }
 
 /**
@@ -822,6 +847,10 @@ type Twitter.message_result = {
       withheld_scope = get_string("withheld_scope", map)
     } : Twitter.full_user
 
+  _build_full_user(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_full_user)
+
   get_statuses_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     {
@@ -868,28 +897,29 @@ type Twitter.message_result = {
       } : Twitter.search_result))
 
   _build_social_graph(rawgraph) = // *Must* use stringify_ids
-    //loc_to_int(x) = API_libs_private.json_to_int_unsafe(x) ? 0
     loc_to_str(x) = API_libs_private.json_to_string_unsafe(x) ? ""
     jsgraph = Json.of_string(rawgraph) |> Option.get
-    map = JsonOpa.record_fields(jsgraph) ? Map.empty
-    loc_int(name) = get_int(name, map)
-    ids = JsonOpa.to_list(Map.get("ids", map) ? {List = []}:RPC.Json.json) ? []
-    ids = List.map(loc_to_str, ids)
-    { previous_cursor = loc_int("previous_cursor");
-      next_cursor = loc_int("next_cursor");
-      ids = ids;
-    }:Twitter.social_graph
+    _check_errors(jsgraph, (jsgraph ->
+      map = JsonOpa.record_fields(jsgraph) ? Map.empty
+      loc_str(name) = get_string(name, map)
+      ids = JsonOpa.to_list(Map.get("ids", map) ? {List = []}:RPC.Json.json) ? []
+      ids = List.map(loc_to_str, ids)
+      { previous_cursor = loc_str("previous_cursor_str");
+        next_cursor = loc_str("next_cursor_str");
+        ids = ids;
+      } : Twitter.social_graph))
 
   _build_full_social_graph(rawgraph) =
     jsgraph = Json.of_string(rawgraph) |> Option.get
-    map = JsonOpa.record_fields(jsgraph) ? Map.empty
-    loc_int(name) = get_int(name, map)
-    users = JsonOpa.to_list(Map.get("users", map) ? {List = []}:RPC.Json.json) ? []
-    users = List.map(_build_tweet_from_json_2_int, users)
-    { previous_cursor = loc_int("previous_cursor");
-      next_cursor = loc_int("next_cursor");
-      users = users;
-    }:Twitter.full_social_graph
+    _check_errors(jsgraph, (jsgraph ->
+      map = JsonOpa.record_fields(jsgraph) ? Map.empty
+      loc_str(name) = get_string(name, map)
+      users = JsonOpa.to_list(Map.get("users", map) ? {List = []}:RPC.Json.json) ? []
+      users = List.map(_build_tweet_from_json_2_int, users)
+      { previous_cursor = loc_str("previous_cursor");
+        next_cursor = loc_str("next_cursor");
+        users = users;
+      } : Twitter.full_social_graph))
 
   _build_rate_limit(rawlimit) =
     jslimit = API_libs_private.parse_json(rawlimit)
@@ -923,6 +953,71 @@ type Twitter.message_result = {
   _build_message_results(s) =
     json = API_libs_private.parse_json(s)
     _check_errors(json, get_raw_list(_, get_message_result))
+
+  connection_of_string(s) : Twitter.connection =
+    match s with
+    | "following" -> {following}
+    | "following_requested" -> {following_requested}
+    | "followed_by" -> {followed_by}
+    | _ -> {none}
+
+  string_of_connection(c:Twitter.connection) =
+    match c with
+    | {following} -> "following"
+    | {following_requested} -> "following_requested"
+    | {followed_by} -> "followed_by"
+    | {none} -> "none"
+
+  get_connection(json) : Twitter.connection =
+    match json with
+    | {String=s} -> connection_of_string(s)
+    | _ -> {none}
+
+  get_friendship(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      name = get_string("name", map)
+      id = get_string("id_str", map)
+      connections = get_list("connections", map, get_connection)
+      screen_name = get_string("screen_name", map)
+    } : Twitter.friendship
+
+  _build_friendship(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_friendship)
+
+  _build_friendships(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_friendship))
+
+  get_relation(json) =
+    do jlog("get_relation: json={json}")
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      id = get_string("id_str", map)
+      screen_name = get_string("screen_name", map)
+      following = get_bool("following", map, false)
+      followed_by = get_bool("followed_by", map, false)
+      can_dm = get_bool("can_dm", map, false)
+      blocking = get_bool("blocking", map, false)
+      all_replies = get_bool("all_replies", map, false)
+      want_retweets = get_bool("want_retweets", map, false)
+      marked_spam = get_bool("marked_spam", map, false)
+      notifications_enabled = get_bool("notifications_enabled", map, false)
+    } : Twitter.relation
+
+  get_relationship(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      target = get_obj("target", map, get_relation)
+      source = get_obj("source", map, get_relation)
+    } : Twitter.relationship
+
+  _build_relationship(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, (json ->
+      map = JsonOpa.record_fields(json) ? Map.empty
+      get_obj("relationship", map, get_relationship)))
 
   _simple_decoder(data) =
     decode_data =
@@ -1001,6 +1096,11 @@ type Twitter.message_result = {
   add_bopt(key, elt) = add_opt(key, elt, Bool.to_string)
   add_fopt(key, elt) = add_opt(key, elt, Float.to_string)
 
+  add_user(user, list) =
+    List.cons((match user with
+               | ~{user_id} -> ("user_id", user_id)
+               | ~{screen_name} -> ("screen_name", screen_name)), list)
+
   _get_trends_place(params, credentials) : Twitter.outcome(list(Twitter.trends)) =
     path = "/1.1/trends/place.json"
     _get_res(path, params, credentials, TwitParse._build_trend_place_response)
@@ -1021,10 +1121,12 @@ type Twitter.message_result = {
       |> add_bopt("include_rts", p.include_rts)
     _get_res(path, params, credentials, TwitParse._build_new_tweet_response)
 
-  _get_generic_socgraph(name, id, cursor, graphtype:string, credentials) =
-    path = "/1/{graphtype}/ids.json"
-    params = [ (if (name == "" && id != "") then ("user_id","{id}") else ("screen_name",name))
-             , (if (cursor == 0) then ("cursor","-1") else ("cursor","{cursor}")) ]
+  _get_generic_socgraph(user, cursor, graphtype:string, credentials) =
+    path = "/1.1/{graphtype}/ids.json"
+    params =
+      add_user(user, [])
+      |> add_if("cursor", cursor, (_!=""))
+      |> List.cons(("stringify_ids","true"),_) // essential
     _get_res(path, params, credentials, TwitParse._build_social_graph)
 
 }}
@@ -1092,6 +1194,11 @@ Twitter(conf:Twitter.configuration) = {{
   @private add_iopt(key, elt) = add_opt(key, elt, Int.to_string)
   @private add_bopt(key, elt) = add_opt(key, elt, Bool.to_string)
   @private add_fopt(key, elt) = add_opt(key, elt, Float.to_string)
+
+  @private add_user(user, list) =
+    List.cons((match user with
+               | ~{user_id} -> ("user_id", user_id)
+               | ~{screen_name} -> ("screen_name", screen_name)), list)
 
   oauth_params(mode:Twitter.oauth_mode) = {
     consumer_key      = conf.consumer_key
@@ -1285,10 +1392,7 @@ Twitter(conf:Twitter.configuration) = {{
  */
   get_user_timeline(user:Twitter.user, options, credentials) =
     path = "/1.1/statuses/user_timeline.json"
-    more = match user with
-      | {~uid}         -> [("uid","{uid}")]
-      | {~id}          -> [("id",id)]
-      | {~screen_name} -> [("screen_name",screen_name)]
+    more = add_user(user, [])
     Twitter_private(c)._get_generic_timeline(path, options, more, credentials)
 
   default_statuses = {
@@ -1342,14 +1446,12 @@ Twitter(conf:Twitter.configuration) = {{
  * given user. Requires authentication if this user is protected.
  * Returns a Twitter.social_graph object.
  *
- * @param name The screen name of requested user.
- * @param id The user id of requested user.
+ * @param user The user id or screen name of the requested user.
  * @param cursor Creates page to navigate among the friends. Useful for users with a lot of friends. Starts with -1.
- * @param credentials The credentials of the user formatted as login:password
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.social_graph and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param credentials The user credentials.
  */
-  get_friends(name, id, cursor, credentials) =
-    Twitter_private(c)._get_generic_socgraph(name, id, cursor, "friends", credentials)
+  get_friends(user, cursor, credentials) =
+    Twitter_private(c)._get_generic_socgraph(user, cursor, "friends", credentials)
 
 /**
  * Get followers
@@ -1358,14 +1460,116 @@ Twitter(conf:Twitter.configuration) = {{
  * authentication if this user is protected.
  * Returns a Twitter.social_graph object.
  *
- * @param name The screen name of requested user.
- * @param id The user id of requested user.
+ * @param user The user id or screen name of the requested user.
  * @param cursor Creates page to navigate among the friends. Useful for users with a lot of friends. Starts with -1.
- * @param credentials The credentials of the user formatted as login:password
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.social_graph and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param credentials The user credentials.
  */
-  get_followers(name, id, cursor, credentials) =
-    Twitter_private(c)._get_generic_socgraph(name, id, cursor, "followers", credentials)
+  get_followers(user, cursor, credentials) =
+    Twitter_private(c)._get_generic_socgraph(user, cursor, "followers", credentials)
+
+/**
+ * Lookup friendships.
+ *
+ * Returns the relationships of the authenticating user to the comma-separated list of up to 100 screen_names or user_ids provided.
+ *
+ * @param user The user id or screen name of the requested user.
+ * @param credentials The user credentials.
+ */
+  connection_of_string = TwitParse.connection_of_string
+  string_of_connection = TwitParse.string_of_connection
+  friendships_lookup(user, credentials) =
+    params = add_user(user, [])
+    Twitter_private(c)._get_res("/1.1/friendships/lookup.json", params, credentials, TwitParse._build_friendships)
+
+/**
+ * Incoming friendships.
+ *
+ * Returns a collection of numeric IDs for every user who has a pending request to follow the authenticating user.
+ *
+ * @param cursor Creates page to navigate among the friends. Useful for users with a lot of friends. Starts with -1.
+ * @param credentials The user credentials.
+ */
+  friendships_incoming(cursor, credentials) =
+    params =
+      []
+      |> add_if("cursor", cursor, (_!=""))
+      |> List.cons(("stringify_ids","true"),_) // essential
+    Twitter_private(c)._get_res("/1.1/friendships/incoming.json", params, credentials, TwitParse._build_social_graph)
+
+/**
+ * Outgoing friendships.
+ *
+ * Returns a collection of numeric IDs for every protected user for whom the authenticating user has a pending follow request.
+ *
+ * @param cursor Creates page to navigate among the friends. Useful for users with a lot of friends. Starts with -1.
+ * @param credentials The user credentials.
+ */
+  friendships_outgoing(cursor, credentials) =
+    params =
+      []
+      |> add_if("cursor", cursor, (_!=""))
+      |> List.cons(("stringify_ids","true"),_) // essential
+    Twitter_private(c)._get_res("/1.1/friendships/outgoing.json", params, credentials, TwitParse._build_social_graph)
+
+/**
+ * Show friendship.
+ *
+ * Returns detailed information about the relationship between two arbitrary users.
+ *
+ * @param source The user id or screen name of the source user.
+ * @param target The user id or screen name of the target user.
+ * @param credentials The user credentials.
+ */
+  friendship_show(source, target, credentials) =
+    params =
+      [(match source with
+        | {~user_id} -> ("source_id", user_id)
+        | {~screen_name} -> ("source_screen_name", screen_name)),
+       (match target with
+        | {~user_id} -> ("target_id", user_id)
+        | {~screen_name} -> ("target_screen_name", screen_name))]
+    Twitter_private(c)._get_res("/1.1/friendships/show.json", params, credentials, TwitParse._build_relationship)
+
+/**
+ * Create friendship.
+ *
+ * Allows the authenticating users to follow the user specified in the ID parameter.
+ *
+ * @param user The user id or screen name of the requested user.
+ * @param credentials The user credentials.
+ */
+  friendship_create(user, follow, credentials) =
+    params =
+      add_user(user, [])
+      |> add_bopt("follow", follow)
+    Twitter_private(c)._post_res("/1.1/friendships/create.json", params, credentials, TwitParse._build_full_user)
+
+/**
+ * Destroy friendship.
+ *
+ * Allows the authenticating user to unfollow the user specified in the ID parameter.
+ *
+ * @param user The user id or screen name of the requested user.
+ * @param credentials The user credentials.
+ */
+  friendship_destroy(user, credentials) =
+    params = add_user(user, [])
+    Twitter_private(c)._post_res("/1.1/friendships/destroy.json", params, credentials, TwitParse._build_full_user)
+
+/**
+ * Update friendship.
+ *
+ * Allows one to enable or disable retweets and device notifications from the specified user.
+ *
+ * @param user The user id or screen name of the requested user.
+ * @param credentials The user credentials.
+ */
+  friendship_update(user, device:option(bool), retweets:option(bool), credentials) =
+    params =
+      add_user(user, [])
+      |> add_bopt("device", device)
+      |> add_bopt("retweets", retweets)
+    Twitter_private(c)._post_res("/1.1/friendships/update.json", params, credentials, TwitParse._build_relationship)
 
 /**
  * Get limits
@@ -1375,7 +1579,7 @@ Twitter(conf:Twitter.configuration) = {{
  * limit for logged in user. Else returns the limit for current IP address.
  * Returns a Twitter.rate_limit object.
  *
- * @param credentials The credentials of the user formatted as login:password
+ * @param credentials The user credentials.
  * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.rate_limit and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
   get_limit(credentials) =
@@ -1534,10 +1738,7 @@ Twitter(conf:Twitter.configuration) = {{
   send_direct_message(user:Twitter.user, message, credentials) =
     path = "/1.1/direct_messages/new.json"
     params =
-      (match user with
-       | ~{uid} -> [("user_id", "{uid}")]
-       | ~{screen_name} -> [("screen_name", screen_name)]
-       | ~{id} -> [("user", id)])
+      add_user(user, [])
       |> List.cons(("text",message),_)
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
 
@@ -1562,12 +1763,11 @@ Twitter(conf:Twitter.configuration) = {{
     @private generic_full_graph(t, user:option(Twitter.user), cursor:int, credentials) =
       path = "/1/statuses/{t}.json"
       params =
-       ( match user with
-          | {some=~{uid}} -> [("user_id", "{uid}")]
-          | {some=~{screen_name}} -> [("screen_name", screen_name)]
-          | {some=~{id}} -> [("id", id)]
-          | {none} -> []
-        ) |> List.cons(("cursor","{cursor}"),_)
+       (match user with
+        | {some=~{user_id}} -> [("user_id", user_id)]
+        | {some=~{screen_name}} -> [("screen_name", screen_name)]
+        | {none} -> []
+       ) |> List.cons(("cursor","{cursor}"),_)
       Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_social_graph)
 
     followers(user:option(Twitter.user), cursor:int, credentials) =
