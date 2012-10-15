@@ -221,33 +221,6 @@ type Twitter.trends = {
   trends     : list(Twitter.trend)
 }
 
-/**
- * A basic Twitter user.
- *
- * Basic information about a Twitter user.
- */
-type Twitter.user_base = {
-  user_id     : string; /** The user id of the user. */
-  screen_name : string; /** The screen name of the user. */
-  pic_url     : string; /** A url to the picture of the user. */
-}
-
-/**
- * An extendes Twitter user.
- *
- * Complete information about a Twitter user.
- */
-type Twitter.user_extended = {
-  user_base       : Twitter.user_base; /** Basic information about the user. */
-  true_name       : string; /** The true name [as given to Twitter] of the user. */
-  description     : string; /** The description of the user. */
-  statuses_count  : int; /** The number of statuses posted by this user. */
-  followers_count : int; /** The number of followers of the user. */
-  friends_count   : int; /** The number of friends of the user (the number of users he follows). */
-  lang            : string; /** The language of the user as an ISO 639-1 code. */
-  bg              : string; /** A url to the background picture of the user. */
-}
-
 type Twitter.metadata = { result_type : string iso_language_code : string }
 
 type Twitter.url = {
@@ -318,25 +291,25 @@ type Twitter.full_user = {
 }
 
 type Twitter.statuses = {
-  message                   : string
-  metadata                  : Twitter.metadata
-  created_at                : string
-  id                        : string
-  text                      : string
-  source                    : string
-  truncated                 : bool
-  in_reply_to_status_id     : string
-  in_reply_to_user_id       : string
-  in_reply_to_screen_name   : string
-  user                      : Twitter.full_user
-  geo                       : Twitter.coordinates
-  coordinates               : Twitter.coordinates
-  place                     : RPC.Json.json
-  contributors              : RPC.Json.json
-  retweet_count             : int
-  entities                  : Twitter.entities
-  favourited                : bool
-  retweeted                 : bool
+  message                 : string
+  metadata                : Twitter.metadata
+  created_at              : string
+  id                      : string
+  text                    : string
+  source                  : string
+  truncated               : bool
+  in_reply_to_status_id   : string
+  in_reply_to_user_id     : string
+  in_reply_to_screen_name : string
+  user                    : Twitter.full_user
+  geo                     : Twitter.coordinates
+  coordinates             : Twitter.coordinates
+  place                   : RPC.Json.json
+  contributors            : RPC.Json.json
+  retweet_count           : int
+  entities                : Twitter.entities
+  favourited              : bool
+  retweeted               : bool
 }
 
 type Twitter.search_metadata = {
@@ -375,7 +348,7 @@ type Twitter.idsn = {
   screen_name : string
 }
 
-type Twitter.new_tweet = {
+type Twitter.tweet = {
 //annotations               : unknown /** Unused. Future/beta home for status annotations. */
   contributors              : list(Twitter.idsn) /** Nullable. An collection of brief user objects (usually only one) indicating users who contributed to the authorship of the tweet, on behalf of the official tweet author. */
   coordinates               : Twitter.coordinates /** Nullable. Represents the geographic location of this Tweet as reported by the user or client application. */
@@ -403,23 +376,6 @@ type Twitter.new_tweet = {
 }
 
 /**
- * A Twitter tweet
- *
- * Also called status or message, a tweet is a message posted in Twitter.
- */
-type Twitter.tweet = {
-  truncated               : bool; /** A boolean representing wether or not the message has been truncated by Twitter. The maximal length of a Twitter message is 140 characters. */
-  created_at              : string; /** The date when the message wax posted. */
-  source                  : string; /** How the message was posted. */
-  id                      : string; /** The id of the message. */
-  text                    : string; /** The text of the message. */
-  poster                  : Twitter.user_extended; /** Extended information about the poster. */
-  in_reply_to_user_id     : string; /** If the message is a reply to another message, the user id of the poster of this message. */
-  in_reply_to_screen_name : string; /** If the message is a reply to another message, the screen name of the poster of this message. */
-  in_reply_to_status_id   : string; /** If the message is a reply to another message, the id of this message. */
-}
-
-/**
  * A Twitter social graph
  *
  * Social graphs are given only by get_friends and get_followers. They represent a list aof id and two cursors
@@ -430,38 +386,6 @@ type Twitter.social_graph = {
   previous_cursor : string; /** The cursor to the previous page of the graph. */
   next_cursor     : string; /** The cursor to the next page of the graph. */
   ids             : list(string); /** A list of ids corresponding to the requested social graph. */
-}
-
-/**
- * A Twitter social graph
- *
- * Social graphs are given only by get_friends and get_followers. They represent a list aof id and two cursors
- * to access the adjacent pages of the graph. Note that it is more a list (that can be huge for some persons,
- * for instance ) than a true graph.
- */
-type Twitter.full_social_graph = {
-  previous_cursor : string; /** The cursor to the previous page of the graph. */
-  next_cursor     : string; /** The cursor to the next page of the graph. */
-  users           : list(Twitter.tweet); /** A list containing the last status of each follower/friend. */
-}
-
-/**
- * Twitter rate limits
- *
- * There is a hourly limitation on the number of request that can be sent on Twitter servers. This is the the
- * result of the function asking the remaning hits. The limits can be found at
- * http://help.twitter.com/forums/10711/entries/15364
- * Those limits are associated to two things:
- * - a limit per IP for unauthenticated calls
- * - a limit per user ID for authenticated calls
- * You can be whitelisted by Twitter if you have a very good reason by filling the form available at
- * http://twitter.com/help/request_whitelisting
- */
-type Twitter.rate_limit = {
-  remaining_hits  : int; /** The remaining hits for the hour ending at reset_time. */
-  hourly_limit    : int; /** Current hourly limit. */
-  reset_time_secs : int; /** The seconds Unix Epoch time of the reset */
-  reset_time      : string; /** A string representing the time of the reset */
 }
 
 type Twitter.direct_messages_options = {
@@ -513,6 +437,23 @@ type Twitter.relationship = {
   source : Twitter.relation
 }
 
+type Twitter.rate_limit_context = {
+  access_token : string
+}
+
+type Twitter.resource_elt = {
+  remaining : int
+  reset     : int
+  limit     : int
+}
+
+type Twitter.resource = list((string, Twitter.resource_elt))
+
+type Twitter.resources = {
+  rate_limit_context : Twitter.rate_limit_context
+  resources : list((string, Twitter.resource))
+}
+
 /**
  * @author Nicolas Glondu, March 2010
  * @category Twitter ?
@@ -546,29 +487,26 @@ type Twitter.relationship = {
   /* Treatment functions */
   /* ------------------- */
 
-  _check_date_parser = parser
+  @private _check_date_parser = parser
   | ([0-9][0-9][0-9][0-9]) "-" month=([0-9][0-9]) "-" day=([0-9][0-9]) ->
     month = Int.of_string(Text.to_string(month))
     day = Int.of_string(Text.to_string(day))
     day > 0 && day < 32 && month > 0 && month < 13
   | .* -> false
 
-  _check_date(date:string) = Parser.try_parse(_check_date_parser, date) ? false
+  @private _check_date(date:string) = Parser.try_parse(_check_date_parser, date) ? false
 
-  get_json_int(json) = match json with | {Int=i} -> i | _ -> -1
-  get_unknown(name, map) = Map.get(name, map) ? {String = "missing unknown type" }
-  get_int = API_libs_private.map_get_int
-  get_float = API_libs_private.map_get_float
-  get_string = API_libs_private.map_get_string
-  get_bool = API_libs_private.map_get_bool
-  get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
-  get_raw_obj(json, get_elt) = get_elt(json)
-  get_obj(name, map, get_elt) = get_raw_obj((Map.get(name, map)) ? {Record=[]}, get_elt)
-  get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
-  get_list(name, map, get_elt) = get_raw_list(Map.get(name, map) ? {List=[]}, get_elt)
-  get_map(name, map, get_elt) =
-    tmap = JsonOpa.record_fields(Map.get(name, map) ? { Record = [] } ) ? Map.empty
-    API_libs_private.remap(get_elt, tmap)
+  @private get_json_int(json) = match json with | {Int=i} -> i | _ -> -1
+  @private get_unknown(name, map) = Map.get(name, map) ? {String = "missing unknown type" }
+  @private get_int = API_libs_private.map_get_int
+  @private get_float = API_libs_private.map_get_float
+  @private get_string = API_libs_private.map_get_string
+  @private get_bool = API_libs_private.map_get_bool
+  @private get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
+  @private get_raw_obj(json, get_elt) = get_elt(json)
+  @private get_obj(name, map, get_elt) = get_raw_obj((Map.get(name, map)) ? {Record=[]}, get_elt)
+  @private get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
+  @private get_list(name, map, get_elt) = get_raw_list(Map.get(name, map) ? {List=[]}, get_elt)
 
   get_error_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -585,58 +523,6 @@ type Twitter.relationship = {
        | {none} -> {success=on_ok(json)}
        end
    | _ -> {success=on_ok(json)}
-
-  _build_ext_user_from_json(user_map) =
-    map = JsonOpa.record_fields(user_map) ? Map.empty
-    loc_int(name) = get_int(name, map)
-    loc_string(name) = get_string(name, map)
-    user_base = { user_id     = loc_string("id_str");
-                  screen_name = loc_string("screen_name");
-                  pic_url     = loc_string("profile_image_url");
-                }:Twitter.user_base
-   { user_base       = user_base;
-     true_name       = loc_string("name");
-     description     = loc_string("description");
-     statuses_count  = loc_int("statuses_count");
-     followers_count = loc_int("followers_count");
-     friends_count   = loc_int("friends_count");
-     lang            = loc_string("lang");
-     bg              = loc_string("profile_background_image_url");
-   }:Twitter.user_extended
-
-  _build_tweet_from_json_and_poster(jsdata, poster) =
-    map = JsonOpa.record_fields(jsdata) ? Map.empty
-    loc_str(name) = get_string(name, map)
-    { truncated               = get_bool("truncated", map, false);
-      created_at              = loc_str("created_at");
-      source                  = loc_str("source");
-      in_reply_to_user_id     = loc_str("in_reply_to_user_id_str");
-      in_reply_to_status_id   = loc_str("in_reply_to_status_id_str");
-      in_reply_to_screen_name = loc_str("in_reply_to_string_name");
-      id                      = loc_str("id_str");
-      text                    = loc_str("text");
-      poster                  = poster;
-    }:Twitter.tweet
-
-  _build_tweet_from_json(tweet_json) =
-    /* In this function, the main map is the tweet
-       and the user is in the field "user" */
-    map = JsonOpa.record_fields(tweet_json) ? Map.empty
-    mapuser = Map.get("user", map) ? { Record = [] }
-    poster = _build_ext_user_from_json(mapuser)
-    _build_tweet_from_json_and_poster(tweet_json, poster)
-
-  _build_tweet_from_json_2_int(data) =
-    /* In this function, the main map is the user
-       and the tweet is in the field "status" */
-    map = JsonOpa.record_fields(data) ? Map.empty
-    poster = _build_ext_user_from_json(data)
-    tweetdata = Map.get("status", map) ?  { Record = [] }
-    _build_tweet_from_json_and_poster(tweetdata, poster)
-
-  _build_tweet_from_json_2(rawdata) =
-    json = API_libs_private.parse_json(rawdata)
-    _check_errors(json, _build_tweet_from_json_2_int)
 
   get_user_mention(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -681,7 +567,7 @@ type Twitter.relationship = {
       id = get_string("id_str", map)
     } : Twitter.id
 
-  get_new_tweet(json) =
+  get_tweet(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     {
       contributors = get_list("contributors", map, get_idsn)
@@ -706,15 +592,15 @@ type Twitter.relationship = {
       withheld_copyright = get_bool("withheld_copyright", map, false)
       withheld_in_countries = get_string("withheld_in_countries", map)
       withheld_scope = get_string("withheld_scope", map)
-    } : Twitter.new_tweet
+    } : Twitter.tweet
 
-  _build_one_new_tweet(s) =
+  _build_tweet(s) =
     json = API_libs_private.parse_json(s)
-    _check_errors(json, get_new_tweet)
+    _check_errors(json, get_tweet)
 
-  _build_new_tweet_response(s) =
+  _build_tweets(s) =
     json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_new_tweet))
+    _check_errors(json, get_raw_list(_, get_tweet))
 
   get_trend_elt(elt) =
     elt = JsonOpa.record_fields(elt) ? Map.empty
@@ -896,7 +782,7 @@ type Twitter.relationship = {
        search_metadata = get_obj("search_metadata", map, get_search_metadata)
       } : Twitter.search_result))
 
-  _build_social_graph(rawgraph) = // *Must* use stringify_ids
+  _build_social_graph(rawgraph) =
     loc_to_str(x) = API_libs_private.json_to_string_unsafe(x) ? ""
     jsgraph = Json.of_string(rawgraph) |> Option.get
     _check_errors(jsgraph, (jsgraph ->
@@ -909,27 +795,38 @@ type Twitter.relationship = {
         ids = ids;
       } : Twitter.social_graph))
 
-  _build_full_social_graph(rawgraph) =
-    jsgraph = Json.of_string(rawgraph) |> Option.get
-    _check_errors(jsgraph, (jsgraph ->
-      map = JsonOpa.record_fields(jsgraph) ? Map.empty
-      loc_str(name) = get_string(name, map)
-      users = JsonOpa.to_list(Map.get("users", map) ? {List = []}:RPC.Json.json) ? []
-      users = List.map(_build_tweet_from_json_2_int, users)
-      { previous_cursor = loc_str("previous_cursor");
-        next_cursor = loc_str("next_cursor");
-        users = users;
-      } : Twitter.full_social_graph))
+  get_rate_limit_context(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      access_token = get_string("access_token", map)
+    } : Twitter.rate_limit_context
 
-  _build_rate_limit(rawlimit) =
-    jslimit = API_libs_private.parse_json(rawlimit)
-    map = JsonOpa.record_fields(jslimit) ? Map.empty
-    loc_int(name) = get_int(name, map)
-    { remaining_hits = loc_int("remaining_hits");
-      hourly_limit = loc_int("hourly_limit");
-      reset_time_secs = loc_int("reset_time_in_seconds");
-      reset_time = get_string("reset_time", map);
-    }:Twitter.rate_limit
+  get_resource_elt(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      remaining = get_int("remaining", map)
+      reset = get_int("reset", map)
+      limit = get_int("limit", map)
+    } : Twitter.resource_elt
+
+  get_resource(json) : Twitter.resource =
+    match json with
+    | {Record=r} -> List.map(((n, v) -> (n,get_resource_elt(v))), r)
+    | _ -> []
+
+  get_resources(json) : list((string, Twitter.resource)) =
+    match json with
+    | {Record=r} -> List.map(((n, v) -> (n,get_resource(v))), r)
+    | _ -> []
+
+  _build_rate_limit(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, (json ->
+      map = JsonOpa.record_fields(json) ? Map.empty
+      {
+        rate_limit_context = get_obj("rate_limit_context", map, get_rate_limit_context)
+        resources = get_obj("resources", map, get_resources)
+      } : Twitter.resources))
 
   get_message_result(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -1019,6 +916,31 @@ type Twitter.relationship = {
       map = JsonOpa.record_fields(json) ? Map.empty
       get_obj("relationship", map, get_relationship)))
 
+  get_time_zone(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      name = get_string("name", map)
+      tzinfo_name = get_string("tzinfo_name", map)
+      utc_offset = get_int("utc_offset", map)
+    }
+
+  _build_settings(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, (json ->
+      map = JsonOpa.record_fields(json) ? Map.empty
+      {
+        always_use_https = get_bool("always_use_https", map, false)
+        discoverable_by_email = get_bool("discoverable_by_email", map, false)
+        geo_enabled = get_bool("geo_enabled", map, false)
+        language = get_string("language", map)
+        protected = get_bool("protected", map, false)
+        screen_name = get_string("screen_name", map)
+        show_all_inline_media = get_bool("show_all_inline_media", map, false)
+        time_zone = get_obj("time_zone", map, get_time_zone)
+        trend_location = get_list("trend_location", map, get_full_location_elt)
+        use_cookie_personalization = get_bool("use_cookie_personalization", map, false)
+      }))
+
   _simple_decoder(data) =
     decode_data =
       [ ("\\u00e9", "é"), ("\\u00e8", "è"), ("\\u00e0", "à"),
@@ -1079,56 +1001,6 @@ type Twitter.relationship = {
                         credentials.access_token,credentials.access_secret)
     _wget_generic(path, f, parse_fun)
 
-  /* ---------------------- */
-  /* Intermediate functions */
-  /* ---------------------- */
-
-  add_if(key, elt, cond) = list ->
-    if cond(elt) then List.cons((key, "{elt}"), list)
-    else list
-
-  add_opt(key, elt, tos) = list ->
-    if Option.is_some(elt)
-    then List.cons((key, tos(Option.get(elt))), list)
-    else list
-  add_sopt(key, elt) = add_opt(key, elt, (s->s))
-  add_iopt(key, elt) = add_opt(key, elt, Int.to_string)
-  add_bopt(key, elt) = add_opt(key, elt, Bool.to_string)
-  add_fopt(key, elt) = add_opt(key, elt, Float.to_string)
-
-  add_user(user, list) =
-    List.cons((match user with
-               | ~{user_id} -> ("user_id", user_id)
-               | ~{screen_name} -> ("screen_name", screen_name)), list)
-
-  _get_trends_place(params, credentials) : Twitter.outcome(list(Twitter.trends)) =
-    path = "/1.1/trends/place.json"
-    _get_res(path, params, credentials, TwitParse._build_trend_place_response)
-
-  _get_trends_locations(trends_type, params, credentials) : Twitter.outcome(list(Twitter.full_location)) =
-    path = "/1.1/trends/{trends_type}.json"
-    _get_res(path, params, credentials, TwitParse._build_trend_locations_response)
-
-  _get_generic_timeline(path, p:Twitter.timeline_options, more, credentials) =
-    params = more
-      |> add_if("count", p.count, (_>0))
-      |> add_if("since_id", p.since_id, (_!=""))
-      |> add_if("max_id", p.max_id, (_!=""))
-      |> add_bopt("trim_user", p.trim_user)
-      |> add_bopt("exclude_replies", p.exclude_replies)
-      |> add_bopt("contributor_details", p.contributor_details)
-      |> add_bopt("include_entities", p.include_entities)
-      |> add_bopt("include_rts", p.include_rts)
-    _get_res(path, params, credentials, TwitParse._build_new_tweet_response)
-
-  _get_generic_socgraph(user, cursor, graphtype:string, credentials) =
-    path = "/1.1/{graphtype}/ids.json"
-    params =
-      add_user(user, [])
-      |> add_if("cursor", cursor, (_!=""))
-      |> List.cons(("stringify_ids","true"),_) // essential
-    _get_res(path, params, credentials, TwitParse._build_social_graph)
-
 }}
 
 /**
@@ -1147,22 +1019,15 @@ type Twitter.relationship = {
  * A drawback of this is that not all methods are implemented, but the advantage is that
  * the implemented methods return formatted results easier to use.
  *
- * Information about Twitter API can be found here: http://apiwiki.twitter.com/Getting-Started
+ * Information about Twitter API can be found here: https://dev.twitter.com/docs
  *
  * {1 Where should I start?}
  *
  * This implementation was made to be as simple as possible. Simply call the required
  * method and it will return the object indicated in its documentation. You only have
  * to display (or not) the result as you wish.
-
- * The final_fun parameter of each function must have the type API_libs.answer_fun. If
- * you give a api_fun_html, the function will return a api_html that you should
- * handle with Twitter.get_html. If you give a api_fun_void, it will return a api_void
- * that you should handle with Twitter.get_void. This strange mechanism allows to have
- * the same function returning html (for direct pages) sometimes while returning void
- * (for instance for session communication) at other times.
  *
- * If you already worked with the Facebook OPA API, the mechanism used here
+ * If you have already worked with the Facebook Opa API, the mechanism used here
  * is the same.
  *
  * Note: An account on Twitter is required to post messages.
@@ -1171,10 +1036,10 @@ type Twitter.relationship = {
  *
  * If you want to make a call not implemented, you should use custom_get_request or
  * custom_post_request and build your request and the parser for its answer
- * yourself. Consult http://apiwiki.twitter.com/Twitter-API-Documentation for a
+ * yourself. Consult https://dev.twitter.com/docs/api/1.1 for a
  * list of available methods.
  *
- * An example of path: /1/trends/44418.json (returns the trends in London)
+ * An example of path: /1.1/trends/44418.json (returns the trends in London)
  */
 
 Twitter(conf:Twitter.configuration) = {{
@@ -1215,6 +1080,7 @@ Twitter(conf:Twitter.configuration) = {{
     custom_headers    = []
   } : OAuth.parameters
 
+  // Custom requests
 
 /**
  * Custom GET request (advanced)
@@ -1226,7 +1092,7 @@ Twitter(conf:Twitter.configuration) = {{
  * @param path Path corrsponding to request built according to the Twitter's API
  * @param params (optional) Parameters as a (key, value) list if required
  * @param credentials User credentials.
- * @param final_fun A API_libs.answer_fun object containing a function taking a string and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param final_fun A parser function for the raw reply.
  */
  custom_get_request(path, params, credentials, final_fun) =
    Twitter_private(c)._get_res(path, params, credentials, final_fun)
@@ -1241,7 +1107,7 @@ Twitter(conf:Twitter.configuration) = {{
  * @param path Path corrsponding to request built according to the Twitter's API
  * @param params (optional) Parameters as a (key, value) list if required
  * @param credentials User credentials.
- * @param final_fun A API_libs.answer_fun object containing a function taking a string and returning a resource (if api_fun_html) or void (if api_fun_void).
+ * @param final_fun A parser function for the raw reply.
  */
  custom_post_request(path, params, credentials, final_fun) =
    Twitter_private(c)._post_res(path, params, credentials, final_fun)
@@ -1258,6 +1124,8 @@ Twitter(conf:Twitter.configuration) = {{
     include_entities = none
     callback         = ""
   } : Twitter.search_options
+
+  // Search
 
 /**
  * Search request : http://search.twitter.com/search.json[?q=<search request>&params]
@@ -1293,6 +1161,8 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_if("callback", options.callback, (_!=""))
     Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_search_response)
 
+  // Trends
+
 /**
  * trends/place
  *
@@ -1304,11 +1174,16 @@ Twitter(conf:Twitter.configuration) = {{
  * @param exclude Indicates whether or not hashtags (#abcd) should be excluded from the trends result
  * @param credentials Valid access credentials
  */
-  get_trends_place(id:string, exclude:bool, credentials) =
+  get_trends_place(id:string, exclude:bool, credentials) : Twitter.outcome(list(Twitter.trends)) =
+    path = "/1.1/trends/place.json"
     params =
       [("id",id)]
       |> add_if("exclude", "hashtags", (_ -> exclude))
-    Twitter_private(c)._get_trends_place(params, credentials)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_trend_place_response)
+
+  @private _get_trends_locations(trends_type, params, credentials) : Twitter.outcome(list(Twitter.full_location)) =
+    path = "/1.1/trends/{trends_type}.json"
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_trend_locations_response)
 
 /**
  * trends/available
@@ -1320,7 +1195,7 @@ Twitter(conf:Twitter.configuration) = {{
  * @param credentials Valid access credentials
  */
   get_trends_available(credentials) =
-    Twitter_private(c)._get_trends_locations("available", [], credentials)
+    _get_trends_locations("available", [], credentials)
 
 /**
  * trends/closest
@@ -1338,7 +1213,7 @@ Twitter(conf:Twitter.configuration) = {{
       []
       |> add_fopt("lat",lat)
       |> add_fopt("long",long)
-    Twitter_private(c)._get_trends_locations("closest", params, credentials)
+    _get_trends_locations("closest", params, credentials)
 
   default_timeline = {
     count    = 0
@@ -1351,6 +1226,20 @@ Twitter(conf:Twitter.configuration) = {{
     include_rts = none
   } : Twitter.timeline_options
 
+  // Timelines
+
+  _get_generic_timeline(path, p:Twitter.timeline_options, more, credentials) =
+    params = more
+      |> add_if("count", p.count, (_>0))
+      |> add_if("since_id", p.since_id, (_!=""))
+      |> add_if("max_id", p.max_id, (_!=""))
+      |> add_bopt("trim_user", p.trim_user)
+      |> add_bopt("exclude_replies", p.exclude_replies)
+      |> add_bopt("contributor_details", p.contributor_details)
+      |> add_bopt("include_entities", p.include_entities)
+      |> add_bopt("include_rts", p.include_rts)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweets)
+
 /**
  * Mentions timeline
  *
@@ -1360,7 +1249,7 @@ Twitter(conf:Twitter.configuration) = {{
  */
   get_mentions_timeline(params, credentials) =
     path = "/1.1/statuses/mentions_timeline.json"
-    Twitter_private(c)._get_generic_timeline(path, params, [], credentials)
+    _get_generic_timeline(path, params, [], credentials)
 
 /**
  * Home timeline
@@ -1374,7 +1263,7 @@ Twitter(conf:Twitter.configuration) = {{
  */
   get_home_timeline(params, credentials) =
     path = "/1.1/statuses/home_timeline.json"
-    Twitter_private(c)._get_generic_timeline(path, params, [], credentials)
+    _get_generic_timeline(path, params, [], credentials)
 
 /**
  * User timeline
@@ -1393,51 +1282,107 @@ Twitter(conf:Twitter.configuration) = {{
   get_user_timeline(user:Twitter.user, options, credentials) =
     path = "/1.1/statuses/user_timeline.json"
     more = add_user(user, [])
-    Twitter_private(c)._get_generic_timeline(path, options, more, credentials)
+    _get_generic_timeline(path, options, more, credentials)
 
-  default_statuses = {
-    count = 0
-    trim_user = none
-    include_my_retweet = none
+  // Direct messages
+
+  default_direct_messages = {
+    since_id = ""
+    max_id = ""
+    count = 20
+    page = 0
     include_entities = none
-  } : Twitter.statuses_options
+    skip_status = none
+  } : Twitter.direct_messages_options
 
 /**
- * Get specific message
+ * Get a single direct message
  *
- * This function returns the message having the specified id.
- * Returns a Twitter.tweet object.
- *
- * @param id The id of requested message.
- * @param credentials The user credentials
+ * @param id The ID of the direct message.
  */
-  get_specific_message(id:string, options:Twitter.statuses_options, credentials) =
-    path = "/1.1/statuses/show.json"
-    params =
-      [("id",id)]
-      |> add_bopt("trim_user", options.trim_user)
-      |> add_bopt("include_my_retweet", options.include_my_retweet)
-      |> add_bopt("include_entities", options.include_entities)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_one_new_tweet)
+  direct_message(id:string, credentials) =
+    path = "/1.1/direct_messages/show.json"
+    params = [("id",id)]
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_result)
 
 /**
- * Get retweets of a message
+ * Get the most recent direct messsages.
  *
- * Returns up to 100 of the first retweets of a given tweet.
- * Returns a Twitter.retweet object.
+ * This function returns the messages received by the authenticated user.
  *
- * @param id The id of requested message.
- * @param options The command options (count, trim_user).
- * @param credentials The user credentials.
- * @returns List of retweets.
+ * @param options The command options.
  */
-  get_message_retweets(id:string, options:Twitter.statuses_options, credentials) =
-    path = "/1.1/statuses/retweets/{id}.json"
+  direct_messages(options:Twitter.direct_messages_options, credentials) =
+    path = "/1.1/direct_messages.json"
     params =
-      [("id",id)]
+      []
+      |> add_if("since_id", options.since_id, (_!=""))
+      |> add_if("max_id", options.max_id, (_!=""))
       |> add_if("count", options.count, (_>0))
-      |> add_bopt("trim_user", options.trim_user)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_new_tweet_response)
+      |> add_if("page", options.page, (_>0))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_results)
+
+/**
+ * Get the most recent direct messsages sent.
+ *
+ * This function returns the messages sent by the authenticated user.
+ *
+ * @param options The command options.
+ */
+  sent_direct_messages(options:Twitter.direct_messages_options, credentials) =
+    path = "/1.1/direct_messages/sent.json"
+    params =
+      []
+      |> add_if("since_id", options.since_id, (_!=""))
+      |> add_if("max_id", options.max_id, (_!=""))
+      |> add_if("count", options.count, (_>0))
+      |> add_if("page", options.page, (_>0))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_results)
+
+/**
+ * Send a direct message
+ *
+ * This function sends a direct message to a user from the authenticated user.
+ *
+ * @param user The recipient of the message.
+ * @param text The text of your direct message. Keep the message under 140 characters.
+ */
+  send_direct_message(user:Twitter.user, message, credentials) =
+    path = "/1.1/direct_messages/new.json"
+    params =
+      add_user(user, [])
+      |> List.cons(("text",message),_)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
+
+/**
+ * Delete a direct message
+ *
+ * This function deletes the direct message with the given ID.
+ * Returns the deleted message, if successful.
+ *
+ * @param id The ID of the message.
+ * @param include_entities The entities node will not be included when set to false.
+ */
+  delete_direct_message(id:string, include_entities:option(bool), credentials) =
+    path = "/1.1/direct_messages/destroy.json"
+    params =
+      [("id",id)]
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
+
+  // Friendships
+
+  @private _get_generic_socgraph(user, cursor, graphtype:string, credentials) =
+    path = "/1.1/{graphtype}/ids.json"
+    params =
+      add_user(user, [])
+      |> add_if("cursor", cursor, (_!=""))
+      |> List.cons(("stringify_ids","true"),_) // essential
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_social_graph)
 
 /**
  * Get friends
@@ -1451,7 +1396,7 @@ Twitter(conf:Twitter.configuration) = {{
  * @param credentials The user credentials.
  */
   get_friends(user, cursor, credentials) =
-    Twitter_private(c)._get_generic_socgraph(user, cursor, "friends", credentials)
+    _get_generic_socgraph(user, cursor, "friends", credentials)
 
 /**
  * Get followers
@@ -1465,7 +1410,7 @@ Twitter(conf:Twitter.configuration) = {{
  * @param credentials The user credentials.
  */
   get_followers(user, cursor, credentials) =
-    Twitter_private(c)._get_generic_socgraph(user, cursor, "followers", credentials)
+    _get_generic_socgraph(user, cursor, "followers", credentials)
 
 /**
  * Lookup friendships.
@@ -1571,19 +1516,22 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_bopt("retweets", retweets)
     Twitter_private(c)._post_res("/1.1/friendships/update.json", params, credentials, TwitParse._build_relationship)
 
+  // Rate limits
+
 /**
- * Get limits
+ * Get rate_limit_status
  *
- * This function returns the number of API requests remaining before the hourly limit.
- * This call does not count in this limit. If authentication is provided, returns the
- * limit for logged in user. Else returns the limit for current IP address.
- * Returns a Twitter.rate_limit object.
+ * Returns the current rate limits for methods belonging to the specified resource families.
  *
+ * @param resources List of resource families.
  * @param credentials The user credentials.
- * @param final_fun A API_libs.answer_fun object containing a function taking a Twitter.rate_limit and returning a resource (if api_fun_html) or void (if api_fun_void).
  */
-  get_limit(credentials) =
-    Twitter_private(c)._get_res("/1/account/rate_limit_status.json", [], credentials, TwitParse._build_rate_limit)
+  get_rate_limit_status(resources, credentials) =
+    params =
+      match resources with
+      | [] -> []
+      | _ -> [("resources", String.concat(",",resources))]
+    Twitter_private(c)._get_res("/1.1/application/rate_limit_status.json", params, credentials, TwitParse._build_rate_limit)
 
   default_update = {
     in_reply_to_status_id = ""
@@ -1593,6 +1541,52 @@ Twitter(conf:Twitter.configuration) = {{
     display_coordinates = none
     trim_user = none
   } : Twitter.update_options
+
+  // Statuses
+
+  default_statuses = {
+    count = 0
+    trim_user = none
+    include_my_retweet = none
+    include_entities = none
+  } : Twitter.statuses_options
+
+/**
+ * Get specific message
+ *
+ * This function returns the message having the specified id.
+ * Returns a Twitter.tweet object.
+ *
+ * @param id The id of requested message.
+ * @param credentials The user credentials
+ */
+  get_specific_message(id:string, options:Twitter.statuses_options, credentials) =
+    path = "/1.1/statuses/show.json"
+    params =
+      [("id",id)]
+      |> add_bopt("trim_user", options.trim_user)
+      |> add_bopt("include_my_retweet", options.include_my_retweet)
+      |> add_bopt("include_entities", options.include_entities)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweet)
+
+/**
+ * Get retweets of a message
+ *
+ * Returns up to 100 of the first retweets of a given tweet.
+ * Returns a Twitter.retweet object.
+ *
+ * @param id The id of requested message.
+ * @param options The command options (count, trim_user).
+ * @param credentials The user credentials.
+ * @returns List of retweets.
+ */
+  get_message_retweets(id:string, options:Twitter.statuses_options, credentials) =
+    path = "/1.1/statuses/retweets/{id}.json"
+    params =
+      [("id",id)]
+      |> add_if("count", options.count, (_>0))
+      |> add_bopt("trim_user", options.trim_user)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweets)
 
 /**
  * Post status
@@ -1614,7 +1608,7 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_if("place_id", options.place_id, (_!=""))
       |> add_bopt("display_coordinates", options.display_coordinates)
       |> add_bopt("trim_user", options.trim_user)
-    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_one_new_tweet)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweet)
 
 /**
  * Post retweet status
@@ -1631,7 +1625,7 @@ Twitter(conf:Twitter.configuration) = {{
     params =
       []
       |> add_bopt("trim_user", trim_user)
-    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_one_new_tweet)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweet)
 
 /**
  * Delete status
@@ -1648,9 +1642,22 @@ Twitter(conf:Twitter.configuration) = {{
     params =
       []
       |> add_bopt("trim_user", trim_user)
-    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_one_new_tweet)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweet)
 
-// TODO: (unlikely) streaming API
+  // TODO: (unlikely) streaming API
+
+  // Users
+
+/**
+ * Account settings
+ *
+ * Returns settings (including current trend, geo and sleep time information) for the authenticating user.
+ *
+ * @param credentials The user credentials.
+ */
+  account_settings(credentials) =
+    path = "/1.1/account/settings.json"
+    Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_settings)
 
 /**
  * Check credentials
@@ -1668,113 +1675,6 @@ Twitter(conf:Twitter.configuration) = {{
       []
       |> add_bopt("include_entities", include_entities)
       |> add_bopt("skip_status", skip_status)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_one_new_tweet)
-
-  default_direct_messages = {
-    since_id = ""
-    max_id = ""
-    count = 20
-    page = 0
-    include_entities = none
-    skip_status = none
-  } : Twitter.direct_messages_options
-
-/**
- * Get a single direct message
- *
- * @param id The ID of the direct message.
- */
-  direct_message(id:string, credentials) =
-    path = "/1.1/direct_messages/show.json"
-    params = [("id",id)]
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_result)
-
-/**
- * Get the most recent direct messsages.
- *
- * This function returns the messages received by the authenticated user.
- *
- * @param options The command options.
- */
-  direct_messages(options:Twitter.direct_messages_options, credentials) =
-    path = "/1.1/direct_messages.json"
-    params =
-      []
-      |> add_if("since_id", options.since_id, (_!=""))
-      |> add_if("max_id", options.max_id, (_!=""))
-      |> add_if("count", options.count, (_>0))
-      |> add_if("page", options.page, (_>0))
-      |> add_bopt("include_entities", options.include_entities)
-      |> add_bopt("skip_status", options.skip_status)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_results)
-
-/**
- * Get the most recent direct messsages sent.
- *
- * This function returns the messages sent by the authenticated user.
- *
- * @param options The command options.
- */
-  sent_direct_messages(options:Twitter.direct_messages_options, credentials) =
-    path = "/1.1/direct_messages/sent.json"
-    params =
-      []
-      |> add_if("since_id", options.since_id, (_!=""))
-      |> add_if("max_id", options.max_id, (_!=""))
-      |> add_if("count", options.count, (_>0))
-      |> add_if("page", options.page, (_>0))
-      |> add_bopt("include_entities", options.include_entities)
-      |> add_bopt("skip_status", options.skip_status)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_message_results)
-
-/**
- * Send a direct message
- *
- * This function sends a direct message to a user from the authenticated user.
- *
- * @param user The recipient of the message.
- * @param text The text of your direct message. Keep the message under 140 characters.
- */
-  send_direct_message(user:Twitter.user, message, credentials) =
-    path = "/1.1/direct_messages/new.json"
-    params =
-      add_user(user, [])
-      |> List.cons(("text",message),_)
-    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
-
-/**
- * Delete a direct message
- *
- * This function deletes the direct message with the given ID.
- * Returns the deleted message, if successful.
- *
- * @param id The ID of the message.
- * @param include_entities The entities node will not be included when set to false.
- */
-  delete_direct_message(id:string, include_entities:option(bool), credentials) =
-    path = "/1.1/direct_messages/destroy.json"
-    params =
-      [("id",id)]
-      |> add_bopt("include_entities", include_entities)
-    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_message_result)
-
-  Statuses = {{
-
-    @private generic_full_graph(t, user:option(Twitter.user), cursor:int, credentials) =
-      path = "/1/statuses/{t}.json"
-      params =
-       (match user with
-        | {some=~{user_id}} -> [("user_id", user_id)]
-        | {some=~{screen_name}} -> [("screen_name", screen_name)]
-        | {none} -> []
-       ) |> List.cons(("cursor","{cursor}"),_)
-      Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_social_graph)
-
-    followers(user:option(Twitter.user), cursor:int, credentials) =
-      generic_full_graph("followers", user, cursor, credentials)
-
-    friends(user:option(Twitter.user), cursor:int, credentials) =
-      generic_full_graph("friends", user, cursor, credentials)
-  }}
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweet)
 
 }}
