@@ -1,3 +1,5 @@
+# -*- conf -*-
+
 # This file lists all libs that are needed to COMPILE opa source
 # using the opa compiler.
 # Only their runtime should be needed to compile servers.
