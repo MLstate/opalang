@@ -235,3 +235,6 @@ val init_memoized_definitions : bool -> unit
    The boolean parameter indicates if compositionnality should be use.
 *)
 val finalize_memoized_defintions : bool -> unit
+
+(** *)
+module S : ObjectFiles.S with type t = QmlTypeVars.FreeVars.t

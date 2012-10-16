@@ -50,9 +50,10 @@ type env = {
   package : ObjectFiles.package;
   renaming : SurfaceAstRenaming.SExpr.t;
   gamma : QmlTypes.Env.t;
+  is_ei : Ident.t -> bool;
   undot : QmlAst.expr StringMap.t IdentMap.t;
   skipped : Ident.t IdentMap.t;
-  code : JsAst.code
+  code : JsAst.code;
 }
 
 let pass_LoadEnvironment k =
@@ -63,9 +64,11 @@ let pass_LoadEnvironment k =
        let module RawTyping = ObjectFiles.MakeRaw(Pass_Typing.S) in
        let module RawTypeDefinition = ObjectFiles.MakeRaw(Pass_TypeDefinition.S) in
        let module RawUndot = ObjectFiles.MakeRaw(Pass_Undot.S) in
+       let module RawEi = ObjectFiles.MakeRaw(Pass_ExplicitInstantiation.S) in
        let _ = List.fold_left
            (fun _acc package_name ->
               let package = package_name, FilePos.nopos "commandLine" in
+
               let renaming = RawRenaming.load1 package in
               let gamma = RawTypeDefinition.load1 package in
               let gamma =
@@ -75,7 +78,19 @@ let pass_LoadEnvironment k =
                      QmlTypes.Env.append gamma (RawTypeDefinition.load1 package))
                   gamma (ObjectFiles.load_deps package)
               in
-              let gamma = QmlTypes.Env.Ident.from_map (RawTyping.load1 package) gamma in
+              let identmap = RawTyping.load1 package in
+              let gamma = QmlTypes.Env.Ident.from_map identmap gamma in
+              let is_ei =
+                let have_typeof = RawEi.load1 package in
+                let notei =
+                  IdentMap.filter_val
+                    (fun tsc ->
+                       let vars, _, _ = QmlGenericScheme.export_unsafe tsc in
+                       QmlTypeVars.FreeVars.is_empty (QmlTypeVars.FreeVars.inter vars have_typeof)
+                    ) identmap
+                in
+                (fun ident -> not (IdentMap.mem ident notei))
+              in
               let srenaming = QmlSimpleSlicer.get_renaming package ~side:`server in
               let undot =
                 let {Pass_Undot. modules; aliases} = (fst (RawUndot.load1 package)) in
@@ -89,17 +104,8 @@ let pass_LoadEnvironment k =
                   (QmlCpsRewriter.get_skipped package)
                   IdentMap.empty
               in
-              Format.eprintf "package %s@\nRenaming@[%a@]@\nGamma@[%a@]@\n%!"
-                package_name
-                (StringMap.pp ",@ "
-                   (fun fmt k (i, _) ->
-                      Format.fprintf fmt "%s => %a@\n" k OpaPrint.ident#ident i
-                   )
-                ) renaming
-                QmlTypes.Env.pp gamma
-              ;
               k (PassHandler.make_env options
-                   {renaming; gamma; undot; skipped; package; code=[]})
+                   {renaming; gamma; undot; skipped; package; code=[]; is_ei})
            ) 0 options.O.packages
        in
        PassHandler.make_env options 0
@@ -110,9 +116,9 @@ let pass_NodeJsPluginCompilation =
   PassHandler.make_pass
     (fun e ->
        let options = e.PH.options in
-       let {renaming; gamma; undot; skipped; package} = e.PH.env in
+       let {renaming; gamma; undot; skipped; package; is_ei} = e.PH.env in
        let env = Pass_NodeJsPluginCompilation.build_env
-         ~package ~renaming ~gamma ~undot ~skipped ~ei:()
+         ~package ~renaming ~gamma ~undot ~skipped ~is_ei
        in
        let code = Pass_NodeJsPluginCompilation.process env in
        PassHandler.make_env options {e.PH.env with code}

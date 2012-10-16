@@ -59,8 +59,7 @@ let pp_info fmt info = Format.fprintf fmt "{@[cps: %a;@]@\n@[type_: %a;@]@\n@[ei
   info.ei
   (StringMap.pp ", " (fun fmt k _ -> Format.fprintf fmt "%s" k)) info.fields
 
-let build_env ~package ~renaming ~gamma ~undot ~skipped ~ei =
-  ignore ei;
+let build_env ~package ~renaming ~gamma ~undot ~skipped ~is_ei =
   let add_value path ident type_ fields env =
     let cps =
       try
@@ -74,6 +73,7 @@ let build_env ~package ~renaming ~gamma ~undot ~skipped ~ei =
     StringMap.fold
       (fun s (i, _) env ->
          let rec aux path ident env =
+           if is_ei ident then env else
            let tsc = QmlTypes.Env.Ident.find ident gamma in
            let oty = QmlTypes.Scheme.instantiate tsc in
            let ity = QmlTypesUtils.Inspect.follow_alias_noopt gamma oty in
