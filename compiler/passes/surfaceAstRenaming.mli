@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -66,3 +66,5 @@ val get_exported_values : env -> IdentSet.t
 
 module ObjectType : ObjectFiles.R with type t = (Ident.t * FilePos.pos) StringMap.t and type 'a wrapper = 'a
 val extract_types_in_scope : env -> ObjectType.t
+
+module SExpr : ObjectFiles.S with type t = (Ident.t * FilePos.pos) StringMap.t

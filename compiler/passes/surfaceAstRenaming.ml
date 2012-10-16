@@ -1941,12 +1941,14 @@ let code = f_code
 (*----------------------------------*)
 (*------ separate compilation ------*)
 (*----------------------------------*)
-module ObjectExpr =
-  ObjectFiles.Make(struct
-                     type t = (Ident.t * FilePos.pos) StringMap.t
-                     let pass = "renaming_exp"
-                     let pp f _ = Format.pp_print_string f "<dummy>"
-                   end)
+module SExpr : ObjectFiles.S with type t = (Ident.t * FilePos.pos) StringMap.t =
+struct
+  type t = (Ident.t * FilePos.pos) StringMap.t
+  let pass = "renaming_exp"
+  let pp f _ = Format.pp_print_string f "<dummy>"
+end
+
+module ObjectExpr = ObjectFiles.Make(SExpr)
 module ObjectType =
   ObjectFiles.Make(struct
                      type t = (Ident.t * FilePos.pos) StringMap.t
