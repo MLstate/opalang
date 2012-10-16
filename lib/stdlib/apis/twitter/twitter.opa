@@ -303,6 +303,13 @@ type Twitter.full_user = {
   withheld_scope                     : string /** When present, indicates whether the content being withheld is the "status" or a "user." */
 }
 
+type Twitter.slug = {
+  name  : string
+  slug  : string
+  size  : int
+  users : list(Twitter.full_user)
+}
+
 type Twitter.statuses = {
   message                 : string
   metadata                : Twitter.metadata
@@ -751,6 +758,23 @@ type Twitter.resources = {
   _build_full_users(s) =
     json = API_libs_private.parse_json(s)
     _check_errors(json, get_raw_list(_, get_full_user))
+
+  get_slug(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      name = get_string("name", map)
+      slug = get_string("slug", map)
+      size = get_int("size", map)
+      users = get_list("users", map, get_full_user)
+    } : Twitter.slug
+
+  _build_slug(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_slug)
+
+  _build_slugs(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_slug))
 
   get_statuses_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -1993,5 +2017,48 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_bopt("include_entities", include_entities)
       |> add_bopt("skip_status", skip_status)
     Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_users)
+
+/**
+ * Users suggestions slug
+ *
+ * Access the users in a given category of the Twitter suggested user list.
+ *
+ * @param slug The short name of list or a category
+ * @param lang Restricts the suggested categories to the requested language.
+ * @param credentials The user credentials.
+ */
+  users_suggestions_slug(slug, lang:string, credentials) =
+    path = "/1.1/users/suggestions/{slug}.json"
+    params =
+      []
+      |> add_if("lang", lang, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_slug)
+
+/**
+ * Users suggestions
+ *
+ * Access to Twitter's suggested user list. This returns the list of suggested user categories.
+ *
+ * @param lang Restricts the suggested categories to the requested language.
+ * @param credentials The user credentials.
+ */
+  users_suggestions(lang:string, credentials) =
+    path = "/1.1/users/suggestions.json"
+    params =
+      []
+      |> add_if("lang", lang, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_slugs)
+
+/**
+ * Users suggestions slug members
+ *
+ * Access the users in a given category of the Twitter suggested user list and return their most recent status if they are not a protected user.
+ *
+ * @param slug The short name of list or a category
+ * @param credentials The user credentials.
+ */
+  users_suggestions_slug_members(slug, credentials) =
+    path = "/1.1/users/suggestions/{slug}/members.json"
+    Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_full_users)
 
 }}
