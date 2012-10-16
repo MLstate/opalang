@@ -416,7 +416,8 @@ function spawn(f) {
 function uncps(pk, f, name) {
     return function (){
         var b = new Barrier(name);
-        var k = ccont(pk, function(x){b.release(x)});
+        var r = function(x){b.release(x)};
+        var k = pk == null?cont(r):ccont(pk, r);
         var a = Array.prototype.slice.call(arguments);
         a.push(k);
         push(function(){return f.apply(this, a);});
