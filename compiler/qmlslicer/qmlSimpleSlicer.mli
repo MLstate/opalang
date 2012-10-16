@@ -38,6 +38,8 @@ module Options : sig
   val list : (string * Base.Arg.spec * string) list
 end
 
+val get_renaming : ObjectFiles.package -> side:[`client|`server] -> Ident.t IdentMap.t
+
 val process_code :
   test_mode:bool ->
   dump:bool ->

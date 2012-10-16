@@ -1858,6 +1858,20 @@ struct
       )
 end
 
+let get_renaming package ~side =
+  let module Raw = ObjectFiles.MakeRaw(S) in
+  List.fold_left
+    (fun renaming info ->
+       match
+         match side with
+         | `client -> info.client_ident
+         | `server -> info.server_ident
+       with
+       | `ident ident -> IdentMap.add ident info.ident renaming
+       | _ -> renaming
+    ) IdentMap.empty (Raw.load1 package)
+
+
 let process_code ~test_mode ~dump ~typer_env ~stdlib_gamma
     ~client_bsl_lang ~server_bsl_lang ~bymap
     ~code =
