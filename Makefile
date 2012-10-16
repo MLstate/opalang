@@ -47,7 +47,7 @@ runtime-libs: $(MYOCAMLBUILD)
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-node-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
-	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
+	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
@@ -73,7 +73,7 @@ DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerL
 distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
-	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
+	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
 	$(MAKE) manpages
 	$(MAKE) opa_tools
 
@@ -84,7 +84,7 @@ distrib: $(MYOCAMLBUILD)
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
-	$(MAKE) -C tools/manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../../$(BUILD_DIR)
+	$(MAKE) -C $(OPALANG_DIR)/tools/manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../../$(BUILD_DIR)
 else
 	@echo "Not building manpages"
 endif
@@ -93,7 +93,7 @@ endif
 ## OPA-CREATE
 ##
 
-target-tool-opa-create = tools/opa-create/src/opa-create.exe
+target-tool-opa-create = $(OPALANG_DIR)/tools/opa-create/src/opa-create.exe
 
 .PHONY: opa-create
 opa-create: $(MYOCAMLBUILD)
@@ -120,7 +120,7 @@ NODE_STDLIB_SUFFIX_DIR=stdlib.qmljs
 STDLIB_NODE_DIR=$(STDLIB_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
 BUILD_NODE_DIR=$(BUILD_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
 define install-node-package
-@printf "Installing into $(STDLIB_NODE_DIR)/$*.opx[K\r"
+@printf "Installing into $(STDLIB_NODE_DIR)/$*.opx[K\n"
 @mkdir -p "$(STDLIB_NODE_DIR)/$*.opx/_build"
 @find "$(BUILD_NODE_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_NODE_DIR)/$*.opx/" \;
 @$(INSTALL) $(BUILD_NODE_DIR)/$*.opx/*.js "$(STDLIB_NODE_DIR)/$*.opx/"
@@ -174,7 +174,7 @@ install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
 	@mkdir -p $(INSTALL_DIR)/bin
 	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
-	@tools/utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
+	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
 	@printf "Installation to $(INSTALL_DIR)/bin done.[K\n"
 
 install-lib:
@@ -215,7 +215,7 @@ uninstall:
 # 	rm -rf $(INSTALL_DIR)/share/man/man1/opa*
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
 	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
-	@tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
+	@$(OPALANG_DIR)/tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
 	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A 	$(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
 
