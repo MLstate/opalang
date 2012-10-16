@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+module S : ObjectFiles.S with type t = QmlTypes.typescheme IdentMap.t
 (**
    Types the whole code, assuming a correct gamma in the environment
 *)
