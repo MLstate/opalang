@@ -1066,6 +1066,8 @@ let reorder_packages = ref ((fun p -> assert (not (is_separated ())); p))
 
 let resave =  ref (fun _ -> assert (not (is_separated ())); false)
 
+let load_deps package = ConsistencyCheckR.load_deps package
+
 (* checks that a package agrees with other packages
  * it should fail using [error] and [serror] only so that
  * the compiler can recover in autobuild

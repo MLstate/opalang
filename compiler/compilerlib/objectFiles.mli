@@ -317,3 +317,8 @@ val turn_separated_off : unit -> unit
    Use given package as a compiler package.
 *)
 val add_compiler_packages : package_name list -> unit
+
+(**
+   Load deps
+*)
+val load_deps : package -> package list
