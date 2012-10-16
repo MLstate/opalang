@@ -109,6 +109,36 @@ let rev_way = function
   | `opa2js c -> `js2opa c
   | `js2opa c -> `opa2js c
 
+let funproj, tmpproj, setproj, getprojs =
+  let tbl = Hashtbl.create 11 in
+  (fun (ident, args, way) ->
+     try
+       begin match Hashtbl.find tbl (ident, args, way) with
+       | `tmp i | `fun_ (i, _) -> Some (`ident i)
+       | `noproj -> Some `noproj
+       end
+     with Not_found -> None
+  ),
+  (fun (ident, args, way) ->
+     let r = (Ident.refreshf ~map:"proj%s" ident) in
+     Hashtbl.add tbl (ident, args, way) (`tmp r);
+     r
+  ),
+  (fun (ident, args, way) x ->
+     Hashtbl.add tbl (ident, args, way) x),
+  (fun () ->
+     let x = Hashtbl.fold
+       (fun _ e acc ->
+          match e with
+          | `fun_ (_,e) -> e::acc
+          | `noproj -> acc
+          | `tmp i ->
+              Format.eprintf "%a\n" QmlPrint.pp#ident i;
+              acc
+       ) tbl [] in
+     Hashtbl.clear tbl;
+     x)
+
 let get_tmp_var, flush_tmp_var =
   let rvars = ref (0, []) in
   (fun () ->
@@ -154,16 +184,38 @@ and project_lambda_args level gamma args way =
        i+1, p || proj, ident :: params, expr :: args
     ) (0, false, [], []) args
 
+(* function(..., k){
+     if (k==undefined){
+       return (uncps(expr))(...);
+     } else {
+       return expr(..., cont_native(k))}
+     }
+   }
+*)
+and project_lambda_opa2js_cps level gamma args ret expr =
+  let nb, _, rparams, rargs = project_lambda_args level gamma args (`opa2js `cps) in
+  let k = genid 0 (nb+1) in
+  let params = List.rev (k::rparams) in
+  let cpse =
+    let args = List.rev ((cont_native 0 gamma k ret)::rargs) in
+    CS.return (CE.call expr args)
+  in
+  let uncps =
+    let uncps = CE.call (CE.native_global "uncps") [CE.null (); expr] in
+    let _, ret = project 0 gamma (CE.call uncps (List.rev rargs)) ret (`opa2js `cps) in
+    CS.return ret
+      in
+  true,
+  CE.function_ None params
+    [CS.if_ (CE.equality (CE.ident k) (CE.undefined ()))
+       uncps cpse
+    ]
+
 and project_lambda level gamma args (ret:QmlAst.ty) expr way =
   let nb, proj, rparams, rargs = project_lambda_args level gamma args way in
   match way with
   | `opa2js `cps ->
-      (*  function(..., f){return expr(..., cont_native(f))} *)
-      let f = genid level (nb+1) in
-      let params = List.rev (f::rparams) in
-      let args = List.rev ((cont_native level gamma f ret)::rargs) in
-      true,
-      CE.function_ None params [CS.return (CE.call expr args)]
+      project_lambda_opa2js_cps level gamma args ret expr
 
   | `js2opa `cps ->
       (* expr.length == arity
@@ -206,7 +258,10 @@ and project_option level gamma expr ty way =
   match way with
   | `opa2js _ ->
       let expr = CE.call Imp_Common.ClientLib.udot [expr; CE.string "some"] in
-      snd (project level gamma expr ty way)
+      let tmp = get_tmp_var () in
+      CE.cond (CE.equality (CE.assign (CE.ident tmp) expr) (CE.undefined ()))
+        (CE.undefined ())
+        (snd (project level gamma expr ty way))
   | `js2opa _ ->
       let tmp = get_tmp_var () in
       let _, expr = project level gamma expr ty way in
@@ -215,7 +270,6 @@ and project_option level gamma expr ty way =
         (CE.obj ["some", (CE.ident tmp)])
 
 and project level gamma expr (ty:QmlAst.ty) way =
-  Format.eprintf "Projection of %a\n%!" QmlPrint.pp#ty ty;
   match ty with
   | Q.TypeConst _
   | Q.TypeVar _
@@ -230,13 +284,34 @@ and project level gamma expr (ty:QmlAst.ty) way =
       in
       proj, (if proj then CE.obj fields else expr)
   | Q.TypeName (args, ident) ->
-      begin match args, Ident.original_name ident with
-      | [p], "option" ->
-          project_option level gamma expr p way
-      | _ ->
-          project level gamma expr
-            (QmlTypesUtils.Inspect.find_and_specialize gamma ident args)
-            way
+      let pargs = List.map
+        (function |Q.TypeVar _v -> Q.TypeVar (QmlTypeVars.get_canonical_typevar 0)
+         | x -> x) args
+      in
+      begin
+        match funproj (ident, pargs, way) with
+        | Some `ident i -> true, CE.call (CE.exprident i) [expr]
+        | Some `noproj -> false, expr
+        | None ->
+            match args, Ident.original_name ident with
+            | [p], "option" ->
+                project_option level gamma expr p way
+            | _ ->
+                let i = tmpproj (ident, pargs, way) in
+                let param = CI.native "p" in
+                let proj, body =
+                  project level gamma (CE.ident param)
+                    (QmlTypesUtils.Inspect.find_and_specialize gamma ident args)
+                    way
+                in
+                if proj then (
+                  setproj (ident, pargs, way)
+                    (`fun_ (i, CS.function_ (CI.ident i) [param] [CS.return body]));
+                  true, CE.call (CE.exprident i) [expr]
+                ) else (
+                  setproj (ident, pargs, way) `noproj;
+                  false, expr
+                )
       end
   | Q.TypeForall (_vars, _rvars, _cvars, ty) ->
       project level gamma expr ty way
@@ -262,23 +337,11 @@ let top_lambda gamma args ret cps_info =
            }
          }
       *)
-      let nb, _, rparams, rargs = project_lambda_args 0 gamma args (`opa2js `cps) in
-      let k = genid 0 (nb+1) in
-      let params = List.rev (k::rparams) in
-      let cpse =
-        let args = List.rev ((cont_native 0 gamma k ret)::rargs) in
-        CS.return (CE.call (CE.exprident cps) args)
-      in
-      let uncps =
-        let uncps = CE.call (CE.native_global "uncps") [CE.null (); CE.exprident cps] in
-        let _, ret = project 0 gamma (CE.call uncps (List.rev rargs)) ret (`opa2js `cps) in
-        CS.return ret
-      in
-      CE.function_ None params
-        (finalize [
-           CS.if_ (CE.equality (CE.ident k) (CE.undefined ()))
-             uncps cpse
-         ])
+      begin match project_lambda_opa2js_cps 0 gamma args ret (CE.exprident cps) with
+      | _, J.Je_function (label, i, p, b) ->
+          CE.function_ ~label i p (finalize b)
+      | _ -> assert false
+      end
 
   | `skipped (skip, cps) ->
       (* function(..., k){
@@ -304,7 +367,6 @@ let top_lambda gamma args ret cps_info =
          ])
 
 let rec info_to_js gamma info =
-  Format.eprintf "Information: %a\n%!" pp_info info;
   match QmlTypesUtils.Inspect.follow_alias_noopt gamma info.type_ with
   | Q.TypeArrow (args, ret) ->
       assert (info.fields = StringMap.empty);
@@ -323,11 +385,13 @@ let rec info_to_js gamma info =
       | _ -> assert false
 
 let process {gamma; infos; package} =
-  (CS.expr
-     (CE.call
-        (CE.native_global "require")
-        [CE.string (Printf.sprintf "%s.opx" (fst package))])
-  ) :: (
+  let require =
+    CS.expr
+      (CE.call
+         (CE.native_global "require")
+         [CE.string (Printf.sprintf "%s.opx" (fst package))])
+  in
+  let exports =
     StringMap.fold
       (fun s info acc ->
          let expr = info_to_js gamma info in
@@ -335,4 +399,5 @@ let process {gamma; infos; package} =
          let exports = CE.dot exports s in
          (CS.expr (CE.assign exports expr)) :: acc
       ) infos []
-  )
+  in
+  require :: getprojs () @ exports
