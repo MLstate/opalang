@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -17,6 +17,7 @@
 *)
 (* depends *)
 module List = BaseList
+module Format = BaseFormat
 
 (* shorthands *)
 module J = JsonTypes
@@ -82,3 +83,5 @@ struct
   type t = Buffer.t
   let json buf json = print Buffer.add_string buf json
 end
+
+let pp = print Format.pp_print_string

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -23,6 +23,7 @@
    @author Mathieu Barbin
 *)
 
+
 (**
    Escape some special character.
 *)
@@ -40,6 +41,9 @@ end
    Factory
 *)
 val print : ('output -> string -> unit) -> 'output -> JsonTypes.json -> unit
+
+(** The default JSON pretty printer *)
+val pp : JsonTypes.json BaseFormat.pprinter
 
 (**
    This printer is used whenever you do not care about the look of the printed code.
