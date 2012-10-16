@@ -830,9 +830,29 @@ let build_file ~transform renaming env file =
   | DocLike decorated_file ->
     build_file_doc_like ~transform renaming env decorated_file
 
+let apply_conf conf code =
+  let code =
+    if conf.BslJsConf.localrenaming then Imp_Renaming.rename code
+    else code
+  in
+  let code =
+    if conf.BslJsConf.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true code
+    else code
+  in
+  let code =
+    if conf.BslJsConf.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true code
+    else code in
+  let code = List.map JsUtils.globalize_native_ident code in
+  code
+
 let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs decorated_files =
-  ignore depends; ignore js_confs;
-  let transform _filename code =
+  ignore depends;
+  let confs = BslJsConf.export js_confs in
+  let transform filename code =
+    let code = match StringMap.find_opt filename confs with
+      | Some (BslJsConf.Optimized conf) -> apply_conf conf code
+      | _ -> code
+    in
     if BslLanguage.is_nodejs lang then JsUtils.export_to_global_namespace code
     else code
   in

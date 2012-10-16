@@ -47,3 +47,5 @@
 <bslJsParse.ml*>: use_jslang
 <bslJs.ml*>: use_jslang
 <bslDirectives.ml*>: use_jslang
+<imp_*.ml*>: use_jslang
+<imp_*.ml*>: with_mlstate_debug

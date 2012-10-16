@@ -1,15 +1,11 @@
 compiler/qmljsimp/Imp_Bsl
 compiler/qmljsimp/Imp_Code
-compiler/qmljsimp/Imp_Common
 compiler/qmljsimp/Imp_Compiler
 compiler/qmljsimp/Imp_Env
 compiler/qmljsimp/Imp_MatchGeneration
 compiler/qmljsimp/Imp_PatternAnalysis
 compiler/qmljsimp/Imp_Sharing
 compiler/qmljsimp/Imp_SumCase
-compiler/qmljsimp/Imp_Renaming
-compiler/qmljsimp/Imp_CleanUp
 compiler/qmljsimp/Imp_Inlining
-compiler/qmljsimp/Imp_SimpleRenaming
 compiler/qmljsimp/Imp_Cleaning
 compiler/qmljsimp/Imp_Warnings

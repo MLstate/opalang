@@ -29,3 +29,8 @@ compiler/libbsl/BslArgs
 compiler/libbsl/BslTracker
 compiler/libbsl/BslGeneration
 compiler/libbsl/BslJsParse
+
+compiler/libbsl/Imp_SimpleRenaming
+compiler/libbsl/Imp_Common
+compiler/libbsl/Imp_Renaming
+compiler/libbsl/Imp_CleanUp
