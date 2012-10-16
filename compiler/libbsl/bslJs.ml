@@ -217,14 +217,6 @@ let find name ty_spec_map rev_path =
   let result = BslKeyMap.find_opt key ty_spec_map in
   result
 
-let check ~options ~depends files_js_code =
-  ignore options ;
-  (* appending all the code *)
-  let all_files_js_code = depends @ files_js_code in
-  let all_js_code = String.concat_map "\n" snd all_files_js_code in
-  ignore all_js_code ;
-  ()
-
 let js_module skey =String.capitalize ( skey )
 let js_module_of_filename skey =
   let skey = String.capitalize (
