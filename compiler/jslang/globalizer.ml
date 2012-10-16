@@ -35,7 +35,6 @@ let read_cmd_line_args (args : path list) =
     | [] when List.is_empty files ->
       `ko "No input files"
     | [] -> (
-      let package_version = Option.default "0.1.0" package_version in
       match output with
       | Some output -> `ok (files, output, package_version)
       | None -> `ko "No output file given"
@@ -56,15 +55,13 @@ let read_cmd_line_args (args : path list) =
   in
   aux [] None None args
 
-let process formatter (files : (path * JsAst.code) list) =
-  List.iter (fun (filename, content) ->
-    Format.fprintf formatter "// FILE: %s\n%a\n" filename
-      JsPrint.pp_min#code content
-  ) files
-
-let die message =
-  Printf.eprintf "error: %s\n" message; exit 1
-
+let transform (files : (path * JsAst.code) list) =
+  List.flatten
+    (List.map
+       (fun (filename, content) ->
+          JsCons.Statement.comment (Printf.sprintf "FILE: %s" filename) :: content
+       ) files
+    )
 
 let pp_nodejs filename contents =
   let ppenv =
@@ -79,48 +76,43 @@ let pp_nodejs filename contents =
 let _ =
   let args = List.tl (Array.to_list Sys.argv) in
   match read_cmd_line_args args with
-  | `ko error -> die error
+  | `ko error -> OManager.error "%s" error
   | `ok (files, output, package_version) ->
-
-    (* Read files and reexport their identifiers *)
-    let files = List.map (fun filename ->
-      let content = File.content filename in
-      let content = pp_nodejs  filename content in
-      let content =
-        try
-          JsParse.String.code ~throw_exn:true content
-        with
-          JsParse.Exception e ->
-            OManager.error
-              ("Couldn't parse file @{<brigth>%s@}\n"^^
-                 "Error : %a")
-              filename
-              JsParse.pp e
+      (* Read files and reexport their identifiers *)
+      let files = List.map
+        (fun filename ->
+           let content = File.content filename in
+           let content = pp_nodejs  filename content in
+           let content =
+             try
+               JsParse.String.code ~throw_exn:true content
+             with
+               JsParse.Exception e ->
+                 OManager.error
+                   ("Couldn't parse file @{<brigth>%s@}\n"^^
+                      "Error : %a")
+                   filename
+                   JsParse.pp e
+           in
+           (filename, JsUtils.export_to_global_namespace content)
+        ) files
       in
-      (filename, JsUtils.export_to_global_namespace content)
-    ) files
-    in
 
-    (* Output nodejs package *)
-    File.remove_rec output;
-    if not (File.check_create_path output) then
-      die "Couldn't create output path";
-    let main_path = Filename.concat output "main.js" in
-    let package_json_path = Filename.concat output "package.json" in
-    let readme_path = Filename.concat output "README.md" in
-    let package_desc = JsUtils.basic_package_json
-      ~version:package_version output "main.js" in
-    let output_result = File.pp_output package_json_path
-      Format.pp_print_string package_desc
-    in
-    begin match output_result with
-    | None -> ()
-    | Some error -> OManager.error "Couldn't create package: %s\n" error
-    end;
-    begin match File.pp_output main_path process files with
-    | None -> ()
-    | Some error -> OManager.error "Couldn't create package: %s\n" error
-    end;
-    let oc = open_out readme_path in
-    output_string oc "This file is part of Opa. http://opalang.org";
-    close_out oc
+      (* Output nodejs package *)
+      let name = Filename.basename output in
+      let package = JsPackage.default ~name in
+      let package = JsPackage.set_build_dir package name in
+      let package = match package_version with
+        | None -> package
+        | Some version -> JsPackage.set_version package version
+      in
+      let package = JsPackage.add_file package
+        ("README.md",
+         Format.sprintf "\
+# %s.opx
+This is a generated part of Opa runtime (%s)
+"
+           name BuildInfos.opa_version_name)
+      in
+      let package = JsPackage.add_code package (transform files) in
+      JsPackage.write package
