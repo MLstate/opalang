@@ -269,6 +269,11 @@ and project_option level gamma expr ty way =
         (CE.obj ["none", CE.obj []])
         (CE.obj ["some", (CE.ident tmp)])
 
+and project_bool expr way =
+  match way with
+  | `opa2js _ -> true, CE.call (CE.native_global "un_uniformize_bool") [expr]
+  | `js2opa _ -> false, expr
+
 and project level gamma expr (ty:QmlAst.ty) way =
   match ty with
   | Q.TypeConst _
@@ -296,6 +301,8 @@ and project level gamma expr (ty:QmlAst.ty) way =
             match args, Ident.original_name ident with
             | [p], "option" ->
                 project_option level gamma expr p way
+            | _, "bool" ->
+                project_bool expr way
             | _ ->
                 let i = tmpproj (ident, pargs, way) in
                 let param = CI.native "p" in
