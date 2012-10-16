@@ -204,6 +204,9 @@ module Package = struct
 end
 
 
+let get_skipped package =
+  let module RawR = ObjectFiles.MakeRawClientServer(S) in
+  IdentMap.map (fun (_, skip, _) -> skip) (RawR.load1 ~side:`server package).skipped_functions
 
 (* production of embedded location error messages in the server *)
 let string_of_pos = FilePos.to_string

@@ -157,6 +157,8 @@ val private_env_initial : unit -> private_env
 
 val private_env_get_skipped_ident : private_env -> Ident.t -> Ident.t option
 
+val get_skipped : ObjectFiles.package -> Ident.t IdentMap.t
+
 (** {6 Internal traduction} *)
 (**
    Exported in this interface for interaction and debugging with
