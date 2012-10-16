@@ -68,6 +68,13 @@ let pass_LoadEnvironment k =
               let package = package_name, FilePos.nopos "commandLine" in
               let renaming = RawRenaming.load1 package in
               let gamma = RawTypeDefinition.load1 package in
+              let gamma =
+                (* Type definition of dependencies are needed *)
+                List.fold_left
+                  (fun gamma package ->
+                     QmlTypes.Env.append gamma (RawTypeDefinition.load1 package))
+                  gamma (ObjectFiles.load_deps package)
+              in
               let gamma = QmlTypes.Env.Ident.from_map (RawTyping.load1 package) gamma in
               let srenaming = QmlSimpleSlicer.get_renaming package ~side:`server in
               let undot =
