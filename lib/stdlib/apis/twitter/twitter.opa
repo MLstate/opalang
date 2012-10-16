@@ -157,6 +157,13 @@ type Twitter.settings_options = {
   lang                 : string
 }
 
+type Twitter.favorites_options = {
+  since_id         : string
+  max_id           : string
+  count            : int
+  include_entities : option(bool)
+}
+
 /**
  * Type of Twitter OAuth parameters
  */
@@ -2060,5 +2067,64 @@ Twitter(conf:Twitter.configuration) = {{
   users_suggestions_slug_members(slug, credentials) =
     path = "/1.1/users/suggestions/{slug}/members.json"
     Twitter_private(c)._get_res(path, [], credentials, TwitParse._build_full_users)
+
+  default_favorites = {
+    since_id = ""
+    max_id = ""
+    count = 0
+    include_entities = none
+  } : Twitter.favorites_options
+
+/**
+ * Favorites list
+ *
+ * Returns the 20 most recent Tweets favorited by the authenticating or specified user.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param options The command options.
+ */
+  favorites_list(user, options:Twitter.favorites_options, credentials) =
+    path = "/1.1/favorites/list.json"
+    params =
+      add_user(user, [])
+      |> add_if("since_id", options.since_id, (_!=""))
+      |> add_if("max_id", options.max_id, (_!=""))
+      |> add_if("count", options.count, (_>0))
+      |> add_bopt("include_entities", options.include_entities)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweets)
+
+/**
+ * Favorites create.
+ *
+ * Favorites the specified user from following the authenticating user.
+ *
+ * @param id The numerical ID of the desired status.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param credentials The user credentials.
+ * @returns Twitter.tweet
+ */
+  favorites_create(id, include_entities:option(bool), credentials) =
+    path = "/1.1/favorites/create.json"
+    params =
+      [("id",id)]
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweet)
+
+/**
+ * Favorites destroy.
+ *
+ * Un-favorites the status specified in the ID parameter as the authenticating user.
+ *
+ * @param id The numerical ID of the desired status.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param credentials The user credentials.
+ * @returns Twitter.tweet
+ */
+  favorites_destroy(id, include_entities:option(bool), credentials) =
+    path = "/1.1/favorites/destroy.json"
+    params =
+      [("id",id)]
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweet)
 
 }}
