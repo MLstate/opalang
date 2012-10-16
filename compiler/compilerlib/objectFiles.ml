@@ -804,6 +804,15 @@ sig
   val pp : Format.formatter -> t -> unit
 end
 
+module type Raw =
+sig
+  type t
+  type 'a wrapper
+  val load1 : package -> t wrapper
+  val load1_exn : package -> t wrapper
+  val unset_load1 : package -> unit wrapper
+end
+
 module type R =
 sig
   type 'a wrapper
@@ -818,18 +827,12 @@ sig
   val save : ?overwrite:bool -> (t -> unit) wrapper
 end
 
-module Make(S:S) :
-  sig
-    include R with type t = S.t and type 'a wrapper = 'a
-
-    (* these fields are meant for internal use of this module *)
-    val load1 : package -> t
-    val load1_exn : package -> t
-    val unset_load1 : package -> unit
-  end  =
+module MakeRaw(S:S) : Raw with type t = S.t and type 'a wrapper = 'a =
 struct
-  type 'a wrapper = 'a
+
   type t = S.t
+
+  type 'a wrapper = 'a
 
   (* return the content of one package *)
   let load1_no_memo ((package_name,pos) as package) =
@@ -856,10 +859,24 @@ struct
   let (load1 : package -> t), _set_load1, unset_load1 = M.memo_but_exn load1_no_memo
   let load1_exn x = with_exn (fun () -> load1 x)
 
+end
+
+module Make(S:S) :
+sig
+  include R with type t = S.t and type 'a wrapper = 'a
+
+  (* these fields are meant for internal use of this module *)
+  val load1 : package -> t
+  val load1_exn : package -> t
+  val unset_load1 : package -> unit
+end  =
+struct
+  include MakeRaw(S)
+
   let ref_for_partial_sep = ref None
   let load_values ?(optional=false) ?packages ?deep () =
     let deps = (get_deps ?packages ?deep ()) in
-    let load =
+    let load=
       match optional with
       | true -> List.filter_map
           (fun (package_pos) -> try Some (package_pos, load1_exn package_pos) with No_exit _ -> None)
@@ -927,7 +944,7 @@ struct
   let () = show_list := show :: !show_list
 end
 
-module MakeClientServer(S:S) : R with type t = S.t and type 'a wrapper = side:[`client | `server] -> 'a
+module MakeRaw0ClientServer(S:S)
 = struct
   type 'a wrapper = side:[`client|`server] -> 'a
   type t = S.t
@@ -952,6 +969,13 @@ module MakeClientServer(S:S) : R with type t = S.t and type 'a wrapper = side:[`
     | `client -> (fun client _server -> client)
     | `server -> (fun _client server -> server)
 
+  let load1 package ~side =
+    (select side (Client.load1) (Server.load1)) package
+  let load1_exn package ~side =
+    (select side (Client.load1_exn) (Server.load1_exn)) package
+  let unset_load1 package ~side =
+    (select side (Client.unset_load1) (Server.unset_load1)) package
+
   (* generic interface*)
   let iter_with_name ~side = select side Client.iter_with_name Server.iter_with_name
   let fold_with_name ~side = select side Client.fold_with_name Server.fold_with_name
@@ -962,6 +986,12 @@ module MakeClientServer(S:S) : R with type t = S.t and type 'a wrapper = side:[`
   let save ?overwrite ~side = select side (Client.save ?overwrite) (Server.save ?overwrite)
 
 end
+
+module MakeClientServer(S:S) : R with type t = S.t and type 'a wrapper = side:[`client | `server] -> 'a
+ = MakeRaw0ClientServer(S)
+
+module MakeRawClientServer(S:S) : Raw with type t = S.t and type 'a wrapper = side:[`client | `server] -> 'a
+ = MakeRaw0ClientServer(S)
 
 
 

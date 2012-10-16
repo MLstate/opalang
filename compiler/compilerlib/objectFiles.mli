@@ -169,6 +169,15 @@ sig
   val pp : Format.formatter -> t -> unit
 end
 
+module type Raw =
+sig
+  type t
+  type 'a wrapper
+  val load1 : package -> t wrapper
+  val load1_exn : package -> t wrapper
+  val unset_load1 : package -> unit wrapper
+end
+
 (**
    What the following functor provides:
    [save] saves the given object in the current package
@@ -204,6 +213,10 @@ sig
   *)
   val save : ?overwrite:bool -> (t -> unit) wrapper
 end
+
+module MakeRaw : functor (S:S) -> Raw with type t = S.t and type 'a wrapper = 'a
+
+module MakeRawClientServer : functor (S:S) -> Raw with type t = S.t and type 'a wrapper = side:[`client | `server] -> 'a
 
 module Make : functor (S:S) -> R with type t = S.t and type 'a wrapper = 'a
 
