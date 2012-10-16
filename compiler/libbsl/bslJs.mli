@@ -79,5 +79,6 @@ val preprocess :
   dynloader_interface:BslPluginInterface.dynloader_interface ->
   depends:(filename * contents) list ->
   lang:BslLanguage.t ->
+  js_confs:BslJsConf.t ->
   decorated_file list ->
-  BslPluginInterface.javascript_env * (filename * contents) list
+  BslPluginInterface.javascript_env * JsPackage.t

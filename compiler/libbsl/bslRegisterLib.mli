@@ -142,8 +142,9 @@ type 'a output_iterator = iterator -> 'a -> unit
    The code is spliten, and is in the plugin file by file.
    Opa compiler use plugins to get back the js code.
 *)
-val out_js_code              : finalized_t output_iterator
-val out_nodejs_code          : finalized_t output_iterator
+val out_js_code              : finalized_t output
+val out_nodejs_code          : finalized_t output
+val write_nodejs_pack        : filename -> finalized_t -> unit
 
 (**
    ML loader and plugin.
@@ -183,7 +184,6 @@ val out_nodejs_code          : finalized_t output_iterator
    use the plugin.
 *)
 (** *)
-val out_nodejs_package       : finalized_t output
 val out_js_keys              : finalized_t output
 val out_ml_loader            : finalized_t output
 val out_ml_plugin            : finalized_t output

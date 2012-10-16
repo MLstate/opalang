@@ -246,7 +246,7 @@ type dynloader = multi_loading_safe_get_dynloader_interface -> unit
       let ml_runtime_module_name = "ExampleMLRuntime"
       let depends = [ "opabsl" ]
       let opa_code = [...]
-      let js_code = [...]
+      let js_pack = [...]
       let dynloader ( get_register : BslPluginInterface.multi_loading_safe_get_dynloader_interface) : unit =
         match get_register ~uniq_id ~plugin_name:basename with
         | None ->
@@ -263,7 +263,7 @@ type dynloader = multi_loading_safe_get_dynloader_interface -> unit
         ml_runtime_module_name ;
         depends ;
         opa_code ;
-        js_code ;
+        js_pack ;
         dynloader ;
         ocaml_env ;
         javascript_env ;
@@ -287,8 +287,8 @@ let meta_plugin__01 buf
     ~conf
     ~ml_runtime
     ~depends
-    ~js_code
-    ~nodejs_code
+    ~js_pack
+    ~nodejs_pack
     ~has_server_code
     ~opa_code
     ~ocaml_env
@@ -314,14 +314,8 @@ struct
   let b = ~> b    "let conf             = %a\n"       pp_conf conf                         in
   let b = ~> b    "let ml_runtime       = %S\n"       ml_runtime                           in
   let b = ~> b    "let depends  = [ %a ]\n"           (pp_ml_list pp_escaped)   depends    in
-  let b = ~> b    "let js_code  = ( [ %a ] : (string * string * BslJsConf.conf) list )\n"
-    (pp_ml_list pp_fc_conf)
-    js_code
-  in
-  let b = ~> b    "let nodejs_code  = ( [ %a ] : (string * string * BslJsConf.conf) list )\n"
-    (pp_ml_list pp_fc_conf)
-    nodejs_code
-  in
+  let b = ~> b    "let js_pack = (Marshal.from_string %S 0)\n" (Marshal.to_string (js_pack : JsPackage.t) []) in
+  let b = ~> b    "let nodejs_pack = (Marshal.from_string %S 0)\n" (Marshal.to_string (nodejs_pack : JsPackage.t) []) in
   let b = ~> b    "let has_server_code = %B\n"       has_server_code                      in
   let b = ~> b    "let opa_code = [ %a ]\n"          (pp_ml_list pp_fc)        opa_code   in
   let b = ~> b    "let ocaml_env = (Marshal.from_string %S 0)\n" (Marshal.to_string (ocaml_env : ocaml_env) []) in
@@ -358,8 +352,8 @@ let meta_plugin__03 = "
     ml_runtime ;
     depends ;
     opa_code ;
-    js_code ;
-    nodejs_code ;
+    js_pack ;
+    nodejs_pack ;
     has_server_code ;
     dynloader ;
     ocaml_env ;
@@ -390,8 +384,8 @@ type plugin = {
   ml_runtime            : ocaml_module_name ;
   depends               : plugin_basename list ;
   opa_code              : (filename * contents) list ;
-  js_code               : (filename * contents * BslJsConf.conf) list ;
-  nodejs_code           : (filename * contents * BslJsConf.conf) list ;
+  js_pack               : JsPackage.t ;
+  nodejs_pack           : JsPackage.t ;
   has_server_code       : bool ;
   dynloader             : dynloader ;
   ocaml_env             : ocaml_env ;
@@ -469,12 +463,12 @@ sig
      with [bslregister].
      The files are given file by file, indexed by the name of the file.
   *)
-  val js_code : (filename * contents * BslJsConf.conf) list
+  val js_pack : contents
 
   (**
-     as [js_code] but on node files
+     as [js_pack] but on node files
   *)
-  val nodejs_code : (filename * contents * BslJsConf.conf) list
+  val nodejs_pack : contents
 
   (**
      [true] if the plugin has any server-side code

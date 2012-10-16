@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
+module Format = BaseFormat
 (* CF mli *)
 
 module BPI = BslPluginInterface
@@ -41,8 +42,8 @@ type t = {
   depends                              : BPI.plugin_basename list ;
 
   opa_code                             : ( filename * contents ) list ;
-  js_code                              : ( filename * contents * BslJsConf.conf ) list ;
-  nodejs_code                          : ( filename * contents * BslJsConf.conf ) list ;
+  js_pack                              : JsPackage.t ;
+  nodejs_pack                          : JsPackage.t ;
 
   has_server_code                      : bool ;
 
@@ -62,8 +63,8 @@ type session = {
   mutable s_depends                    : BPI.plugin_basename list ;
 
   mutable s_opa_code                   : ( filename * contents ) list ;
-  mutable s_js_code                    : ( filename * contents * BslJsConf.conf ) list ;
-  mutable s_nodejs_code                : ( filename * contents * BslJsConf.conf ) list ;
+  mutable s_js_pack                    : JsPackage.t ;
+  mutable s_nodejs_pack                : JsPackage.t ;
 
   mutable s_has_server_code            : bool ;
 
@@ -85,8 +86,8 @@ let create () = {
   s_depends = [] ;
 
   s_opa_code = [] ;
-  s_js_code = [] ;
-  s_nodejs_code = [] ;
+  s_js_pack = JsPackage.default ~name:"BMP" ;
+  s_nodejs_pack = JsPackage.default ~name:"BMP" ;
 
   s_has_server_code = false ;
 
@@ -109,8 +110,8 @@ let finalize s = {
   depends                    = s.s_depends ;
 
   opa_code                   = s.s_opa_code ;
-  js_code                    = s.s_js_code ;
-  nodejs_code                = s.s_nodejs_code ;
+  js_pack                    = s.s_js_pack ;
+  nodejs_pack                = s.s_nodejs_pack ;
 
   has_server_code            = s.s_has_server_code ;
 
@@ -147,8 +148,8 @@ let register_ml_runtime s n             = s.s_ml_runtime <- n
 let register_depends s d                = s.s_depends <- d
 
 let register_opa_code s c               = s.s_opa_code <- c
-let register_js_code s c                = s.s_js_code <- c
-let register_nodejs_code s c            = s.s_nodejs_code <- c
+let register_js_pack s c                = s.s_js_pack <- c
+let register_nodejs_pack s c            = s.s_nodejs_pack <- c
 
 let register_has_server_code s c        = s.s_has_server_code <- c
 
@@ -250,8 +251,8 @@ let plugin t path =
     depends                 = t.depends ;
 
     opa_code                = t.opa_code ;
-    js_code                 = t.js_code ;
-    nodejs_code             = t.nodejs_code ;
+    js_pack                 = t.js_pack ;
+    nodejs_pack             = t.nodejs_pack ;
 
     has_server_code         = t.has_server_code ;
 

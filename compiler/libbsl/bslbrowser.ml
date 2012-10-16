@@ -305,8 +305,6 @@ let show_code_factory fc_extract extract plugins ?(regexp=None) () =
   in
   List.iter (fun plugin -> List.iter iter (extract plugin)) plugins
 
-
-let js_code p = show_code_factory (fun (f, c, _) -> f, c) (fun plugin -> plugin.BPI.js_code) p
 let opa_code p = show_code_factory (fun fc -> fc) (fun plugin -> plugin.BPI.opa_code) p
 
 

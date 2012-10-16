@@ -33,6 +33,7 @@ module String = BaseString
 let (|>) = InfixOperator.(|>)
 
 module BPI = BslPluginInterface
+module BI = BslInterface
 module D = BslDirectives
 module DJ = D.Js
 module J = JsAst
@@ -70,7 +71,7 @@ type env = {
   last_endmodule      : FilePos.pos ;
 
   (* accumulating files in a fold *)
-  rev_files_js_code   : (filename * contents) list ;
+  package : JsPackage.t;
 
   rev_path            : (skey * module_name * pos) list ;
 
@@ -181,12 +182,12 @@ end
 
 let nopos = FilePos.nopos "BslJs"
 
-let empty =
+let empty ~name =
   let empty = {
     last_module          = nopos ;
     last_endmodule       = nopos ;
 
-    rev_files_js_code    = [] ;
+    package    = JsPackage.default ~name ;
 
     rev_path             = [] ;
     ty_spec_map          = BslKeyMap.empty ;
@@ -347,7 +348,7 @@ let split_regexp = Str.regexp "%%[ ]*[a-zA-Z\\._]+[ ]*%%";;
 
 
 let fold_source_elt_classic ~dynloader_interface ~filename ~lang
-    (env, js_file) source_elt =
+    (env, package) source_elt =
 
   let env, js_file =
     match source_elt with
@@ -375,8 +376,8 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
                     OManager.error "cannot replace @{<bright>%s@} by the javascript implementation@\nKey not found, position : %a@\n@." d FilePos.pp_citation pos
           )
           splitted) in
-        let js_file = FBuffer.addln js_file source in
-        env, js_file
+        let package = JsPackage.add_verbatim package source in
+        env, package
 
     | D.Directive (pos, tags, directive) -> (
         match directive with
@@ -436,7 +437,7 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
               env with
                 ty_spec_map ;
             } in
-            env, js_file
+            env, package
 
         | D.ExternalTypeDef (skey, params, implementation) ->
             let () =
@@ -489,13 +490,13 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
               env with
                 ty_spec_map     = ty_spec_map ;
             } in
-            env, js_file
+            env, package
 
         | D.Module (skey, implementation) ->
-            env_add_module pos skey implementation env, js_file
+            env_add_module pos skey implementation env, package
 
         | D.EndModule ->
-            env_add_endmodule pos env, js_file
+            env_add_endmodule pos env, package
 
         | D.Register (skey, source_implementation, injected, bslty) ->
             let rp_ks = env_rp_ks env skey in
@@ -522,32 +523,38 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
               | None -> ""
               | Some source -> " \\ "^source^" "
             in
-            let js_file = FBuffer.printf js_file "/* %s%s : @[%a@] */\n" (String.concat "." rp_ks) source_option BslTypes.pp bslty in
-
-            let js_file = FBuffer.printf js_file "/* resolution: %%%%%s%%%% --> %s */\n" key implementation in
+            let package = JsPackage.add_verbatim package
+              (Format.sprintf "/* %s%s : @[%a@] */\n"
+                 (String.concat "." rp_ks) source_option BslTypes.pp bslty)
+            in
+            let package = JsPackage.add_verbatim package
+              (Format.sprintf "/* resolution: %%%%%s%%%% --> %s */\n" key implementation)
+            in
             let () = SeparatedEnv.SideEffect.add_renaming key implementation in
             let env = {env with renaming = StringMap.add key implementation env.renaming } in
             BslPluginInterface.apply_register_primitive dynloader_interface.BslPluginInterface.register_primitive rp ;
-            env, js_file
+            env, package
 
         | D.Args (name, args, _bslty) ->
             (* BslTypes.pp bslty *)
             let print_args li = String.concat ", " li in
             let argsname = List.map fst args in
             let funname = env_rp_implementation env name in
-            let js_file = FBuffer.printf js_file "function %s (%s)\n" funname (print_args argsname) in
-            env, js_file
+            let package = JsPackage.add_verbatim package
+              (Format.sprintf "function %s (%s)\n" funname (print_args argsname))
+            in
+            env, package
 
         | D.Property _ ->
             (* keep coherence for line count in the js *)
-            let js_file = FBuffer.add js_file "\n" in
-            env, js_file
+            let package = JsPackage.add_verbatim package "\n" in
+            env, package
       )
   in
   env, js_file
 
-let add_file_line ~filename js_file =
-  FBuffer.printf js_file "// file %S, line 1@\n" filename
+let file_line ~filename =
+  Format.sprintf "// file %S, line 1@\n" filename
 
 let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
   let filename = decorated_file.D.filename in
@@ -555,18 +562,14 @@ let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
   let implementation = js_module_of_filename filename in
   (* we add a module for each file *)
   let env = env_add_module nopos implementation None env in
-  (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
-  let js_file = fbuffer () in
-  let js_file = add_file_line ~filename js_file in
-
-  let env, js_file =
-    List.fold_left (fold_source_elt_classic ~dynloader_interface ~filename ~lang) (env, js_file) source
+  let package = env.package in
+  let package = JsPackage.add_verbatim package (file_line ~filename) in
+  let env, package =
+    List.fold_left
+      (fold_source_elt_classic ~dynloader_interface ~filename ~lang)
+      (env, package) source
   in
-  let js_code = FBuffer.contents js_file in
-  let file_js_code = filename, js_code in
-  let rev_files_js_code = env.rev_files_js_code in
-  let rev_files_js_code = file_js_code :: rev_files_js_code in
-  let env = { env with rev_files_js_code = rev_files_js_code } in
+  let env = { env with package } in
   let env = env_add_endmodule nopos env in
   let _ =
     match env.rev_path with
@@ -801,18 +804,13 @@ let process_directives_doc_like
 (** Use the renaming map built in the previous stage to rename
     bypasses in all files, and serialize the resulting ASTs, updating
     the environment *)
-let build_file_doc_like renaming env decorated_file =
+let build_file_doc_like ~transform renaming env decorated_file =
   (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
   let filename = decorated_file.filename in
-  let js_file = fbuffer () in
-  let js_file = add_file_line ~filename js_file in
   let contents = rename renaming decorated_file.contents in
-  let js_file = FBuffer.printf js_file "%a"
-    JsPrint.pp_keep_comments#code contents in
-  let js_code = FBuffer.contents js_file in
-  let file_js_code = filename, js_code in
-  let rev_files_js_code = file_js_code :: env.rev_files_js_code in
-  let env = { env with rev_files_js_code } in
+  let package = JsPackage.add_verbatim env.package (file_line ~filename) in
+  let package = JsPackage.add_code package (transform filename contents) in
+  let env = { env with package } in
   env
 
 let process_file ~dynloader_interface ~lang (env, renaming) decorated_file =
@@ -824,16 +822,23 @@ let process_file ~dynloader_interface ~lang (env, renaming) decorated_file =
     process_directives_doc_like ~dynloader_interface
       ~lang (env, renaming) decorated_file
 
-let build_file renaming env file =
+let build_file ~transform renaming env file =
   match file with
   | Classic _ ->
     (* In classic syntax, renaming is already done *)
     env
   | DocLike decorated_file ->
-    build_file_doc_like renaming env decorated_file
+    build_file_doc_like ~transform renaming env decorated_file
 
-let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang decorated_files =
-  let env = empty in
+let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs decorated_files =
+  ignore depends; ignore js_confs;
+  let transform _filename code =
+    if BslLanguage.is_nodejs lang then JsUtils.export_to_global_namespace code
+    else code
+  in
+  let env = empty ~name:(Printf.sprintf "%s.%s"
+                           (Option.get options.BI.basename)
+                           BslConvention.Extension.plugin) in
   let sep_env = SeparatedEnv.init ~ty_spec_map:env.ty_spec_map ~renaming:env.renaming in
   let sep_env = List.fold_left SeparatedEnv.fold sep_env plugins in
   let ty_spec_map = SeparatedEnv.ty_spec_map sep_env in
@@ -847,10 +852,7 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang decorated_f
   let env, renaming =
     List.fold_left (process_file ~dynloader_interface ~lang)
       (env, StringMap.empty) decorated_files in
-  let env = List.fold_left (build_file renaming) env decorated_files in
-  let files_js_code = List.rev env.rev_files_js_code in
-
-  check ~options ~depends files_js_code ;
+  let env = List.fold_left (build_file ~transform renaming) env decorated_files in
 
   let javascript_env = SeparatedEnv.SideEffect.get_javascript_env () in
-  javascript_env, files_js_code
+  javascript_env, env.package

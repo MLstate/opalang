@@ -14,7 +14,7 @@
 <bslRegisterLib.ml>: use_pplib
 <bslInitChecker.ml>:use_opalang
 <bslTypesGeneration.ml>: use_ocamllang
-<bslPluginInterface.ml>: use_ocamllang
+<bslPluginInterface.ml>: use_ocamllang, use_jslang
 <bslInterface.ml>: use_jslang
 <bslOcaml.ml>: use_ocamllang
 <bslRegisterParser.{ml,mli,byte,native}>: use_libtrx
@@ -23,6 +23,7 @@
 <bslregister.{byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
 <portingBsl.{ml,byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
 <bslGeneration.{ml,mli}>: use_ulex, use_dynlink, use_zip, use_nums, use_jslang
+<bslMarshalPlugin.*>: use_jslang
 
 # subdirs
 <validator>: traverse

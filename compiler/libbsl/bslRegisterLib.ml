@@ -55,6 +55,7 @@ type uniq_id              = string
 type line_number          = int
 type skey                 = string
 type implementation       = string
+type js_contents          = [`code of JsAst.code | `verbatim of string ]
 
 
 (* debug *)
@@ -179,8 +180,8 @@ type session = {
     opa files may contains include directives which need to be solved at finalization
     opa_code and opa_interface are obtained at finalization time
   *)
-  s_js_code                    : (filename * contents * BslJsConf.conf) list ;
-  s_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
+  s_js_pack                   : JsPackage.t ;
+  s_nodejs_pack                : JsPackage.t ;
 
   s_ml_runtime                 : FBuffer.t option;
   s_ml_runtime_mli             : FBuffer.t option;
@@ -219,8 +220,6 @@ let d_fold_plugin
 
   let rev_ml_runtime_list = plugin.BPI.ml_runtime              :: rev_ml_runtime_list in
   let rev_parent_list     = plugin.BPI.uniq_id                 :: rev_parent_list     in
-  let rev_js_code_list    = List.fold_left (fun rev (f, c, _) -> (f, c)::rev) rev_js_code_list plugin.BPI.js_code in
-  let rev_nodejs_code_list= List.fold_left (fun rev (f, c, _) -> (f, c)::rev) rev_nodejs_code_list plugin.BPI.nodejs_code in
   let rev_opa_code_list   = List.rev_append plugin.BPI.opa_code   rev_opa_code_list   in
 
   rev_ml_runtime_list, rev_parent_list, rev_js_code_list, rev_nodejs_code_list, rev_opa_code_list
@@ -350,8 +349,8 @@ let create ~options =
   let s_rp_calls                     = BslKeyMap.empty in
   let s_rt_calls                     = BslKeyMap.empty in
 
-  let s_js_code                      = [] in
-  let s_nodejs_code                  = [] in
+  let s_js_pack                      = JsPackage.default ~name:"fake" in
+  let s_nodejs_pack                  = JsPackage.default ~name:"fake" in
 
   let s_ml_runtime                   = None in
   let s_ml_runtime_mli               = None in
@@ -387,8 +386,8 @@ let create ~options =
     s_rp_calls ;
     s_rt_calls ;
 
-    s_js_code ;
-    s_nodejs_code ;
+    s_js_pack ;
+    s_nodejs_pack ;
 
     s_ml_runtime ;
     s_ml_runtime_mli ;
@@ -690,15 +689,13 @@ type finalized_t = {
   f_ml_dynloader_loader        : FBuffer.t ; (*     X        |               *)
   f_ml_dynloader_plugin        : FBuffer.t ; (*              |       X       *)
 
-  f_nodejs_package             : FBuffer.t ;
-
   f_js_keys                    : FBuffer.t ;
 
   f_ml_runtime                 : FBuffer.t option ;
   f_ml_runtime_mli             : FBuffer.t option ;
 
-  f_js_code                    : (filename * contents * BslJsConf.conf) list ;
-  f_nodejs_code                : (filename * contents * BslJsConf.conf) list ;
+  f_js_pack                    : JsPackage.t ;
+  f_nodejs_pack                : JsPackage.t ;
   f_opa_code                   : (filename * contents) list ;
   f_opa_interface              : (filename * contents) list ;
 
@@ -843,8 +840,8 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
 
   let ml_runtime       = s_identification.i_ml_runtime in
   let depends          = s.s_depends.d_parents in
-  let js_code          = s.s_js_code in
-  let nodejs_code      = s.s_nodejs_code in
+  let js_pack          = s.s_js_pack in
+  let nodejs_pack      = s.s_nodejs_pack in
   let has_server_code  = s.s_has_server_code in
   let opa_code         = s.s_opa_code in
 
@@ -858,8 +855,8 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
       ~conf
       ~ml_runtime
       ~depends
-      ~js_code
-      ~nodejs_code
+      ~js_pack
+      ~nodejs_pack
       ~has_server_code
       ~opa_code
       ~ocaml_env
@@ -942,19 +939,19 @@ let finalizing_ocaml session =
   }
 
 
-let finalizing_js_code_conf s_js_confs s_js_code =
+let finalizing_js_code_conf s_js_confs s_rev_js_parsed_files =
   let confs = BslJsConf.export s_js_confs in
-  let map (filename, content) =
+  let map {BslJs. filename; _} =
     let index = filename in
     match StringMap.find_opt index confs with
-    | Some conf -> filename, content, conf
+    | Some conf -> filename, conf
     | None ->
         (*
           Internal error, the list of given js files was not correct
         *)
         assert false
   in
-  List.map map s_js_code
+  List.map map s_rev_js_parsed_files
 
 let collect_exports bymap nodejs_code =
   (* HACK: In compiled NodeJs code, we have to refer to bypasses by
@@ -1024,21 +1021,12 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
     make_imperative_dynloader_interface session
   in
 
-  let javascript_env, s_js_code =
-    BslJs.preprocess ~options ~plugins ~dynloader_interface ~depends ~lang js_decorated_files
+  let javascript_env, package =
+    BslJs.preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs
+      js_decorated_files
   in
 
-  let s_js_code = finalizing_js_code_conf js_confs s_js_code in
-
-  javascript_env, update_session !session_ref s_js_code
-
-let finalizing_nodejs_package nodejs_code =
-  let fold buf (filename, contents, conf) =
-    ignore conf;
-    FBuffer.printf buf "// From: %s\n%s\n" filename contents
-  in
-  let buf = FBuffer.create 1024 in
-  List.fold_left fold buf nodejs_code
+  javascript_env, update_session !session_ref package
 
 let finalizing_js_keys ~final_bymap =
   let fold key bypass buf =
@@ -1076,7 +1064,7 @@ let finalize s =
     let js_decorated_files = List.rev s.s_rev_js_parsed_files in
     let js_confs = s.s_js_confs in
     let lang = BslLanguage.js in
-    let update_session session js_code = { session with s_js_code = js_code } in
+    let update_session session js_pack = { session with s_js_pack = js_pack } in
     finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
   in
 
@@ -1085,7 +1073,7 @@ let finalize s =
     let js_decorated_files = List.rev s.s_rev_nodejs_parsed_files in
     let js_confs = s.s_nodejs_conf in
     let lang = BslLanguage.nodejs in
-    let update_session session js_code = { session with s_nodejs_code = js_code } in
+    let update_session session js_pack = { session with s_nodejs_pack = js_pack } in
     finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
   in
 
@@ -1113,16 +1101,9 @@ let finalize s =
   let f_ml_dynloader_loader = s.s_ml_dynloader_loader  in
   let f_ml_dynloader_plugin = s.s_ml_dynloader_plugin  in
 
-  let f_js_code             = s.s_js_code in
-
-  let nodejs_code           =
-    if s.s_options.BI.modular_plugins then
-      collect_exports final_bymap s.s_nodejs_code
-    else
-      export_to_global_namespace s.s_nodejs_code in
-  let f_nodejs_package      = finalizing_nodejs_package nodejs_code in
+  let f_js_pack             = s.s_js_pack              in
   let f_js_keys             = finalizing_js_keys ~final_bymap in
-  let f_nodejs_code         = s.s_nodejs_code          in
+  let f_nodejs_pack         = s.s_nodejs_pack          in
 
   let f_ml_runtime          = s.s_ml_runtime           in
   let f_ml_runtime_mli      = s.s_ml_runtime_mli       in
@@ -1143,8 +1124,8 @@ let finalize s =
     BMP.register_ml_runtime                bmp_session   identification.i_ml_runtime ;
     BMP.register_depends                   bmp_session   depends ;
 
-    BMP.register_js_code                   bmp_session   f_js_code ;
-    BMP.register_nodejs_code               bmp_session   f_nodejs_code ;
+    BMP.register_js_pack                   bmp_session   f_js_pack ;
+    BMP.register_nodejs_pack               bmp_session   f_nodejs_pack ;
     BMP.register_opa_code                  bmp_session   f_opa_code ;
 
     BMP.register_has_server_code           bmp_session   s.s_has_server_code ;
@@ -1165,9 +1146,8 @@ let finalize s =
     f_ml_dynloader_loader ;
     f_ml_dynloader_plugin ;
 
-    f_nodejs_package ;
-    f_js_code ;
-    f_nodejs_code ;
+    f_js_pack ;
+    f_nodejs_pack ;
     f_js_keys ;
 
     f_ml_runtime ;
@@ -1188,48 +1168,48 @@ let plugin finalized_t =
 
 let command_not_found = 127
 
-let js_validator finalized_t =
-  (* TODO: make validation work for anonymous plugins *)
-  let name = Option.get finalized_t.f_options.BI.basename in
-  match finalized_t.f_options.BI.js_validator with
-  | Some (builddir,(executable, extern_files),cmd_options) when finalized_t.f_js_code <> [] ->
-    let pp_str_list = Format.pp_list " " Format.pp_print_string in
-    let pp_extern_files_list = Format.pp_list " " (
-      if executable = "java" then (fun fmt v -> Format.fprintf fmt "--externs %s" v) (* probably google compiler *)
-      else Format.pp_print_string (* probably js command *)
-    )
-    in
-    let pp_file_list = Format.pp_list " " (
-      if executable = "java" then (fun  fmt v -> Format.fprintf fmt "--js %s" v)
-      else Format.pp_print_string
-    )
-    in
+let js_validator finalized_t = ignore finalized_t
+  (* (\* TODO: make validation work for anonymous plugins *\) *)
+  (* let name = Option.get finalized_t.f_options.BI.basename in *)
+  (* match finalized_t.f_options.BI.js_validator with *)
+  (* | Some (builddir,(executable, extern_files),cmd_options) when not JsPackage.is_empty finalized_t.f_js_pack <> [] -> *)
+  (*   let pp_str_list = Format.pp_list " " Format.pp_print_string in *)
+  (*   let pp_extern_files_list = Format.pp_list " " ( *)
+  (*     if executable = "java" then (fun fmt v -> Format.fprintf fmt "--externs %s" v) (\* probably google compiler *\) *)
+  (*     else Format.pp_print_string (\* probably js command *\) *)
+  (*   ) *)
+  (*   in *)
+  (*   let pp_file_list = Format.pp_list " " ( *)
+  (*     if executable = "java" then (fun  fmt v -> Format.fprintf fmt "--js %s" v) *)
+  (*     else Format.pp_print_string *)
+  (*   ) *)
+  (*   in *)
 
-    (* The path were preprocessed JS files will be, if they need validation. *)
-    let path_for_validation (file, _, conf) =
-      match conf with
-      | BslJsConf.Verbatim -> None
-      | BslJsConf.Optimized _ ->
-        let (/) a b = Filename.concat a b in
-        let path =
-          (name ^ ".opp")/(Filename.dirname file)/
-            (Printf.sprintf "%s_%s" name (Filename.basename file)) in
-        Some (if builddir == "" then path else builddir/path) in
+  (*   (\* The path were preprocessed JS files will be, if they need validation. *\) *)
+  (*   let path_for_validation (file, _, conf) = *)
+  (*     match conf with *)
+  (*     | BslJsConf.Verbatim -> None *)
+  (*     | BslJsConf.Optimized _ -> *)
+  (*       let (/) a b = Filename.concat a b in *)
+  (*       let path = *)
+  (*         (name ^ ".opp")/(Filename.dirname file)/ *)
+  (*           (Printf.sprintf "%s_%s" name (Filename.basename file)) in *)
+  (*       Some (if builddir == "" then path else builddir/path) in *)
 
-    let command = Format.sprintf "%s %a %a %a --js_output_file output.js"
-      executable
-      pp_str_list cmd_options
-      pp_extern_files_list extern_files
-      pp_file_list (List.filter_map path_for_validation finalized_t.f_js_code)
-    in
-    OManager.verbose "JS VALIDATION : %s\n" command;
-    let r = Sys.command command in
-    if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then (
-      if r = command_not_found
-      then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable
-      else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command
-    ) else ()
-  | _ -> ()
+  (*   let command = Format.sprintf "%s %a %a %a --js_output_file output.js" *)
+  (*     executable *)
+  (*     pp_str_list cmd_options *)
+  (*     pp_extern_files_list extern_files *)
+  (*     pp_file_list (List.filter_map path_for_validation finalized_t.f_js_code) *)
+  (*   in *)
+  (*   OManager.verbose "JS VALIDATION : %s\n" command; *)
+  (*   let r = Sys.command command in *)
+  (*   if r<>0 && not(finalized_t.f_options.BI.unsafe_js) then ( *)
+  (*     if r = command_not_found *)
+  (*     then warning "%s not found. Cannot validate js part of the plugin. Please install it or deactivate validation (use --help)" executable *)
+  (*     else OManager.error   "code %d:%s: fail to validate js part of the plugin\n" r command *)
+  (*   ) else () *)
+  (* | _ -> () *)
 ;;
 
 
@@ -1258,21 +1238,25 @@ let out_code extract iterator finalized_t =
   out_code_factory fc extract iterator finalized_t
 
 
-let out_js_code i f =
-  let fc (filename, contents, _) = filename, contents in
-  let extract f = f.f_js_code in
-  out_code_factory fc extract i f
+let out_js_code oc f =
+  let pack = f.f_js_pack in
+  JsPackage.pp_code (Format.formatter_of_out_channel oc) pack
 
-let out_nodejs_code i f =
-  let fc (filename, contents, _) = filename, contents in
-  let extract f = f.f_nodejs_code in
-  out_code_factory fc extract i f
+let out_nodejs_code oc f =
+  let pack = f.f_nodejs_pack in
+  JsPackage.pp_code (Format.formatter_of_out_channel oc) pack
 
+let write_nodejs_pack filename f =
+  let pack = JsPackage.set_build_dir f.f_nodejs_pack (Filename.dirname filename)  in
+  let pack = JsPackage.set_main pack (Filename.basename filename) in
+  let pack = JsPackage.auto_dependencies
+    ~miss:(OManager.warning ~wclass:WarningClass.bsl_register
+              "Dependency to @{<brigth>%s@} was auto added") pack in
+  JsPackage.write pack
 
 let out_opa_code i f =
   let extract f = f.f_opa_code in
   out_code extract i f
-
 
 let out_opa_interface i f =
   let extract f = f.f_opa_interface in
@@ -1291,10 +1275,6 @@ let out_fbuffer extract oc f =
 let get_opt o = match o with
   | None -> raise Not_found
   | Some x -> x
-
-let out_nodejs_package oc =
-  let extract f = f.f_nodejs_package in
-  out_fbuffer extract oc
 
 let out_js_keys oc =
   let extract f = f.f_js_keys in

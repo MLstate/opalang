@@ -487,32 +487,16 @@ let make_iterator rename =
   in
   { BR.output = output }
 
-let output_package_json opt fs =
-  let main = Filename.basename fs.nodejspackage in
-  let package_desc = JsUtils.basic_package_json
-    ~version:opt.package_version fs.opp_dir main in
-  match
-    File.pp_output fs.package_json
-      Format.pp_print_string package_desc
-  with
-  | None -> ()
-  | Some error ->
-    OManager.error "Couldn't write package.json: %s\n" error
-
 (* after finalization of register session, actually produce files *)
 let files_generation (opt : options) (fs : files) (fin : BR.finalized_t) =
-  let iterator_js_code        = make_iterator (js_code opt)       in
   let iterator_opa_code       = make_iterator (opa_code opt)      in
   let iterator_opa_interface  = make_iterator (opa_interface opt) in
 
-  BR.out_js_code              iterator_js_code                fin;
-  BR.out_nodejs_code          iterator_js_code                fin;
   BR.out_opa_code             iterator_opa_code               fin;
   BR.out_opa_interface        iterator_opa_interface          fin;
 
   if not (List.is_empty fs.nodejs_files) then (
-    output fs.nodejspackage   BR.out_nodejs_package           fin;
-    output_package_json opt fs;
+    BR.write_nodejs_pack fs.nodejspackage                     fin;
   );
 
   output fs.jskeys            BR.out_js_keys                  fin;

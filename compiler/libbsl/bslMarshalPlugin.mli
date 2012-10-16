@@ -146,8 +146,8 @@ val register_ml_runtime             : session -> module_name -> unit
 val register_depends                : session -> module_name list -> unit
 
 val register_opa_code               : session -> (filename * contents) list -> unit
-val register_js_code                : session -> (filename * contents * BslJsConf.conf) list -> unit
-val register_nodejs_code            : session -> (filename * contents * BslJsConf.conf) list -> unit
+val register_js_pack                : session -> JsPackage.t -> unit
+val register_nodejs_pack            : session -> JsPackage.t -> unit
 
 val register_has_server_code        : session -> bool -> unit
 
