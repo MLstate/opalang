@@ -699,7 +699,8 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
          sure that nothing will go wrong *)
       match implementation with
       | DJ.Regular name ->
-        let ki = JsCons.Ident.native_global (env_rp_implementation env skey) in
+        let ki = JsCons.Ident.native_global ~pure:tags.BslTags.pure
+          (env_rp_implementation env skey) in
         let orig_ident = JsIdent.to_string name in
         if StringMap.mem orig_ident renaming then
           (* FIXME: Since all modules of a plugin share the same
