@@ -1906,4 +1906,92 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_bopt("skip_status", skip_status)
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
 
+/**
+ * Users lookup
+ *
+ * Returns fully-hydrated user objects for up to 100 users per request, as specified by comma-separated values passed to the user_id and/or screen_name parameters.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param credentials The user credentials.
+ */
+  users_lookup(user, include_entities:option(bool), credentials) =
+    path = "/1.1/users/lookup.json"
+    params =
+      add_user(user, [])
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_users)
+
+/**
+ * Users show
+ *
+ * Returns a variety of information about the user specified by the required user_id or screen_name parameter.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param credentials The user credentials.
+ */
+  users_show(user, include_entities:option(bool), credentials) =
+    path = "/1.1/users/show.json"
+    params =
+      add_user(user, [])
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Users search
+ *
+ * Provides a simple, relevance-based search interface to public user accounts on Twitter.
+ *
+ * @param q The search query to run against people search.
+ * @param page Specifies the page of results to retrieve.
+ * @param count The number of potential user results to retrieve per page. This value has a maximum of 20.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param credentials The user credentials.
+ */
+  users_search(q, page:option(int), count:option(int), include_entities:option(bool), credentials) =
+    path = "/1.1/users/search.json"
+    params =
+      [("q",q)]
+      |> add_iopt("page", page)
+      |> add_iopt("count", count)
+      |> add_bopt("include_entities", include_entities)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_users)
+
+/**
+ * Users contributees
+ *
+ * Returns a collection of users that the specified user can "contribute" to.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ */
+  users_contributees(user, include_entities:option(bool), skip_status:option(bool), credentials) =
+    path = "/1.1/users/contributees.json"
+    params =
+      add_user(user, [])
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_users)
+
+/**
+ * Users contributors
+ *
+ * Returns a collection of users who can contribute to the specified account.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ */
+  users_contributors(user, include_entities:option(bool), skip_status:option(bool), credentials) =
+    path = "/1.1/users/contributors.json"
+    params =
+      add_user(user, [])
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_users)
+
 }}
