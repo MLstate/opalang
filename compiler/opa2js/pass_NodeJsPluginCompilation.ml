@@ -211,47 +211,40 @@ and project_lambda_opa2js_cps level gamma args ret expr =
        uncps cpse
     ]
 
+(* expr.length == arity
+   ? function(..., k){return_(k, expr(...))}
+   : function(..., k){return expr(..., function(r){return_(k, r)})}
+*)
+and project_lambda_js2opa_cps level gamma args ret expr =
+  let nb, _proj, rparams, rargs = project_lambda_args level gamma args (`js2opa `cps) in
+  let k = genid level (nb+1) in
+  let params = List.rev (k::rparams) in
+  let cpsjs =
+    let args = List.rev ((uncont_native level gamma k ret)::rargs) in
+    CE.function_ None params [CS.return (CE.call expr args)]
+  in
+  let nocpsjs =
+    let args = List.rev rargs in
+    let _, expr = project (level+1) gamma (CE.call expr args) ret (`js2opa `no) in
+    CE.function_ None params [
+      CS.expr (CE.call (CE.native_global "return_") [(CE.ident k); expr])
+    ]
+  in
+  true,
+  CE.cond
+    (CE.equality (CE.dot expr "length") (CE.int (List.length args)))
+    nocpsjs
+    cpsjs
+
 and project_lambda level gamma args (ret:QmlAst.ty) expr way =
-  let nb, proj, rparams, rargs = project_lambda_args level gamma args way in
   match way with
-  | `opa2js `cps ->
-      project_lambda_opa2js_cps level gamma args ret expr
+  | `opa2js `cps -> project_lambda_opa2js_cps level gamma args ret expr
 
-  | `js2opa `cps ->
-      (* expr.length == arity
-         ? function(..., k){return_(k, expr(...))}
-         : function(..., k){return expr(..., function(r){return_(k, r)})}
-      *)
-      let k = genid level (nb+1) in
-      let params = List.rev (k::rparams) in
-      let cpsjs =
-        let args = List.rev ((uncont_native level gamma k ret)::rargs) in
-        CE.function_ None params [CS.return (CE.call expr args)]
-      in
-      let nocpsjs =
-        let args = List.rev rargs in
-        let _, expr = project (level+1) gamma (CE.call expr args) ret (`js2opa `no) in
-        CE.function_ None params [
-          CS.expr (CE.call (CE.native_global "return_") [(CE.ident k); expr])
-        ]
-      in
-      true,
-      CE.cond
-        (CE.equality (CE.dot expr "length") (CE.int (List.length args)))
-        nocpsjs
-        cpsjs
+  | `js2opa `cps -> project_lambda_js2opa_cps level gamma args ret expr
 
-  | `opa2js `no
-  | `js2opa `no ->
-      (* function(...){return proj(expr(...))} *)
-      let p, ret = project (level+1) gamma
-        (CE.call ~pure:false expr (List.rev rargs)) ret
-        (rev_way way)
-      in
-      let proj = p || proj in
-      proj,
-      if proj then CE.function_ None (List.rev rparams) [CS.return ret]
-      else expr
+  | `opa2js `no -> project_lambda_opa2js_cps level gamma args ret expr
+
+  | `js2opa `no -> project_lambda_js2opa_cps level gamma args ret expr
 
 and project_option level gamma expr ty way =
   true,
@@ -324,8 +317,9 @@ and project level gamma expr (ty:QmlAst.ty) way =
       project level gamma expr ty way
 
   | Q.TypeSum _
-  | Q.TypeSumSugar _ as ty ->
-      Format.eprintf "FIXME NO PROJECTION %a\n%!" QmlPrint.pp#ty ty;
+  | Q.TypeSumSugar _ as _ty ->
+      (* TODO!?: No projection on sum type but do we really want a projection of
+         sum types *)
       false, expr
 
 let top_lambda gamma args ret cps_info =
@@ -337,11 +331,11 @@ let top_lambda gamma args ret cps_info =
   match cps_info with
   | `unskipped cps ->
       (* function(..., k){
-           if (k==undefined){
-             return (uncps(expr))(...);
-           } else {
-             return expr(..., cont_native(k))}
-           }
+         if (k==undefined){
+         return (uncps(expr))(...);
+         } else {
+         return expr(..., cont_native(k))}
+         }
          }
       *)
       begin match project_lambda_opa2js_cps 0 gamma args ret (CE.exprident cps) with
