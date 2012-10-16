@@ -10,3 +10,4 @@ compiler/jslang/JsLex
 compiler/jslang/JsParse
 compiler/jslang/JsUtils
 compiler/jslang/JsAstRuntime
+compiler/jslang/JsPackage

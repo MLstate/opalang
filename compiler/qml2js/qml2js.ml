@@ -17,10 +17,10 @@
 *)
 
 (**
-   Common library for any Js compiler
-
    @author Mathieu Barbin
    @author Maxime Audouin
+   @author Arthur Azevedo de Amorim
+   @author Quentin Bourgerie
 *)
 
 (* depends *)
@@ -297,7 +297,7 @@ struct
           | _ -> expr)
         code
 
-  let compilation_generation env_opt env_bsl plugin_requires
+  let compilation_generation ?package env_opt env_bsl plugin_requires
       bundled_plugin env_js_input =
     let js_init =
       if env_opt.modular_plugins then
@@ -319,31 +319,28 @@ struct
         | `server (name, _) -> Some (require_stm None name)
         | _ -> None
       ) env_opt.extra_lib in
-
-    (* Add needed plugins *)
-    let plugin_requires = List.map (fun plugin_name ->
-      require_stm (Some ("__opa_" ^ plugin_name)) (plugin_name ^ ".opp")
-    ) plugin_requires in
-
-    let requires = runtime_requires @ plugin_requires in
-    let print_content fmt =
-      Format.fprintf fmt "%a\n%s%a\n"
-        JsPrint.pp_min#code requires
-        (Option.default "" bundled_plugin)
-        JsPrint.pp_min#code js_code
+    let plugin_requires =
+      List.map
+        (fun plugin_name ->
+           require_stm (Some ("__opa_" ^ plugin_name)) (plugin_name ^ ".opp")
+        ) plugin_requires
     in
-    let filename = "a.js" in
-    let build_dir = env_opt.compilation_directory in
-    OManager.verbose "create/enter directory @{<bright>%s@}" build_dir ;
-    let success = File.check_create_path build_dir in
-    if not success then
-     OManager.error "cannot create or enter in directory @{<bright>%s@}"
-       build_dir;
-    write_main env_opt filename print_content;
-    write_readme env_opt;
-    match ObjectFiles.compilation_mode () with
-    | `compilation -> write_package_json env_opt
-    | _ -> ()
+    let js_code = runtime_requires @ plugin_requires @ js_code in
+
+    let package =
+      match package with
+      | None ->
+          let package =
+            JsPackage.default ~name:(ObjectFiles.get_current_package_name ()) in
+          JsPackage.set_build_dir package env_opt.compilation_directory
+      | Some package -> package
+    in
+    let package = JsPackage.add_header package
+      (fun fmt () ->
+         Format.pp_print_string fmt (Option.default "" bundled_plugin)
+      )
+    in
+    JsPackage.write package js_code
 
   (* Path to app dependencies, such as its main file and modules *)
   let depends_dir env_opt =
@@ -375,8 +372,8 @@ struct
 
   (* Write shell script incantation to check dependencies,
      set load path, etc *)
-  let write_launcher_header oc env_opt =
-    Printf.fprintf oc "#!/usr/bin/env sh
+  let launcher_header env_opt = fun fmt () ->
+    Format.fprintf fmt "#!/usr/bin/env sh
 
 /*usr/bin/env true
 
@@ -405,8 +402,6 @@ var opa_dependencies = [%s];
     let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
       0o700 (get_target env_opt) in
     let fmt = Format.formatter_of_out_channel oc in
-
-    write_launcher_header oc env_opt;
 
     List.iter (fun (file, content) ->
       Format.fprintf fmt "// From %s\n"
@@ -457,7 +452,7 @@ var opa_dependencies = [%s];
         maybe_install_node_module env_opt path
       )
 
-  let linking_generation_dynamic env_opt env_bsl =
+  let linking_generation_dynamic env_opt env_bsl plugin_requires loaded_bsl env_js_input =
     (* "Dynamic" here is somewhat of a misnomer. Compared to "static"
        mode, where we produce just a single file, what we actually do
        is the following:
@@ -483,24 +478,18 @@ var opa_dependencies = [%s];
        file with "requires" for the dependencies.
 
     *)
-
-    if needs_package_install env_bsl then
-      install_dependencies env_opt env_bsl;
-    let oc = open_out_gen [Open_wronly; Open_creat; Open_trunc]
-      0o700 (get_target env_opt) in
-    write_launcher_header oc env_opt;
-    let content = File.content
-      (Filename.concat env_opt.compilation_directory "a.js") in
-    Printf.fprintf oc "%s\n" content;
-    close_out oc
+    let package = JsPackage.default ~name:"link" in
+    let package = JsPackage.set_build_dir package (Filename.dirname env_opt.target) in
+    let package = JsPackage.set_main package (Filename.basename env_opt.target) in
+    compilation_generation ~package env_opt env_bsl plugin_requires loaded_bsl.bundled env_js_input;
+    if needs_package_install env_bsl then install_dependencies env_opt env_bsl
 
   let linking_generation env_opt env_bsl plugin_requires loaded_bsl env_js_input =
-    compilation_generation env_opt env_bsl plugin_requires
-      loaded_bsl.bundled env_js_input;
     if env_opt.static_link then
       linking_generation_static env_opt loaded_bsl env_js_input
-    else
-      linking_generation_dynamic env_opt env_bsl
+    else (
+      linking_generation_dynamic env_opt env_bsl plugin_requires loaded_bsl env_js_input
+    )
 
   let js_generation env_opt env_bsl loaded_bsl env_js_input =
     let plugin_requires = List.filter_map (fun plugin ->
