@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -64,3 +64,11 @@ val process_code :
   QmlAst.annotmap ->
   QmlAst.code ->
   (QmlTypes.gamma * QmlAst.annotmap) * QmlAst.code
+
+
+type env = {
+  modules : QmlAst.expr StringMap.t IdentMap.t;
+  aliases : Ident.t IdentMap.t;
+}
+
+module S : ObjectFiles.S with type t = env *  QmlAst.annotmap
