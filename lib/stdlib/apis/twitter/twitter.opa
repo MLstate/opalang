@@ -46,6 +46,10 @@ type Twitter.failure =
 
 type Twitter.outcome('res) = outcome('res,Twitter.failure)
 
+type Twitter.might_be_paged('a) =
+   { previous_cursor : string next_cursor : string paged : 'a }
+ / { unpaged : 'a }
+
 /**
  * Twitter configuration
  */
@@ -142,6 +146,15 @@ type Twitter.update_options = {
   place_id              : string        /** A place in the world. These IDs can be retrieved from GET geo/reverse_geocode. */
   display_coordinates   : option(bool)  /** Whether or not to put a pin on the exact coordinates a tweet has been sent from. */
   trim_user             : option(bool)  /** When set to either true, t or 1, each tweet returned in a timeline will include a user object including only the status authors numerical ID. */
+}
+
+type Twitter.settings_options = {
+  trend_location_woeid : option(int)
+  sleep_time_enabled   : option(bool)
+  start_sleep_time     : option(int)
+  end_sleep_time       : option(int)
+  time_zone            : string
+  lang                 : string
 }
 
 /**
@@ -375,19 +388,6 @@ type Twitter.tweet = {
   withheld_scope            : string /** When present, indicates whether the content being withheld is the "status" or a "user." */
 }
 
-/**
- * A Twitter social graph
- *
- * Social graphs are given only by get_friends and get_followers. They represent a list aof id and two cursors
- * to access the adjacent pages of the graph. Note that it is more a list (that can be huge for some persons,
- * for instance ) than a true graph.
- */
-type Twitter.social_graph = {
-  previous_cursor : string; /** The cursor to the previous page of the graph. */
-  next_cursor     : string; /** The cursor to the next page of the graph. */
-  ids             : list(string); /** A list of ids corresponding to the requested social graph. */
-}
-
 type Twitter.direct_messages_options = {
   since_id         : string
   max_id           : string
@@ -497,6 +497,7 @@ type Twitter.resources = {
   @private _check_date(date:string) = Parser.try_parse(_check_date_parser, date) ? false
 
   @private get_json_int(json) = match json with | {Int=i} -> i | _ -> -1
+  @private get_json_string(json) = match json with | {String=s} -> s | _ -> ""
   @private get_unknown(name, map) = Map.get(name, map) ? {String = "missing unknown type" }
   @private get_int = API_libs_private.map_get_int
   @private get_float = API_libs_private.map_get_float
@@ -523,6 +524,16 @@ type Twitter.resources = {
        | {none} -> {success=on_ok(json)}
        end
    | _ -> {success=on_ok(json)}
+
+  _check_paged(json, on_paged, on_unpaged) : Twitter.might_be_paged('a) =
+    match json with
+    | {Record=r} ->
+       match (List.assoc("previous_cursor_str",r),List.assoc("next_cursor_str",r)) with
+       | ({some={String=previous_cursor}},{some={String=next_cursor}}) ->
+         ~{previous_cursor next_cursor paged=on_paged(json)}
+       | _ -> {unpaged=on_unpaged(json)}
+       end
+   | _ -> {unpaged=on_unpaged(json)}
 
   get_user_mention(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -737,6 +748,10 @@ type Twitter.resources = {
     json = API_libs_private.parse_json(s)
     _check_errors(json, get_full_user)
 
+  _build_full_users(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_raw_list(_, get_full_user))
+
   get_statuses_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     {
@@ -781,19 +796,6 @@ type Twitter.resources = {
        statuses = get_list("statuses", map, get_statuses_elt)
        search_metadata = get_obj("search_metadata", map, get_search_metadata)
       } : Twitter.search_result))
-
-  _build_social_graph(rawgraph) =
-    loc_to_str(x) = API_libs_private.json_to_string_unsafe(x) ? ""
-    jsgraph = Json.of_string(rawgraph) |> Option.get
-    _check_errors(jsgraph, (jsgraph ->
-      map = JsonOpa.record_fields(jsgraph) ? Map.empty
-      loc_str(name) = get_string(name, map)
-      ids = JsonOpa.to_list(Map.get("ids", map) ? {List = []}:RPC.Json.json) ? []
-      ids = List.map(loc_to_str, ids)
-      { previous_cursor = loc_str("previous_cursor_str");
-        next_cursor = loc_str("next_cursor_str");
-        ids = ids;
-      } : Twitter.social_graph))
 
   get_rate_limit_context(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -940,6 +942,22 @@ type Twitter.resources = {
         trend_location = get_list("trend_location", map, get_full_location_elt)
         use_cookie_personalization = get_bool("use_cookie_personalization", map, false)
       }))
+
+  _build_paged_users(s) : Twitter.outcome(Twitter.might_be_paged(list(Twitter.full_user))) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, _check_paged(_,
+      (json ->
+        map = JsonOpa.record_fields(json) ? Map.empty
+        get_list("users", map, get_full_user)),
+      (json -> get_raw_list(json, get_full_user))))
+
+  _build_paged_ids(s) : Twitter.outcome(Twitter.might_be_paged(list(string))) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, _check_paged(_,
+      (json ->
+        map = JsonOpa.record_fields(json) ? Map.empty
+        get_list("ids", map, get_json_string)),
+      (json -> get_raw_list(json, get_json_string))))
 
   _simple_decoder(data) =
     decode_data =
@@ -1275,7 +1293,7 @@ Twitter(conf:Twitter.configuration) = {{
  * current user.
  * Returns a list of Twitter.tweet objects.
  *
- * @param user The screen name or the unique id of requested user.
+ * @param user The screen name or the unique id of the requested user.
  * @param options Common options of the request [Twitter.timeline_options]
  * @param credentials The user credentials
  */
@@ -1382,14 +1400,14 @@ Twitter(conf:Twitter.configuration) = {{
       add_user(user, [])
       |> add_if("cursor", cursor, (_!=""))
       |> List.cons(("stringify_ids","true"),_) // essential
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_social_graph)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_ids)
 
 /**
  * Get friends
  *
  * This function returns a list of the friends (=the peoples the user follows) of
  * given user. Requires authentication if this user is protected.
- * Returns a Twitter.social_graph object.
+ * Returns a Twitter.paged_ids object.
  *
  * @param user The user id or screen name of the requested user.
  * @param cursor Creates page to navigate among the friends. Useful for users with a lot of friends. Starts with -1.
@@ -1403,7 +1421,7 @@ Twitter(conf:Twitter.configuration) = {{
  *
  * This function returns a list of the followers of given user. Requires
  * authentication if this user is protected.
- * Returns a Twitter.social_graph object.
+ * Returns a Twitter.paged_ids object.
  *
  * @param user The user id or screen name of the requested user.
  * @param cursor Creates page to navigate among the friends. Useful for users with a lot of friends. Starts with -1.
@@ -1439,7 +1457,7 @@ Twitter(conf:Twitter.configuration) = {{
       []
       |> add_if("cursor", cursor, (_!=""))
       |> List.cons(("stringify_ids","true"),_) // essential
-    Twitter_private(c)._get_res("/1.1/friendships/incoming.json", params, credentials, TwitParse._build_social_graph)
+    Twitter_private(c)._get_res("/1.1/friendships/incoming.json", params, credentials, TwitParse._build_paged_ids)
 
 /**
  * Outgoing friendships.
@@ -1454,7 +1472,7 @@ Twitter(conf:Twitter.configuration) = {{
       []
       |> add_if("cursor", cursor, (_!=""))
       |> List.cons(("stringify_ids","true"),_) // essential
-    Twitter_private(c)._get_res("/1.1/friendships/outgoing.json", params, credentials, TwitParse._build_social_graph)
+    Twitter_private(c)._get_res("/1.1/friendships/outgoing.json", params, credentials, TwitParse._build_paged_ids)
 
 /**
  * Show friendship.
@@ -1557,7 +1575,7 @@ Twitter(conf:Twitter.configuration) = {{
  * This function returns the message having the specified id.
  * Returns a Twitter.tweet object.
  *
- * @param id The id of requested message.
+ * @param id The id of the requested message.
  * @param credentials The user credentials
  */
   get_specific_message(id:string, options:Twitter.statuses_options, credentials) =
@@ -1575,7 +1593,7 @@ Twitter(conf:Twitter.configuration) = {{
  * Returns up to 100 of the first retweets of a given tweet.
  * Returns a Twitter.retweet object.
  *
- * @param id The id of requested message.
+ * @param id The id of the requested message.
  * @param options The command options (count, trim_user).
  * @param credentials The user credentials.
  * @returns List of retweets.
@@ -1676,5 +1694,216 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_bopt("include_entities", include_entities)
       |> add_bopt("skip_status", skip_status)
     Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweet)
+
+  default_settings = {
+    trend_location_woeid = none
+    sleep_time_enabled = none
+    start_sleep_time = none
+    end_sleep_time = none
+    time_zone = ""
+    lang = ""
+  } : Twitter.settings_options
+
+/**
+ * Update account settings
+ *
+ * Updates the authenticating user's settings.
+ *
+ * @param credentials The user credentials.
+ */
+  update_account_settings(options:Twitter.settings_options, credentials) =
+    path = "/1.1/account/settings.json"
+    params =
+      []
+      |> add_iopt("trend_location_woeid", options.trend_location_woeid)
+      |> add_bopt("sleep_time_enabled", options.sleep_time_enabled)
+      |> add_iopt("start_sleep_time", options.start_sleep_time)
+      |> add_iopt("end_sleep_time", options.end_sleep_time)
+      |> add_if("time_zone", options.time_zone, (_!=""))
+      |> add_if("lang", options.lang, (_!=""))
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_settings)
+
+  default_profile = {
+    name = ""
+    url = ""
+    location = ""
+    description = ""
+    include_entities = none
+    skip_status = none
+  }
+
+/**
+ * Update account profile
+ *
+ * Sets values that users are able to set under the "Account" tab of their settings page.
+ *
+ * @param options The options for the command
+ * @param credentials The user credentials.
+ */
+  update_account_profile(options, credentials) =
+    path = "/1.1/account/update_profile.json"
+    params =
+      []
+      |> add_if("name", options.name, (_!=""))
+      |> add_if("url", options.url, (_!=""))
+      |> add_if("location", options.location, (_!=""))
+      |> add_if("description", options.description, (_!=""))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+  default_profile_background_image = {
+    image = ""
+    tile = none
+    include_entities = none
+    skip_status = none
+    use = none
+  }
+
+/**
+ * Update account profile background image.
+ *
+ * Updates the authenticating user's profile background image.
+ *
+ * @param options The options for the command
+ * @param credentials The user credentials.
+ */
+  update_account_profile_background_image(options, credentials) =
+    path = "/1.1/account/update_profile_background_image.json"
+    params =
+      []
+      |> add_if("image", options.image, (_!=""))
+      |> add_bopt("tile", options.tile)
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+      |> add_bopt("use", options.use)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+  default_profile_colors = {
+    profile_background_color = ""
+    profile_link_color = ""
+    profile_sidebar_border_color = ""
+    profile_sidebar_fill_color = ""
+    profile_text_color = ""
+    include_entities = none
+    skip_status = none
+  }
+
+/**
+ * Update account profile colors.
+ *
+ * Sets one or more hex values that control the color scheme of the authenticating user's profile page on twitter.com. 
+ *
+ * @param options The options for the command
+ * @param credentials The user credentials.
+ */
+  update_account_profile_colors(options, credentials) =
+    path = "/1.1/account/update_profile_colors.json"
+    params =
+      []
+      |> add_if("profile_background_color", options.profile_background_color, (_!=""))
+      |> add_if("profile_link_color", options.profile_link_color, (_!=""))
+      |> add_if("profile_sidebar_border_color", options.profile_sidebar_border_color, (_!=""))
+      |> add_if("profile_sidebar_fill_color", options.profile_sidebar_fill_color, (_!=""))
+      |> add_if("profile_text_color", options.profile_text_color, (_!=""))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("skip_status", options.skip_status)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+//  default_profile_image = {
+//    filename = ""
+//    content_type = ""
+//    source = ""
+//    include_entities = none
+//    skip_status = none
+//  }
+
+// Needs multipart added to oauth
+/**
+ * Update account profile image.
+ *
+ * Updates the authenticating user's profile image.
+ *
+ * @param options The options for the command
+ * @param credentials The user credentials.
+ */
+//update_account_profile_image(options, credentials) =
+//    path = "/1.1/account/update_profile_image.json"
+//    forms = FbLib.forms([{file=("image",options.filename,options.content_type,options.source)},
+//                         {bopt=("include_entities", options.include_entities)},
+//                         {bopt=("skip_status", options.skip_status)}])
+//    Twitter_private(c)._post_multi(path, forms, credentials, TwitParse._build_full_user)
+
+/**
+ * Blocks list
+ *
+ * Returns a collection of user objects that the authenticating user is blocking.
+ *
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param cursor The cursor page number.
+ * @param credentials The user credentials.
+ */
+  blocks_list(include_entities:option(bool), skip_status:option(bool), cursor:string, credentials) =
+    path = "/1.1/blocks/list.json"
+    params =
+      []
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+      |> add_if("cursor", cursor, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_users)
+
+/**
+ * Blocks ids
+ *
+ * Returns an array of numeric user ids the authenticating user is blocking.
+ *
+ * @param cursor The cursor page number.
+ * @param credentials The user credentials.
+ */
+  blocks_ids(cursor:string, credentials) =
+    path = "/1.1/blocks/ids.json"
+    params =
+      [("stringify_ids", "true")]
+      |> add_if("cursor", cursor, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_ids)
+
+/**
+ * Blocks create.
+ *
+ * Blocks the specified user from following the authenticating user.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ * @returns Twitter.full_user
+ */
+  blocks_create(user, include_entities:option(bool), skip_status:option(bool), credentials) =
+    path = "/1.1/blocks/create.json"
+    params =
+      add_user(user, [])
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Blocks destroy.
+ *
+ * Un-blocks the user specified in the ID parameter for the authenticating user.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ * @returns Twitter.full_user
+ */
+  blocks_destroy(user, include_entities:option(bool), skip_status:option(bool), credentials) =
+    path = "/1.1/blocks/destroy.json"
+    params =
+      add_user(user, [])
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
 
 }}
