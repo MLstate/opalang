@@ -359,7 +359,9 @@ let top_lambda gamma args ret cps_info =
         CS.return (CE.call (CE.exprident cps) args)
       in
       let skip =
-        CS.return (CE.call (CE.exprident skip) (List.rev rargs))
+        let call = CE.call (CE.exprident skip) (List.rev rargs) in
+        let _, ret = project 0 gamma call ret (`opa2js `no) in
+        CS.return ret
       in
       CE.function_ None params
         (finalize [
