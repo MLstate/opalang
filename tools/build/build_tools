@@ -54,6 +54,7 @@ internal opa-translate        	compiler/opa/syntaxHelper.native
 # The name of opa raw executable, following unix guidelines (e.g. firefox distrib)
 # when there is a wraper used to call a raw exe
 internal opa-bin              	 compiler/opa/main.native			lib/opa/bin
+internal opx2js-bin            	 compiler/opx2js/opx2js.native			lib/opa/bin
 
 internal opa_bash_completion  	 tools/bash/bash_completion 			share/opa
 

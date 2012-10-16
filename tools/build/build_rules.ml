@@ -1108,4 +1108,15 @@ rule "opa-both-packages"
   ~stamp:"opa-both-packages.stamp"
   (fun env build -> Nop);
 
+rule "node-packages"
+  ~deps:["opa-node-packages.stamp"]
+  ~stamp:"node-packages.stamp"
+  (fun env build ->
+     let packages = string_list_of_file (all_packages_file true) in
+     Cmd(S([Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
+            get_tool "opx2js-bin";
+            A"--build-dir";A"test"
+           ] @ List.map (fun p -> A p) packages))
+  );
+
 () (* This file should be an expr of type unit *)
