@@ -32,7 +32,7 @@ sig
   val false_ : ?label:Annot.label -> unit -> JsAst.expr
 
   val bool : ?label:Annot.label -> bool -> JsAst.expr
-  val call : ?label:Annot.label -> pure:bool -> JsAst.expr -> JsAst.expr list -> JsAst.expr
+  val call : ?label:Annot.label -> ?pure:bool -> JsAst.expr -> JsAst.expr list -> JsAst.expr
   val cond : ?label:Annot.label -> JsAst.expr -> JsAst.expr -> JsAst.expr -> JsAst.expr
 
   (**

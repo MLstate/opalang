@@ -75,7 +75,7 @@ struct
   let true_ ?label () = bool ?label true
   let false_ ?label () = bool ?label false
 
-  let call ?(label=def_label()) ~pure f args =
+  let call ?(label=def_label()) ?(pure=false) f args =
     J.Je_call (label, f, args, pure)
 
   let comma ?(label=def_label()) list last =
