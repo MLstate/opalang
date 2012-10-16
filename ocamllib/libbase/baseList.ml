@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -76,10 +76,11 @@ let subset_eq ~eq l1 l2 =
   List.for_all (fun e -> List.exists (eq e) l2) l1
 
 let iter_right f l =
-  let rec aux = function
-    | [] -> ()
-    | hd::tl -> f hd ; aux tl
-  in aux l
+  let rec aux k = function
+    | [] -> k ()
+    | hd::tl -> aux (fun () -> f hd ; k()) tl
+  in aux (fun () -> ()) l
+
 let iteri f l =
   ignore (
     List.fold_left (fun acc x -> let () = f x acc in succ acc) 0 l
