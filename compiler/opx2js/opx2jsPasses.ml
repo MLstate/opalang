@@ -94,13 +94,23 @@ let pass_LoadEnvironment k =
               let srenaming = QmlSimpleSlicer.get_renaming package ~side:`server in
               let undot =
                 let {Pass_Undot. modules; aliases} = (fst (RawUndot.load1 package)) in
-                IdentMap.fold (fun a i modules -> IdentMap.add a (IdentMap.find i modules) modules)
+                IdentMap.fold_rev
+                  (fun a i modules ->
+                     try
+                       IdentMap.add a (IdentMap.find i modules) modules
+                     with Not_found ->
+                       (* FIXME : Alias through different packages...? *)
+                       modules
+                  )
                   aliases modules
               in
               let skipped =
                 IdentMap.fold
                   (fun cps skip acc ->
-                     IdentMap.add (IdentMap.find cps srenaming) skip acc)
+                     try
+                       IdentMap.add (IdentMap.find cps srenaming) skip acc
+                     with Not_found -> acc
+                  )
                   (QmlCpsRewriter.get_skipped package)
                   IdentMap.empty
               in
