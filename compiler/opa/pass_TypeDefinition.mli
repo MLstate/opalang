@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -15,10 +15,12 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
+
+module S : ObjectFiles.S with type t = QmlTypes.gamma
+
 (**
    Removes the type definitions from the code and puts them in the gamma
    after checking their validity.
    The first argument is a function for fields registering.
 *)
-
 val process_code : (string -> unit) -> QmlTyper.OfficialTyper.env -> QmlAst.code -> QmlAst.TypeIdentSet.t * QmlTyper.OfficialTyper.env * QmlAst.code * QmlTypes.gamma
