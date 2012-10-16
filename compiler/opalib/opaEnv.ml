@@ -323,11 +323,8 @@ struct
       | `qmljs ->
           js_serialize := `ast;
           QmlAstUtils.Const.set_limits `js
-    let js_back_end_wanted_name = "qmljsimp"
-    let js_back_end_wanted = ref (available_js_back_end_of_string js_back_end_wanted_name)
-    let js_back_end s =
-      js_back_end_wanted := available_js_back_end_of_string s
-
+    let js_back_end_wanted_name = ref "qmljsimp"
+    let js_back_end s = js_back_end_wanted_name := s
     let dump_dbgen_schema = ref false
     let target_qmli = ref ""
     let target_dbgen_schema = ref ""
@@ -692,7 +689,7 @@ struct
           "--js-back-end",
           Arg.Symbol (available_js_back_end_list, js_back_end),
           Printf.sprintf " Select a JS backend between %s (default is %s)"
-            (String.concat ", " available_js_back_end_list) js_back_end_wanted_name
+            (String.concat ", " available_js_back_end_list) !js_back_end_wanted_name
           ;
 
           ("--js-as", Arg.spec_of_assoc js_serialize ["adhoc", `adhoc; "ast", `ast], " Compile the client into a json string, instead of the runtime ast directly");
@@ -819,9 +816,7 @@ struct
       end;
       (** extra settings at the end *)
       extralibs := MutableList.to_list mutable_extralibs;
-      extrajs :=
-        (let module B = (val !js_back_end_wanted : Qml2jsOptions.JsBackend) in
-         B.runtime_libs ~cps:!cps_client);
+      extrajs := [];
       extrapath := MutableList.to_list mutable_extrapath;
       bypass_plugin := MutableList.to_list mutable_bypass_plugin;
       filenames := MutableList.to_list mutable_filenames;
@@ -862,7 +857,15 @@ struct
     opt
 
   (* Should not be called somewhere else than in pass_ArgParse *)
-  let get_options () = check_options {
+  let get_options () =
+    let js_back_end =
+      available_js_back_end_of_string !ArgParser.js_back_end_wanted_name
+    in
+    let extrajs =
+      (let module B = (val js_back_end : Qml2jsOptions.JsBackend) in
+       B.runtime_libs ~cps:!ArgParser.cps_client)
+    in
+    check_options {
     build_dir = !ArgParser.build_dir ;
     run_server_options = Option.map List.rev (!ArgParser.run_server_options) ;
     ocamlc = Lazy.force !ArgParser.Env.ocamlc ;
@@ -875,7 +878,7 @@ struct
     mllopt = MutableList.to_list ArgParser.mllopt ;
 
     back_end = !ArgParser.back_end_wanted ;
-    js_back_end = !ArgParser.js_back_end_wanted ;
+    js_back_end;
     hacker_mode = !ArgParser.hacker_mode ;
     makefile_rule = !ArgParser.makefile_rule ;
     filenames = !ArgParser.filenames;
@@ -902,7 +905,7 @@ struct
     cps_toplevel_concurrency = !ArgParser.cps_toplevel_concurrency ;
     closure = !ArgParser.closure ;
     extralibs = !ArgParser.extralibs ;
-    extrajs = !ArgParser.extrajs ;
+    extrajs;
     extrapath = !ArgParser.extrapath ;
     resname = File.chop_extension !ArgParser.target ;
     target = !ArgParser.target ;
