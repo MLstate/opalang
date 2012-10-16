@@ -133,9 +133,29 @@ let pass_NodeJsPluginGeneration =
        let directory = Filename.concat options.O.build_dir (fst package) in
        if not(File.check_create_path directory) then
          OManager.error "cannot create directory '%s'" directory;
-       let jsfile = Filename.concat directory "main.js"  in
-       match File.pp_output jsfile JsPrint.debug_pp#code code with
-       | None -> PassHandler.make_env options 0
-       | Some msg -> OManager.error "%s" msg
+       let jsfile = "main.js" in
+       let jsonfile = "package.json" in
+       let check_error = function
+         | None -> ()
+         | Some msg -> OManager.error "%s" msg
+       in
+       let json =
+         let open JsonTypes in
+         Record [
+           "name", String (fst package);
+           "version", String BuildInfos.opa_version_name;
+           "homepage", String "http://opalang.org";
+           "bugs", String "https://github.com/MLstate/opalang/issues";
+           "main", String jsfile;
+           "dependencies", Record [
+             (Printf.sprintf "%s.opx" (fst package)), String BuildInfos.opa_version_name;
+           ];
+         ]
+       in
+       check_error (File.pp_output (Filename.concat directory jsfile)
+                      JsPrint.pp#code code);
+       check_error (File.oc_output (Filename.concat directory jsonfile)
+                      JsonPrint.Output.json json);
+       PassHandler.make_env options 0
     )
 
