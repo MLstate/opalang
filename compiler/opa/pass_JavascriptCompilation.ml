@@ -267,7 +267,8 @@ let full_serialize
   (*
     Each plugin is also traduced as a list of [JsSerializer.code_elt]
   *)
-  let rev_ast =
+  let _ = bsl_pp in
+  let _, rev_ast =
     List.fold_left
       (fun rev_ast plugin ->
          let plugin_id = plugin.BPI.self_module_name in
@@ -275,19 +276,21 @@ let full_serialize
          then rev_ast
          else (
            register_plugin plugin_id ;
-           let fold rev_ast (filename, content, conf) =
-             let key_prefix = plugin_id ^ filename in
-             let content = bsl_pp ~name:filename content in
-             match conf with
-             | BslJsConf.Verbatim ->
-                 let code_elt = make_root key_prefix content in
-                 (`unparsed code_elt, key_prefix) :: rev_ast
-             | BslJsConf.Optimized optimized_conf ->
-                 (`parsed (parse_js_content ~optimized_conf ~key_prefix ~filename ~content), key_prefix) :: rev_ast in
-           List.fold_left fold rev_ast plugin.BPI.js_code
+           let fold rev_ast package =
+             JsPackage.fold
+               (fun (i, rev_ast) elt -> i+1, match elt with
+                | JsPackage.Verbatim content ->
+                    let key_prefix = plugin_id ^ (Digest.to_hex (Digest.string content)) in
+                    let code_elt = make_root key_prefix content in
+                    (`unparsed code_elt, key_prefix) :: rev_ast
+                | JsPackage.Code code ->
+                    let key_prefix = Printf.sprintf "%i_%s" i plugin_id in
+                    (`parsed code, key_prefix) :: rev_ast
+               ) rev_ast package
+           in
+           fold rev_ast plugin.BPI.js_pack
          )
-      ) rev_ast bsl_client.BslLib.all_plugins in
-
+      ) (0, rev_ast) bsl_client.BslLib.all_plugins in
   let bsl_and_plugin_ast =
     List.flatten (
       List.filter_map
@@ -296,7 +299,6 @@ let full_serialize
          | `unparsed _ -> None)
         (List.rev_map fst rev_ast)
     ) in
-
   (* compilation of js code *)
   let env_js_input_val_ name =
     try
@@ -320,7 +322,6 @@ let full_serialize
       client.QmlBlender.env
       client.QmlBlender.code
   in
-
   let rev_code = [] in
   let rev_code = List.fold_left
     (fun rev_code (ast,key_prefix) ->
@@ -336,7 +337,6 @@ let full_serialize
                plugin = Some key_prefix;
            } :: rev_code
     ) rev_code (List.rev rev_ast) in
-
   (* 3) client code *)
   let rev_code =
     {JsSerializer.
@@ -344,7 +344,6 @@ let full_serialize
        plugin = None
     } :: rev_code
   in
-
   (* compositionality -- save *)
   let () =
     let t = { S.
@@ -388,13 +387,11 @@ let process
     ~server
     ~client
     =
-
   if client.QmlBlender.code = [] then (
     R.save {S.extralibs = Hashtbl.create 0; S.plugins = Hashtbl.create 0};
     Qml2js.Sugar.dummy_for_opa options.OpaEnv.js_back_end;
     server
   ) else (
-
     let rev_code = full_serialize
       ~options
       ~closure_map
