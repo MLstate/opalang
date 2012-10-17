@@ -176,7 +176,7 @@ let anon_fun file =
 
 
 let usage_msg =
-  !> "@{<bright>%s@}: Bob Opa External Libraries Browser\nUsage: %s [options] [regexps] [bsl-plugins]\n"
+  !> "@{<bright>%s@}: Opa External Libraries Browser\nUsage: %s [options] [regexps] [bsl-plugins]\n"
     (Filename.basename Sys.argv.(0)) (Filename.basename Sys.argv.(0))
 
 
