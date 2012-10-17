@@ -164,6 +164,16 @@ type Twitter.favorites_options = {
   include_entities : option(bool)
 }
 
+type Twitter.list_id = {list_id:string} / {slug:string owner:{owner_id:string} / {owner_screen_name:string}}
+
+type Twitter.lists_options = {
+  since_id : string
+  max_id : string
+  count : int
+  include_entities : option(bool)
+  include_rts : option(bool)
+}
+
 /**
  * Type of Twitter OAuth parameters
  */
@@ -466,6 +476,21 @@ type Twitter.resource = list((string, Twitter.resource_elt))
 type Twitter.resources = {
   rate_limit_context : Twitter.rate_limit_context
   resources : list((string, Twitter.resource))
+}
+
+type Twitter.list = {
+  created_at : string
+  slug : string
+  name : string
+  full_name : string
+  description : string
+  mode : string
+  following : bool
+  user : Twitter.full_user
+  member_count : int
+  subscriber_count : int
+  id : string
+  uri : string
 }
 
 /**
@@ -989,6 +1014,35 @@ type Twitter.resources = {
         map = JsonOpa.record_fields(json) ? Map.empty
         get_list("ids", map, get_json_string)),
       (json -> get_raw_list(json, get_json_string))))
+
+  _build_paged_lists(s) : Twitter.outcome(Twitter.might_be_paged(list(Twitter.list))) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, _check_paged(_,
+      (json ->
+        map = JsonOpa.record_fields(json) ? Map.empty
+        get_list("lists", map, get_twitter_list)),
+      (json -> get_raw_list(json, get_twitter_list))))
+
+  get_twitter_list(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      created_at = get_string("created_at", map)
+      slug = get_string("slug", map)
+      name = get_string("name", map)
+      full_name = get_string("full_name", map)
+      description = get_string("description", map)
+      mode = get_string("mode", map)
+      following = get_bool("following", map, false)
+      user = get_obj("user", map, get_full_user)
+      member_count = get_int("member_count", map)
+      subscriber_count = get_int("subscriber_count", map)
+      id = get_string("id", map)
+      uri = get_string("uri", map)
+    }
+
+  _build_list(s) =
+    json = API_libs_private.parse_json(s)
+    _check_errors(json, get_twitter_list)
 
   _simple_decoder(data) =
     decode_data =
@@ -2126,5 +2180,331 @@ Twitter(conf:Twitter.configuration) = {{
       [("id",id)]
       |> add_bopt("include_entities", include_entities)
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweet)
+
+  // Lists
+
+  @private add_list_id(list_id:Twitter.list_id, list) =
+    List.append(
+      (match list_id with
+       | ~{list_id} -> [("list_id", list_id)]
+       | ~{slug owner} -> [("slug", slug),
+                           match owner with
+                           | {~owner_id} -> ("owner_id", owner_id)
+                           | {~owner_screen_name} -> ("owner_screen_name", owner_screen_name)]),list)
+
+/**
+ * Lists list
+ *
+ * Returns all lists the authenticating or specified user subscribes to, including their own.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ */
+  lists_list(user, credentials) =
+    path = "/1.1/lists/list.json"
+    params = add_user(user, [])
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_users)
+
+  default_lists = {
+    since_id = ""
+    max_id = ""
+    count = 0
+    include_entities = none
+    include_rts = none
+  } : Twitter.lists_options
+
+/**
+ * Lists statuses
+ *
+ * Returns tweet timeline for members of the specified list.
+ *
+ * @param list_id The list ID.
+ */
+  lists_statuses(list_id:Twitter.list_id, options:Twitter.lists_options, credentials) =
+    path = "/1.1/lists/list.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_if("since_id", options.since_id, (_!=""))
+      |> add_if("max_id", options.max_id, (_!=""))
+      |> add_if("count", options.count, (_>0))
+      |> add_bopt("include_entities", options.include_entities)
+      |> add_bopt("include_rts", options.include_rts)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweets)
+
+/**
+ * Lists members destroy
+ *
+ * Removes the specified member from the list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param user The screen name or the unique id of the requested user.
+ */
+  lists_members_destroy(list_id:Twitter.list_id, user:option(Twitter.user), credentials) =
+    path = "/1.1/lists/members/destroy.json"
+    params =
+      add_list_id(list_id, [])
+      |> (l -> if Option.is_some(user) then add_user(Option.get(user),l) else l)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_tweets) // ??? Docs don't say what this returns
+
+/**
+ * Lists memberships
+ *
+ * Returns the lists the specified user has been added to.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param cursor Breaks the results into pages.
+ * @param filter_to_owned_lists When set to true, t or 1, will return just lists the authenticating user owns, and the user represented by user_id or screen_name is a member of.
+ */
+  lists_memberships(user, cursor, filter_to_owned_lists, credentials) =
+    path = "/1.1/lists/memberships.json"
+    params =
+      add_user(user, [])
+      |> add_if("cursor", cursor, (_!=""))
+      |> add_bopt("filter_to_owned_lists", filter_to_owned_lists)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_users)
+
+/**
+ * Lists subscribers
+ *
+ * Returns the subscribers of the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param cursor Breaks the results into pages.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ */
+  lists_subscribers(list_id, cursor, include_entities, skip_status, credentials) =
+    path = "/1.1/lists/subscribers.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_if("cursor", cursor, (_!=""))
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_users)
+
+/**
+ * Lists subscribers create
+ *
+ * Subscribes the authenticated user to the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param credentials The user credentials.
+ */
+  lists_subscribers_create(list_id, credentials) =
+    path = "/1.1/lists/subscribers/create.json"
+    params = add_list_id(list_id, [])
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Lists subscribers show
+ *
+ * Check if the specified user is a subscriber of the specified list. Returns the user if they are subscriber.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ */
+  lists_subscribers_show(list_id:Twitter.list_id, user:Twitter.user, include_entities, skip_status, credentials) =
+    path = "/1.1/lists/subscribers/show.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_user(user,_)
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Lists subscribers destroy
+ *
+ * Unsubscribes the authenticated user from the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param credentials The user credentials.
+ */
+  lists_subscribers_destroy(list_id, credentials) =
+    path = "/1.1/lists/subscribers/destroy.json"
+    params = add_list_id(list_id, [])
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Lists create all
+ *
+ * Adds multiple members to a list, by specifying a comma-separated list of member ids or screen names.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param user The screen name or the unique id of the requested user.
+ * @param credentials The user credentials.
+ */
+  lists_create_all(list_id, user, credentials) =
+    path = "/1.1/lists/create_all.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_user(user,_)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_users)
+
+/**
+ * Lists members show
+ *
+ * Check if the specified user is a member of the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list. (multiple,ids,or,names)
+ * @param user The screen name or the unique id of the requested user.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ */
+  lists_members_show(list_id:Twitter.list_id, user:Twitter.user, include_entities, skip_status, credentials) =
+    path = "/1.1/lists/members/show.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_user(user,_)
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Lists members
+ *
+ * Returns the members of the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param cursor Breaks the results into pages.
+ * @param include_entities The entities node will not be included when set to false.
+ * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
+ * @param credentials The user credentials.
+ */
+  lists_members(list_id, cursor, include_entities, skip_status, credentials) =
+    path = "/1.1/lists/members.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_if("cursor", cursor, (_!=""))
+      |> add_bopt("include_entities", include_entities)
+      |> add_bopt("skip_status", skip_status)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_users)
+
+/**
+ * Lists members create
+ *
+ * Add a member to a list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param user The screen name or the unique id of the requested user.
+ * @param credentials The user credentials.
+ */
+  lists_members_create(list_id, user, credentials) =
+    path = "/1.1/lists/members/create.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_user(user,_)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Lists destroy
+ *
+ * Deletes the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param credentials The user credentials.
+ */
+  lists_destroy(list_id, credentials) =
+    path = "/1.1/lists/destroy.json"
+    params = add_list_id(list_id, [])
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_list)
+
+/**
+ * Lists update
+ *
+ * Updates the specified list.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param name The name for the list.
+ * @param mode Whether your list is public or private. Values can be public or private.
+ * @param description The description to give the list.
+ * @param credentials The user credentials.
+ */
+  lists_update(list_id, name, mode:option({`public`}/{`private`}), description, credentials) =
+    path = "/1.1/lists/update.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_if("name", name, (_!=""))
+      |> (l ->
+          if Option.is_some(mode)
+          then List.cons(("mode",match Option.get(mode) with | {`public`} -> "public" | {`private`} -> "private"),l)
+          else l)
+      |> add_if("description", description, (_!=""))
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_list)
+
+/**
+ * Lists create
+ *
+ * Creates a new list for the authenticated user.
+ *
+ * @param name The name for the list.
+ * @param mode Whether your list is public or private. Values can be public or private.
+ * @param description The description to give the list.
+ * @param credentials The user credentials.
+ */
+  lists_create(name, mode:option({`public`}/{`private`}), description, credentials) =
+    path = "/1.1/lists/create.json"
+    params =
+      []
+      |> add_if("name", name, (_!=""))
+      |> (l ->
+          if Option.is_some(mode)
+          then List.cons(("mode",match Option.get(mode) with | {`public`} -> "public" | {`private`} -> "private"),l)
+          else l)
+      |> add_if("description", description, (_!=""))
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_list)
+
+/**
+ * Lists show
+ *
+ * Returns the specified list.
+ *
+ * @param name The name for the list.
+ * @param mode Whether your list is public or private. Values can be public or private.
+ * @param description The description to give the list.
+ * @param credentials The user credentials.
+ */
+  lists_show(list_id, credentials) =
+    path = "/1.1/lists/show.json"
+    params = add_list_id(list_id, [])
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_list)
+
+/**
+ * Lists subscriptions
+ *
+ * Obtain a collection of the lists the specified user is subscribed to, 20 lists per page by default.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ * @param cursor Breaks the results into pages.
+ * @param count The amount of results to return per page.
+ * @param credentials The user credentials.
+ */
+  lists_subscriptions(user, cursor, count, credentials) =
+    path = "/1.1/lists/subscriptions.json"
+    params =
+      add_user(user, [])
+      |> add_if("cursor", cursor, (_!=""))
+      |> add_if("count", count, (_>0))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_lists)
+
+/**
+ * Lists destroy all
+ *
+ * Removes multiple members from a list, by specifying a comma-separated list of member ids or screen names.
+ *
+ * @param list_id The list ID or the slug/owner combination of the list.
+ * @param user The screen name or the unique id of the requested user.
+ * @param credentials The user credentials.
+ */
+  lists_destroy_all(list_id, user, credentials) =
+    path = "/1.1/lists/destroy_all.json"
+    params =
+      add_list_id(list_id, [])
+      |> add_user(user,_)
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_users) // ?? check return type
 
 }}
