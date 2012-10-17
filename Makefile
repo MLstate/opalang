@@ -36,8 +36,8 @@ include $(BUILD_PATH)/Makefile.bld
 node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
-	$(MAKE) manpages
-	$(MAKE) opa_tools
+	@$(MAKE) manpages
+	@$(MAKE) opa_tools
 
 .PHONY: runtime-libs
 runtime-libs: $(MYOCAMLBUILD)
@@ -62,7 +62,7 @@ stdlib-node: opa-node-packages
 .PHONY: opa_tools
 opa_tools: $(MYOCAMLBUILD)
 ifndef NO_TOOLS
-	$(MAKE) opa-create
+	@$(MAKE) opa-create
 else
 	@echo "Not building tools"
 endif
@@ -74,8 +74,8 @@ distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
-	$(MAKE) manpages
-	$(MAKE) opa_tools
+	@$(MAKE) manpages
+	@$(MAKE) opa_tools
 
 ##
 ## MANPAGES
@@ -84,7 +84,7 @@ distrib: $(MYOCAMLBUILD)
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
-	$(MAKE) -f $(OPALANG_DIR)/tools/manpages/Makefile
+	@$(MAKE) -f $(OPALANG_DIR)/tools/manpages/Makefile
 else
 	@echo "Not building manpages"
 endif
