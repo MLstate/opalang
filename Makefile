@@ -38,9 +38,9 @@ node: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(ALL_TOOLS))
 	@$(MAKE) opa_tools
 
-.PHONY: runtime-libs
-runtime-libs: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) runtime-libs.stamp
+.PHONY: node-runtime-libs
+node-runtime-libs: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) js-runtime-libs.stamp
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
@@ -55,8 +55,8 @@ opa: $(BUILD_DIR)/bin/opa
 opa-node-packages: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) opa-node-packages.stamp
 
-.PHONY: stdlib-node
-stdlib-node: opa-node-packages
+.PHONY: stdlib
+stdlib: opa-node-packages
 
 .PHONY: opa_tools
 opa_tools: $(MYOCAMLBUILD)
