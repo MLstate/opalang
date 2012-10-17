@@ -111,7 +111,7 @@ let process_code extrajs env_bsl is_exported code =
   let opp_requires =
     List.filter_map
       (fun plugin ->
-         if List.is_empty plugin.BslPluginInterface.nodejs_code then None
+         if JsPackage.is_empty plugin.BslPluginInterface.nodejs_pack then None
          else plugin.BslPluginInterface.basename
       ) env_bsl.BslLib.direct_external_plugins
   in
