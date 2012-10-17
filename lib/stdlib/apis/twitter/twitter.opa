@@ -479,18 +479,26 @@ type Twitter.resources = {
 }
 
 type Twitter.list = {
-  created_at : string
-  slug : string
-  name : string
-  full_name : string
-  description : string
-  mode : string
-  following : bool
-  user : Twitter.full_user
-  member_count : int
+  created_at       : string
+  slug             : string
+  name             : string
+  full_name        : string
+  description      : string
+  mode             : string
+  following        : bool
+  user             : Twitter.full_user
+  member_count     : int
   subscriber_count : int
-  id : string
-  uri : string
+  id               : string
+  uri              : string
+}
+
+type Twitter.saved_search = {
+  created_at : string
+  id         : string
+  name       : string
+  position   : string
+  query      : string
 }
 
 /**
@@ -554,7 +562,8 @@ type Twitter.list = {
       message = get_string("message", map)
     } : Twitter.error
 
-  _check_errors(json, on_ok) =
+  _check_errors(s, on_ok) =
+    json = API_libs_private.parse_json(s)
     match json with
     | {Record=r} ->
        match List.assoc("errors",r) with
@@ -645,12 +654,10 @@ type Twitter.list = {
     } : Twitter.tweet
 
   _build_tweet(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_tweet)
+    _check_errors(s, get_tweet)
 
   _build_tweets(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_tweet))
+    _check_errors(s, get_raw_list(_, get_tweet))
 
   get_trend_elt(elt) =
     elt = JsonOpa.record_fields(elt) ? Map.empty
@@ -694,12 +701,10 @@ type Twitter.list = {
     ~{ as_of; created_at; locations; trends } : Twitter.trends
 
   _build_trend_place_response(s:string) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_trends_elt))
+    _check_errors(s, get_raw_list(_, get_trends_elt))
 
   _build_trend_locations_response(s:string) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_full_location_elt))
+    _check_errors(s, get_raw_list(_, get_full_location_elt))
 
   get_metadata(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -784,12 +789,10 @@ type Twitter.list = {
     } : Twitter.full_user
 
   _build_full_user(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_full_user)
+    _check_errors(s, get_full_user)
 
   _build_full_users(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_full_user))
+    _check_errors(s, get_raw_list(_, get_full_user))
 
   get_slug(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -801,12 +804,10 @@ type Twitter.list = {
     } : Twitter.slug
 
   _build_slug(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_slug)
+    _check_errors(s, get_slug)
 
   _build_slugs(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_slug))
+    _check_errors(s, get_raw_list(_, get_slug))
 
   get_statuses_elt(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
@@ -845,8 +846,7 @@ type Twitter.list = {
     } : Twitter.search_metadata
 
   _build_search_response(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, (json ->
+    _check_errors(s, (json ->
       map = JsonOpa.record_fields(json) ? Map.empty
       {
        statuses = get_list("statuses", map, get_statuses_elt)
@@ -878,8 +878,7 @@ type Twitter.list = {
     | _ -> []
 
   _build_rate_limit(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, (json ->
+    _check_errors(s, (json ->
       map = JsonOpa.record_fields(json) ? Map.empty
       {
         rate_limit_context = get_obj("rate_limit_context", map, get_rate_limit_context)
@@ -902,12 +901,10 @@ type Twitter.list = {
     }
 
   _build_message_result(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_message_result)
+    _check_errors(s, get_message_result)
 
   _build_message_results(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_message_result))
+    _check_errors(s, get_raw_list(_, get_message_result))
 
   connection_of_string(s) : Twitter.connection =
     match s with
@@ -938,12 +935,10 @@ type Twitter.list = {
     } : Twitter.friendship
 
   _build_friendship(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_friendship)
+    _check_errors(s, get_friendship)
 
   _build_friendships(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_raw_list(_, get_friendship))
+    _check_errors(s, get_raw_list(_, get_friendship))
 
   get_relation(json) =
     do jlog("get_relation: json={json}")
@@ -969,8 +964,7 @@ type Twitter.list = {
     } : Twitter.relationship
 
   _build_relationship(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, (json ->
+    _check_errors(s, (json ->
       map = JsonOpa.record_fields(json) ? Map.empty
       get_obj("relationship", map, get_relationship)))
 
@@ -983,8 +977,7 @@ type Twitter.list = {
     }
 
   _build_settings(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, (json ->
+    _check_errors(s, (json ->
       map = JsonOpa.record_fields(json) ? Map.empty
       {
         always_use_https = get_bool("always_use_https", map, false)
@@ -1000,24 +993,21 @@ type Twitter.list = {
       }))
 
   _build_paged_users(s) : Twitter.outcome(Twitter.might_be_paged(list(Twitter.full_user))) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, _check_paged(_,
+    _check_errors(s, _check_paged(_,
       (json ->
         map = JsonOpa.record_fields(json) ? Map.empty
         get_list("users", map, get_full_user)),
       (json -> get_raw_list(json, get_full_user))))
 
   _build_paged_ids(s) : Twitter.outcome(Twitter.might_be_paged(list(string))) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, _check_paged(_,
+    _check_errors(s, _check_paged(_,
       (json ->
         map = JsonOpa.record_fields(json) ? Map.empty
         get_list("ids", map, get_json_string)),
       (json -> get_raw_list(json, get_json_string))))
 
   _build_paged_lists(s) : Twitter.outcome(Twitter.might_be_paged(list(Twitter.list))) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, _check_paged(_,
+    _check_errors(s, _check_paged(_,
       (json ->
         map = JsonOpa.record_fields(json) ? Map.empty
         get_list("lists", map, get_twitter_list)),
@@ -1036,13 +1026,28 @@ type Twitter.list = {
       user = get_obj("user", map, get_full_user)
       member_count = get_int("member_count", map)
       subscriber_count = get_int("subscriber_count", map)
-      id = get_string("id", map)
+      id = get_string("id_str", map)
       uri = get_string("uri", map)
     }
 
   _build_list(s) =
-    json = API_libs_private.parse_json(s)
-    _check_errors(json, get_twitter_list)
+    _check_errors(s, get_twitter_list)
+
+  get_saved_search(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      created_at = get_string("created_at", map)
+      id = get_string("id_str", map)
+      name = get_string("name", map)
+      position = get_string("position", map)
+      query = get_string("query", map)
+    }
+
+  _build_saved_search(s) =
+    _check_errors(s, get_saved_search)
+
+  _build_saved_searches(s) =
+    _check_errors(s, get_raw_list(_, get_saved_search))
 
   _simple_decoder(data) =
     decode_data =
@@ -2471,7 +2476,7 @@ Twitter(conf:Twitter.configuration) = {{
   lists_show(list_id, credentials) =
     path = "/1.1/lists/show.json"
     params = add_list_id(list_id, [])
-    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_list)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_list)
 
 /**
  * Lists subscriptions
@@ -2506,5 +2511,56 @@ Twitter(conf:Twitter.configuration) = {{
       add_list_id(list_id, [])
       |> add_user(user,_)
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_users) // ?? check return type
+
+/**
+ * Saved searches list
+ *
+ * Returns the authenticated user's saved search queries.
+ *
+ * @param credentials The user credentials.
+ */
+  saved_searches_list(credentials) =
+    path = "/1.1/saved_searches/list.json"
+    params = []
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_saved_searches)
+
+/**
+ * Saved searches show
+ *
+ * Retrieve the information for the saved search represented by the given id.
+ *
+ * @param id The ID of the saved search.
+ * @param credentials The user credentials.
+ */
+  saved_searches_show(id:string, credentials) =
+    path = "/1.1/saved_searches/show/{id}.json"
+    params = []
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_saved_search)
+
+/**
+ * Saved searches create
+ *
+ * Create a new saved search for the authenticated user.
+ *
+ * @param query The query of the search the user would like to save.
+ * @param credentials The user credentials.
+ */
+  saved_searches_create(query:string, credentials) =
+    path = "/1.1/saved_searches/create.json"
+    params = [("query",query)]
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_saved_search)
+
+/**
+ * Saved searches destroy
+ *
+ * Destroys a saved search for the authenticated user.
+ *
+ * @param id The ID of the saved search.
+ * @param credentials The user credentials.
+ */
+  saved_searches_destroy(id:string, credentials) =
+    path = "/1.1/saved_searches/destroy/{id}.json"
+    params = []
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_saved_search)
 
 }}
