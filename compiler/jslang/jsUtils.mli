@@ -83,3 +83,7 @@ val compare_expr : JsAst.expr -> JsAst.expr -> int
 val compare_statement : JsAst.statement -> JsAst.statement -> int
 
 val compare_code : JsAst.code -> JsAst.code -> int
+
+(** A very conservative approximation of which expressions do observable side
+    effects *)
+val does_side_effects : JsAst.expr -> bool

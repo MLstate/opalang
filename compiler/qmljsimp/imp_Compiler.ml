@@ -203,7 +203,7 @@ let compile
                   let stm = Imp_Inlining.local_inline_stm stm in
                   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:(Printf.sprintf "js_imp_2_%d_local_inline" _n) _outputer [stm]) #<End>;
                   (* cleanup, constant folding, etc to make the code as lightweight as possible *)
-                  let stms = Imp_CleanUp.clean_stm ~use_shortcut_assignment:false stm in
+                  let stms = JsCleanUp.clean_stm ~use_shortcut_assignment:false stm in
                   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:(Printf.sprintf "js_imp_3_%d_cleanup" _n) _outputer stms) #<End>;
                   (* now that the code is as small as it can get, we analyse it to know if it is inlinable
                    * in particular, if inlining inside its body made the code simpler, then we can
@@ -223,7 +223,7 @@ let compile
 
   (* local renaming must be done last, because it generates very tricky code
    * when it squashes variables together *)
-  let js_code = if options.Qml2jsOptions.alpha_renaming then Imp_Renaming.rename js_code else js_code in
+  let js_code = if options.Qml2jsOptions.alpha_renaming then JsRenaming.rename js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "local renaming: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_5_local_renaming" _outputer js_code) #<End>;
   let js_code, sharing_env = Imp_Sharing.process_code ~pass js_code in
@@ -252,7 +252,7 @@ let compile
   in
   #<If:JS_IMP$contains "time"> Printf.printf "code sharing: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_6_code_sharing" _outputer js_code) #<End>;
-  let js_code = if options.Qml2jsOptions.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true js_code else js_code in
+  let js_code = if options.Qml2jsOptions.cleanup then JsCleanUp.clean ~use_shortcut_assignment:true js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "clean up: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_7_cleanup" _outputer js_code) #<End>;
   let js_code =

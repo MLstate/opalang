@@ -162,10 +162,10 @@ let parse_js_content ~optimized_conf ~key_prefix ~filename ~content =
           filename
           JsParse.pp e in
 
-  let parsed_code = if optimized_conf.BslJsConf.localrenaming then Imp_Renaming.rename parsed_code else parsed_code in
+  let parsed_code = if optimized_conf.BslJsConf.localrenaming then JsRenaming.rename parsed_code else parsed_code in
   (* cleanup does not always reaches a fixpoint on the first try, it is worth applying it twice *)
-  let parsed_code = if optimized_conf.BslJsConf.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true parsed_code else parsed_code in
-  let parsed_code = if optimized_conf.BslJsConf.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true parsed_code else parsed_code in
+  let parsed_code = if optimized_conf.BslJsConf.cleanup then JsCleanUp.clean ~use_shortcut_assignment:true parsed_code else parsed_code in
+  let parsed_code = if optimized_conf.BslJsConf.cleanup then JsCleanUp.clean ~use_shortcut_assignment:true parsed_code else parsed_code in
   let parsed_code = List.map JsUtils.globalize_native_ident parsed_code in
   parsed_code
 

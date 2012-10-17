@@ -9,3 +9,4 @@ compiler/qmljsimp/Imp_SumCase
 compiler/qmljsimp/Imp_Inlining
 compiler/qmljsimp/Imp_Cleaning
 compiler/qmljsimp/Imp_Warnings
+compiler/qmljsimp/Imp_Common

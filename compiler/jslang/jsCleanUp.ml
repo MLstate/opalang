@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -341,7 +341,7 @@ let clean_assign ~use_shortcut_assignment stm =
     (fun s ->
        match s with
 
-       | J.Js_expr (_,e) when not (Imp_Common.does_side_effects e) ->
+       | J.Js_expr (_,e) when not (JsUtils.does_side_effects e) ->
            JsCons.Statement.block []
 
        | J.Js_if (label,J.Je_unop(_,J.Ju_not,e),s1,Some s2) ->
@@ -516,7 +516,7 @@ let clean_assign ~use_shortcut_assignment stm =
 
        | J.Je_comma (label,el,e) ->
            (* (side_effect_free_expr, e) -> e *)
-           let el = List.filter Imp_Common.does_side_effects el in
+           let el = List.filter JsUtils.does_side_effects el in
            if el = [] then e else J.Je_comma (label,el,e)
 
        | J.Je_function (label,name_opt,params,body) ->

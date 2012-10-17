@@ -294,3 +294,37 @@ and compare_statement s0 s1 =
   | s0, s1 -> Pervasives.compare s0 s1
 
 and compare_code s0 s1 = List.make_compare compare_statement s0 s1
+
+(* a very conservative approximation of which expressions do observable side
+ * effects *)
+let does_side_effects e =
+  JsWalk.OnlyExpr.exists
+    (function
+     | J.Je_hole _
+     | J.Je_new _
+     | J.Je_call (_,_,_,false) -> true
+     | J.Je_unop (_, ( J.Ju_delete
+                     | J.Ju_add2_pre
+                     | J.Ju_sub2_pre
+                     | J.Ju_add2_post
+                     | J.Ju_sub2_post), _) -> true
+     | J.Je_binop (_, ( J.Jb_assign
+                      | J.Jb_mul_assign
+                      | J.Jb_div_assign
+                      | J.Jb_mod_assign
+                      | J.Jb_add_assign
+                      | J.Jb_sub_assign
+                      | J.Jb_lsl_assign
+                      | J.Jb_lsr_assign
+                      | J.Jb_asr_assign
+                      | J.Jb_and_assign
+                      | J.Jb_xor_assign
+                      | J.Jb_or_assign ), _, _) -> true
+
+     | J.Je_runtime (_, e) -> (
+         match e with
+         | JsAstRuntime.SetDistant _ -> true
+         | JsAstRuntime.TaggedString _ -> false
+       )
+     | _ -> false
+    ) e

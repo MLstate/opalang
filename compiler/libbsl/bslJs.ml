@@ -825,15 +825,15 @@ let build_file ~transform renaming env file =
 
 let apply_conf conf code =
   let code =
-    if conf.BslJsConf.localrenaming then Imp_Renaming.rename code
+    if conf.BslJsConf.localrenaming then JsRenaming.rename code
     else code
   in
   let code =
-    if conf.BslJsConf.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true code
+    if conf.BslJsConf.cleanup then JsCleanUp.clean ~use_shortcut_assignment:true code
     else code
   in
   let code =
-    if conf.BslJsConf.cleanup then Imp_CleanUp.clean ~use_shortcut_assignment:true code
+    if conf.BslJsConf.cleanup then JsCleanUp.clean ~use_shortcut_assignment:true code
     else code in
   let code = List.map JsUtils.globalize_native_ident code in
   code
