@@ -83,7 +83,7 @@ module Args = struct
   let options = [
     ("--database", Arg.spec_fun_of_assoc
        (fun s -> r := Some {engine=s}) assoc,
-     "Select kind of database (db3|mongo|dropbox)");
+     " Select kind of database (db3|mongo|dropbox)");
   ]
 
   let get_engine () = Option.map (fun r -> r.engine) !r
@@ -187,7 +187,7 @@ module Db = struct
       match get_engine() with
       | `db3 -> ref_path_ty tydata
       | `dropbox -> dropbox_engine ()
-      | `mongo -> mongo_engine () 
+      | `mongo -> mongo_engine ()
     in
     QmlAst.TypeName ([tydata; tyengine],
                      (* typ don't use typ with type defined inside stdlib.core*)

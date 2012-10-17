@@ -350,9 +350,9 @@ let pass_CheckOptions unify_backend_name =
        if List.is_empty e.PH.options.O.filenames
          && ObjectFiles.Arg.no_packages ()
        then (
-         OManager.printf "opa.exe: @{<bright>no opa files@}@.";
+         OManager.printf "%s: @{<bright>no opa files given@}@." BuildInfos.opa_command_name;
          OpaEnv.Options.echo_help ();
-         OManager.printf "@[<2>@{<bright>Hint@}:@\nprecise some opa files@]@.";
+         OManager.printf "@[<2>@{<bright>Hint@}:@\nspecify some opa source files to compile@]@.";
          exit 1;
        ) else (
          let filenames = e.PH.options.O.filenames in

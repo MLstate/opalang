@@ -166,5 +166,8 @@ else
     echo "let year = \"$(date +%Y)\""
 fi
 
+# command name
+echo "let opa_command_name = \"opa\""
+
 # release
 echo "let is_release = $IS_RELEASE"

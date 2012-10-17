@@ -438,9 +438,7 @@ struct
     (** Options which refers to (and so depends on, ...) options *)
     let full_help = ref (fun () -> ())
 
-    let command_name = "opa" (* TODO: use buildInfos to know if we are on windows and should add .exe *)
-
-    let synopsis = command_name ^ " [options] source1.opa [source2.opa ...]"
+    let synopsis = BuildInfos.opa_command_name ^ " [options] source1.opa [source2.opa ...]"
 
     let help_menu speclist () =
       let head =
@@ -696,7 +694,7 @@ struct
         Arg.sort (
           Arg.align (
             Arg.add_bash_completion
-	      ~name:command_name
+	      ~name:BuildInfos.opa_command_name
               ~default:(Arg.File "@(opa|cm@(o|a|x|xa|xs)|js|bypass|opack)")
               (standard @ (if BuildInfos.is_release then [] else non_release))
           )
@@ -956,7 +954,7 @@ struct
 
   let write_manpage file =
     Arg.write_simple_manpage
-      ~cmdname:ArgParser.command_name
+      ~cmdname:BuildInfos.opa_command_name
       ~summary:"The Opa compiler"
       ~section:1
       ~centerheader:"Opa Manual"
