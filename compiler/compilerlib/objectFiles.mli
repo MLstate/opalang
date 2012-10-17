@@ -322,3 +322,8 @@ val add_compiler_packages : package_name list -> unit
    Load deps
 *)
 val load_deps : package -> package list
+
+(**
+   Find the path of a package
+*)
+val find_dir : package -> filename
