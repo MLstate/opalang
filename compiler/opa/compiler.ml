@@ -99,7 +99,7 @@ let compile backend_handlers =
   (* INITIALIZATION *****************************)
   PH.init
 
-  |+> ("Welcome", (S3.pass_Welcome available_back_end_list))
+  |+> ("Welcome", (S3.pass_Welcome available_back_end_list unify_backend_name))
 
   |+> ("CheckOptions", (S3.pass_CheckOptions unify_backend_name))
 

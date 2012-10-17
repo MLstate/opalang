@@ -202,7 +202,7 @@ let i18n_template option = option.i18n.I18n.template_opa || option.i18n.I18n.tem
 
 module Options :
 sig
-  val parse_options : string list list -> unit
+  val parse_options : string list list -> (opa_back_end -> opa_back_end) -> unit
   val get_options : unit -> opa_options
   val echo_help : unit -> unit
 
@@ -295,8 +295,8 @@ struct
 	let backtrace = ref false
     let default_back_end = "qmljs"
     let back_end_wanted = ref (Backend default_back_end : opa_back_end)
-    let back_end s =
-      let back_end = Backend s in
+    let back_end unify_backend_name s =
+      let back_end = unify_backend_name (Backend s) in
       back_end_wanted := back_end;
       match back_end with
       | Backend "qmljs" ->
@@ -459,7 +459,7 @@ struct
        (the function is updated just after the definition of the options list) *)
       (* ===== *)
 
-    let speclist available_back_end_list =
+    let speclist available_back_end_list unify_backend_name =
       let standard = (* Please preverse the alphabetical order for lisibility *)
         OManager.Arg.options @
         WarningClass.Arg.options @
@@ -485,8 +485,8 @@ struct
 	  if List.length available_back_end_list > 1 then [
 
 	    let available_back_end_list = List.flatten available_back_end_list in
-            ("--back-end", Arg.Symbol (available_back_end_list, back_end),
-             (Printf.sprintf "Select the backend (default is %s)"
+            ("--back-end", Arg.Symbol (available_back_end_list, (back_end unify_backend_name)),
+             (Printf.sprintf " Select the backend (default is %s)"
 		(default_back_end)));
 	  ] else []
 	) @ [
@@ -700,7 +700,7 @@ struct
           )
         )
 
-  let parse available_back_end_list =
+  let parse available_back_end_list unify_backend_name =
     let anon_fun arg =
         let ext = File.extension arg in
         match ext with
@@ -768,24 +768,24 @@ struct
         let opack_options = Sys.argv.(0) :: (List.rev opack_options) in
         let opack_options = Array.of_list opack_options in
         try
-          Arg.parse_argv ~current:(ref 0) opack_options (speclist available_back_end_list) anon_fun ("")
+          Arg.parse_argv ~current:(ref 0) opack_options (speclist available_back_end_list unify_backend_name) anon_fun ("")
         with
         | Arg.Bad message ->
             OManager.error "error while reading opack file @{<bright>%S@} :@\n%s@" file message
         | Arg.Help _ ->
-            help_menu (speclist available_back_end_list) () ;
+            help_menu (speclist available_back_end_list unify_backend_name) () ;
             OManager.error "error, the opack file @{<bright>%S@} contains the option --help" file
       in
       (** updating options depending on options *)
       let _ =
         opack_file_function := opack_file_rule ;
-        full_help := help_menu (speclist available_back_end_list)
+        full_help := help_menu (speclist available_back_end_list unify_backend_name)
       in
       (** Default opack file *)
       let default_opack = File.concat (Lazy.force File.mlstate_dir) "default.opack" in
       let _ = if File.is_regular default_opack then opack_file_rule default_opack in
       (** Main Command line *)
-      Arg.parse (speclist available_back_end_list) anon_fun "";
+      Arg.parse (speclist available_back_end_list unify_backend_name) anon_fun "";
       (** Print_help **)
       if !print_help then begin
         do_print_help ();
@@ -810,8 +810,8 @@ struct
   end
 
   (* Parse and get options, work with a side effect on module ArgParser *)
-  let parse_options available_back_end_list =
-    ArgParser.parse available_back_end_list;
+  let parse_options available_back_end_list unify_backend_name =
+    ArgParser.parse available_back_end_list unify_backend_name;
     begin
       OpaWalker.Options.disp := match !ArgParser.opa_walker with
       | Some true -> OpaWalker.Options.True
@@ -959,8 +959,8 @@ struct
       ~section:1
       ~centerheader:"Opa Manual"
       ~synopsis:ArgParser.synopsis
-      ~description:"The Opa compiler allows you to compile Opa projects into executable files. Please refer to the online manual on http://doc.opalang.org for a detailed description of the language and its tools.\n"
-      ~options:(ArgParser.speclist [["qmljs"]])
+      ~description:"The Opa compiler allows you to compile Opa projects into executable files. Please refer to the online manual on http://doc.opalang.org/manual for a detailed description of the language and its tools.\n"
+      ~options:(ArgParser.speclist [["qmljs"]] (fun x -> x))
       ~other:[("VERSION", ArgParser.str_version)]
       file
 

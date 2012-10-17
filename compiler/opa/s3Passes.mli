@@ -50,7 +50,7 @@ end
 (**{6 S3 Passes} All value bellow should be type of
    [opa_pass].*)
 
-val pass_Welcome : string list list -> (unit, opa_options, unit, unit) PassHandler.pass
+val pass_Welcome : string list list -> (OpaEnv.opa_back_end -> OpaEnv.opa_back_end) -> (unit, opa_options, unit, unit) PassHandler.pass
 
 val pass_CheckOptions : (OpaEnv.opa_back_end -> OpaEnv.opa_back_end) -> (unit, env_ArgParse) opa_pass
 

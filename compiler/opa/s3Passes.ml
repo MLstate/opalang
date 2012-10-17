@@ -334,10 +334,10 @@ end
 (* AND COMPLETE MLI ***************************************)
 (**********************************************************)
 
-let pass_Welcome available_back_end_list =
+let pass_Welcome available_back_end_list unify_backend_name =
   PassHandler.make_pass
     (fun {PH.env=()} ->
-       OpaEnv.Options.parse_options available_back_end_list;
+       OpaEnv.Options.parse_options available_back_end_list unify_backend_name;
        let options = OpaEnv.Options.get_options () in
        OManager.verbose "Opa version %s" BuildInfos.opa_version_name ;
        OManager.verbose "(c) 2007-%s MLstate, All Rights Reserved." BuildInfos.year;

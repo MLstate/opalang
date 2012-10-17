@@ -50,7 +50,7 @@ let _ = WarningClass.load_set S3Warnings.warning_set
 let _ =
   PH.init
 
-  |+> ("Welcome", S3.pass_Welcome [["qmljs"]])
+  |+> ("Welcome", S3.pass_Welcome [["qmljs"]] (fun x -> x))
 
   |+> ("CheckOptions", S3.pass_CheckOptions Base.identity)
 
