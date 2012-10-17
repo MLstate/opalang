@@ -36,7 +36,6 @@ include $(BUILD_PATH)/Makefile.bld
 node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
-	@$(MAKE) manpages
 	@$(MAKE) opa_tools
 
 .PHONY: runtime-libs
