@@ -1,4 +1,3 @@
-package twitter
 /*
     Copyright © 2011 MLstate
 
@@ -14,8 +13,7 @@ package twitter
  * Twitter modules
  *
  * This file provides the implemented methods of Twitter API
- * IMPORTANT NOTE: This API implementation has been updated to use
- * OAuth but the documentation is not yet fully up to date.
+ * IMPORTANT NOTE: This API implementation uses OAuth.
  *
  * @category web
  * @author Nicolas Glondu, 2010
@@ -25,6 +23,7 @@ package twitter
  * @stability Work in progress
  */
 
+package stdlib.apis.twitter
 import stdlib.web.client
 import stdlib.apis.common
 import stdlib.apis.oauth
@@ -41,11 +40,21 @@ type Twitter.error = {
   message : string
 }
 
+/**
+ * Twitter failure
+ */
 type Twitter.failure =
-   { twitter : list(Twitter.error) }
+   { network : WebClient.failure }
+ / { twitter : list(Twitter.error) }
 
+/**
+ * Twitter outcome
+ */
 type Twitter.outcome('res) = outcome('res,Twitter.failure)
 
+/**
+ * Wrapper type for paged replies.
+ */
 type Twitter.might_be_paged('a) =
    { previous_cursor : string next_cursor : string paged : 'a }
  / { unpaged : 'a }
@@ -66,10 +75,17 @@ type Twitter.credentials = {
   access_secret : string
 }
 
+/**
+ * User definition for Twitter commands, either numerical ID or screen name.
+ * The IDs are strings because they're 64-bit.
+ */
 type Twitter.user =
     { user_id : string } /** Unique identifier of a user */
   / { screen_name : string } /** Screen name of a user */
 
+/**
+ * Twitter result type for some commands.
+ */
 type Twitter.result_type = {mixed} / {recent} / {popular}
 
 /**
@@ -149,49 +165,62 @@ type Twitter.update_options = {
 }
 
 type Twitter.settings_options = {
-  trend_location_woeid : option(int)
-  sleep_time_enabled   : option(bool)
-  start_sleep_time     : option(int)
-  end_sleep_time       : option(int)
-  time_zone            : string
-  lang                 : string
+  trend_location_woeid : option(int) /** The Yahoo! Where On Earth ID to use as the user's default trend location. */
+  sleep_time_enabled   : option(bool) /** When set to true, t or 1, will enable sleep time for the user. */
+  start_sleep_time     : option(int) /** The hour that sleep time should begin if it is enabled. */
+  end_sleep_time       : option(int) /** The hour that sleep time should end if it is enabled. */
+  time_zone            : string /** The timezone dates and times should be displayed in for the user. */
+  lang                 : string /** The language which Twitter should render in for this user. */
 }
 
 type Twitter.favorites_options = {
-  since_id         : string
-  max_id           : string
-  count            : int
-  include_entities : option(bool)
+  since_id         : string /** Returns results with an ID greater than (that is, more recent than) the specified ID. */
+  max_id           : string /** Returns results with an ID less than (that is, older than) or equal to the specified ID. */
+  count            : int /** Specifies the number of records to retrieve. */
+  include_entities : option(bool) /** The entities node will be omitted when set to false. */
 }
 
 type Twitter.reverse_geocode_options = {
-  accuracy    : string
-  granularity : string
-  max_results : int
-  callback    : string
+  accuracy    : string /** A hint on the "region" in which to search. */
+  granularity : string /** This is the minimal granularity of place types to return and must be one of: poi, neighborhood, city, admin or country. */
+  max_results : int /** A hint as to the number of results to return. */
+  callback    : string /** If supplied, the response will use the JSONP format with a callback of the given name. */
 }
 
 type Twitter.geo_search_options = {
-  lat                      : option(float)
-  long                     : option(float)
-  query                    : string
-  ip                       : string
-  granularity              : string
-  accuracy                 : string
-  max_results              : int
-  contained_within         : string
-  attribute_street_address : string
-  callback                 : string
+  lat                      : option(float) /** The latitude to search around. */
+  long                     : option(float) /** The longitude to search around. */
+  query                    : string /** Free-form text to match against while executing a geo-based query, best suited for finding nearby locations by name. */
+  ip                       : string /** An IP address. Used when attempting to fix geolocation based off of the user's IP address. */
+  granularity              : string /** This is the minimal granularity of place types to return and must be one of: poi, neighborhood, city, admin or country. */
+  accuracy                 : string /** A hint on the "region" in which to search. */
+  max_results              : int /** A hint as to the number of results to return. */
+  contained_within         : string /** This is the place_id which you would like to restrict the search results to. */
+  attribute_street_address : string /** This parameter searches for places which have this given street address. */
+  callback                 : string /** If supplied, the response will use the JSONP format with a callback of the given name. */
 }
 
+/**
+ * A Twitter list ID for commands.
+ * Must be either the list ID or the combination of a slug plus a user ID (numerical ID or screen name).
+ */
 type Twitter.list_id = {list_id:string} / {slug:string owner:{owner_id:string} / {owner_screen_name:string}}
 
 type Twitter.lists_options = {
-  since_id : string
-  max_id : string
-  count : int
-  include_entities : option(bool)
-  include_rts : option(bool)
+  since_id         : string /** Returns results with an ID greater than (that is, more recent than) the specified ID. */
+  max_id           : string /** Returns results with an ID less than (that is, older than) or equal to the specified ID. */
+  count            : int /** Specifies the number of results to retrieve per "page." */
+  include_entities : option(bool) /** Entities are ON by default in API 1.1, each tweet includes a node called "entities". */
+  include_rts      : option(bool) /** When set to either true, t or 1, the list timeline will contain native retweets (if they exist) in addition to the standard stream of tweets. */
+}
+
+type Twitter.direct_messages_options = {
+  since_id         : string /** Returns results with an ID greater than (that is, more recent than) the specified ID. */
+  max_id           : string /** Returns results with an ID less than (that is, older than) or equal to the specified ID. */
+  count            : int /** Specifies the number of direct messages to try and retrieve, up to a maximum of 200. */
+  page             : int /** Specifies the page of results to retrieve. */
+  include_entities : option(bool) /** The entities node will not be included when set to false. */
+  skip_status      : option(bool) /** When set to either true, t or 1 statuses will not be included in the returned user objects. */
 }
 
 /**
@@ -263,9 +292,6 @@ type Twitter.full_location = {
 
 /**
  * Twitter trends.
- *
- * Trends on Twitter are all the the words mostly used in messages during a given period.
- * Trends are currently [April 2010] available for hours and days.
  */
 type Twitter.trends = {
   as_of      : string
@@ -350,28 +376,6 @@ type Twitter.slug = {
   users : list(Twitter.full_user)
 }
 
-type Twitter.statuses = {
-  message                 : string
-  metadata                : Twitter.metadata
-  created_at              : string
-  id                      : string
-  text                    : string
-  source                  : string
-  truncated               : bool
-  in_reply_to_status_id   : string
-  in_reply_to_user_id     : string
-  in_reply_to_screen_name : string
-  user                    : Twitter.full_user
-  geo                     : Twitter.coordinates
-  coordinates             : Twitter.coordinates
-  place                   : RPC.Json.json
-  contributors            : RPC.Json.json
-  retweet_count           : int
-  entities                : Twitter.entities
-  favourited              : bool
-  retweeted               : bool
-}
-
 type Twitter.search_metadata = {
   completed_in : float
   max_id       : string
@@ -383,7 +387,7 @@ type Twitter.search_metadata = {
 }
 
 type Twitter.search_result = {
-  statuses        : list(Twitter.statuses)
+  statuses        : list(Twitter.tweet)
   search_metadata : Twitter.search_metadata
 }
 
@@ -433,15 +437,6 @@ type Twitter.tweet = {
   withheld_copyright        : bool /** When present and set to "true", it indicates that this piece of content has been withheld due to a DMCA complaint. */
   withheld_in_countries     : string /** When present, indicates a textual representation of the two-letter country codes this content is withheld from. */
   withheld_scope            : string /** When present, indicates whether the content being withheld is the "status" or a "user." */
-}
-
-type Twitter.direct_messages_options = {
-  since_id         : string
-  max_id           : string
-  count            : int
-  page             : int
-  include_entities : option(bool)
-  skip_status      : option(bool)
 }
 
 type Twitter.message_result = {
@@ -525,24 +520,24 @@ type Twitter.saved_search = {
 }
 
 type Twitter.size = {
-  h : int
-  w : int
+  h      : int
+  w      : int
   resize : string
 }
 
 type Twitter.config = {
   characters_reserved_per_media : int
-  max_media_per_upload : int
-  non_username_paths : list(string)
-  photo_size_limit : int
-  photo_sizes: {
-    large: Twitter.size
-    medium: Twitter.size
-    small: Twitter.size
-    thumb: Twitter.size
+  max_media_per_upload          : int
+  non_username_paths            : list(string)
+  photo_size_limit              : int
+  photo_sizes : {
+    large  : Twitter.size
+    medium : Twitter.size
+    small  : Twitter.size
+    thumb  : Twitter.size
   }
-  short_url_length : int
-  short_url_length_https : int
+  short_url_length              : int
+  short_url_length_https        : int
 }
 
 type Twitter.lang = {
@@ -574,8 +569,8 @@ type Twitter.lang = {
  *
  * If you want to add a method, you should first identify the type of its response,
  * if it does not exist, you should add it. Then create a json parser for it.
- * Once done, add a function in the Facebook module to acces to your work once
- * OPA compiled.
+ * Once done, add a function to the Twitter module to access your work once
+ * OPA has been compiled.
  */
 
 @private TwitParse = {{
@@ -603,7 +598,10 @@ type Twitter.lang = {
   @private get_date(name, map) = Json.to_string(Map.get(name, map) ? {String = "Error in date" })
   @private get_raw_obj(json, get_elt) = get_elt(json)
   @private get_obj(name, map, get_elt) = get_raw_obj((Map.get(name, map)) ? {Record=[]}, get_elt)
-  @private get_raw_list(json, get_elt) = List.map(get_elt, JsonOpa.to_list(json) ? [])
+  @private get_raw_list(json, get_elt) =
+    match json with
+    | {List=_} -> List.map(get_elt, JsonOpa.to_list(json) ? [])
+    | _ -> []
   @private get_list(name, map, get_elt) = get_raw_list(Map.get(name, map) ? {List=[]}, get_elt)
 
   get_error_elt(json) =
@@ -862,30 +860,6 @@ type Twitter.lang = {
   _build_slugs(s) =
     _check_errors(s, get_raw_list(_, get_slug))
 
-  get_statuses_elt(json) =
-    map = JsonOpa.record_fields(json) ? Map.empty
-    {
-      message = get_string("message", map)
-      metadata = get_obj("metadata", map, get_metadata)
-      created_at = get_date("created_at", map)
-      id = get_string("id_str", map)
-      text = get_string("text", map)
-      source = get_string("source", map)
-      truncated = get_bool("truncated", map, false)
-      in_reply_to_status_id = get_string("in_reply_to_status_id_str", map)
-      in_reply_to_user_id = get_string("in_reply_to_user_id_str", map)
-      in_reply_to_screen_name = get_string("in_reply_to_screen_name", map)
-      user = get_obj("user", map, get_full_user)
-      geo = get_obj("geo", map, get_coordinates)
-      coordinates = get_obj("coordinates", map, get_coordinates)
-      place = get_unknown("place", map)
-      contributors = get_unknown("contributors", map)
-      retweet_count  = get_int("retweet_count", map)
-      entities = get_obj("entities", map, get_entities)
-      favourited = get_bool("favourited", map, false)
-      retweeted = get_bool("retweeted", map, false)
-    } : Twitter.statuses
-
   get_search_metadata(json) =
     map = JsonOpa.record_fields(json) ? Map.empty
     {
@@ -902,7 +876,7 @@ type Twitter.lang = {
     _check_errors(s, (json ->
       map = JsonOpa.record_fields(json) ? Map.empty
       {
-       statuses = get_list("statuses", map, get_statuses_elt)
+       statuses = get_list("statuses", map, get_tweet)
        search_metadata = get_obj("search_metadata", map, get_search_metadata)
       } : Twitter.search_result))
 
@@ -994,7 +968,6 @@ type Twitter.lang = {
     _check_errors(s, get_raw_list(_, get_friendship))
 
   get_relation(json) =
-    do jlog("get_relation: json={json}")
     map = JsonOpa.record_fields(json) ? Map.empty
     {
       id = get_string("id_str", map)
@@ -1202,24 +1175,29 @@ type Twitter.lang = {
 
   _wget_generic(path:string, wget_fun, parse_fun) =
     do API_libs_private.apijlog("-- Fetching {_api_host} - {path} \n data --")
-    do jlog("_wget_generic: path={path}")
+    //do jlog("_wget_generic: path={path}")
     (t, res) = Duration.execution_time( -> wget_fun("{_api_host}{path}"))
-    do jlog("_wget_generic: got={res}")
-    do API_libs_private.apijlog("Download: {Duration.in_seconds(t)} seconds")
-    (t, res) = Duration.execution_time( -> parse_fun(res))
-    do jlog("_wget_generic: parsed={res}")
-    do API_libs_private.apijlog("Parsing:  {Duration.in_seconds(t)} seconds")
-    res
+    match res with
+    | {success=res} ->
+      //do jlog("_wget_generic: got={res}")
+      do API_libs_private.apijlog("Download: {Duration.in_seconds(t)} seconds")
+      (t, res) = Duration.execution_time( -> parse_fun(res.content))
+      //do jlog("_wget_generic: parsed={res}")
+      do API_libs_private.apijlog("Parsing:  {Duration.in_seconds(t)} seconds")
+      res
+    | {failure=f} ->
+      //do jlog("_wget_generic: Network failure {f}")
+      {failure={network=f}}
 
   _get_res(path, params, credentials:Twitter.credentials, parse_fun) =
     f(uri) =
-      twOAuth({GET}).get_protected_resource(uri,params,
+      twOAuth({GET}).get_protected_resource_2(uri,params,
                         credentials.access_token,credentials.access_secret);
     _wget_generic(path, f, parse_fun)
 
   _post_res(path, params, credentials:Twitter.credentials, parse_fun) =
     f(uri) =
-      twOAuth({POST}).get_protected_resource(uri,params,
+      twOAuth({POST}).get_protected_resource_2(uri,params,
                         credentials.access_token,credentials.access_secret)
     _wget_generic(path, f, parse_fun)
 
@@ -1252,7 +1230,8 @@ type Twitter.lang = {
  * If you have already worked with the Facebook Opa API, the mechanism used here
  * is the same.
  *
- * Note: An account on Twitter is required to post messages.
+ * Note: From the Twitter API 1.1 onwards, all endpoints are authenticated so you
+ * need a Twitter account to access any of these functions.
  *
  * {1 What if I need more?}
  *
@@ -1368,7 +1347,7 @@ Twitter(conf:Twitter.configuration) = {{
     d -> Date.to_formatted_string(printer,d)
   search(request, options:Twitter.search_options, credentials) : Twitter.outcome(Twitter.search_result) =
     path = "/1.1/search/tweets.json"
-    do jlog("yyyymmdd={yyyymmdd_of_date(Date.now())}")
+    //do jlog("yyyymmdd={yyyymmdd_of_date(Date.now())}")
     params =
       [("q", request)]
       |> add_if("geocode", options.geocode, (_!=""))
@@ -2379,7 +2358,7 @@ Twitter(conf:Twitter.configuration) = {{
       add_user(user, [])
       |> add_if("cursor", cursor, (_!=""))
       |> add_bopt("filter_to_owned_lists", filter_to_owned_lists)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_users)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_paged_lists)
 
 /**
  * Lists subscribers
@@ -2626,6 +2605,8 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_user(user,_)
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_users) // ?? check return type
 
+  // Saved Searches
+
 /**
  * Saved searches list
  *
@@ -2676,6 +2657,8 @@ Twitter(conf:Twitter.configuration) = {{
     path = "/1.1/saved_searches/destroy/{id}.json"
     params = []
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_saved_search)
+
+  // Places & Geo
 
 /**
  * Geo id place
@@ -2811,6 +2794,8 @@ Twitter(conf:Twitter.configuration) = {{
     path = "/1.1/users/report_spam.json"
     params = add_user(user, [])
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+  // Help
 
 /**
  * Help configuration
