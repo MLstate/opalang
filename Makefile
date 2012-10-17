@@ -84,7 +84,7 @@ distrib: $(MYOCAMLBUILD)
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
 ifndef NO_MANPAGES
-	$(MAKE) -C $(OPALANG_DIR)/tools/manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../../$(BUILD_DIR)
+	$(MAKE) -f $(OPALANG_DIR)/tools/manpages/Makefile
 else
 	@echo "Not building manpages"
 endif

@@ -4,15 +4,15 @@
 # build the list of target binaries to be documented:
 #   bin/* and lib/opa/bin/* together with inclusions and exclusions
 # --
-BLDDIR ?= ../../_build
+BUILD_DIR ?= _build
 OCAMLBUILD ?= bld
 
-BINDIR=$(BLDDIR)/bin
+BINDIR=$(BUILD_DIR)/bin
 EXCLUDE=opa-bin mlstate_platform genproto ocamlbase.top ppdebug-opa ppjs
 INCLUDE=opa
-BINS=$(INCLUDE) $(filter-out $(EXCLUDE), $(notdir $(wildcard $(BLDDIR)/bin/* $(BLDDIR)/lib/opa/bin/*)))
+BINS=$(INCLUDE) $(filter-out $(EXCLUDE), $(notdir $(wildcard $(BUILD_DIR)/bin/* $(BUILD_DIR)/lib/opa/bin/*)))
 
-TARGETDIR=$(BLDDIR)/man/man1
+TARGETDIR=$(BUILD_DIR)/man/man1
 TARGETS=$(addprefix $(TARGETDIR)/, $(addsuffix .1, $(BINS)))
 
 all: $(TARGETS)
@@ -37,18 +37,18 @@ $(TARGETDIR)/%.1: %.man
 # --
 # second run specific manpage generation programs
 # --
-$(BLDDIR)/compiler/opa/gen_opa_manpage.native: ../../compiler/opa/gen_opa_manpage.ml
-	cd ../..; $(OCAMLBUILD) compiler/opa/gen_opa_manpage.native
+$(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native: $(OPALANG_DIR)/compiler/opa/gen_opa_manpage.ml
+	$(OCAMLBUILD) $(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native
 
-$(TARGETDIR)/opa.1: $(BLDDIR)/compiler/opa/gen_opa_manpage.native
+$(TARGETDIR)/opa.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 	gzip -f --best $@
 
-$(BLDDIR)/compiler/opatop/gen_opatop_manpage.native: ../../compiler/opatop/gen_opatop_manpage.ml
-	cd ../..; $(OCAMLBUILD) compiler/opatop/gen_opatop_manpage.native
+$(BUILD_DIR)/$(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native: $(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.ml
+	$(OCAMLBUILD) $(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native
 
-$(TARGETDIR)/opatop.1: $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native
+$(TARGETDIR)/opatop.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native
 	@mkdir -p $(TARGETDIR)
 	$< > $@
 	gzip -f --best $@
@@ -56,16 +56,16 @@ $(TARGETDIR)/opatop.1: $(BLDDIR)/compiler/opatop/gen_opatop_manpage.native
 # --
 # third run our hackish conversion tool help->manpage
 # --
-GENMAN=$(BLDDIR)/tools/manpages/genman.native
+GENMAN=$(BUILD_DIR)/$(OPALANG_DIR)/tools/manpages/genman.native
 
-$(GENMAN): genman.ml
-	cd ../..; $(OCAMLBUILD) -cflags "-w -14" tools/manpages/genman.native
+$(GENMAN): $(OPALANG_DIR)/tools/manpages/genman.ml
+	$(OCAMLBUILD) -cflags "-w -14" $(OPALANG_DIR)/tools/manpages/genman.native
 
-$(TARGETDIR)/%.help: $(BLDDIR)/bin/%
+$(TARGETDIR)/%.help: $(BUILD_DIR)/bin/%
 	@mkdir -p $(TARGETDIR)
 	$< --help >$@ 2>&1 ||true
 
-$(TARGETDIR)/%.help: $(BLDDIR)/lib/opa/bin/%
+$(TARGETDIR)/%.help: $(BUILD_DIR)/lib/opa/bin/%
 	@mkdir -p $(TARGETDIR)
 	$< --help >$@ 2>&1 ||true
 
