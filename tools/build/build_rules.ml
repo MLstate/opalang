@@ -568,7 +568,6 @@ rule "opa js run-time libraries"
   )
   ~stamp:"js-runtime-libs.stamp"
   (fun _env _build ->
-     Printf.printf "opa js run-time libraries\n";
      let mllibs = List.filter (fun f -> Pathname.check_extension f "cmxa") opacomp_deps_js in
      let mllibs = List.map Pathname.remove_extension mllibs in
      let js_deps =
@@ -577,9 +576,7 @@ rule "opa js run-time libraries"
        List.map (fun f -> P (build_dir / f -.- !Options.ext_lib)) mllibs in
      let copylibs = List.map copy_lib_to_runtime mllibs in
      Seq[
-       Cmd(S[Sh"rm"; A"-rf"; P (build_dir / opa_libs_dir)]);
        Cmd(S[Sh"mkdir"; A"-p"; P (build_dir / opa_libs_dir)]);
-       Cmd(S[Sh"rm"; A"-rf"; P (build_dir / opa_share_dir)]);
        Cmd(S[Sh"mkdir"; A"-p"; P (build_dir / opa_share_dir)]);
        Cmd(S(link_cmd :: js_deps @ [ P (build_dir / opa_libs_dir) ]));
        Cmd(S(link_cmd :: mllibs_local @ [ P (build_dir / opa_libs_dir) ]));
