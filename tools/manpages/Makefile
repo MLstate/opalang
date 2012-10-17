@@ -38,7 +38,7 @@ $(TARGETDIR)/%.1: %.man
 # second run specific manpage generation programs
 # --
 $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native: $(OPALANG_DIR)/compiler/opa/gen_opa_manpage.ml
-	$(OCAMLBUILD) $(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native
+	$(OCAMLBUILD) $(OPALANG_PREFIX)compiler/opa/gen_opa_manpage.native
 
 $(TARGETDIR)/opa.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
@@ -59,7 +59,7 @@ $(TARGETDIR)/opatop.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opatop/gen_opatop_ma
 GENMAN=$(BUILD_DIR)/$(OPALANG_DIR)/tools/manpages/genman.native
 
 $(GENMAN): $(OPALANG_DIR)/tools/manpages/genman.ml
-	$(OCAMLBUILD) -cflags "-w -14" $(OPALANG_DIR)/tools/manpages/genman.native
+	$(OCAMLBUILD) -cflags "-w -14" $(OPALANG_OREFIX)tools/manpages/genman.native
 
 $(TARGETDIR)/%.help: $(BUILD_DIR)/bin/%
 	@mkdir -p $(TARGETDIR)
