@@ -132,9 +132,7 @@ let funproj, tmpproj, setproj, getprojs =
           match e with
           | `fun_ (_,e) -> e::acc
           | `noproj -> acc
-          | `tmp i ->
-              Format.eprintf "%a\n" QmlPrint.pp#ident i;
-              acc
+          | `tmp _ -> acc
        ) tbl [] in
      Hashtbl.clear tbl;
      x)

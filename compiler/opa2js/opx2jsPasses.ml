@@ -130,32 +130,30 @@ let pass_NodeJsPluginGeneration =
     (fun e ->
        let options = e.PH.options in
        let {code; package} = e.PH.env in
-       let directory = Filename.concat options.O.build_dir (fst package) in
-       if not(File.check_create_path directory) then
-         OManager.error "cannot create directory '%s'" directory;
-       let jsfile = "main.js" in
-       let jsonfile = "package.json" in
-       let check_error = function
-         | None -> ()
-         | Some msg -> OManager.error "%s" msg
+       let name = fst package in
+       let build_dir = Filename.concat options.O.build_dir name in
+       let jsp = JsPackage.default ~name in
+       let jsp = JsPackage.set_build_dir jsp build_dir in
+       let jsp = JsPackage.add_code jsp code in
+       let json = Filename.concat (ObjectFiles.find_dir package) "package.json" in
+       let json = File.content json in
+       let version =
+         match Json_utils.from_string json with
+         | JsonTypes.Record l ->
+             begin match List.find (fun (name, _) -> name = "version") l with
+             | _, JsonTypes.String s -> s
+             | _ -> raise Not_found
+             end
+         | _ -> raise Not_found
        in
-       let json =
-         let open JsonTypes in
-         Record [
-           "name", String (fst package);
-           "version", String BuildInfos.opa_version_name;
-           "homepage", String "http://opalang.org";
-           "bugs", String "https://github.com/MLstate/opalang/issues";
-           "main", String jsfile;
-           "dependencies", Record [
-             (Printf.sprintf "%s.opx" (fst package)), String BuildInfos.opa_version_name;
-           ];
-         ]
+       let jsp = JsPackage.set_version jsp version in
+       let jsp = JsPackage.add_dependencies jsp [(Printf.sprintf "%s.opx" name), version] in
+       let jsp = JsPackage.add_file jsp ("README.md", Printf.sprintf "\
+# %s
+This is a generated interface from Opa package %s.opx@%s
+" name name version)
        in
-       check_error (File.pp_output (Filename.concat directory jsfile)
-                      JsPrint.pp#code code);
-       check_error (File.oc_output (Filename.concat directory jsonfile)
-                      JsonPrint.Output.json json);
+       JsPackage.write jsp;
        PassHandler.make_env options 0
     )
 
