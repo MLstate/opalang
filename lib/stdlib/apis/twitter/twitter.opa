@@ -524,6 +524,33 @@ type Twitter.saved_search = {
   query      : string
 }
 
+type Twitter.size = {
+  h : int
+  w : int
+  resize : string
+}
+
+type Twitter.config = {
+  characters_reserved_per_media : int
+  max_media_per_upload : int
+  non_username_paths : list(string)
+  photo_size_limit : int
+  photo_sizes: {
+    large: Twitter.size
+    medium: Twitter.size
+    small: Twitter.size
+    thumb: Twitter.size
+  }
+  short_url_length : int
+  short_url_length_https : int
+}
+
+type Twitter.lang = {
+  code   : string
+  name   : string
+  status : string
+}
+
 /**
  * @author Nicolas Glondu, March 2010
  * @category Twitter ?
@@ -1092,6 +1119,49 @@ type Twitter.saved_search = {
 
   _build_query_result(s) =
     _check_errors(s, get_query_result)
+
+  get_size(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      h = get_int("h", map)
+      w = get_int("w", map)
+      resize = get_string("resize", map)
+    } : Twitter.size
+
+  get_sizes(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      large = get_obj("large", map, get_size)
+      medium = get_obj("medium", map, get_size)
+      small = get_obj("small", map, get_size)
+      thumb = get_obj("thumb", map, get_size)
+    }
+
+  get_config(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      characters_reserved_per_media = get_int("characters_reserved_per_media", map)
+      max_media_per_upload = get_int("max_media_per_upload", map)
+      non_username_paths = get_list("non_username_paths", map, get_json_string)
+      photo_size_limit = get_int("photo_size_limit", map)
+      photo_sizes = get_obj("photo_sizes", map, get_sizes)
+      short_url_length = get_int("short_url_length", map)
+      short_url_length_https = get_int("short_url_length_https", map)
+    } : Twitter.config
+
+  _build_config(s) =
+    _check_errors(s, get_config)
+
+  get_lang(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      code = get_string("code", map)
+      name = get_string("name", map)
+      status = get_string("status", map)
+    } : Twitter.lang
+
+  _build_langs(s) =
+    _check_errors(s, get_raw_list(_, get_lang))
 
   _simple_decoder(data) =
     decode_data =
@@ -2729,5 +2799,39 @@ Twitter(conf:Twitter.configuration) = {{
       |> add_if("attribute:street_address", attribute_street_address, (_!=""))
       |> add_if("callback", callback, (_!=""))
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_place)
+
+/**
+ * Report spam
+ *
+ * The user specified in the id is blocked by the authenticated user and reported as a spammer.
+ *
+ * @param user The screen name or the unique id of the requested user.
+ */
+  report_spam(user, credentials) =
+    path = "/1.1/users/report_spam.json"
+    params = add_user(user, [])
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_full_user)
+
+/**
+ * Help configuration
+ *
+ * Returns the current configuration used by Twitter including twitter.com slugs which are not usernames, maximum photo resolutions, and t.co URL lengths.
+ *
+ */
+  help_configuration(credentials) =
+    path = "/1.1/help/configuration.json"
+    params = []
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_config)
+
+/**
+ * Help languages
+ *
+ * Returns the list of languages supported by Twitter along with their ISO 639-1 code.
+ *
+ */
+  help_languages(credentials) =
+    path = "/1.1/help/languages.json"
+    params = []
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_langs)
 
 }}
