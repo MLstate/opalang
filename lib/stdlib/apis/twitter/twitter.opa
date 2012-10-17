@@ -164,6 +164,26 @@ type Twitter.favorites_options = {
   include_entities : option(bool)
 }
 
+type Twitter.reverse_geocode_options = {
+  accuracy    : string
+  granularity : string
+  max_results : int
+  callback    : string
+}
+
+type Twitter.geo_search_options = {
+  lat                      : option(float)
+  long                     : option(float)
+  query                    : string
+  ip                       : string
+  granularity              : string
+  accuracy                 : string
+  max_results              : int
+  contained_within         : string
+  attribute_street_address : string
+  callback                 : string
+}
+
 type Twitter.list_id = {list_id:string} / {slug:string owner:{owner_id:string} / {owner_screen_name:string}}
 
 type Twitter.lists_options = {
@@ -212,15 +232,18 @@ type Twitter.location = {
 }
 
 type Twitter.place = {
-  name         : string
-  country_code : string
-  country      : string
-  attributes   : RPC.Json.json
-  url          : string
-  id           : string
-  bounding_box : Twitter.coordinates
-  full_name    : string
-  place_type   : string
+  name             : string
+  country_code     : string
+  country          : string
+  attributes       : RPC.Json.json
+  url              : string
+  id               : string
+  bounding_box     : Twitter.coordinates
+  full_name        : string
+  place_type       : string
+  geometry         : RPC.Json.json
+  polylines        : RPC.Json.json
+  contained_within : RPC.Json.json // It's actually a Twitter.place
 }
 
 type Twitter.place_type = {
@@ -611,6 +634,9 @@ type Twitter.saved_search = {
       bounding_box = get_obj("bounding_box", map, get_coordinates)
       full_name = get_string("full_name", map)
       place_type = get_string("place_type", map)
+      geometry = get_unknown("geometry", map)
+      polylines = get_unknown("polylines", map)
+      contained_within = get_unknown("contained_within", map)
     } : Twitter.place
 
   get_idsn(json) =
@@ -1048,6 +1074,24 @@ type Twitter.saved_search = {
 
   _build_saved_searches(s) =
     _check_errors(s, get_raw_list(_, get_saved_search))
+
+  _build_place(s) =
+    _check_errors(s, get_place)
+
+  _build_places(s) =
+    _check_errors(s, get_raw_list(_, get_place))
+
+  get_query_result(json) =
+    map = JsonOpa.record_fields(json) ? Map.empty
+    {
+      query = get_unknown("query", map) // Is it worth decoding this?
+      result = get_obj("result", map, (json ->
+                                       map = JsonOpa.record_fields(json) ? Map.empty
+                                       {places = get_list("places", map, get_place)}))
+    }
+
+  _build_query_result(s) =
+    _check_errors(s, get_query_result)
 
   _simple_decoder(data) =
     decode_data =
@@ -2562,5 +2606,128 @@ Twitter(conf:Twitter.configuration) = {{
     path = "/1.1/saved_searches/destroy/{id}.json"
     params = []
     Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_saved_search)
+
+/**
+ * Geo id place
+ *
+ * Returns all the information about a known place.
+ *
+ * @param place_id A place in the world. These IDs can be retrieved from geo/reverse_geocode.
+ * @param credentials The user credentials.
+ */
+  geo_id_place(place_id:string, credentials) =
+    path = "/1.1/geo/id/{place_id}.json"
+    params = []
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_place)
+
+  default_reverse_geocode_options = {
+    accuracy    = ""
+    granularity = ""
+    max_results = 0
+    callback    = ""
+  }
+
+/**
+ * Geo reverse geocode
+ *
+ * Given a latitude and a longitude, searches for up to 20 places that can be used as a place_id when updating a status.
+ *
+ * @param lat The latitude to search around.
+ * @param long The longitude to search around.
+ * @param options The optional parameters.
+ * @param credentials The user credentials.
+ */
+  geo_reverse_geocode(lat:float, long:float, options:Twitter.reverse_geocode_options, credentials) =
+    path = "/1.1/geo/reverse_geocode.json"
+    params =
+      [("lat","{lat}"),("long","{long}")]
+      |> add_if("accuracy", options.accuracy, (_!=""))
+      |> add_if("granularity", options.granularity, (_!=""))
+      |> add_if("max_results", options.max_results, (_>0))
+      |> add_if("callback", options.callback, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_query_result)
+
+  default_geo_search = {
+    lat                      = none
+    long                     = none
+    query                    = ""
+    ip                       = ""
+    granularity              = ""
+    accuracy                 = ""
+    max_results              = 0
+    contained_within         = ""
+    attribute_street_address = ""
+    callback                 = ""
+  }
+
+/**
+ * Geo search
+ *
+ * Search for places that can be attached to a statuses/update.
+ *
+ * @param options The optional parameters.
+ * @param credentials The user credentials.
+ */
+  geo_search(options:Twitter.geo_search_options, credentials) =
+    path = "/1.1/geo/search.json"
+    params =
+      []
+      |> add_fopt("lat", options.lat)
+      |> add_fopt("long", options.long)
+      |> add_if("query", options.query, (_!=""))
+      |> add_if("ip", options.ip, (_!=""))
+      |> add_if("granularity", options.granularity, (_!=""))
+      |> add_if("accuracy", options.accuracy, (_!=""))
+      |> add_if("max_results", options.max_results, (_>0))
+      |> add_if("contained_within", options.contained_within, (_!=""))
+      |> add_if("attribute:street_address", options.attribute_street_address, (_!=""))
+      |> add_if("callback", options.callback, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_query_result)
+
+/**
+ * Geo similar places
+ *
+ * Locates places near the given coordinates which are similar in name.
+ *
+ * @param lat The latitude to search around.
+ * @param long The longitude to search around.
+ * @param name The name a place is known as.
+ * @param contained_within This is the place_id which you would like to restrict the search results to.
+ * @param attribute_street_address This parameter searches for places which have this given street address.
+ * @param callback If supplied, the response will use the JSONP format with a callback of the given name.
+ * @param credentials The user credentials.
+ */
+  geo_similar_places(lat:float, long:float, name:string,
+                     contained_within:string, attribute_street_address:string, callback:string,  credentials) =
+    path = "/1.1/geo/similar_places.json"
+    params =
+      [("lat","{lat}"),("long","{long}"),("name",name)]
+      |> add_if("contained_within", contained_within, (_!=""))
+      |> add_if("attribute:street_address", attribute_street_address, (_!=""))
+      |> add_if("callback", callback, (_!=""))
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_query_result)
+
+/**
+ * Geo place
+ *
+ * Creates a new place object at the given latitude and longitude.
+ *
+ * @param name The name a place is known as.
+ * @param contained_within This is the place_id which you would like to restrict the search results to.
+ * @param token The token found in the response from geo/similar_places.
+ * @param lat The latitude to search around.
+ * @param long The longitude to search around.
+ * @param attribute_street_address This parameter searches for places which have this given street address.
+ * @param callback If supplied, the response will use the JSONP format with a callback of the given name.
+ * @param credentials The user credentials.
+ */
+  geo_place(name:string, contained_within:string, token:string, lat:float, long:float,
+            attribute_street_address:string, callback:string, credentials) =
+    path = "/1.1/geo/create.json" // ?? Inconsistency in docs
+    params =
+      [("name", name),("contained_within", contained_within),("token",token),("lat","{lat}"),("long","{long}")]
+      |> add_if("attribute:street_address", attribute_street_address, (_!=""))
+      |> add_if("callback", callback, (_!=""))
+    Twitter_private(c)._post_res(path, params, credentials, TwitParse._build_place)
 
 }}
