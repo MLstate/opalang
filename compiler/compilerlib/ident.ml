@@ -202,11 +202,11 @@ let stident id =
       IHashtbl.add memo_stident id s ;
       s
 
-let refresh ?(map=fun s -> s) y =
+let refresh ?descr ?(map=fun s -> s) y =
   match y with
   | Source n -> next (map n)
   | FakeSource s -> next (map s)
-  | Internal (_, _, n, d) -> next ~descr:d (map n)
+  | Internal (_, _, n, d) -> next ~descr:(Option.default d descr) (map n)
 let refreshf ~map y = refresh ~map:(Printf.sprintf map) y
 
 let concrete_string = function

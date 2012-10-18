@@ -507,12 +507,12 @@ let get_fresh_identifiers env gamma =
   List.map
     (fun x ->
        let fresh_x =
-         Ident.refresh ~map:(Printf.sprintf "extra_%s") x in
+         Ident.refresh ~descr:"extra" x in
        let ty = get_explicit_tsc gamma x in
        (fresh_x,ty))
     env
 let get_fresh_identifiers_untyped env =
-  List.map (Ident.refresh ~map:(Printf.sprintf "extra_%s")) env
+  List.map (Ident.refresh ~descr:"extra") env
 
 
 (* add lambda on top of an expression *)

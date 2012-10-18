@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -71,7 +71,7 @@ val to_uniq_string: t -> string
 (** gives back the non-uniq'ed name -- for hacking only *)
 val original_name : t -> string
 
-val refresh       : ?map:(string -> string) -> t -> t
+val refresh       : ?descr:string -> ?map:(string -> string) -> t -> t
   (**
      equivalent to fun x -> ExprIdent.next (map (origrepr x))
      except that the description and filename is kept
