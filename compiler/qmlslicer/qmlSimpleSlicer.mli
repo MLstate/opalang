@@ -48,6 +48,7 @@ val process_code :
   client_bsl_lang:BslLanguage.t ->
   server_bsl_lang:BslLanguage.t ->
   bymap:BslLib.BSL.ByPassMap.t ->
+  modules:IdentSet.t ->
   code:QmlAst.code ->
   QmlTypes.gamma
   * QmlTyper.env

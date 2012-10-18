@@ -332,7 +332,9 @@ let pass_simple_slicer ~(options:opa_options) (env:'tmp_env env_Gen) =
       ~client_bsl_lang
       ~server_bsl_lang
       ~bymap:env.bsl.BslLib.bymap
-      ~code:env.qmlAst in
+      ~code:env.qmlAst
+      ~modules:env.modules
+  in
 
   (* updating toplevel renaming map with renamed server ident *)
   let update_maptoident =

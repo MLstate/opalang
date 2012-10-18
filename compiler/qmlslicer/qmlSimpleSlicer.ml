@@ -394,6 +394,7 @@ type environment =
       bymap : BslLib.BSL.ByPassMap.t;
       gamma : QmlTypes.gamma;
       annotmap : Q.annotmap;
+      modules : IdentSet.t;
     }
 
 let get_bypass_side env bslkey =
@@ -421,7 +422,7 @@ let get_bypass_side env bslkey =
 (* TODO: annotation @assert_both etc? *)
 (* TODO: never insert_server_value of any datatype containing functions? *)
 
-let empty_env ~client_bsl_lang ~server_bsl_lang bymap typer_env =
+let empty_env ~client_bsl_lang ~server_bsl_lang ~modules bymap typer_env =
   { informations = IdentTable.create 100;
     call_graph = G.create ();
     client_bsl_lang ;
@@ -429,6 +430,7 @@ let empty_env ~client_bsl_lang ~server_bsl_lang bymap typer_env =
     bymap = bymap;
     gamma = typer_env.QmlTypes.gamma;
     annotmap = typer_env.QmlTypes.annotmap;
+    modules;
   }
 
 (* same as rewriteAsyncLambda presumably *)
@@ -1050,7 +1052,10 @@ let node_is_annotated info =
     )
   | _ -> true
 
-let enclosing_info_if_not_toplevel_and_not_annotated env info =
+let node_is_module env info =
+  IdentSet.mem info.ident env.modules
+
+let enclosing_info_if_not_toplevel_and_not_annotated ?(is_module=false) env info =
   if info.lambda_lifted = [] || node_is_annotated info then None
   else (
     let orig =
@@ -1061,11 +1066,12 @@ let enclosing_info_if_not_toplevel_and_not_annotated env info =
         List.find
           (fun ident ->
              let info = IdentTable.find env.informations ident in
-             node_is_annotated info
-          ) info.lambda_lifted
-      with Not_found -> List.last info.lambda_lifted in
+             node_is_annotated info && (not is_module || node_is_module env info)
+          ) lambda_lifted
+      with Not_found -> List.last lambda_lifted in
     let orig_info = IdentTable.find env.informations orig in
-    Some orig_info
+    if (not is_module || node_is_module env orig_info) then Some orig_info
+    else None
   )
 
 let inline_informations_lambda_lifted env =
@@ -1074,12 +1080,16 @@ let inline_informations_lambda_lifted env =
        match info.expr with
        | External _ -> ()
        | Local _ ->
+           begin match enclosing_info_if_not_toplevel_and_not_annotated ~is_module:true env info with
+           | Some orig_info ->
+               (* Inherit of annotations of enclosing functor *)
+               info.user_annotation <- orig_info.user_annotation;
+               info.privacy <- orig_info.privacy;
+           | None -> ()
+           end;
            match enclosing_info_if_not_toplevel_and_not_annotated env info with
            | None -> ()
            | Some orig_info ->
-               (* Inherit of annotations of enclosing function *)
-               info.user_annotation <- orig_info.user_annotation;
-               info.privacy <- orig_info.privacy;
                (* merging @sliced_expr, @call_*_bypass
                 * because these are the only properties that would
                 * be different if the the lifted functions were inlined
@@ -1875,8 +1885,8 @@ let get_renaming package ~side =
 
 let process_code ~test_mode ~dump ~typer_env ~stdlib_gamma
     ~client_bsl_lang ~server_bsl_lang ~bymap
-    ~code =
-  let env = empty_env ~client_bsl_lang ~server_bsl_lang bymap typer_env in
+    ~modules ~code =
+  let env = empty_env ~client_bsl_lang ~server_bsl_lang ~modules bymap typer_env in
   let _chrono = Chrono.make () in
   #<If:SLICER_TIME> _chrono.Chrono.start () #<End>;
   R.load env;
