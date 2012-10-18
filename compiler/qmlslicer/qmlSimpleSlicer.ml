@@ -287,7 +287,7 @@ type information = (* TODO: explicit the invariants *)
       mutable calls_server_bypass : BslKey.t option;
       mutable calls_client_bypass : BslKey.t option;
       mutable has_sliced_expr : bool;
-      mutable lambda_lifted : Ident.t list;
+      mutable lambda_lifted : int * Ident.t list;
 
       (* computed by propagate_server_private *)
       mutable calls_private : information value option; (* this field is independent of the @publish annotation *)
@@ -532,7 +532,7 @@ let default_information ~env ~annotmap (ident,expr) =
          if not (QmlTypesUtils.Inspect.is_type_void env.gamma ty) then fail ());
   );
   { calls_private = None;
-    lambda_lifted = [];
+    lambda_lifted = 0, [];
     calls_server_bypass = None;
     calls_client_bypass = None;
     privacy = Option.default Visible !visibility;
@@ -602,11 +602,11 @@ let update_call_graph env info =
              QmlError.serror error_context "@[This is an invalid slicer annotation: they can only appear on toplevel bindings (or inside toplevel modules) or on function bindings.@]";
              context
 
-         | Q.Directive (_, `lifted_lambda (_,hierarchy), _, _) ->
-             assert (info.lambda_lifted = []);
+         | Q.Directive (_, `lifted_lambda lifted_lambda, _, _) ->
+             assert (snd info.lambda_lifted = []);
              (* if the code is lifted, you have only one function per toplevel
                 declaration (so at most one @lifted_lambda) *)
-             info.lambda_lifted <- hierarchy;
+             info.lambda_lifted <- lifted_lambda;
              context
 
          | _ ->
@@ -1056,7 +1056,8 @@ let node_is_module env info =
   IdentSet.mem info.ident env.modules
 
 let enclosing_info_if_not_toplevel_and_not_annotated ?(is_module=false) env info =
-  if info.lambda_lifted = [] || node_is_annotated info then None
+  let lambda_lifted = snd info.lambda_lifted in
+  if lambda_lifted = [] || node_is_annotated info then None
   else (
     let orig =
       try
@@ -1233,7 +1234,7 @@ let directive_publish ident dir annotmap expr =
    the type of client_name is refreshed so that ei can propagate type vars
    to the remote call but not to the original implementation
 *)
-let eta_expand comet_call_or_ajax_call ~gamma ~expr_for_annot ~annotmap_old ~annotmap ~tsc client_name =
+let eta_expand comet_call_or_ajax_call ~gamma ~expr_for_annot ~annotmap_old ~annotmap ~tsc ~lambda_lifted client_name =
   let arity = get_arity_of_functional_type gamma annotmap_old expr_for_annot in
   (*let tsc = QmlTypes.process_scheme gamma tsc in*)
   let annotmap, for_annot = QmlAstCons.TypedExpr.shallow_copy_new ~annotmap_old annotmap expr_for_annot in
@@ -1273,6 +1274,11 @@ let eta_expand comet_call_or_ajax_call ~gamma ~expr_for_annot ~annotmap_old ~ann
   let annot = Q.QAnnot.expr e in
   let annotmap = QmlAnnotMap.add_ty annot ty annotmap in
   let annotmap = QmlAnnotMap.add_tsc_opt annot tsc annotmap in
+  let annotmap, e =
+    match lambda_lifted with
+    | _, [] -> annotmap, e
+    | _ -> make_dir ~inner:true (`lifted_lambda lambda_lifted) annotmap e
+  in
   annotmap, e
 
 (* renaming all the variables in addition to inserting directives everywhere
@@ -1301,15 +1307,14 @@ let insert_directives_expr
               let e = Q.Ident (label, new_j) in
               let annotmap = QmlAnnotMap.remove_tsc_inst_label label annotmap in
               (* we are on the client and calling the server *)
+              let info = IdentTable.find infos j in
               let call =
                 match side with
                 | `server -> `comet_call
                 | `client ->
-                    let info = IdentTable.find infos j in
                     let sync = variant_of_async info.async in
                     `ajax_call sync in
               let annotmap, e = directive_call call annotmap e in
-              assert (IdentMap.mem j tsc);
               let tsc_inst_opt = IdentMap.find j tsc in
               let annotmap = QmlAnnotMap.add_tsc_inst_opt (Q.QAnnot.expr e) tsc_inst_opt annotmap in
               annotmap, e
@@ -1506,7 +1511,7 @@ let split_code ~gamma:_ ~annotmap_old env code =
                         let annotmap, e = insert_server annotmap e in
                         #<If:SLICER_TIME> _chrono_insert.Chrono.stop () #<End>;
                         annotmap, Some (rename_server i, e)
-                    | {on_the_server=Some (Some `alias | None); _} -> (
+                    | {on_the_server=Some (Some `alias | None); lambda_lifted; _} -> (
                         try
                           let server_name = rename_server i in
                           let client_name = rename_client i in
@@ -1516,7 +1521,9 @@ let split_code ~gamma:_ ~annotmap_old env code =
                           assert (IdentMap.mem i tsc_server);
                           let tsc = IdentMap.find i tsc_server in
                           let annotmap, e =
-                            eta_expand `comet_call ~gamma:env.gamma ~expr_for_annot:e ~annotmap_old ~annotmap ~tsc client_name in
+                            eta_expand `comet_call
+                              ~gamma:env.gamma ~annotmap_old ~annotmap
+                              ~tsc ~expr_for_annot:e ~lambda_lifted client_name in
                           annotmap, Some (server_name, e)
                         with Not_found ->
                           annotmap, None
@@ -1538,7 +1545,7 @@ let split_code ~gamma:_ ~annotmap_old env code =
                     | {on_the_client=Some (Some `insert_server_value); _} ->
                         let annotmap, e = make_dir ~annotmap_old ~inner:false (`insert_server_value (rename_server i)) annotmap e in
                         annotmap, Some (rename_client i,e)
-                    | {on_the_client=Some (Some `alias | None); _} -> (
+                    | {on_the_client=Some (Some `alias | None); lambda_lifted; _} -> (
                         try
                           let client_name = rename_client i in
                           let server_name = rename_server i in
@@ -1547,7 +1554,9 @@ let split_code ~gamma:_ ~annotmap_old env code =
                           let info = IdentTable.find env.informations i in
                           let sync = variant_of_async info.async in
                           let annotmap, e =
-                            eta_expand (`ajax_call sync) ~gamma:env.gamma ~expr_for_annot:e ~annotmap_old ~annotmap ~tsc server_name in
+                            eta_expand (`ajax_call sync)
+                              ~gamma:env.gamma ~annotmap_old ~annotmap
+                              ~tsc ~expr_for_annot:e ~lambda_lifted server_name in
                           annotmap, Some (client_name, e)
                         with Not_found ->
                           annotmap, None

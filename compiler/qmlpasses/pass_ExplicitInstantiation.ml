@@ -1535,16 +1535,18 @@ let eta_expansion lt lrow lcol lt' lrow' lcol' =
  * i think it should be the same as the one ignored by lambda lifting
  * plus @abstract_ty and @apply_ty, but i am not sure
  * (@server, @client, etc. can be ignored since they have been removed by the slicer) *)
-let rec get_lambda = function
+let rec get_lambda ?env = function
   | Q.Coerce (_,e,_)
-  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _ | `async), [e], _) -> get_lambda e
-  | Q.Directive (_, `lifted_lambda env, [e], _) -> (
+  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _ | `async | `comet_call | `ajax_call _), [e], _) -> get_lambda ?env e
+  | Q.Directive (_, `lifted_lambda lenv, [e], _) -> (
       match e with
-      | Q.Lambda (_,params,e) -> `lambda (env,params,e)
-      | _ -> assert false
+      | Q.Lambda (_,params,e) ->
+          assert (env = None);
+          `lambda (lenv,params,e)
+      | _ -> get_lambda ~env:lenv e
     )
   | Q.Ident (_,x) -> `ident x
-  | Q.Lambda (_,params,e) -> `lambda ((0,[]),params,e)
+  | Q.Lambda (_,params,e) -> `lambda (Option.default (0,[]) env,params,e)
   | _ -> `none
 
 (* not sure if this test should be in sync with something else *)
