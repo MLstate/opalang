@@ -13,7 +13,6 @@
 internal appruntime	     	      ocamllib/appruntime
 internal database	  	      ocamllib/database
 internal libbase	  	      ocamllib/libbase
-internal libirc			      ocamllib/libirc
 internal libnattraversal  	      ocamllib/libnet/nattraversal
 internal libnet			      ocamllib/libnet
 internal libruntime	  	      ocamllib/libruntime

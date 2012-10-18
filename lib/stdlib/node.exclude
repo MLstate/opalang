@@ -1,4 +1,3 @@
-stdlib.apis.irc
 stdlib.components.chat
 stdlib.core.rpc.hlnet
 stdlib.database.db3

@@ -6,7 +6,6 @@
 <gcharts>: traverse
 <hlnet>: traverse
 <iconv>: traverse
-<irc>: traverse
 <mail>: traverse
 <mongo>: traverse
 <opabsl>: traverse, static

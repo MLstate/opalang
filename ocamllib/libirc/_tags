@@ -1,5 +1,0 @@
-# -*- conf -*- (for emacs)
-<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_ssl, use_unix, use_zip, use_libruntime, use_appruntime, use_str, use_libsecurity, use_libtools, use_ulex, use_nums, use_cryptokit, use_libnet
-
-<irc*.ml>: with_mlstate_debug
-<ircBotCore.ml>: with_mlstate_debug
