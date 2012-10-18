@@ -1177,7 +1177,7 @@ let choose_sides env =
        List.iter
          (fun node ->
             match enclosing_info_if_not_toplevel_and_not_annotated env node with
-            | Some ({user_annotation=Some _; _} as node_i) ->
+            | Some node_i ->
                 (* never publish those for now at least, because it adds type
                  * variables in unwanted places like the runtime of the serialization *)
                 let relax = function
