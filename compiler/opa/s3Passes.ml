@@ -599,12 +599,14 @@ let pass_ConvertStructure2 () =
          let sa_type_renaming = env.SurfaceAstPassesTypes.lcodeTypeRenaming in
          let sa_exported_values_idents =
            env.SurfaceAstPassesTypes.exported_values_idents in
+         let sa_modules = IdentSet.empty in
          {P.
            sa_lcode ;
            sa_doc_types ;
            sa_bsl ;
            sa_type_renaming ;
            sa_exported_values_idents ;
+           sa_modules ;
          }
        in
        PassHandler.make_env
@@ -737,6 +739,7 @@ let pass_SaToQml =
            exported = exported_values_idents;
            local_typedefs = QmlAst.TypeIdentSet.empty;
            stdlib_gamma = QmlTypes.Env.empty;
+           modules = env.P.sa_modules;
          } in
        EnvUtils.create_env_gen e env_Gen
     )

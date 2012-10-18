@@ -31,3 +31,6 @@ val rewrite_modules :
   IdentSet.t ->
   (Ident.t, SurfaceAst.dependency_directive) SurfaceAst.code ->
   IdentSet.t * ((Ident.t, SurfaceAst.basic_directive) SurfaceAst.code)
+
+val collect_modules_idents :
+  (Ident.t, SurfaceAst.dependency_directive) SurfaceAst.code -> IdentSet.t

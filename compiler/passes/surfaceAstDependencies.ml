@@ -68,6 +68,7 @@ open SurfaceAst
 module SAH = SurfaceAstHelper
 module C = SurfaceAstCons.ExprIdentCons
 module D = SurfaceAstDecons
+module S = SurfaceAst
 
 let copy_label = Parser_utils.copy_label
 
@@ -973,3 +974,38 @@ let rewrite_modules create_groups exported lcode =
   (exported, lcode)
   |> flatten_toplevel_module create_groups
   |> flatten_module_in_expr create_groups
+
+let collect_modules_idents lcode =
+  let rec collect_modules_idents_pat_binding idents (pat, expr) =
+    let idents =
+      match pat with
+      | (S.PatVar {ident; _}, _annot) ->
+          collect_modules_idents_binding (fun idents _ -> idents)
+            idents (ident, expr)
+      | _ -> idents
+    in
+    OpaWalk.Expr.traverse_fold collect_modules_idents_expr idents expr
+  and collect_modules_idents_binding tra idents (ident, expr) =
+    match expr with
+    | S.Directive (`module_, _, _), _annot
+    | S.Lambda (_, (S.Directive (`module_, _, _), _)), _annot ->
+        tra (IdentSet.add ident idents) expr
+    | S.Directive (_, [e], _), _annot ->
+        collect_modules_idents_binding tra idents (ident, e)
+    | _ -> tra idents expr
+  and collect_modules_idents_expr tra idents expr =
+    match expr with
+    | (S.LetIn (_, bindings, _), _annot) ->
+        let idents = List.fold_left (collect_modules_idents_binding tra) idents bindings in
+        tra idents expr
+    | _ -> tra idents expr
+  in
+  List.fold_left
+    (fun idents code_elt ->
+       match code_elt with
+       | (S.NewVal (bindings, _), _annot) ->
+           List.fold_left collect_modules_idents_pat_binding idents bindings
+       | _ -> idents
+    ) IdentSet.empty lcode
+
+

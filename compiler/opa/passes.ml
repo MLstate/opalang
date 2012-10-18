@@ -178,7 +178,10 @@ type ('c, 'd) sa_env_Gen = {
   (** The set of values identifiers that are exported outside this package.
       It contains all toplevel values definitions that are not marked by a
       @private directive. *)
-  sa_exported_values_idents : IdentSet.t
+  sa_exported_values_idents : IdentSet.t;
+
+  (** The set of values declared as a module *)
+  sa_modules : IdentSet.t;
 }
 
 
@@ -194,6 +197,7 @@ type 'tmp_env env_Gen = {
   doc_types : Ident.t doc_types; (** opadoc specific data *)
   exported : IdentSet.t;
   temporary_env : 'tmp_env;
+  modules : IdentSet.t;
 }
 
 type env_Sliced_aux = QmlSimpleSlicer.splitted_code = {
@@ -227,6 +231,7 @@ let change_temporary (temporary_env : 'b) (env_gen : 'a env_Gen)  = ({
   doc_types = env_gen.doc_types;
   exported = env_gen.exported;
   temporary_env = temporary_env;
+  modules = env_gen.modules;
 } : ('b env_Gen))
 
 let pass_resolve_server_entry_point ~options env =
@@ -483,12 +488,14 @@ let pass_reorder_toplevel ~options:_ env =
   {env with sa_lcode = SurfaceAstDependencies.reorder_toplevel arg_for_surfaceAstDependencies env.sa_lcode}
 
 let pass_rewrite_modules ~options:_ env =
+  let sa_lcode = env.sa_lcode in
+  let sa_modules = SurfaceAstDependencies.collect_modules_idents sa_lcode in
   let sa_exported_values_idents, sa_lcode =
     SurfaceAstDependencies.rewrite_modules arg_for_surfaceAstDependencies
       env.sa_exported_values_idents
-      env.sa_lcode
+      sa_lcode
   in
-  {env with sa_lcode; sa_exported_values_idents}
+  {env with sa_lcode; sa_exported_values_idents; sa_modules}
 
 
 
