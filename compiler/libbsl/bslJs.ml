@@ -369,6 +369,7 @@ let fold_source_elt_classic ~dynloader_interface ~filename ~lang
           )
           splitted) in
         let package = JsPackage.add_verbatim package source in
+        let package = JsPackage.add_verbatim package "\n" in
         env, package
 
     | D.Directive (pos, tags, directive) -> (
