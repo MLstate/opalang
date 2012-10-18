@@ -278,14 +278,14 @@ let full_serialize
            register_plugin plugin_id ;
            let fold rev_ast package =
              JsPackage.fold
-               (fun (i, rev_ast) elt -> i+1, match elt with
-                | JsPackage.Verbatim content ->
-                    let key_prefix = plugin_id ^ (Digest.to_hex (Digest.string content)) in
-                    let code_elt = make_root key_prefix content in
-                    (`unparsed code_elt, key_prefix) :: rev_ast
-                | JsPackage.Code code ->
-                    let key_prefix = Printf.sprintf "%i_%s" i plugin_id in
-                    (`parsed code, key_prefix) :: rev_ast
+               (fun (i, rev_ast) elt ->
+                  let key_prefix = Printf.sprintf "%i_%s" i plugin_id in
+                  i+1, match elt with
+                  | JsPackage.Verbatim content ->
+                      let code_elt = make_root key_prefix content in
+                      (`unparsed code_elt, key_prefix) :: rev_ast
+                  | JsPackage.Code code ->
+                      (`parsed code, key_prefix) :: rev_ast
                ) rev_ast package
            in
            fold rev_ast plugin.BPI.js_pack
