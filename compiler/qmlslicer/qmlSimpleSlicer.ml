@@ -72,7 +72,7 @@ module WClass = struct
         ~parent:all
         ~public:true
         ~name:"server.misleading"
-        ~doc:"Warns when a declaration with a server directive is calling the client called"
+        ~doc:"Warns when a declaration with a server directive is calling  client called"
         ~err:false
         ~enable:true
         ()
@@ -133,6 +133,17 @@ module WClass = struct
         ~err:false
         ~enable:true
         ()
+
+    (** when a exposed directive exposed a lifted lambda with an non empty environment *)
+    let implicit =
+      WarningClass.create
+        ~parent:all
+        ~public:true
+        ~name:"exposed.implicit"
+        ~doc:"Warns when a declaration is exposed with an unsecured environment"
+        ~err:false
+        ~enable:true
+        ()
   end
 
   let as_ignored l = List.iter (fun wclass -> WarningClass.set_warn       wclass false;
@@ -149,9 +160,11 @@ module WClass = struct
   (* first list => ignored
      second list => warning
      otherwise error *)
-  let all_swclass = [ Server.meaningless ; Server.useless  ; Server.misleading    ;
-                      Exposed.meaningless; Exposed.useless ; Exposed.misleading   ;
-                      (*TODO*)            (* TODO *)         Protected.misleading ; Protected.implicit_access]
+  let all_swclass = [
+    Server.meaningless ; Server.useless  ; Server.misleading    ;
+    Exposed.meaningless; Exposed.useless ; Exposed.misleading   ; Exposed.implicit ;
+    (*TODO*)            (* TODO *)         Protected.misleading ; Protected.implicit_access]
+
   let security_levels_warnings = [
     "low", (
       all_swclass,
@@ -162,7 +175,7 @@ module WClass = struct
       all_swclass
     );
     "normal", (
-      [Exposed.misleading; Server.misleading; Protected.implicit_access; Server.misleading],
+      [Exposed.misleading; Server.misleading; Protected.implicit_access;],
       [Protected.misleading]
     );
     "high", (
@@ -880,7 +893,24 @@ let check_side ~emit_error ~emit node =
         "This is unusual."
     | _ -> true
   ) else true
-  in c1 && c2 && c3
+  in
+  let c4 =
+    if node.publish_on_the_server && fst node.lambda_lifted <> 0 && (emit || emit_error)
+    then (
+      OManager.warning ~wclass:WClass.Exposed.implicit
+        "@[<v>%a@]@\n@[<4>  '%s' is tagged as 'exposed' but it uses the following 'unsecured' values: %a@]"
+        pp_pos node
+        (Ident.original_name node.ident)
+        (Format.pp_list ", " QmlPrint.pp_very_light_ident#ident)
+        (match node.expr with
+         | Local (Q.Directive (_, `lifted_lambda (env,_),
+                               [Q.Lambda (_, args, _)], _)) ->
+             fst (List.split_at env args)
+         | _ -> assert false)
+      ;
+      false
+    ) else true
+  in c1 && c2 && c3 && c4
 
 let check_node ?(emit_error=false) ~emit node =
   let c1 = check_privacy ~emit_error ~emit node in
