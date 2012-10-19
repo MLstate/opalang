@@ -32,7 +32,7 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 
 (* PATHS *)
 
-let prefixed_plugins_dir = prefix_me ("lib" / "plugins") in
+let prefixed_plugins_dir = prefix_me "lib" / "plugins" in
 let libbase_dir = prefix_me "ocamllib" / "libbase" in
 let build_dir = Pathname.pwd / !Options.build_dir in
 
@@ -636,11 +636,11 @@ rule "opadep: .opa -> .opa.depends"
 (* -- begin plugins -- *)
 
 (** Generates a rule to build the [name] Opa plugin *)
-let plugin_building name =
+let plugin_building plugins_dir name =
 
   (* Plugins paths *)
 
-  let p_path        = prefixed_plugins_dir/name in
+  let p_path        = plugins_dir/name in
   let p_opp         = p_path -.- "opp" in
   let p_oppf        = p_path/name -.- "oppf" in
   let p_opa_plugin  = p_path/name -.- "opa_plugin" in
@@ -652,6 +652,7 @@ let plugin_building name =
 
   let additional_files = additional_files name in
   let files = prefixed_files @ additional_files in
+  let files = uniq files in
 
   (* Plugins options *)
   let options = A "-o" :: A name :: A "--build-dir" :: A prefixed_plugins_dir :: [] in
@@ -811,10 +812,12 @@ let plugin_building name =
     ) p_tags deps
   in
 
+  let stamp = p_oppf in
+
   rule (Printf.sprintf "Opa plugin: %s" name)
     ~deps
     ~prods
-    ~stamp:p_oppf
+    ~stamp
     (fun env build ->
        let opp_build =
          Cmd (S (Sh("MLSTATELIBS=\""^ build_dir ^"\"") ::
@@ -830,10 +833,10 @@ in
 let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
 
 (** The all plugins file, list of all Opa plugins *)
-let all_plugins_file = stdlib_packages_dir/"all.plugins" in
+let all_plugins_file = stdlib_packages_dir/"all.node.plugins" in
 
 (** Build here because the rule is always wanted. *)
-let () = plugin_building "opabsl" in
+let () = plugin_building prefixed_plugins_dir "opabsl" in
 
 (** This rule generates rules for all plugins *)
 let lazy_plugin_rules =
@@ -842,11 +845,15 @@ let lazy_plugin_rules =
       Command.execute ~quiet:true ~pretend:false
 	(Cmd (S[
 		Sh"mkdir"; A"-p"; P (build_dir / stdlib_packages_dir); Sh"&&";
-		Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
-		P"./all_plugins.sh"; Sh">"; P all_plugins_file;
+		P (Pathname.pwd/stdlib_packages_dir/"all_plugins.sh");
+		P (Pathname.pwd/stdlib_packages_dir);
+		Sh">"; P all_plugins_file;
 	      ])) ;
       let plugins = string_list_of_file all_plugins_file in
-      List.iter (plugin_building) plugins
+      List.iter (plugin_building prefixed_plugins_dir) plugins;
+      List.map (
+	fun f -> prefixed_plugins_dir/f/f -.- "oppf"
+      ) plugins
   )
 in
 
@@ -882,17 +889,11 @@ in
 
 let module RuleFailure = struct exception E end in
 let files_of_package pkg =
-  let pkdir = prefix_me ("lib" / package_to_dir pkg) in
-  if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
-    let () = Printf.eprintf "Error: can not find sources for package %s (directory %s does not exist)\n" pkg pkdir in
-    raise RuleFailure.E
-  else
+  let aux_files pkdir =
     let opack = dir_ext_files "opack" (Pathname.pwd / pkdir) in
     let files = dir_ext_files "opa" (Pathname.pwd / pkdir) in
     let files = files @ opack in
-    (*
-      return relative filenames
-    *)
+    (* return relative filenames *)
     let files =
       let len = String.length Pathname.pwd + 1 in (* the additinal '/' *)
       let relative_part s = String.sub s len (String.length s - len) in
@@ -901,8 +902,17 @@ let files_of_package pkg =
     (*
       When you compare 2 branches, if the order of opa sources is not deterministic, you can become crazy
     *)
-    let files = List.sort String.compare files in
-    files in
+    List.sort String.compare files
+  in
+  let pkdir = prefix_me ("lib" / package_to_dir pkg) in
+  if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
+    let pkdir = "lib" / package_to_dir pkg in
+    if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
+      let () = Printf.eprintf "Error: can not find sources for package %s (directory %s does not exist)\n" pkg pkdir in
+      raise RuleFailure.E
+    else aux_files pkdir
+  else aux_files pkdir
+in
 
 let packages_exclude_node = "node.exclude" in
 let make_all_packages = [
@@ -917,22 +927,22 @@ let all_packages_building =
     ~prod
     (fun env build ->
          Cmd(S[
-               Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
-               P"./all_packages.sh"; P packages_exclude_node; Sh">"; P (Pathname.pwd / !Options.build_dir / prod);
+               P (Pathname.pwd/stdlib_packages_dir/"all_packages.sh");
+	       P (Pathname.pwd/stdlib_packages_dir/packages_exclude_node);
+	       P (Pathname.pwd/stdlib_packages_dir);
+	       Sh">"; P (build_dir/prod);
              ])
     )
 in
 
 let packages_building ~name ~stamp ~core_only ~rebuild
+    ~lazy_plugin_rules
     ?(opacomp_stamp="opacomp.stamp")
     ?(all_packages_file=all_packages_file)
     ?(opx_dir="stdlib.qmljs")
-    ?(backend_opt=[]) () =
-  Lazy.force lazy_plugin_rules;
-  let plugins = string_list_of_file (build_dir / all_plugins_file) in
-  let plugins = List.map (
-    fun f -> prefixed_plugins_dir/f/f -.- "oppf"
-  ) plugins in
+    ?(backend_opt=[])
+    () =
+  let plugins = Lazy.force lazy_plugin_rules in
   rule name
     ~deps:(plugins @ [
       opacapi_validation;
@@ -1035,6 +1045,7 @@ packages_building
   ~stamp:"opa-node-packages.stamp"
   ~core_only:false
   ~rebuild:false
+  ~lazy_plugin_rules
   ();
 
 (* -- end packages -- *)

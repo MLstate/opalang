@@ -78,6 +78,19 @@ let run_and_read s =
 
 let debug_getenv_toggle var = try Sys.getenv var = "1" with Not_found -> false
 
+(* Function to make each element of a list unique, copied from libbase *)
+let uniq ?(cmp = Pervasives.compare) = function
+| hd :: tl ->
+    let l, _ =
+      List.fold_left (
+	fun ((l, e) as acc) x ->
+	  if 0 = cmp x e then acc
+	  else (x :: l, x)
+      ) ([hd], hd) tl
+    in
+    List.rev l
+| [] -> []
+
 (**
    {6 Configure TREX}
 *)

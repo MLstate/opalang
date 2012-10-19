@@ -134,8 +134,8 @@ endef
 
 
 # List all packages and plugins in stdlib
-OPA_PACKAGES := $(shell cd $(OPALANG_DIR)/lib/stdlib && ./all_packages.sh)
-OPA_PLUGINS  := $(shell cd $(OPALANG_DIR)/lib/stdlib && ./all_plugins.sh && echo "opabsl")
+OPA_PACKAGES := $(shell $(OPALANG_DIR)/lib/stdlib/all_packages.sh $(OPALANG_DIR)/lib/stdlib/node.exclude $(OPALANG_DIR)/lib/stdlib)
+OPA_PLUGINS  := $(shell $(OPALANG_DIR)/lib/stdlib/all_plugins.sh $(PWD)/$(OPALANG_DIR)/lib/stdlib && echo "opabsl")
 
 # Rules installing everything that has been compiled
 #
