@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -135,7 +135,7 @@ Logger = {{
     ram=ServerReference.create([]:list(Logger.entry));
     filter=default_filer_level;
     lasttime=ServerReference.create(%%BslLogger.now%%());
-  }
+  } : Logger.t
 
   make_logger(dsts,filter) = {
     destinations=dsts;
@@ -156,7 +156,7 @@ Logger = {{
   no_logger = empty_logger()
 
   /* Create a reference to a logger that will write to stderr */
-  default_logger =
+  default_logger : reference(Logger.t) =
     logger = empty_logger()
     ServerReference.create({logger with destinations=[("STDERR", {Channel=%%BslLogger.get_stderr%%()})]})
 
@@ -166,7 +166,7 @@ Logger = {{
 
   // TODO: emulate lazy creation of log files with options and refs.
   /* Create a reference to a logger that will write to "access.log" */
-  access_logger =
+  access_logger : reference(Logger.t) =
     logger = empty_logger()
     dst = make_rotating_destination({none},"access")
     ServerReference.create({logger with destinations=[dst]})
@@ -176,7 +176,7 @@ Logger = {{
   set_access_logger(logger) = ServerReference.set(access_logger,logger)
 
   /* Create a reference to a logger that will write to "error.log" */
-  error_logger =
+  error_logger : reference(Logger.t)=
     logger = empty_logger()
     dst = make_rotating_destination({none},"error")
     ServerReference.create({logger with destinations=[dst]})

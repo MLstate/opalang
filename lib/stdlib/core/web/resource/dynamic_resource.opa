@@ -122,31 +122,25 @@ type DynamicResource.config = {
   randomize : bool
 }
 
-/**
- * @private
-**/
+@private
 type DynamicResource.manager = ResourceTracker.manager(ThreadContext.t, bool)
 
-/**
- * @private
-**/
+@private
 type DynamicResource.resource = {
   resource : resource
   manager : DynamicResource.manager
 }
 
-/**
- * @private
-**/
+@private
 type DynamicResource.key = string
 
-/**
- * @private
-**/
+@private
 type DynamicResource.message =
    { add : DynamicResource.key ; dynresource : DynamicResource.resource }
  / { get : DynamicResource.key }
  / { remove : DynamicResource.key }
+ / { default:  { access_denied } / { not_found } -> resource }
+
 
 /**
  * {1 Interface}
@@ -195,7 +189,7 @@ type DynamicResource.message =
       instruction = { set = ~{map default} }
       { return = none ; ~instruction }
 
-  @private resourceCell =
+  @private resourceCell : Cell.cell(DynamicResource.message, option(resource)) =
     state = {map = StringMap.empty : stringmap(DynamicResource.resource);
              default = _ -> Resource.default_error_page({wrong_address})}
     // CF remark about thread context, we may want to use a dynamic cell instead.

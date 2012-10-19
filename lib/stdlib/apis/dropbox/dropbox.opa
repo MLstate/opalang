@@ -117,7 +117,7 @@ type Dropbox.file = {
 
 DropboxUser = {{
 
-  @private dropbox_context = UserContext.make( { no_credentials } )
+  @private dropbox_context = UserContext.make( { no_credentials } : Dropbox.User.status)
   get_status() = UserContext.execute(s -> s, dropbox_context)
   is_authenticated() = match get_status() with { authenticated = _ } -> true | _ -> false
   set_status(r) = UserContext.change(_ -> r, dropbox_context)
