@@ -5,7 +5,7 @@ true: warn_A, warn_e, warn_error_A
 # subdirs
 <{http,email,dns,paxos,nattraversal}>: traverse
 
-<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_ssl, use_unix, use_zip, use_libruntime, use_appruntime, use_str, use_libsecurity, use_libtools, use_ulex, use_nums, use_cryptokit
+<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_ssl, use_unix, use_zip, use_libruntime, use_appruntime, use_str, use_libsecurity, use_ulex, use_nums, use_cryptokit
 # <**/*.{byte,native}>: use_io, use_buildinfos, use_ssl_ext
 
 

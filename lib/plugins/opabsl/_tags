@@ -20,7 +20,7 @@
 #, use_ssl, use_ssl_threads, use_cryptokit
 
 # mlstate libs dependencies
-<opabslMLRuntime.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libsession
+<opabslMLRuntime.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libsecurity, use_database, use_qmlcpsserver, use_libsession
 
 # module used both, in case of an interpretor (qmltop)
 # same as the Plugin
@@ -32,7 +32,7 @@
 #, use_ssl, use_ssl_threads, use_cryptokit
 
 # mlstate libs dependencies
-<opabslLoader.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libnet, use_appruntime, use_libtools, use_libsecurity, use_database, use_qmlcpsserver, use_libruntime, use_libsession, use_oparuntime
+<opabslLoader.{ml,mli,byte,native}>: use_libbase, use_ulex, use_libtrx, use_libnet, use_appruntime, use_libsecurity, use_database, use_qmlcpsserver, use_libruntime, use_libsession, use_oparuntime
 
 # ppdebug
 <opabslMLRuntime.ml>: with_mlstate_debug

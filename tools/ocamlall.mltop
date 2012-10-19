@@ -274,8 +274,6 @@ ocamllib/appruntime/ResourceTracker
 # ocamllib/libsession/Llsession
 # ocamllib/libsession/SessionUtils
 # ocamllib/libsession/Channel
-# ocamllib/libtools/Process
-# ocamllib/libtools/ProcessUtils
 #
 # ocamllib/oparuntime/QmlClosureRuntime
 # ocamllib/oparuntime/PingRegister

@@ -1,6 +1,6 @@
 # -*- conf -*- (for emacs)
 # AIE AIE AIE : qmltop is so greedy in libs than we are lazy to clean this up
-<**/*.{ml,mli,byte,native}>: thread, use_ssl, use_graph, use_zip, use_str, use_unix, use_bigarray, use_buildinfos, use_libbase, use_libqmlcompil, use_libbsl, use_qmlslicer, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libsecurity, use_libtools, use_database, use_ulex, use_libtrx, use_qmlcpsserver, use_cryptokit, use_nums, use_passlib, use_dynlink, use_opalang, use_compilerlib, use_ocamllang, use_jslang, use_opacapi, use_qmlpasses, use_libsession, iconv
+<**/*.{ml,mli,byte,native}>: thread, use_ssl, use_graph, use_zip, use_str, use_unix, use_bigarray, use_buildinfos, use_libbase, use_libqmlcompil, use_libbsl, use_qmlslicer, use_libruntime, use_appruntime, use_oparuntime, use_libnet, use_libsecurity, use_database, use_ulex, use_libtrx, use_qmlcpsserver, use_cryptokit, use_nums, use_passlib, use_dynlink, use_opalang, use_compilerlib, use_ocamllang, use_jslang, use_opacapi, use_qmlpasses, use_libsession, iconv
 
 <gen_opatop_manpage.*>: use_pplib
 <opatop.*>: use_pplib, use_opatoplib, use_opabsl_for_interpreter, use_opabsl_for_server

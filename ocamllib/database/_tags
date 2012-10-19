@@ -3,7 +3,7 @@
 # subdirs
 <{badop,db3,light}>: traverse
 
-<**/*.{ml,mli,byte,native}>: use_libbase, use_libruntime, use_libnet, use_appruntime, use_libsecurity, use_libtools, use_buildinfos, use_nums
+<**/*.{ml,mli,byte,native}>: use_libbase, use_libruntime, use_libnet, use_appruntime, use_libsecurity, use_buildinfos, use_nums
 <gml_parser.{ml,mli,byte,native}>: use_libtrx
 
 <light/*.{ml,mli,byte,native}>: opt_use_dbm
