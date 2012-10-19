@@ -105,6 +105,7 @@ struct
     "libtools" ;
     "libsecurity" ;
     "libnet" ;
+    "libirc" ;
     "database" ;
     "oparuntime";
     "libsession" ;
