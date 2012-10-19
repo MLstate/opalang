@@ -447,9 +447,9 @@ struct
           in
           if is_expansive exp then (
             let mutable_freevars_ty = mutable_vars ty in
-            if not (QT.FreeVars.is_type_empty mutable_freevars_ty) then
+            if not (QT.FreeVars.is_empty mutable_freevars_ty) then
               let (freevars_expansive,labels) = expansive_nodes_interacts mutable_freevars_ty exp in
-              if not (QT.FreeVars.is_type_empty freevars_expansive) then
+              if not (QT.FreeVars.is_empty freevars_expansive) then
             let context = QmlError.Context.annoted_expr annotmap exp in
                 let context = QmlError.Context.merge context (List.map QmlError.Context.label labels) in
             QmlError.serror context
