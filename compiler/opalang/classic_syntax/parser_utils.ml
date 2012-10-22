@@ -1143,7 +1143,7 @@ let count_open_tags tag =
   !n
 
 let rec find_next_tag context pos tag_open tag_close=
-  let cmp sub pos1 = sub = String.sub context pos1 (String.length sub) in
+  let cmp sub pos1 = try sub = String.sub context pos1 (String.length sub) with _ -> false in
   try(
   let s1 = String.index_from context pos '<' in
   if cmp tag_open s1
