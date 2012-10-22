@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -288,7 +288,7 @@ MongoCollection = {{
   insert_result(c:Mongo.collection('value), v:'value): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     b = Bson.opa_to_bson(v,{some=@typeval('value)})
-    MongoCommon.reply_to_result("MongoCollection.insert",0,MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
+    MongoCommon.reply_to_result("MongoCollection.insert",0,MongoDriver.inserte(c.db.mongo,c.db.insert_flags,ns,b))
 
   /**
    * Batch insert, you need to build the batch using the [Batch] module.
@@ -301,7 +301,7 @@ MongoCollection = {{
   insert_batch_result(c:Mongo.collection('value), b:Mongo.batch('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     MongoCommon.reply_to_result("MongoCollection.insert_batch",0,
-                                MongoDriver.insert_batche(c.db.mongo,c.db.insert_flags,ns,c.db.dbname,b))
+                                MongoDriver.insert_batche(c.db.mongo,c.db.insert_flags,ns,b))
 
   /**
    * Update a value in a collection.
@@ -322,7 +322,7 @@ MongoCollection = {{
   update_result(c:Mongo.collection('value), select:Mongo.select('value), update:Mongo.update('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     MongoCommon.reply_to_result("MongoCollection.update",0,
-                                MongoDriver.updatee(c.db.mongo,c.db.update_flags,ns,c.db.dbname,select,update))
+                                MongoDriver.updatee(c.db.mongo,c.db.update_flags,ns,select,update))
 
   /**
    * Delete values in a collection according to a select value.
@@ -335,7 +335,7 @@ MongoCollection = {{
   delete_result(c:Mongo.collection('value), select:Mongo.select('value)): Mongo.result =
     ns = c.db.dbname^"."^c.db.collection
     MongoCommon.reply_to_result("MongoCollection.delete",0,
-                                MongoDriver.deletee(c.db.mongo,c.db.delete_flags,ns,c.db.dbname,select))
+                                MongoDriver.deletee(c.db.mongo,c.db.delete_flags,ns,select))
 
   /** Delete by _id field **/
   delete_by_id(c:Mongo.collection('value),id) = delete(c,[H.str("_id",id)])

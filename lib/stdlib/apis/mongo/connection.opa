@@ -296,7 +296,7 @@ MongoConnection = {{
    **/
   openraw(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool, auth:Mongo.auths, addr:string, port:int)
         : outcome(Mongo.mongodb,Mongo.failure) =
-    open_((match MongoDriver.open(bufsize,pool_max,allow_slaveok,false,addr,port,log,auth) with
+        open_((match MongoDriver.open(name,bufsize,pool_max,allow_slaveok,false,addr,port,log,auth) with
            | {success=m} -> {success=(false,m)}
            | {~failure} -> {~failure}),name)
 
@@ -527,12 +527,12 @@ MongoConnection = {{
 
   /** Insert document with getlasterror into the defined database with inbuilt flags **/
   inserte(m:Mongo.mongodb, documents:Bson.document): option(Mongo.reply) =
-    MongoDriver.inserte(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", m.dbname, documents)
+    MongoDriver.inserte(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", documents)
 
   /** Insert document with getlasterror converted into a result into the defined database with inbuilt flags **/
   insert_result(m:Mongo.mongodb, documents:Bson.document): Mongo.result =
     MongoCommon.reply_to_result("MongoConnection.insert_result",0,
-                                MongoDriver.inserte(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", m.dbname, documents))
+                                MongoDriver.inserte(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", documents))
 
   /** Insert batch of documents into the defined database with inbuilt flags **/
   insert_batch(m:Mongo.mongodb, documents:list(Bson.document)): bool =
@@ -540,13 +540,12 @@ MongoConnection = {{
 
   /** Insert batch of documents with getlasterror into the defined database with inbuilt flags **/
   insert_batche(m:Mongo.mongodb, documents:list(Bson.document)): option(Mongo.reply) =
-    MongoDriver.insert_batche(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", m.dbname, documents)
+    MongoDriver.insert_batche(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", documents)
 
   /** Insert batch of documents with getlasterror converted into a result into the defined database with inbuilt flags **/
   insert_batch_result(m:Mongo.mongodb, documents:list(Bson.document)): Mongo.result =
     MongoCommon.reply_to_result("MongoConnection.insert_batch_result",0,
-                                MongoDriver.insert_batche(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}",
-                                                          m.dbname, documents))
+                                MongoDriver.insert_batche(m.mongo, m.insert_flags, "{m.dbname}.{m.collection}", documents))
 
   /** Update document in the defined database with inbuilt flags **/
   update(m:Mongo.mongodb, selector:Bson.document, update:Bson.document): bool =
@@ -554,13 +553,13 @@ MongoConnection = {{
 
   /** Update document with getlasterror in the defined database with inbuilt flags **/
   updatee(m:Mongo.mongodb, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
-    MongoDriver.updatee(m.mongo, m.update_flags, "{m.dbname}.{m.collection}", m.dbname, selector, update)
+    MongoDriver.updatee(m.mongo, m.update_flags, "{m.dbname}.{m.collection}", selector, update)
 
   /** Update document with getlasterror converted into a result in the defined database with inbuilt flags **/
   update_result(m:Mongo.mongodb, selector:Bson.document, update:Bson.document): Mongo.result =
     MongoCommon.reply_to_result("MongoConnection.update_result",0,
                                 MongoDriver.updatee(m.mongo, m.update_flags, "{m.dbname}.{m.collection}",
-                                                    m.dbname, selector, update))
+                                                    selector, update))
 
   /** Perform a query using inbuilt parameters.
    *  The functions to handle [Mongo.reply] are in [MongoDriver].
@@ -581,12 +580,12 @@ MongoConnection = {{
 
   /** Delete documents with getlasterror from the defined database with inbuilt flags **/
   deletee(m:Mongo.mongodb, selector:Bson.document): option(Mongo.reply) =
-    MongoDriver.deletee(m.mongo, m.delete_flags, "{m.dbname}.{m.collection}", m.dbname, selector)
+    MongoDriver.deletee(m.mongo, m.delete_flags, "{m.dbname}.{m.collection}", selector)
 
   /** Delete documents with getlasterror converted into a result from the defined database with inbuilt flags **/
   delete_result(m:Mongo.mongodb, selector:Bson.document): Mongo.result =
     MongoCommon.reply_to_result("MongoConnection.delete_result",0,
-                                MongoDriver.deletee(m.mongo, m.delete_flags, "{m.dbname}.{m.collection}", m.dbname, selector))
+                                MongoDriver.deletee(m.mongo, m.delete_flags, "{m.dbname}.{m.collection}", selector))
 
   /** Perform a kill_cursors operation **/
   kill_cursors(m:Mongo.mongodb, cursors:list(Mongo.cursorID)): bool =
@@ -594,12 +593,12 @@ MongoConnection = {{
 
   /** Perform a kill_cursors operation with getlasterror **/
   kill_cursorse(m:Mongo.mongodb, cursors:list(Mongo.cursorID)): option(Mongo.reply) =
-    MongoDriver.kill_cursorse(m.mongo, m.dbname, cursors)
+    MongoDriver.kill_cursorse(m.mongo, cursors)
 
   /** Perform a kill_cursors operation with getlasterror converted into a result **/
   kill_cursors_result(m:Mongo.mongodb, cursors:list(Mongo.cursorID)): Mongo.result =
     MongoCommon.reply_to_result("MongoConnection.kill_cursors_result",0,
-                                MongoDriver.kill_cursorse(m.mongo, m.dbname, cursors))
+                                MongoDriver.kill_cursorse(m.mongo, cursors))
 
   /** Perform a msg operation **/
   msg(m:Mongo.mongodb, msg:string): bool =
@@ -607,12 +606,12 @@ MongoConnection = {{
 
   /** Perform a msg operation with getlasterror **/
   msge(m:Mongo.mongodb, msg:string): option(Mongo.reply) =
-    MongoDriver.msge(m.mongo, m.dbname, msg)
+    MongoDriver.msge(m.mongo, msg)
 
   /** Perform a msg operation with getlasterror converted into a result **/
   msg_result(m:Mongo.mongodb, msg:string): Mongo.result =
     MongoCommon.reply_to_result("MongoConnection.msg_result",0,
-                                MongoDriver.msge(m.mongo, m.dbname, msg))
+                                MongoDriver.msge(m.mongo, msg))
 
   /** Add an index to the inbuilt collection **/
   create_index(m:Mongo.mongodb, key:Bson.document): bool =
@@ -620,7 +619,7 @@ MongoConnection = {{
 
   /** Add an index to the inbuilt collection with getlasterror **/
   create_indexe(m:Mongo.mongodb, key:Bson.document): option(Mongo.reply) =
-    MongoDriver.create_indexe(m.mongo, "{m.dbname}.{m.collection}", m.dbname, key, m.index_flags)
+    MongoDriver.create_indexe(m.mongo, "{m.dbname}.{m.collection}", key, m.index_flags)
 
   Cursor = {{
 

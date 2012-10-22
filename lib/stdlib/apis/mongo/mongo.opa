@@ -75,9 +75,9 @@ type Mongo.db = {
 /** Outgoing Cell messages **/
 @private
 type Mongo.sr =
-    {send:(Mongo.db,Mongo.mongo_buf,string)} // Send and forget
-  / {sendrecv:(Mongo.db,Mongo.mongo_buf,string)} // Send and expect reply
-  / {senderror:(Mongo.db,Mongo.mongo_buf,string,string)} // Send and call getlasterror
+    {send:(Mongo.db,Mongo.mongo_buf)} // Send and forget
+  / {sendrecv:(Mongo.db,Mongo.mongo_buf)} // Send and expect reply
+  / {senderror:(Mongo.db,Mongo.mongo_buf)} // Send and call getlasterror
   / {stop} // Stop the cell
 
 /** Incoming Cell messages **/
@@ -118,13 +118,14 @@ MongoDriver = {{
   // Knowing exactly where they go can be tricky
   @private free_(_) = void
 
+  @package
   do_authenticate_ll(db:outcome(Mongo.db,Mongo.failure)) =
     match db with
     | {success=m} ->
       List.fold((auth, outcome ->
                   match outcome with
                   | {success=_} ->
-                     match MongoCommands.authenticate_ll(m, auth.dbname, auth.user, auth.password) with
+                     match MongoCommands.authenticate_ll(m, m.name, auth.user, auth.password) with
                      | {success=_} ->
                         do if m.log then ML.info("MongoDriver.authenticate","authenticate success",void)
                         outcome
@@ -207,39 +208,39 @@ MongoDriver = {{
     | _ -> @fail
 
   @private
-  send_no_reply_(m,mbuf:Mongo.mongo_buf,name,reply_expected): bool =
+  send_no_reply_(m,mbuf:Mongo.mongo_buf,reply_expected): bool =
     match m.conn with
     | {some=conn} ->
        (match WP.binary_export(mbuf) with
         | {success=binary} ->
            len = Binary.length(binary)
-           do if m.log then ML.debug("MongoDriver.send({name})","\n{WP.string_of_message_binary(binary)}",void)
+           do if m.log then ML.debug("MongoDriver.send({m.name})","\n{WP.string_of_message_binary(binary)}",void)
            (match Socket.binary_write_len_with_err_cont(conn.conn,m.comms_timeout,binary,len) with
             | {success=cnt} ->
                do if not(reply_expected) then free_(mbuf) else void
                (cnt==len)
             | {failure=_} ->
                false)
-        | {failure=_} -> ML.error("MongoDriver.send({name})","Pack failure",false))
+        | {failure=_} -> ML.error("MongoDriver.send({m.name})","Pack failure",false))
     | {none} ->
-       ML.error("MongoDriver.send({name})","No socket",false)
+       ML.error("MongoDriver.send({m.name})","No socket",false)
 
   @private
-  send_no_reply(m,mbuf:Mongo.mongo_buf,name): bool = send_no_reply_(m,mbuf,name,false)
+  send_no_reply(m,mbuf:Mongo.mongo_buf): bool = send_no_reply_(m,mbuf,false)
 
   @private
-  send_with_reply(m,mbuf:Mongo.mongo_buf,name): (option(Mailbox.t),option(Mongo.reply)) =
+  send_with_reply(m,mbuf:Mongo.mongo_buf): (option(Mailbox.t),option(Mongo.reply)) =
     mbuf = refresh_requestId(mbuf)
     mrid = reply_requestId(mbuf)
     match m.conn with
     | {some=conn} ->
-       if send_no_reply_(m,mbuf,name,true)
+       if send_no_reply_(m,mbuf,true)
        then
          (match WP.read_mongo(conn.conn,m.comms_timeout,conn.mbox) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
              do free_(mbuf)
-             do if m.log then ML.debug("MongoDriver.receive({name})","\n{WP.string_of_Message(reply)}",void)
+             do if m.log then ML.debug("MongoDriver.receive({m.name})","\n{WP.string_of_Message(reply)}",void)
              if mrid != rrt
              then ML.error("MongoDriver.send_with_reply","RequestId mismatch, expected {mrid}, got {rrt}",({none},{none}))
              else ({some=mailbox},{some=reply})
@@ -250,22 +251,22 @@ MongoDriver = {{
        else
          ({none},{none})
     | {none} ->
-       ML.error("MongoDriver.receive({name})","No socket",({none},{none}))
+       ML.error("MongoDriver.receive({m.name})","No socket",({none},{none}))
 
   @private
-  send_with_error(m,mbuf:Mongo.mongo_buf,name,ns,slaveok): (option(Mailbox.t),option(Mongo.reply)) =
+  send_with_error(m,mbuf:Mongo.mongo_buf,slaveok): (option(Mailbox.t),option(Mongo.reply)) =
     match m.conn with
     | {some=conn} ->
-       mbuf2 = [WP.Query(0,if slaveok then MongoCommon.SlaveOkBit else 0,ns^".$cmd",[H.i32("getlasterror",1)],0,1,none)]
+       mbuf2 = [WP.Query(0,if slaveok then MongoCommon.SlaveOkBit else 0,m.name^".$cmd",[H.i32("getlasterror",1)],0,1,none)]
        mbuf2 = refresh_requestId(mbuf2)
        mrid = reply_requestId(mbuf2)
-       if send_no_reply_(m,List.append(mbuf,mbuf2),name,true)
+       if send_no_reply_(m,List.append(mbuf,mbuf2),true)
        then
          (match WP.read_mongo(conn.conn,m.comms_timeout,conn.mbox) with
           | {success=(mailbox,reply)} ->
              rrt = WP.reply_responseTo(reply)
              do free_(mbuf)
-             do if m.log then ML.debug("MongoDriver.send_with_error({name})","\n{WP.string_of_Message(reply)}",void)
+             do if m.log then ML.debug("MongoDriver.send_with_error({m.name})","\n{WP.string_of_Message(reply)}",void)
              if mrid != rrt
              then
                do ML.error("MongoDriver.send_with_error",
@@ -279,28 +280,23 @@ MongoDriver = {{
        else
          ({none},{none})
     | {none} ->
-       ML.error("MongoDriver.send_with_error({name})","No socket",({none},{none}))
+       ML.error("MongoDriver.send_with_error({m.name})","No socket",({none},{none}))
 
 
   @private
-  sr_snr(m,mbuf:Mongo.mongo_buf,name) =
-    sr = send_no_reply(m,mbuf,name)
+  sr_snr(m,mbuf:Mongo.mongo_buf) =
+    sr = send_no_reply(m,mbuf)
     ({none},if sr then {sendresult=sr} else {reconnect})
 
   @private
-  sr_swr(m,mbuf:Mongo.mongo_buf,name) =
-    (mbox,swr) = send_with_reply(m,mbuf,name)
+  sr_swr(m,mbuf:Mongo.mongo_buf) =
+    (mbox,swr) = send_with_reply(m,mbuf)
     (mbox,if Option.is_some(swr) && not(MongoCommon.reply_is_not_master(swr)) then {sndrcvresult=swr} else {reconnect})
 
   @private
-  sr_swe(m,mbuf:Mongo.mongo_buf,name,ns,slaveok) =
-    (mbox,swe) = send_with_error(m,mbuf,name,ns,slaveok)
+  sr_swe(m,mbuf:Mongo.mongo_buf,slaveok) =
+    (mbox,swe) = send_with_error(m,mbuf,slaveok)
     (mbox,if Option.is_some(swe) && not(MongoCommon.reply_is_not_master(swe)) then {snderrresult=swe} else {reconnect})
-
-  check(m:Mongo.db) =
-    match SocketPool.get(m.pool) with
-    | ~{failure} -> ~{failure}
-    | {success=(_,c)} -> do SocketPool.release(m.pool, c) {success = m}
 
   @private appmbuf(mbuf:Mongo.mongo_buf,f) : Mongo.mongo_buf = match mbuf with | [h|t] -> [f(h)|t] | _ -> @fail
   @private getmbuf(mbuf:Mongo.mongo_buf,f:WireProtocol.Message->'a) : 'a = match mbuf with | [h|_] -> f(h) | _ -> @fail
@@ -317,9 +313,9 @@ MongoDriver = {{
        ssok(mbuf) = if slaveok then set_query_flags(mbuf,MongoCommon.SlaveOkBit) else mbuf
        (mbox,result) =
          (match msg with
-          | {send=(m,mbuf,name)} -> sr_snr({m with ~conn},ssok(mbuf),name)
-          | {sendrecv=(m,mbuf,name)} -> sr_swr({m with ~conn},ssok(mbuf),name)
-          | {senderror=(m,mbuf,name,ns)} -> sr_swe({m with ~conn},ssok(mbuf),name,ns,slaveok)
+          | {send=(m,mbuf)} -> sr_snr({m with ~conn},ssok(mbuf))
+          | {sendrecv=(m,mbuf)} -> sr_swr({m with ~conn},ssok(mbuf))
+          | {senderror=(m,mbuf)} -> sr_swe({m with ~conn},ssok(mbuf),slaveok)
           | {stop} -> do ML.debug("MongoDriver.srpool","stop",void) @fail)
        connection =
          match mbox with
@@ -334,7 +330,7 @@ MongoDriver = {{
        else {reconnect}
 
   @private
-  snd(m,mbuf:Mongo.mongo_buf,name) =
+  snd(m,mbuf:Mongo.mongo_buf) =
     recon() =
       mbuf2 = mbuf
       (slaveok,connectok) = reconnect("send_no_reply",m)
@@ -343,10 +339,10 @@ MongoDriver = {{
         if not(slaveok) || (get_opCode(mbuf2) == MongoCommon._OP_QUERY)
         then
           mbuf2 = refresh_requestId(mbuf2) // Probably not necessary but we don't want unnecessary confusion
-          snd(m,mbuf2,name)
+          snd(m,mbuf2)
         else false
-      else ML.fatal("MongoDriver.snd({name}):","comms error (Can't reconnect)",-1)
-    srr = srpool(m,{send=((m,mbuf,name))})
+      else ML.fatal("MongoDriver.snd({m.name}):","comms error (Can't reconnect)",-1)
+    srr = srpool(m,{send=((m,mbuf))})
     match srr with
     | {noconnection} -> false
     | {reconnect} -> recon()
@@ -354,7 +350,7 @@ MongoDriver = {{
     | _ -> @fail
 
   @private
-  sndrcv(m,mbuf:Mongo.mongo_buf,name) =
+  sndrcv(m,mbuf:Mongo.mongo_buf) =
     recon() =
       mbuf2 = mbuf
       (slaveok,connectok) = reconnect("send_with_reply",m)
@@ -363,10 +359,10 @@ MongoDriver = {{
         if not(slaveok) || (get_opCode(mbuf2) == MongoCommon._OP_QUERY)
         then
           mbuf2 = refresh_requestId(mbuf2)
-          sndrcv(m,mbuf2,name)
+          sndrcv(m,mbuf2)
         else none
-      else ML.fatal("MongoDriver.sndrcv({name}):","comms error (Can't reconnect)",-1)
-    srr = srpool(m,{sendrecv=((m,mbuf,name))})
+      else ML.fatal("MongoDriver.sndrcv({m.name}):","comms error (Can't reconnect)",-1)
+    srr = srpool(m,{sendrecv=((m,mbuf))})
     match srr with
     | {noconnection} -> none
     | {reconnect} -> recon()
@@ -374,7 +370,7 @@ MongoDriver = {{
     | _ -> @fail
 
   @private
-  snderr(m,mbuf:Mongo.mongo_buf,name,ns) =
+  snderr(m,mbuf:Mongo.mongo_buf) =
     recon() =
       mbuf2 = mbuf
       (slaveok,connectok) = reconnect("send_with_error",m)
@@ -383,10 +379,10 @@ MongoDriver = {{
         if not(slaveok) || (get_opCode(mbuf2) == MongoCommon._OP_QUERY)
         then
           mbuf2 = refresh_requestId(mbuf2)
-          snderr(m,mbuf2,name,ns)
+          snderr(m,mbuf2)
         else none
-      else ML.fatal("MongoDriver.snderr({name}):","comms error (Can't reconnect)",-1)
-    srr = srpool(m,{senderror=((m,mbuf,name,ns))})
+      else ML.fatal("MongoDriver.snderr({m.name}):","comms error (Can't reconnect)",-1)
+    srr = srpool(m,{senderror=((m,mbuf))})
     match srr with
     | {noconnection} -> none
     | {reconnect} -> recon()
@@ -403,12 +399,12 @@ MongoDriver = {{
    * @param reconnectable Flag to enable reconnection logic.
    * @param log Whether to enable logging for the driver.
    **/
-  init(bufsize:int, pool_max:int, allow_slaveok:bool, reconnectable:bool, log:bool, auth:Mongo.auths): Mongo.db =
+  init(name, bufsize:int, pool_max:int, allow_slaveok:bool, reconnectable:bool, log:bool, auth:Mongo.auths): Mongo.db =
     { conn={none};
       reconncell=(Cell.make([], reconfn):Cell.cell(Mongo.reconnectmsg,Mongo.reconnectresult));
       pool=SocketPool.make(("localhost",default_port),pool_max,bufsize,log);
       pool_max=Int.max(pool_max,1); ~allow_slaveok; ~bufsize; ~log;
-      seeds=[]; name=""; ~reconnectable;
+      seeds=[]; ~name; ~reconnectable;
       reconnect_wait=2000; max_attempts=30; comms_timeout=3600000;
       depth=0; max_depth=2; ~auth;
     }
@@ -428,6 +424,11 @@ MongoDriver = {{
     do if m.log then ML.info("MongoDriver.connect","bufsize={m.bufsize} addr={addr} port={port} log={m.log}",void)
     do SocketPool.reconnect(m.pool,(addr,port))
     {success=m}
+
+  check(m:Mongo.db) =
+    match SocketPool.get(m.pool) with
+    | ~{failure} -> ~{failure}
+    | {success=(_,c)} -> do SocketPool.release(m.pool, c) {success = m}
 
   /**
    * Get the current SlaveOK status.
@@ -455,10 +456,10 @@ MongoDriver = {{
    *
    *  Example: [open(bufsize, pool_max, reconnectable, addr, port, log)]
    **/
-  open(bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, auth:Mongo.auths)
+  open(name, bufsize:int, pool_max:int, reconnectable:bool, allow_slaveok:bool, addr:string, port:int, log:bool, auth:Mongo.auths)
      : outcome(Mongo.db,Mongo.failure) =
     do if log then ML.info("MongoDriver.open","{addr}:{port} auth={auth}",void)
-    match ((connect(init(bufsize,pool_max,allow_slaveok,reconnectable,log,auth),addr,port),auth)) with
+    match ((connect(init(name, bufsize,pool_max,allow_slaveok,reconnectable,log,auth),addr,port),auth)) with
     | ({~success},[]) -> {~success}
     | ({~success},_) -> do_authenticate_ll({~success})
     | ({~failure},_) -> {~failure}
@@ -499,13 +500,13 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   insert(m:Mongo.db, flags:int, ns:string, documents:Bson.document): bool =
-    snd(m,[WP.Insert(0, flags, ns, [documents])],"insert")
+    snd(m,[WP.Insert(0, flags, ns, [documents])])
 
   /**
    * Same as insert but piggyback a getlasterror command.
    **/
-  inserte(m:Mongo.db, flags:int, ns:string, dbname:string, documents:Bson.document): option(Mongo.reply) =
-    snderr(m,[WP.Insert(0, flags, ns, [documents])],"insert",dbname)
+  inserte(m:Mongo.db, flags:int, ns:string, documents:Bson.document): option(Mongo.reply) =
+    snderr(m,[WP.Insert(0, flags, ns, [documents])])
 
   /**
    *  [insertf]:  same as [insert] but using tags instead of bit-wise flags.
@@ -519,11 +520,11 @@ MongoDriver = {{
    *  Same parameters as for [insert].
    **/
   insert_batch(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): bool =
-    snd(m,[WP.Insert(0, flags, ns, documents)],"insert")
+    snd(m,[WP.Insert(0, flags, ns, documents)])
 
   /** insert_batch with added getlasterror query **/
-  insert_batche(m:Mongo.db, flags:int, ns:string, dbname:string, documents:list(Bson.document)): option(Mongo.reply) =
-    snderr(m,[WP.Insert(0, flags, ns, documents)],"insert",dbname)
+  insert_batche(m:Mongo.db, flags:int, ns:string, documents:list(Bson.document)): option(Mongo.reply) =
+    snderr(m,[WP.Insert(0, flags, ns, documents)])
 
   /**
    *  [insert_batchf]:  same as [insert_batch] but using tags instead of bit-wise flags.
@@ -539,11 +540,11 @@ MongoDriver = {{
    *  provide a [select] document.
    **/
   update(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): bool =
-    snd(m,[WP.Update(0,flags,ns,selector,update)],"update")
+    snd(m,[WP.Update(0,flags,ns,selector,update)])
 
   /** update with added getlasterror query **/
-  updatee(m:Mongo.db, flags:int, ns:string, dbname, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
-    snderr(m,[WP.Update(0,flags,ns,selector,update)],"update",dbname)
+  updatee(m:Mongo.db, flags:int, ns:string, selector:Bson.document, update:Bson.document): option(Mongo.reply) =
+    snderr(m,[WP.Update(0,flags,ns,selector,update)])
 
   /**
    *  [updatef]:  same as [update] but using tags instead of bit-wise flags.
@@ -561,7 +562,7 @@ MongoDriver = {{
   query(m:Mongo.db, flags:int, ns:string, numberToSkip:int, numberToReturn:int,
         query:Bson.document, returnFieldSelector_opt:option(Bson.document)): option(Mongo.reply) =
     //do ML.debug("MongoDriver.query","ns={ns} numberToSkip={numberToSkip} numberToReturn={numberToReturn} query={query}",void)
-    sndrcv(m,[WP.Query(0,flags,ns,query,numberToSkip,numberToReturn,returnFieldSelector_opt)],"query")
+    sndrcv(m,[WP.Query(0,flags,ns,query,numberToSkip,numberToReturn,returnFieldSelector_opt)])
 
   /**
    *  [queryf]:  same as [query] but using tags instead of bit-wise flags.
@@ -578,7 +579,7 @@ MongoDriver = {{
    *  @return Exactly the same as [query].
    **/
   get_more(m:Mongo.db, ns:string, numberToReturn:int, cursorID:Mongo.cursorID): option(Mongo.reply) =
-    sndrcv(m,[WP.GetMore(0,ns,numberToReturn,cursorID)],"getmore")
+    sndrcv(m,[WP.GetMore(0,ns,numberToReturn,cursorID)])
 
   /**
    *  Send OP_DELETE.
@@ -586,11 +587,11 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   delete(m:Mongo.db, flags:int, ns:string, selector:Bson.document): bool =
-    snd(m,[WP.Delete(0,flags,ns,selector)],"delete")
+    snd(m,[WP.Delete(0,flags,ns,selector)])
 
   /** delete with added getlasterror query **/
-  deletee(m:Mongo.db, flags:int, ns:string, dbname:string, selector:Bson.document): option(Mongo.reply) =
-    snderr(m,[WP.Delete(0,flags,ns,selector)],"delete",dbname)
+  deletee(m:Mongo.db, flags:int, ns:string, selector:Bson.document): option(Mongo.reply) =
+    snderr(m,[WP.Delete(0,flags,ns,selector)])
 
   /**
    *  [deletef]:  same as [delete] but using tags instead of bit-wise flags.
@@ -604,22 +605,22 @@ MongoDriver = {{
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   kill_cursors(m:Mongo.db, cursors:list(Mongo.cursorID)): bool =
-    snd(m,[WP.KillCursors(0,cursors)],"kill_cursors")
+    snd(m,[WP.KillCursors(0,cursors)])
 
   /** kill_cursors with added getlasterror query **/
-  kill_cursorse(m:Mongo.db, dbname:string, cursors:list(Mongo.cursorID)): option(Mongo.reply) =
-    snderr(m,[WP.KillCursors(0,cursors)],"kill_cursors",dbname)
+  kill_cursorse(m:Mongo.db, cursors:list(Mongo.cursorID)): option(Mongo.reply) =
+    snderr(m,[WP.KillCursors(0,cursors)])
 
   /**
    *  Send OP_MSG.
    *  @return a bool indicating whether the message was successfully sent or not.
    **/
   msg(m:Mongo.db, msg:string): bool =
-    snd(m,[WP.Msg(0,msg)],"msg")
+    snd(m,[WP.Msg(0,msg)])
 
   /** kill_cursors with added getlasterror query **/
-  msge(m:Mongo.db, dbname:string, msg:string): option(Mongo.reply) =
-    snderr(m,[WP.Msg(0,msg)],"msg",dbname)
+  msge(m:Mongo.db, msg:string): option(Mongo.reply) =
+    snderr(m,[WP.Msg(0,msg)])
 
   @private get_index_opts(options:int): Bson.document =
     List.flatten([(if Bitwise.land(options,C.UniqueBit) != 0 then [H.bool("unique",true)] else []),
@@ -645,10 +646,10 @@ MongoDriver = {{
     insert(m,0,idxns,b)
 
   /** Add an index to a collection with follow-up getlasterror **/
-  create_indexe(m:Mongo.db, ns:string, dbname:string, key:Bson.document, options:int): option(Mongo.reply) =
+  create_indexe(m:Mongo.db, ns:string, key:Bson.document, options:int): option(Mongo.reply) =
     opts = get_index_opts(options)
     (b,idxns) = create_index_(ns, key, opts)
-    inserte(m,0,idxns,dbname,b)
+    inserte(m,0,idxns,b)
 
   /**
    * [create_indexf]:  same as [create_index] but using tags instead of bit-wise flags.

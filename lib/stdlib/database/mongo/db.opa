@@ -81,7 +81,7 @@ DbMongo = {{
     */
 
     @package updateerr(db:DbMongo.t2, flags:int, ns:string, selector:Bson.document, update:Bson.document, id , upsert): void =
-    reply = MongoDriver.updatee(db.db, flags, ns, db.name, selector, update)
+    reply = MongoDriver.updatee(db.db, flags, ns, selector, update)
        match reply with
        | {none} ->
          do Log.error("DbGen/Query", "(failure) Read {id} didn't return anything")
@@ -438,7 +438,7 @@ Then use option --db-remote instead of --db-local.
       seeds=[] : list((string, int))
       bufsize = 50*1024
       poolsize = 100
-      log = false
+      log = true
       auth = [] : Mongo.auths
     }
 
@@ -451,7 +451,7 @@ Then use option --db-remote instead of --db-local.
       connect() =
         match args.seeds with
         | [(host, port)] ->
-          MongoDriver.open(args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log, args.auth)
+          MongoDriver.open(name, args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log, args.auth)
         | seeds ->
           mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, args.auth, seeds)
           match MongoReplicaSet.connect(mdb) with

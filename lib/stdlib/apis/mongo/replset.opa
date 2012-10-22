@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -148,8 +148,8 @@ MongoReplicaSet = {{
    **/
   init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool,
        auth:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db =
-    m = MongoDriver.init(bufsize, pool_max, allow_slaveok, true, log, auth)
-    {m with ~seeds; ~name}
+    m = MongoDriver.init(name, bufsize, pool_max, allow_slaveok, true, log, auth)
+    {m with ~seeds}
 
   /**
    * Initialize a [Mongo.db] connection using a single seed.
