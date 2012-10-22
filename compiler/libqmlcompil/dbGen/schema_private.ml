@@ -236,14 +236,13 @@ let insert_multi t ?key_kind ?multi_type node =
     @return (t, n option) option, t is present if it was modified (and the type handled)
     n, if present, is the node that was added
 *)
-let rec manage_pervasive_type ~context t gamma n =
-  let manage_tymap n ty1 ty2 =
+let manage_pervasive_type ~context ty t gamma n =
+  let manage_tymap ty1 ty2 =
 #<< sch_debug "Map type found in the DB definitions: mapping to internal map"; >>#;
-    let tymap = SchemaGraphLib.type_of_node n in
     let t,n = SchemaGraphLib.set_node_type t n ty2 in
     try
       let kind = key_kind ~context gamma ty1 in
-      let t = insert_multi t ~key_kind:kind ~multi_type:tymap n in
+      let t = insert_multi t ~key_kind:kind ~multi_type:ty n in
       Some (t, Some n)
     with Failure "key_kind" ->
        QmlError.warning ~wclass:WarningClass.dbgen_schema context
@@ -252,7 +251,6 @@ let rec manage_pervasive_type ~context t gamma n =
       ;
       None
   in
-  let rec aux ty =
     match QmlTypesUtils.Inspect.get_deeper_typename gamma ty with
       | Q.TypeName ([ty1;ty2],tid)
           when (match Q.TypeIdent.to_string tid with
@@ -260,7 +258,7 @@ let rec manage_pervasive_type ~context t gamma n =
                     | "map" (* for opa, old style *)
                     | "Map_private.map" (* for opa, new style *)) -> true
                   | _ -> false) ->
-          manage_tymap n ty1 ty2
+          manage_tymap ty1 ty2
       | Q.TypeName ([ty1;ty2;tyorder],tid)
           when (Q.TypeIdent.to_string tid = "ordered_map")  ->
           (match QmlTypesUtils.Inspect.get_deeper_typename gamma tyorder with
@@ -268,7 +266,7 @@ let rec manage_pervasive_type ~context t gamma n =
                  when (match Q.TypeIdent.to_string tid with
                          | "String.order" | "Int.order" | "Order.default" -> true
                          | _ -> false) ->
-                 manage_tymap n ty1 ty2
+                 manage_tymap ty1 ty2
              | _ ->
                  QmlError.warning ~wclass:WarningClass.dbgen_schema context
                  "This map uses an ordering that is unsupported by the database.\nAccess to elements by key will be disabled (at %s)"
@@ -278,7 +276,6 @@ let rec manage_pervasive_type ~context t gamma n =
           let t, _n = SchemaGraphLib.set_node_label t n (C.Leaf C.Leaf_binary) in
           Some (t, None)
       | _ -> None
-  in aux (SchemaGraphLib.type_of_node n)
 
 let rec has_dflt_in_parents t n =
   try
@@ -379,8 +376,8 @@ let rec add_subgraph ?(is_plain = false) ~context ?(boundnames = []) gamma t par
             (match vis with
              | QmlAst.TDV_public -> false
              | QmlAst.TDV_abstract _ | QmlAst.TDV_private _ ->
-                 (* A priori, we make so that partial writes on abstract and
-                    private type even when we are in the package defining them.
+                 (* A priori, we forbid access on abstract and private type
+                    even when we are in the package defining them.
                     If this is too restrictive, we may consider relaxing this
                     fact. Let's see at usage. *)
                  true) in
@@ -404,7 +401,7 @@ let rec add_subgraph ?(is_plain = false) ~context ?(boundnames = []) gamma t par
                 let t = SchemaGraph0.add_edge_e t (E.create (E.src edge) { (E.label edge) with C.is_main = false } linkto) in
                 SchemaGraph0.remove_vertex t cur_node
             | None ->
-                match manage_pervasive_type ~context t gamma cur_node with
+                match manage_pervasive_type ~context ty t gamma cur_node with
                   | Some (t,Some n) -> (* was managed and returned a new node *)
                       aux boundnames t n
                   | Some (t,None) -> t (* managed and no new node, we're finished *)
