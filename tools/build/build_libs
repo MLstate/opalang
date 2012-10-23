@@ -16,7 +16,6 @@ internal libnattraversal  	      ocamllib/libnet/nattraversal
 internal libnet			      ocamllib/libnet
 internal libruntime	  	      ocamllib/libruntime
 internal libsecurity	  	      ocamllib/libsecurity
-internal libsession	  	      ocamllib/libsession
 internal oparuntime	  	      ocamllib/oparuntime
 
 internal js_passes	  	      compiler/js_passes

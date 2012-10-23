@@ -1,7 +1,0 @@
-# -*- conf -*- (for emacs)
-true: warn_A, warn_e, warn_error_A
-
-<**/*.{ml,mli,byte,native}>: use_libbase, use_libqml, use_libruntime, use_appruntime
-
-<llsession.ml>: with_mlstate_debug
-<channel.ml>: with_mlstate_debug
