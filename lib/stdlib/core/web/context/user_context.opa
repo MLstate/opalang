@@ -60,7 +60,9 @@ type UserContext.private.message('state) = {exec: 'state -> (-> void)}
  * The type of UserContext parametrized by the type of value stored
  */
 @abstract
-type UserContext.t('state) = Cell.cell(UserContext.messages('state), option( ->void))
+type UserContext.t('state) =
+    Cell.cell(UserContext.messages('state),
+              {none} / {some: -> void} / {error:string})
 @private
 type UserContext.private.t('state) = Cell.cell(UserContext.private.message('state), option( ->void))
 
@@ -101,7 +103,9 @@ UserContext =
         match UserContextMap.get(client, state) with
           | {some=c} -> (c,false)
           | {none} -> (Cell.make(default,aux2),true)
-      client = get_key() ? error("Boum")
+      match get_key() with
+      | {none} -> {return={error="UserContext cannot get key"} instruction={unchanged}}
+      | {some = client} ->
       match msg with
       | {~exec} ->
         (c,new) = get_info(client, state)
@@ -109,7 +113,7 @@ UserContext =
           if new
           then {set=(UserContextMap.add(client,c,state),default)}
           else {unchanged}
-        {return=some(-> Cell.call(c, {~exec}) |> Option.get(_)())
+        {return={some = -> Cell.call(c, {~exec}) |> Option.get(_)()}
             ~instruction}
       | {~set} ->
         (c,new) = get_info(client, state)
@@ -118,12 +122,12 @@ UserContext =
           then {set=(UserContextMap.add(client,c,state),default)}
           else {unchanged}
         f() = ignore(Cell.call(c, {~set}))
-        {return=some(f) ~instruction}
+        {return={some = f} ~instruction}
       | {remove} ->
-        {return=none
+        {return={none}
          instruction={set = (UserContextMap.remove(client, state),default)}}
       | {~set_default} ->
-        {return=none
+        {return={none}
          instruction={set=(state,set_default)}}
     ctx
 
@@ -135,6 +139,12 @@ UserContext =
       | {~client} -> some(client.client)
     make_generic(client, default)
 
+  @private
+  call(context, msg) =
+    match Cell.call(context, msg)
+    | ~{error} -> @fail(error)
+    | {none} as e | {some = _} as e -> e : option
+
   /**
    * [change(f, context)] Change the state of a UserContext
    *
@@ -145,7 +155,7 @@ UserContext =
    */
   @server
   change(change : ('state -> 'state), context : UserContext.t('state)) : void =
-    (Cell.call(context, {set=(x -> some(change(x)))}) |> Option.get(_))()
+    (call(context, {set=(x -> some(change(x)))}) |> Option.get(_))()
 
   /**
    * [change_or_destroy(f, context)] Like [change(f, context)] but [f]
@@ -154,7 +164,7 @@ UserContext =
    */
   @server
   change_or_destroy(change : ('state -> option('state)), context : UserContext.t('state)) =
-    (Cell.call(context, {set=change}) |> Option.get(_))()
+    (call(context, {set=change}) |> Option.get(_))()
 
   /**
    * [remove(context)] Remove the state associated with a user from a UserContext (the default value will be used instead)
@@ -165,7 +175,7 @@ UserContext =
    */
   @server
   remove(context : UserContext.t('state)) : void =
-    ignore(Cell.call(context, {remove}: UserContext.messages('state)))
+    ignore(call(context, {remove}: UserContext.messages('state)))
 
   /**
    * [execute(f, context)] Return a value computed from the state of the UserContext
@@ -183,7 +193,7 @@ UserContext =
       f(state:'state) : ( -> void) =
         return = action(state)
         -> Continuation.return(cont, return)
-      (Cell.call(context, {exec=f}) |> Option.get(_))()
+      (call(context, {exec=f}) |> Option.get(_))()
     @callcc(k)
 
 
@@ -213,6 +223,6 @@ UserContext =
    */
   @server
   set_default(default : 'state, context :  UserContext.t('state)) : void =
-    ignore(Cell.call(context, {set_default=default}))
+    ignore(call(context, {set_default=default}))
 
 }}
