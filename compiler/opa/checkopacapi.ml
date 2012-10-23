@@ -276,7 +276,7 @@ let _ =
   (* Part 2: stdlib VS opacapi *)
   let stdlib = List.fold_left stdlib StringSet.empty codes in
   let stdlib = List.fold_left (fun acc ident -> StringSet.add ident acc) stdlib core_types  in
-  (* THIS LINE IS AN HACK - SHOW COMMIT WHERE I AM INTRODUCES*)
+  (* THIS LINE IS A HACK - SHOW COMMIT WHERE I AM INTRODUCED *)
   let stdlib = StringSet.add "``" stdlib in
   let opacapi =
     Hashtbl.fold
@@ -336,11 +336,11 @@ let _ =
         let table =
           if B.ByPass.implemented_in bypass ~lang:BslLanguage.js
           then
-            if B.ByPass.implemented_in bypass ~lang:BslLanguage.ml
+            if B.ByPass.implemented_in_any bypass ~lang:[BslLanguage.ml;BslLanguage.nodejs]
             then both_unused
             else client_unused
           else
-            if B.ByPass.implemented_in bypass ~lang:BslLanguage.ml
+            if B.ByPass.implemented_in_any bypass ~lang:[BslLanguage.ml;BslLanguage.nodejs]
             then server_unused
             else (
               OManager.i_error "checkopacapi: %a@\n" BslKey.pp key ;

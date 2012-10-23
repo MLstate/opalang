@@ -3,7 +3,7 @@
 # OCAMLLIB TAGS
 #
 
-<{appruntime,database,libbase,libnet,libruntime,libsecurity,libsession,oparuntime}>: traverse
+<{appruntime,libbase,libnet,libruntime,libsecurity,libsession,oparuntime}>: traverse
 
 <{libbase.{cma,cmxa},ocamlbase.top}>: use_stubs
 <ocamlbase.top>: thread, use_unix, use_str, use_zip, use_ulex, iconv

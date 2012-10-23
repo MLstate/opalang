@@ -1,8 +1,4 @@
-<bslDispatcher.ml>:with_mlstate_debug
-<bslRPC.ml>:with_mlstate_debug
-<bslJsIdent.ml>:with_mlstate_debug
-<session.ml>:with_mlstate_debug
 <session.js>:with_mlstate_debug
 # external libs dependencies
 <server.opa_plugin>: use_ssl, use_ssl_threads
-<server.opa_plugin>: use_libbase, use_qmlcpsserver, use_opabsl_for_server, use_libnet, use_appruntime, use_libsecurity, use_oparuntime, use_libruntime, use_libsession
+<server.opa_plugin>: use_libbase, use_qmlcpsserver, use_libnet, use_appruntime, use_libsecurity, use_oparuntime, use_libruntime, use_libsession

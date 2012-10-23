@@ -21,9 +21,9 @@ jsbsl/bslClientOnly.js
 jsbsl/bslAnchors.js
 jsbsl/bslClient.js
 jsbsl/lowLevelArray.js
+jsbsl/bslClosure.js
 jsbsl/bslCps.js
 jsbsl/bslValue.js
-jsbsl/bslClosure.js
 jsbsl/bslDom.js
 jsbsl/bslDomSupport.js
 jsbsl/hashtable.js
@@ -39,8 +39,8 @@ nodejsbsl/bslCactutf.nodejs
 nodejsbsl/bslTime.nodejs
 nodejsbsl/bslReference.nodejs
 nodejsbsl/bslBuffer.nodejs
-nodejsbsl/bslCps.nodejs
 nodejsbsl/bslClosure.nodejs
+nodejsbsl/bslCps.nodejs
 nodejsbsl/lowLevelArray.nodejs
 nodejsbsl/hashtable.nodejs
 nodejsbsl/bslHashtbl.nodejs
@@ -51,27 +51,27 @@ nodejsbsl/bslLogger.nodejs
 nodejsbsl/bslTimeServer.nodejs
 nodejsbsl/bslPervasivesServer.nodejs
 
-mlbsl/bslUtils.ml
-mlbsl/bslNativeLib.ml
-mlbsl/bslPervasives.ml
-mlbsl/bslBuffer.ml
-mlbsl/bslCactutf.ml
-mlbsl/bslClosure.ml
-mlbsl/bslCps.ml
-mlbsl/bslNumber.ml
-mlbsl/bslReference.ml
-mlbsl/bslBinary.ml
-mlbsl/bslString.ml
-mlbsl/bslSyslog.ml
-mlbsl/bslTime.ml
-mlbsl/lowLevelArray.ml
-mlbsl/bslValue.ml
-mlbsl/bslHashtbl.ml
-mlbsl/bslLogger.ml
+# mlbsl/bslUtils.ml
+# mlbsl/bslNativeLib.ml
+# mlbsl/bslPervasives.ml
+# mlbsl/bslBuffer.ml
+# mlbsl/bslCactutf.ml
+# mlbsl/bslClosure.ml
+# mlbsl/bslCps.ml
+# mlbsl/bslNumber.ml
+# mlbsl/bslReference.ml
+# mlbsl/bslBinary.ml
+# mlbsl/bslString.ml
+# mlbsl/bslSyslog.ml
+# mlbsl/bslTime.ml
+# mlbsl/lowLevelArray.ml
+# mlbsl/bslValue.ml
+# mlbsl/bslHashtbl.ml
+# mlbsl/bslLogger.ml
 
-# Server specific bypass
-mlbsl/bslTimeServer.ml
-mlbsl/bslPervasivesServer.ml
+# # Server specific bypass
+# mlbsl/bslTimeServer.ml
+# mlbsl/bslPervasivesServer.ml
 
 # opasyntax (transitionnal)
 mlstatebsl/preprocess_formats.opa

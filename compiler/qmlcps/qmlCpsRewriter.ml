@@ -1229,7 +1229,7 @@ let runtime_bt_collection bt_pos _f_string _larg expr =
     QC.string bt_pos
     #<End>
   in
-  let bt_add = qml_other_call Opacapi.Opabsl.BslCps.bt_add in
+  let bt_add = qml_other_call FakeOpacapi.Opabsl.BslCps.bt_add in
   QC.letin [Ident.next "_", (QC.apply bt_add [bt_info])]
     expr
 
@@ -1334,7 +1334,7 @@ let qml_of_il ~toplevel_cont (env:_) (private_env:private_env) (term:IL.term) =
               let magic_a = QCW.ident ~label a in
               let magic_a =
                   if env.options.server_side && (not (env.options.qml_closure))
-                  then qml_group_app (QC.apply (qml_bycps_call Opacapi.Opabsl.BslCps.magic_func) [magic_a])
+                  then qml_group_app (QC.apply (qml_bycps_call Opacapi.Opabsl.BslPervasives.Magic.id) [magic_a])
                   else magic_a
               in
               #<If:CPS_DEBUG>

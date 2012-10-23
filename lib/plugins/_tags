@@ -1,20 +1,12 @@
 # -*- conf -*- (for emacs)
 
-<badop>: traverse
 <browser_canvas>: traverse
 <crypto>: traverse
 <gcharts>: traverse
-<hlnet>: traverse
 <iconv>: traverse
 <mail>: traverse
 <mongo>: traverse
 <opabsl>: traverse, static
-<qos>: traverse
 <server>: traverse
 <socket>: traverse
 <unix>: traverse
-
-<**/*Loader*.{ml,mli,byte,native}>: use_libbsl
-
-<**/*.{opa_plugin,oppf}>: use_opabsl_for_server
-<opabsl/opabsl.{opa_plugin,oppf}>: -use_opabsl_for_server

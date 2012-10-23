@@ -1,9 +1,0 @@
-compiler/opatop/ServerLib
-compiler/opatop/OpaTopValue
-compiler/opatop/OpaTopBsl
-compiler/opatop/OpaTopEval
-compiler/opatop/OpaTopEnv
-compiler/opatop/OpaTopProperties
-compiler/opatop/OpaTopDirectives
-compiler/opatop/OpaTopMain
-compiler/opatop/OpaTopParser

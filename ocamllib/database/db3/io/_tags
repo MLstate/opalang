@@ -1,6 +1,0 @@
-# -*- conf -*- (for emacs)
-
-<fileIo.{byte,native}>: use_bigarray
-
-<fileIo.ml>: with_mlstate_debug
-<ioMmap.ml>: with_mlstate_debug

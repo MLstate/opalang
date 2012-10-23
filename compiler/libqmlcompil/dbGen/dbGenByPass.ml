@@ -73,15 +73,15 @@ struct
   let stringmap_empty   = "stringmap_empty"
   let stringmap_add     = "stringmap_add"
   let stringmap_fold    = "stringmap_fold"
-  let ref_to_ref = Opacapi.Db3.ref_to_ref
+  let ref_to_ref = FakeOpacapi.Db3.ref_to_ref
 
   let make_virtual_val = "make_virtual_val"
   let make_virtual_ref = "make_virtual_ref"
 
-  let val_to_val = Opacapi.Db3.val_to_val
-  let ref_to_ref = Opacapi.Db3.ref_to_ref
+  let val_to_val = FakeOpacapi.Db3.val_to_val
+  let ref_to_ref = FakeOpacapi.Db3.ref_to_ref
   let dbset_genbuild = Opacapi.DbSet.genbuild
-  let db3set_iterator = Opacapi.Db3Set.iterator
+  let db3set_iterator = FakeOpacapi.Db3Set.iterator
 end
 
 (* ======================================================================================================== *)
@@ -218,14 +218,14 @@ struct
   let stringmap_add     = Opacapi.StringMap.add
   let stringmap_fold    = Opacapi.StringMap.fold
 
-  let make_virtual_val = Opacapi.DbVirtual.make_val
-  let make_virtual_ref = Opacapi.DbVirtual.make_ref
+  let make_virtual_val = FakeOpacapi.DbVirtual.make_val
+  let make_virtual_ref = FakeOpacapi.DbVirtual.make_ref
 
-  let val_to_val = Opacapi.Db3.val_to_val
-  let ref_to_ref = Opacapi.Db3.ref_to_ref
+  let val_to_val = FakeOpacapi.Db3.val_to_val
+  let ref_to_ref = FakeOpacapi.Db3.ref_to_ref
 
   let dbset_genbuild = Opacapi.DbSet.genbuild
-  let db3set_iterator = Opacapi.Db3Set.iterator
+  let db3set_iterator = FakeOpacapi.Db3Set.iterator
 end
 
 (* Add dropbox opa interface here *)

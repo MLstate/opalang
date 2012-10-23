@@ -27,8 +27,6 @@ internal bslbrowser           	compiler/libbsl/bslbrowser
 internal passdesign           	compiler/passlib/passdesign.native
 internal ocamlbase.top        	ocamllib/ocamlbase.top
 internal ocamlbase            	ocamllib/libbase/ocamlbase
-internal opa-db-server        	ocamllib/database/database_server.native
-internal opa-db-tool          	ocamllib/database/database_tool.native
 internal opatrack             	compiler/passlib/opatrack.sh
 internal opadep               	compiler/compilerlib/opadep.sh
 internal filepos              	ocamllib/libbase/testfilepos.native
@@ -39,7 +37,6 @@ internal jsstat               	compiler/jslang/jsstat.native
 internal globalizer             compiler/jslang/globalizer.native
 
 # from qml2llvm
-internal opatop			compiler/opatop/opatop.native
 internal qmljs      		compiler/qmlcompilers/qmljs_exe.native
 internal qmlJsImpClientLib.js	compiler/qmljsimp/qmlJsImpClientLib.js		lib/opa/static
 internal clientLibLib.js      	compiler/qml2js/clientLibLib.js 		lib/opa/static
@@ -95,5 +92,4 @@ internal opa-cloud		tools/dissemination/spawn.sh
 
 # manpages
 internal gen_opa_manpage        compiler/opa/gen_opa_manpage.native
-internal gen_opatop_manpage     compiler/opatop/gen_opatop_manpage.native
 internal genman          	tools/manpages/genman.native

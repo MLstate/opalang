@@ -22,7 +22,6 @@ shared_namespace_dir "compiler/opalang";
 include_subdirs "compiler/opalib";
 shared_namespace_dir "ocamllib/appruntime";
 shared_namespace_dir "ocamllib/libnet";
-shared_namespace_dir "ocamllib/database";
 
 (* -- Stubs -- *)
 
@@ -172,7 +171,7 @@ let opa_opacapi_files =
   files
 in
 
-let opa_opacapi_plugins = ["badop"] in
+let opa_opacapi_plugins = [] in
 
 (* used in mkinstall *)
 let opacapi_validation = "opacapi.validation" in

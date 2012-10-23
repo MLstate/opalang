@@ -66,7 +66,8 @@ struct
   let opacol = named_type Opacapi.Types.OpaType.col []
   let future t = named_type Opacapi.Types.Cps.future [t]
   let embedded_obj =
-    let name = Opacapi.Types.path_embedded_obj in
+    (* HACK for embedded_obj, it should be never used *)
+    let name = Opacapi.Types.bool in
     named_type name []
 
   let thread_context_t = named_type Opacapi.Types.ThreadContext.t []

@@ -1,3 +1,0 @@
-# -*- conf -*- (for emacs)
-
-<{init,migration}.ml>: with_mlstate_debug

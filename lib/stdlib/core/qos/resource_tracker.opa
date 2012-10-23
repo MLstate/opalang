@@ -11,7 +11,6 @@
 */
 
 import stdlib.core.{rpc.core, fresh}
-import-plugin qos
 
 /**
  * Manager of collectible resources, binding with QOS (appserver)
@@ -34,7 +33,6 @@ import-plugin qos
  * {1 Types defined in this module}
  */
 
-#<Ifstatic:OPA_FULL_DISPATCHER>
 @private
 type ResourceTracker.msg('message) =
   {msg : 'message}
@@ -164,50 +162,3 @@ ResourceTracker = {{
 
 }}
 
-#<Else>
-type ResourceTracker.manager('message, 'result) = external
-type ResourceTracker.signal = external
-
-/**
- * {1 Interface}
- */
-
-ResourceTracker = {{
-
-  /**
-   * Some Signal
-  **/
-  Signal = {{
-    EXPIRATION = %%ResourceTracker.Signal.expiration%% : ResourceTracker.signal
-  }}
-
-  /**
-   * Creating a new manager.
-  **/
-  create = %%ResourceTracker.create%% :
-    /*state :*/       'state,
-    /*on_message :*/  ('state, 'message -> ('state, 'result)),
-    /*expire :*/      ('state -> option(ResourceTracker.signal)),
-    /*collect :*/     ('state, ResourceTracker.signal -> void)
-    -> ResourceTracker.manager('message, 'result)
-
-  /**
-   * Trying to access to the resource associated to its manager.
-  **/
-  call = %%ResourceTracker.call%% :
-    /*manager*/ ResourceTracker.manager('message, 'result),
-    /*message*/ 'message
-    /*result*/ -> 'result
-
-  /**
-   * Send a termination signal to a manager.
-  **/
-  term = %%ResourceTracker.term%% : ResourceTracker.manager, ResourceTracker.signal -> void
-
-  /**
-   * Execute manually a step of garbage collector.
-  **/
-  garbage_collector = %%ResourceTracker.garbage_collector%% : -> void
-
-}}
-#<End>

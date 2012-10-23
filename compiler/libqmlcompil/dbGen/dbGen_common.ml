@@ -114,11 +114,11 @@ let get_dbset_ty = function
   | ty -> OManager.i_error "Wait a dbset type receive : %a" QmlPrint.pp#ty ty
 
 let firstclass_path_tyid () =
-  typ Opacapi.Types.path_t
+  typ FakeOpacapi.Types.path_t
 let val_p_tyid () =
-  typ Opacapi.Types.path_val_p
+  typ FakeOpacapi.Types.path_val_p
 let ref_p_tyid () =
-  typ Opacapi.Types.path_ref_p
+  typ FakeOpacapi.Types.path_ref_p
 let val_path_ty ty =
   QmlAst.TypeName ([QmlAst.TypeName ([],val_p_tyid ()); ty],
                    firstclass_path_tyid ())
@@ -132,13 +132,13 @@ let ref_path_ty ty =
   QmlAst.TypeName ([QmlAst.TypeName ([],ref_p_tyid ()); ty],
                    firstclass_path_tyid ())
 let db3set_engine_ty ty =
-  QmlAst.TypeName ([ty], typ Opacapi.Types.Db3Set.engine)
+  QmlAst.TypeName ([ty], typ FakeOpacapi.Types.Db3Set.engine)
 let iter ty =
   QmlAst.TypeName ([ty], Ident.source Opacapi.Types.iter)
 let val_v_tyid () =
-  typ Opacapi.Types.virtual_val_path
+  typ FakeOpacapi.Types.virtual_val_path
 let ref_v_tyid () =
-  typ Opacapi.Types.virtual_ref_path
+  typ FakeOpacapi.Types.virtual_ref_path
 
 (** Construct type [virtual_val_path('a, rty)]*)
 let virtual_val_path_ty rty =
@@ -161,7 +161,7 @@ module Db = struct
   let t ?(engine=get_engine()) () =
     let ident =
       match engine with
-      | `db3 -> Opacapi.Types.Db3.t
+      | `db3 -> FakeOpacapi.Types.Db3.t
       | `mongo -> Opacapi.Types.DbMongo.t
       | `dropbox -> Opacapi.Types.DbDropbox.t
     in
@@ -170,7 +170,7 @@ module Db = struct
   let set ?(engine=get_engine()) ty =
     let ident =
       match engine with
-      | `db3 -> Opacapi.Types.db3set
+      | `db3 -> FakeOpacapi.Types.db3set
       | `mongo -> Opacapi.Types.dbmongoset
       | `dropbox -> Opacapi.Types.dbdropboxset
     in

@@ -44,6 +44,9 @@ type Db.ref_kind('data) = {
 
 @opacapi type Db.ref_path('data, 'engine) = Db.path(Db.ref_kind('data), 'data, 'engine)
 
+@opacapi Db_write = Db.write
+
+
 Db = {{
 
   /**

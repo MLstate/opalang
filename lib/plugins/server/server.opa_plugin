@@ -1,27 +1,12 @@
-bslUtils.ml
-bslScheduler.ml
 bslScheduler.js
 bslScheduler.nodejs
-bslNet.ml
 option.nodejs
 cookies.nodejs
 bslNet.nodejs
-bslJson.ml
 bslJson.js
 bslJson.nodejs
-bslGc.ml
-bslMinJs.ml
-bslPingRegister.ml
-bslRPC.ml
-bslInit.ml
-bslClientEvent.ml
-bslIdentGen.ml
-bslServer_event.ml
 bslServer_event.nodejs
-bslCommandLine.ml
-bslI18n.ml
 bslI18n.js
-session.ml
 
 actor.js
 actor.nodejs
@@ -29,8 +14,6 @@ session.js
 session.nodejs
 bslActor.nodejs
 bslActor.js
-bslActor.ml
-bslDispatcher.ml
 
 # these are kept as symlinks since .. doesn't work
 externs.js

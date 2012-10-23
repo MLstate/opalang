@@ -1,1 +1,1 @@
-<unix.opa_plugin>: use_libbase, use_opabsl_for_server, use_qmlflatserver, use_qmlcpsserver, use_libruntime, use_appruntime
+<unix.opa_plugin>: use_libbase, use_qmlcpsserver, use_libruntime, use_appruntime

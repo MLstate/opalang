@@ -1,3 +1,0 @@
-# -*- conf -*- (for emacs)
-
-<{tabMap,simpleListMap}.ml>: with_mlstate_debug

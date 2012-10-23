@@ -29,12 +29,12 @@
 module Q = QmlAst
 
 (* Bypasses from Opacapi *)
-module Badoplink = Opacapi.Opabsl.Badoplink
-module BadopEngine = Opacapi.Opabsl.BadopEngine
+module Badoplink = FakeOpacapi.Opabsl.Badoplink
+module BadopEngine = FakeOpacapi.Opabsl.BadopEngine
 module BslNativeLib = Opacapi.Opabsl.BslNativeLib
-module Transactions = Opacapi.Opabsl.Transactions
-module Path = Opacapi.Opabsl.Path
-module Dbgraph = Opacapi.Opabsl.Dbgraph
+module Transactions = FakeOpacapi.Opabsl.Transactions
+module Path = FakeOpacapi.Opabsl.Path
+module Dbgraph = FakeOpacapi.Opabsl.Dbgraph
 
 
 #<Debugvar:DBGEN_DEBUG>
@@ -526,21 +526,21 @@ struct
   (* These type idents are defined in the mlBSL. Do they need type_of_type ? *)
   (* beware, there is also the types from mlbsl/path.ml in DbGen_common (since
      they may be used by Schema) *)
-  let typath = ti Opacapi.Types.badoplink_path
-  let tytrans = ti Opacapi.Types.badoplink_transaction
+  let typath = ti FakeOpacapi.Types.badoplink_path
+  let tytrans = ti FakeOpacapi.Types.badoplink_transaction
   let tydbset ty =
-    ti ~param:[ty] Opacapi.Types.db3set ()
-  let tykey = ti Opacapi.Types.badoplink_db_path_key
-  let typartialkey = ti Opacapi.Types.badoplink_db_partial_key
-  let tydata = ti Opacapi.Types.badoplink_data_d
+    ti ~param:[ty] FakeOpacapi.Types.db3set ()
+  let tykey = ti FakeOpacapi.Types.badoplink_db_path_key
+  let typartialkey = ti FakeOpacapi.Types.badoplink_db_partial_key
+  let tydata = ti FakeOpacapi.Types.badoplink_data_d
   let tyhltrans ty =
-    ti ~param:[ty] Opacapi.Types.transactions_t ()
-  let tydiff = ti Opacapi.Types.dbgraph_diff
-  let ty_lazy_data = ti Opacapi.Types.path_embed_info
-  let tyobj = ti Opacapi.Types.path_embedded_obj
-  let tyengine = ti Opacapi.Types.badop_engine_t
-  let tyoptions = ti Opacapi.Types.badop_engine_database_options
-  let tynodeconfig = ti Opacapi.Types.badoplink_node_config
+    ti ~param:[ty] FakeOpacapi.Types.transactions_t ()
+  let tydiff = ti FakeOpacapi.Types.dbgraph_diff
+  let ty_lazy_data = ti FakeOpacapi.Types.path_embed_info
+  let tyobj = ti FakeOpacapi.Types.path_embedded_obj
+  let tyengine = ti FakeOpacapi.Types.badop_engine_t
+  let tyoptions = ti FakeOpacapi.Types.badop_engine_database_options
+  let tynodeconfig = ti FakeOpacapi.Types.badoplink_node_config
 
   module Bypass = struct
     (** All bypasses used by dbGen are linked here and defined in one of
