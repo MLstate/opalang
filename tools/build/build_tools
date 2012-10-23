@@ -64,13 +64,6 @@ internal serverLib.cmi        	 lib/plugins/opabsl/serverLib.cmi 			lib/opa/stat
 # for helping developpers of plugins we can distribute the source of the interface
 internal bslServerLib.ml     	 ocamllib/libbase/bslServerLib.ml		lib/opa/static
 
-# slicer plugin
-# internal testSlicerPlugin.cmxs lib/plugins/testSlicerPlugin.cmxs plugins
-# internal testSlicerMLRuntime.cmx lib/plugins/testSlicerMLRuntime.cmx plugins
-# internal testSlicerMLRuntime.cmi lib/plugins/testSlicerMLRuntime.cmi plugins
-# internal testSlicerMLRuntime.o lib/plugins/testSlicerMLRuntime.o plugins
-# internal testSlicerJSPlugin.js lib/plugins/testSlicerJSRuntime.js plugins
-
 # javascript checker
 internal jschecker.jar			tools/jschecker/compiler.jar			share/opa/jschecker
 internal jschecker_cpsclientlib.js 	compiler/qmlcps/qmlCpsClientLib.externs.js 	share/opa/jschecker
