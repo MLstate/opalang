@@ -647,11 +647,11 @@ let plugin_building plugins_dir name =
   let p_files =
     if Pathname.exists p_opa_plugin then string_list_of_file p_opa_plugin
     else [] in
+
   let prefixed_files = List.map (fun file -> p_path/file) p_files in
 
-  let additional_files = additional_files name in
+  let additional_files = additional_files plugins_dir name in
   let files = prefixed_files @ additional_files in
-  let files = uniq files in
 
   (* Plugins options *)
   let options = A "-o" :: A name :: A "--build-dir" :: A prefixed_plugins_dir :: [] in
@@ -831,7 +831,7 @@ in
     name ([all_plugins_file}) *)
 let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
 
-(** The all plugins file, list of all Opa plugins *)
+(** The all plugins file, list of all Opa plugins in stdlib *)
 let all_plugins_file = stdlib_packages_dir/"all.node.plugins" in
 
 (** Build here because the rule is always wanted. *)
