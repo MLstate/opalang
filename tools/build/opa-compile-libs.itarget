@@ -9,6 +9,6 @@
 ocamllib/database.cmxa
 ocamllib/libbase.cmxa
 compiler/libtrx.cmxa
-compiler/qml2ocaml.cmxa
+compiler/qmloptions.cmxa
 compiler/opalib.cmxa
 lib/plugins/opabsl_for_compiler.cmxa

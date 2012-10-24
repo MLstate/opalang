@@ -11,7 +11,7 @@
 <qmljs_exe.{ml,byte,native}>: use_qmljsimp, use_qml2js, use_zip
 <qmlCompilers.{ml,mli,byte,native}>: use_qmlslicer, use_passlib, use_opalang
 
-<*.{ml,mli,byte,native}>: use_qml2ocaml, use_qml2js
+<*.{ml,mli,byte,native}>: use_qmloptions, use_qml2js
 
 # explicit deps for linking
 <{qmljs_exe}.{byte,native}>: use_qmlslicer

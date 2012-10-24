@@ -488,8 +488,8 @@ compiler/opalang/js_syntax/Opa_js_parser
 compiler/opalang/OpaMapToIdent
 compiler/opalang/Trx_ast
 
-compiler/qml2ocaml/Qml2ocaml
-compiler/qml2ocaml/Qml2ocamlOptions
+# compiler/qml2ocaml/Qml2ocaml
+# compiler/qmloptions/Qml2ocamlOptions
 
 compiler/qml2js/LaunchHelper
 

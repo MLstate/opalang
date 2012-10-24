@@ -4,4 +4,4 @@
 
 <pass_ServerJavascriptOptimization.{ml,mli}>: use_jslang, use_libqmlcompil, use_passlib
 
-<{qmljsPasses}.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlslicer, use_passlib, use_opapasses, use_qml2ocaml, use_opalang, use_libbsl, use_qmlfakecompiler, use_ocamllang, use_qmlpasses, use_qml2js, use_jslang, use_opa
+<{qmljsPasses}.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlslicer, use_passlib, use_opapasses, use_qmloptions, use_opalang, use_libbsl, use_qmlfakecompiler, use_ocamllang, use_qmlpasses, use_qml2js, use_jslang, use_opa

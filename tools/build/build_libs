@@ -34,7 +34,7 @@ internal passlib	  	      compiler/passlib
 internal pplib		      	      compiler/pplib
 internal protocols	  	      compiler/protocols
 internal qml2js		      	      compiler/qml2js
-internal qml2ocaml	  	      compiler/qml2ocaml
+internal qmloptions	  	      compiler/qmloptions
 internal qmlcpsrewriter	      	      compiler/qmlcps
 internal qmlcpsserver	  	      compiler/qmlcps
 internal qmljsimp	  	      compiler/qmljsimp
