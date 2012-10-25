@@ -661,7 +661,12 @@ let plugin_building plugins_dir name =
      | Some d ->
          let dir = match mlstate_lib_dir d with
            | "." -> "+"^d
-           | dir -> build_dir/dir
+           | dir ->
+	       let dir =
+		 (* HACK *)
+		 if dir = "lib/plugins/opabsl.opp" then prefix_me dir
+		 else dir in
+	       build_dir/dir
          in
          A "--ml" :: A "-I" :: A "--ml" :: P dir :: options
     ) tags options
