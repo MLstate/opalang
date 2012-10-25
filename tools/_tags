@@ -5,6 +5,8 @@
 
 <dependencies>: -include, -traverse
 
+<build>: include
+
 # Odep
 <odep*.{ml,byte,native}>: thread, use_str, use_unix, use_graph, use_zip, use_libbase, use_ulex
 
