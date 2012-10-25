@@ -650,8 +650,9 @@ let plugin_building plugins_dir name =
 
   let prefixed_files = List.map (fun file -> p_path/file) p_files in
 
-  let additional_files = additional_files plugins_dir name in
+  let (additional_files, additional_tags) = additional plugins_dir name in
   let files = prefixed_files @ additional_files in
+  let tags = Tags.union p_tags additional_tags in
 
   (* Plugins options *)
   let options = A "-o" :: A name :: A "--build-dir" :: A prefixed_plugins_dir :: [] in
@@ -665,7 +666,7 @@ let plugin_building plugins_dir name =
            | dir -> build_dir/dir
          in
          A "--ml" :: A "-I" :: A "--ml" :: P dir :: options
-    ) p_tags options
+    ) tags options
   in
 
   let options (* C libs *) = Tags.fold
@@ -676,7 +677,7 @@ let plugin_building plugins_dir name =
            if not (is_system_libs dep) then
              A "--ml" :: A "-cclib" :: A "--ml" :: A ("-l"^dep) :: options
            else options
-    ) p_tags options
+    ) tags options
   in
 
   let has_node, options (* JavaScript files *) =
@@ -808,7 +809,7 @@ let plugin_building plugins_dir name =
          match mlstate_lib_dir lib with
          | "." -> deps
          | dir -> ((parent dir)/lib^".cmxa") :: deps
-    ) p_tags deps
+    ) tags deps
   in
 
   let stamp = p_oppf in
