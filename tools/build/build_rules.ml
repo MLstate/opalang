@@ -16,12 +16,12 @@
 
 (* -- Directory contexts -- *)
 
-shared_namespace_dir "compiler/libqmlcompil";
-shared_namespace_dir "compiler/opa";
-shared_namespace_dir "compiler/opalang";
-include_subdirs "compiler/opalib";
-shared_namespace_dir "ocamllib/appruntime";
-shared_namespace_dir "ocamllib/libnet";
+shared_namespace_dir (prefix_me "compiler/libqmlcompil");
+shared_namespace_dir (prefix_me "compiler/opa");
+shared_namespace_dir (prefix_me "compiler/opalang");
+include_subdirs (prefix_me "compiler/opalib");
+shared_namespace_dir (prefix_me "ocamllib/appruntime");
+shared_namespace_dir (prefix_me "ocamllib/libnet");
 
 (* -- Stubs -- *)
 

@@ -578,11 +578,9 @@ let _ = dispatch begin function
       let set_common_context dirlist =
         List.iter (fun dir -> Pathname.define_context dir dirlist) dirlist in
       let shared_namespace_dir dir =
-	let dir = prefix_me dir in
 	set_common_context (dir::rec_subdirs [dir])
       in
       let include_subdirs dir =
-	let dir = prefix_me dir in
 	Pathname.define_context dir (dir::subdirs dir)
       in
 
