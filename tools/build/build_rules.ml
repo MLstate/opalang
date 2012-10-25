@@ -171,21 +171,19 @@ let opa_opacapi_files =
   files
 in
 
-let opa_opacapi_plugins = [] in
-
 (* used in mkinstall *)
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
-  ~deps:(tool_deps "checkopacapi" @ opa_opacapi_files
-         @ List.map (fun x -> prefix_me (Printf.sprintf "lib/plugins/%s/%s.oppf" x x))
-         opa_opacapi_plugins)
+  ~deps:(tool_deps "checkopacapi" @ opa_opacapi_files)
   ~prod:opacapi_validation
   (fun env build ->
      Cmd(S ([ get_tool "checkopacapi" ;
               A "-o" ;
               P opacapi_validation ;
-            ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
-            @ (List.map (fun x -> P (prefixed_plugins_dir/(x ^ ".opp"))) opa_opacapi_plugins))
+            ] @ (if check_fake then [A "-check-fake"] else [])
+	    @ (List.rev_map (fun file -> P file) opa_opacapi_files)
+            @ (List.map (fun x -> P (Printf.sprintf "%s/%s.%s" prefixed_plugins_dir x "opp")) opa_opacapi_plugins)
+	   )
         )
   );
 

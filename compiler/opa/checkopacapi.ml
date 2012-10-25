@@ -94,6 +94,7 @@ let fopps = MutableList.create ()
 (* t *)
 
 let target = ref None
+let fake = ref false
 
 let (|>) = InfixOperator.(|>)
 let (!>) = Format.sprintf
@@ -104,7 +105,13 @@ let spec = [
   "-o",
   Arg.String (fun t -> target := Some t),
   !>
-    " specify a target for the trace file"
+    " specify a target for the trace file";
+
+(* -check-fake *)
+  "-check-fake",
+  Arg.Unit (fun _ -> fake := true),
+  !>
+    " also check fake opacapi"
 
 ]
 
@@ -267,10 +274,17 @@ let _ =
   in
 
   let opacapi =
-    Hashtbl.fold
-      (fun key _ acc -> StringSet.add (BslKey.to_string key) acc)
-      Opacapi.Opabsl.table StringSet.empty in
-  strict_equality "bypass" "opabsl" "opacapi" opabsl opacapi;
+    let res =
+      Hashtbl.fold
+	(fun key _ acc -> StringSet.add (BslKey.to_string key) acc)
+	Opacapi.Opabsl.table StringSet.empty in
+    if !fake then (
+      Hashtbl.fold
+	(fun key _ acc -> StringSet.add (BslKey.to_string key) acc)
+	FakeOpacapi.Opabsl.table res
+    )
+    else res
+  in strict_equality "bypass" "opabsl" "opacapi" opabsl opacapi;
   (* Get the code of stdlib *)
   let codes = MutableList.fold_right (fold (fun hd tl -> hd::tl)) files [] in
   (* Part 2: stdlib VS opacapi *)
