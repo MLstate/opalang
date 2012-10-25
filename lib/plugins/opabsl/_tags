@@ -3,7 +3,7 @@
 # bymaps used at compile time SHOULD NOT be linked with the implementation of the primitives
 # primitives used at runtime time SHOULD NOT be linked with libbsl bymaps
 
-# mlbsl, jsbsl, cbsl, mlstatebsl
+# jsbsl, cbsl, mlstatebsl
 <*bsl>: traverse
 
 # c_wall : guidelines

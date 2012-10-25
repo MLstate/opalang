@@ -51,28 +51,6 @@ nodejsbsl/bslLogger.nodejs
 nodejsbsl/bslTimeServer.nodejs
 nodejsbsl/bslPervasivesServer.nodejs
 
-# mlbsl/bslUtils.ml
-# mlbsl/bslNativeLib.ml
-# mlbsl/bslPervasives.ml
-# mlbsl/bslBuffer.ml
-# mlbsl/bslCactutf.ml
-# mlbsl/bslClosure.ml
-# mlbsl/bslCps.ml
-# mlbsl/bslNumber.ml
-# mlbsl/bslReference.ml
-# mlbsl/bslBinary.ml
-# mlbsl/bslString.ml
-# mlbsl/bslSyslog.ml
-# mlbsl/bslTime.ml
-# mlbsl/lowLevelArray.ml
-# mlbsl/bslValue.ml
-# mlbsl/bslHashtbl.ml
-# mlbsl/bslLogger.ml
-
-# # Server specific bypass
-# mlbsl/bslTimeServer.ml
-# mlbsl/bslPervasivesServer.ml
-
 # opasyntax (transitionnal)
 mlstatebsl/preprocess_formats.opa
 mlstatebsl/types.opa
