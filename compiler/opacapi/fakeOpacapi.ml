@@ -116,6 +116,7 @@ struct
   module BslCps =
   struct
 
+    let (!!) s = !! ("BslCps." ^ s)
     let bt_add = !! "bt_add"
 
   end
