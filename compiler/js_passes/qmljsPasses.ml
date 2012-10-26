@@ -16,6 +16,7 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module O = OpaEnv
 module P = Passes
 module PH = PassHandler
 
