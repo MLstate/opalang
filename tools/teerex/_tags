@@ -1,3 +1,5 @@
+# -*- conf -*- (this is for emacs)
+
 <{mouse,java}>: traverse
 
 <*.trx>: trx_cache
