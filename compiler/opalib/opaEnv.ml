@@ -291,8 +291,7 @@ struct
     let set_package_version version =
       package_version := version
 
-    let modular_plugins = ref false
-	let backtrace = ref false
+    let backtrace = ref false
     let default_back_end = "qmljs"
     let back_end_wanted = ref (Backend default_back_end : opa_back_end)
     let back_end unify_backend_name s =
