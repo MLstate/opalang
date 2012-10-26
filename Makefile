@@ -127,7 +127,7 @@ define install-node-package
 endef
 
 PLUGINS_DIR=lib/plugins
-define install-plugin
+define install-node-plugin
 @printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
 @mkdir -p "$(STDLIB_DIR)/$*.opp"
 @$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
@@ -161,13 +161,13 @@ install-node-package-%:
 install-node-packages: $(addprefix install-node-packageopt-,$(OPA_PACKAGES))
 	@printf "Installation to $(STDLIB_NODE_DIR) done.[K\n"
 
-install-pluginopt-%:
-	$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/),$(install-plugin))
+install-node-pluginopt-%:
+	$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/),$(install-node-plugin))
 
-install-plugin-%:
-	$(install-plugin)
+install-node-plugin-%:
+	$(install-node-plugin)
 
-install-plugins: $(addprefix install-pluginopt-,$(OPA_PLUGINS))
+install-node-plugins: $(addprefix install-node-pluginopt-,$(OPA_PLUGINS))
 	@printf "Installation to $(STDLIB_DIR) done.[K\n"
 
 install-bin:
@@ -198,11 +198,11 @@ install-man:
 	@$(if $(wildcard $(BUILD_DIR)/man/man1/*.1.gz),$(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1)
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
-install-node: install-bin install-lib install-share install-plugins install-node-packages install-man
+install-node: install-bin install-lib install-share install-node-plugins install-node-packages install-man
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: install
-install: install-node
+install:: install-node
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
