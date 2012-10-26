@@ -1,1 +1,3 @@
+<*.{ml,byte,native,opa_plugin}>: use_cryptokit
+
 <crypto.opa_plugin>: use_libbase
