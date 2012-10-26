@@ -1,3 +1,5 @@
+# -*- conf -*- (for emacs)
+
 <**/*.{ml,mli,byte,native}>: use_libbase, use_ocamllang, use_libqmlcompil, use_compilerlib, use_libbsl, use_qmlcpsrewriter, use_passlib, use_buildinfos
 
 <qml2ocamlOptions.ml>: with_mlstate_debug
