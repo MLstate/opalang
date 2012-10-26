@@ -15,7 +15,7 @@ open Ocamlbuild_plugin
 open Command
 
 let opalang_prefix =
-  try Sys.getenv "BUILD_PREFIX" with Not_found -> ""
+  try Sys.getenv "OPALANG_PREFIX" with Not_found -> ""
 
 let prefix_me s = opalang_prefix ^ s
 
@@ -91,9 +91,6 @@ let proto_deps dep prod env build =
   Cmd(S[A"grep"; A"^-include"; P(env dep);
         Sh("| perl -p -e 's/^ *([-]include) +\"([^ ]+)\".*/\\2/'");
         Sh("> "^(env prod))])
-
-let opa_plugin_deps dep prod env build =
-  Cmd(S[Sh(Printf.sprintf "cp \"%s\" \"%s\"" dep prod)])
 
 let build_list build targets =
   List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))

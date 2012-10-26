@@ -61,6 +61,7 @@ distclean: clean
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
 
+export BUILD_VARS ?= $(BLDDIR)/build_vars.ml
 export BUILD_RULES := $(BLDDIR)/build_rules.ml $(BUILD_RULES)
 export BUILD_LIBS := $(BLDDIR)/build_libs $(BUILD_LIBS)
 export BUILD_TOOLS := $(BLDDIR)/build_tools $(BUILD_TOOLS)

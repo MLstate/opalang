@@ -18,8 +18,8 @@
 
 shared_namespace_dir "compiler/libqmlcompil";
 shared_namespace_dir "compiler/opa";
-include_subdirs "compiler/opalib";
 shared_namespace_dir "compiler/opalang";
+include_subdirs "compiler/opalib";
 shared_namespace_dir "ocamllib/appruntime";
 shared_namespace_dir "ocamllib/libnet";
 shared_namespace_dir "ocamllib/database";
@@ -32,9 +32,9 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 
 (* PATHS *)
 
-let plugins_dir = prefix_me "lib" / "plugins" in
+let prefixed_plugins_dir = prefix_me ("lib" / "plugins") in
 let libbase_dir = prefix_me "ocamllib" / "libbase" in
-let opa_prefix = Pathname.pwd / !Options.build_dir in
+let build_dir = Pathname.pwd / !Options.build_dir in
 
 let extralib_opt = function
   | Some (lib,ldir,idir) ->
@@ -182,12 +182,11 @@ rule "Opa Compiler Interface Validation (opacapi)"
          opa_opacapi_plugins)
   ~prod:opacapi_validation
   (fun env build ->
-     Cmd(S ([
-              P (prefix_me "compiler/opa/checkopacapi.native") ;
+     Cmd(S ([ get_tool "checkopacapi" ;
               A "-o" ;
               P opacapi_validation ;
             ] @ (List.rev_map (fun file -> P file) opa_opacapi_files)
-            @ (List.map (fun x -> P (plugins_dir/(x ^ ".opp"))) opa_opacapi_plugins))
+            @ (List.map (fun x -> P (prefixed_plugins_dir/(x ^ ".opp"))) opa_opacapi_plugins))
         )
   );
 
@@ -223,7 +222,7 @@ rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
 
 (* Warning: make sure to call this after producing the file *)
 let get_version_buildinfos () =
-  List.hd (string_list_of_file (opa_prefix/version_buildinfos)) in
+  List.hd (string_list_of_file (build_dir/version_buildinfos)) in
 
 let parser_files =
   let dir = [
@@ -272,8 +271,8 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
   (fun env build ->
      Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P dependencies_path]);
-       cp (Pathname.pwd/launch_helper_script) (opa_prefix/launch_helper_script);
-       cp (Pathname.pwd/launch_helper_js) (opa_prefix/launch_helper_js);
+       cp (Pathname.pwd/launch_helper_script) (build_dir/launch_helper_script);
+       cp (Pathname.pwd/launch_helper_js) (build_dir/launch_helper_js);
        Cmd(S[Sh"mkdir"; A"-p"; P qml2js_path]);
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
        Cmd(S([Sh"cat"; P launch_helper_script]
@@ -301,7 +300,7 @@ rule "ofile"
   (fun env build ->
      let dir = Pathname.dirname (env "%.of") in
      build_list build (string_list_of_file (env "%.of"));
-     Cmd(S[get_tool "ofile"; A"-path"; P(opa_prefix); P(env "%.of")]));
+     Cmd(S[get_tool "ofile"; A"-path"; P(build_dir); P(env "%.of")]));
 
 (* -- Proto rules -- *)
 
@@ -348,7 +347,8 @@ rule "mlidl: mlidl -> types.ml & types.mli"
          ; P (env "%.mlidl")
          ]));
 
-(* -- js validation  -- *)
+
+(* -- begin js validation -- *)
 (*
   TODO: enable all of them as soon as possible.
 *)
@@ -383,6 +383,9 @@ let js_checker =
   A"java" :: A"-jar"  :: (get_tool ~local "jschecker.jar") ::
     google_closure_compiler_options
 in
+
+(* -- end js validation -- *)
+
 
 (* -- opa plugin -- *)
 (* -- plugin that fails to validate -- *)
@@ -468,7 +471,7 @@ in
 let jsdoc_target = "doc.jsbsl" in
 
 let js_doc_input =
-  (plugins_dir/"opabsl.opp"/"opabslNodeJsPackage.js") :: client_lib_files in
+  (prefixed_plugins_dir/"opabsl.opp"/"opabslNodeJsPackage.js") :: client_lib_files in
 
 rule "opa-bslgenMLRuntime JS documentation"
   ~deps:(client_lib_validation_output :: js_doc_input)
@@ -492,7 +495,7 @@ rule "opa-bslgenMLRuntime JS documentation"
 (* Additional rules: final compilation (compiling using our backends) *)
 (* ------------------------------------------------------------------ *)
 
-(* -- OPA compiler rules -- *)
+(* -- begin compiler -- *)
 
 let stdlib_packages_dir = prefix_me "lib"/"stdlib" in
 let build_tools_dir = prefix_me "tools"/"build" in
@@ -507,11 +510,6 @@ in
 let opacomp_deps_js = prefixed_string_list_of_file (build_tools_dir/"opa-run-js-libs.itarget") in
 let opacomp_deps_js_cps = prefixed_string_list_of_file (build_tools_dir/"opa-run-js-cps-libs.itarget") in
 let opacomp_deps_js_no_cps = prefixed_string_list_of_file (build_tools_dir/"opa-run-js-no-cps-libs.itarget") in
-let opacomp_deps_native = prefixed_string_list_of_file (build_tools_dir/"opa-run-libs.itarget") in
-let opacomp_deps_byte = List.map (fun l -> Pathname.update_extension "cma" l) opacomp_deps_native in
-
-let opacomp_deps_native = opacomp_deps_native @ opacomp_deps_js in
-let opacomp_deps_byte = opacomp_deps_byte @ opacomp_deps_js in
 
 let opa_libs_dir = "lib" / "opa" / "static" in
 
@@ -522,17 +520,24 @@ let copy_lib_to_runtime lib =
   let files =
     List.fold_left
       (fun acc f ->
-         let dir, modl = Pathname.dirname f, Pathname.basename f -.- "cmi" in
-         List.filter (fun m -> Pathname.exists (opa_prefix / m))
-           [dir / String.uncapitalize modl; dir / String.capitalize modl] @ acc)
+	 let unprefixed =
+           let dir, modl = Pathname.dirname f, Pathname.basename f -.- "cmi" in
+	   List.filter (fun m -> Pathname.exists (build_dir / m))
+             [dir / String.uncapitalize modl; dir / String.capitalize modl] in
+	 let prefixed  =
+	   let f = prefix_me f in
+	   let dir, modl = Pathname.dirname f, Pathname.basename f -.- "cmi" in
+	   List.filter (fun m -> Pathname.exists (build_dir / m))
+             [dir / String.uncapitalize modl; dir / String.capitalize modl] in
+	 unprefixed @ prefixed @ acc)
       [] modules
   in
   let stubs =
     List.map (Pathname.update_extension !Options.ext_lib) (dir_ext_files "clib" (mlstate_lib_dir lib))
   in
   let files = stubs @ files in
-  Cmd(S(link_cmd :: List.map (fun f -> P (opa_prefix / f)) files
-	@ [ P (opa_prefix / opa_libs_dir) ]))
+  Cmd(S(link_cmd :: List.map (fun f -> P (build_dir / f)) files
+	@ [ P (build_dir / opa_libs_dir) ]))
 in
 
 let globalizer_prods dest = [dest/"package.json"; dest/"main.js"] in
@@ -555,38 +560,38 @@ List.iter js_runtime_rule [opacomp_deps_js_cps, opa_js_runtime_cps;
                            opacomp_deps_js_no_cps, opa_js_runtime_no_cps];
 
 
-rule "opa run-time libraries"
+rule "opa js run-time libraries"
   ~deps:(libbase_dir/"mimetype_database.xml" ::
             globalizer_prods opa_js_runtime_cps @
             globalizer_prods opa_js_runtime_no_cps @
-            opacomp_deps_native
+	    opacomp_deps_js
   )
-  ~stamp:"runtime-libs.stamp"
+  ~stamp:"js-runtime-libs.stamp"
   (fun _env _build ->
-     let mllibs = List.filter (fun f -> Pathname.check_extension f "cmxa") opacomp_deps_native in
+     Printf.printf "opa js run-time libraries\n";
+     let mllibs = List.filter (fun f -> Pathname.check_extension f "cmxa") opacomp_deps_js in
      let mllibs = List.map Pathname.remove_extension mllibs in
-     let native_deps =
-       List.map (fun f -> P (opa_prefix / f)) opacomp_deps_native in
+     let js_deps =
+       List.map (fun f -> P (build_dir / f)) opacomp_deps_js in
      let mllibs_local =
-       List.map (fun f -> P (opa_prefix / f -.- !Options.ext_lib)) mllibs in
+       List.map (fun f -> P (build_dir / f -.- !Options.ext_lib)) mllibs in
      let copylibs = List.map copy_lib_to_runtime mllibs in
      Seq[
-       Cmd(S[Sh"rm"; A"-rf"; P (opa_prefix / opa_libs_dir)]);
-       Cmd(S[Sh"mkdir"; A"-p"; P (opa_prefix / opa_libs_dir)]);
-       Cmd(S[Sh"rm"; A"-rf"; P (opa_prefix / opa_share_dir)]);
-
-       Cmd(S[Sh"mkdir"; A"-p"; P (opa_prefix / opa_share_dir)]);
-       Cmd(S(link_cmd :: native_deps @ [ P (opa_prefix / opa_libs_dir) ]));
-       Cmd(S(link_cmd :: mllibs_local @ [ P (opa_prefix / opa_libs_dir) ]));
+       Cmd(S[Sh"rm"; A"-rf"; P (build_dir / opa_libs_dir)]);
+       Cmd(S[Sh"mkdir"; A"-p"; P (build_dir / opa_libs_dir)]);
+       Cmd(S[Sh"rm"; A"-rf"; P (build_dir / opa_share_dir)]);
+       Cmd(S[Sh"mkdir"; A"-p"; P (build_dir / opa_share_dir)]);
+       Cmd(S(link_cmd :: js_deps @ [ P (build_dir / opa_libs_dir) ]));
+       Cmd(S(link_cmd :: mllibs_local @ [ P (build_dir / opa_libs_dir) ]));
        Cmd(S(link_cmd ::
-             P (opa_prefix / libbase_dir / "mimetype_database.xml") ::
-             [ P (opa_prefix / opa_share_dir / "mimetype_database.xml") ]));
+             P (build_dir / libbase_dir / "mimetype_database.xml") ::
+             [ P (build_dir / opa_share_dir / "mimetype_database.xml") ]));
        Cmd(S[link_cmd;
-             P (opa_prefix / opa_js_runtime_cps);
-             P (opa_prefix / opa_libs_dir)]);
+             P (build_dir / opa_js_runtime_cps);
+             P (build_dir / opa_libs_dir)]);
        Cmd(S[link_cmd;
-             P (opa_prefix / opa_js_runtime_no_cps);
-             P (opa_prefix / opa_libs_dir)]);
+             P (build_dir / opa_js_runtime_no_cps);
+             P (build_dir / opa_libs_dir)]);
        Seq copylibs
      ]
   );
@@ -596,15 +601,15 @@ let opacomp build src dst_ext opt =
     (List.map ((/) (Pathname.dirname src)) (string_list_of_file (src-.-"depends")));
   let dst = Pathname.update_extension dst_ext src in
   Cmd(S[
-        Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
+        Sh("MLSTATELIBS=\""^ build_dir ^"\"");
         get_tool "opa-bin"; opt;
         opaopt;
         A"-o"; P dst; P src
       ])
 in
 
-rule "opa and server dependencies"
-  ~deps:("runtime-libs.stamp" :: tool_deps "opa-bin")
+rule "js opa and server dependencies"
+  ~deps:("js-runtime-libs.stamp" :: tool_deps "opa-bin")
   ~stamp:"opacomp.stamp"
   (fun env build -> Nop);
 
@@ -613,34 +618,6 @@ rule "opackdep: .opack -> .opack.depends"
   ~prod:"%.opack.depends"
   (fun env build ->
      Cmd(S[P"grep"; A"-v"; A"^\\w*-"; P(env "%.opack"); Sh">"; P(env "%.opack.depends"); Sh"|| true"]));
-
-(* A rule to build applications using the stdlib (e.g. opadoc) *)
-rule "opacomp: .opack -> .native"
-  ~deps: ("%.opack"::"%.opack.depends"::"opa-packages.stamp"::"opacomp.stamp"::[])
-  ~prod: "%.native"
-  (fun env build ->
-     let dir = Pathname.dirname (env "%") in
-     let mano_depends = Pathname.pwd / (env "%.depends") in
-     if Pathname.exists mano_depends then (
-       build_list build (List.map ((/) dir) (string_list_of_file mano_depends))
-     );
-     build_list build (List.map ((/) dir) (string_list_of_file (env "%.opack.depends")));
-     opacomp build (env "%.opack") "native"
-       (S[ A"-I" ; P stdlib_packages_dir ; A"--project-root" ; P dir; A"--parser"; A"classic";]));
-
-rule "opacomp: .opack -> .byte"
-  ~deps: ("%.opack"::"%.opack.depends"::"opa-packages.stamp"::"opacomp-byte.stamp"::[])
-  ~prod: "%.byte"
-  (fun env build ->
-     let dir = Pathname.dirname (env "%") in
-     build_list build (List.map ((/) dir) (string_list_of_file (env "%.opack.depends")));
-     opacomp build (env "%.opack") "byte" (S[A"-I";P stdlib_packages_dir]));
-(*
-  (A"--bytecode"));
-  Used to give this option to opa-bin, but since the opa package are build by ocamlbuild,
-  we do not generated bytecode version of opa-packages, making the bytecode compilation
-  of server not available anymore.
-*)
 
 (* temporary and unreliable *)
 rule "opadep: .opa -> .opa.depends"
@@ -654,53 +631,46 @@ rule "opadep: .opa -> .opa.depends"
        Cmd(sed_dep dep_opp_regex ">" (env "%.opa.depends"));
        Cmd(sed_dep dep_opx_regex ">>" (env "%.opa.depends"))
      ]
-  )
-;
+  );
 
-rule "opacomp: .opa -> .native"
-  ~deps: ("%.opa"::"%.opa.depends"::"opacomp.stamp"::[])
-  ~prod: "%.native"
-  (fun env build -> opacomp build (env "%.opa") "native" N);
-
-rule "opacomp: .opa -> .byte"
-  ~deps: ("%.opa"::"%.opa.depends"::"opacomp-byte.stamp"::[])
-  ~prod: "%.byte"
-  (fun env build -> opacomp build (env "%.opa") "byte" (A"--bytecode"));
-
-rule "opa bash_completion: opa-bin -> bash_completion"
-  ~deps: (tool_deps "opa-bin")
-  ~prod: "bash_completion"
-  (fun env build ->
-     Seq[Cmd(S[get_tool "opa-bin"; A"--bash-completion"])]);
+(* -- end compiler -- *)
 
 
-(************************************************)
-(* OPA PLUGINS (OPP) ****************************)
+(* -- begin plugins -- *)
 
 (** Generates a rule to build the [name] Opa plugin *)
 let plugin_building name =
+
   (* Plugins paths *)
-  let path        = plugins_dir/name in
-  let opp         = path -.- "opp" in
-  let oppf        = path/name -.- "oppf" in
-  let opa_plugin  = path/name -.- "opa_plugin" in
-  let tags = tags_of_pathname opa_plugin in
-  let files = string_list_of_file opa_plugin in
-  let files = List.map (fun file -> path/file) files in
+
+  let p_path        = prefixed_plugins_dir/name in
+  let p_opp         = p_path -.- "opp" in
+  let p_oppf        = p_path/name -.- "oppf" in
+  let p_opa_plugin  = p_path/name -.- "opa_plugin" in
+  let p_tags = tags_of_pathname p_opa_plugin in
+  let p_files =
+    if Pathname.exists p_opa_plugin then string_list_of_file p_opa_plugin
+    else [] in
+  let prefixed_files = List.map (fun file -> p_path/file) p_files in
+
+  let additional_files = additional_files name in
+  let files = prefixed_files @ additional_files in
 
   (* Plugins options *)
-  let options = A "-o" :: A name :: A "--build-dir" :: A plugins_dir :: [] in
-  let options (* Ocaml libs*) = Tags.fold
+  let options = A "-o" :: A name :: A "--build-dir" :: A prefixed_plugins_dir :: [] in
+
+  let options (* Ocaml libs *) = Tags.fold
     (fun tag options -> match use_tag tag with
      | None -> options
      | Some d ->
          let dir = match mlstate_lib_dir d with
            | "." -> "+"^d
-           | dir -> opa_prefix/dir
+           | dir -> build_dir/dir
          in
          A "--ml" :: A "-I" :: A "--ml" :: P dir :: options
-    ) tags options
+    ) p_tags options
   in
+
   let options (* C libs *) = Tags.fold
     (fun tag options ->
        match clib_tag tag with
@@ -709,13 +679,15 @@ let plugin_building name =
            if not (is_system_libs dep) then
              A "--ml" :: A "-cclib" :: A "--ml" :: A ("-l"^dep) :: options
            else options
-    ) tags options
+    ) p_tags options
   in
+
   let has_node, options (* JavaScript files *) =
     let jsfiles =
       List.filter
         (fun f -> Pathname.check_extension f "js" || Pathname.check_extension f "nodejs")
         files in
+
     let options = List.fold_left
       (fun options jsfile ->
            match is_jschecker_file jsfile with
@@ -739,6 +711,7 @@ let plugin_building name =
         A "--unsafe-js" :: A "--js-validator" :: t
         :: List.fold_right (fun opt acc -> A"--js-validator-opt"::opt::acc) q options
   in
+
   let options =
     let conf_files =
       List.filter (fun f ->
@@ -746,6 +719,7 @@ let plugin_building name =
           Pathname.check_extension f "nodejsconf"
       ) files in
     List.map (fun file -> P file) conf_files @ options in
+
   let has_ml, options (* OCaml files *) =
     let mlfiles = List.filter (fun f -> Pathname.check_extension f "ml") files in
     (mlfiles <> [],
@@ -761,11 +735,13 @@ let plugin_building name =
        ) options (List.rev mlfiles)
     )
   in
+
   let options (* Opa files *) =
     List.map (fun p -> P p) (List.filter (fun f -> Pathname.check_extension f "opa") files)
     @ options
   in
-  let is_static = Tags.mem "static" (tags_of_pathname path) in
+
+  let is_static = Tags.mem "static" (tags_of_pathname p_path) in
   let options =
     if is_static then
       A "--static" :: A "--no-build" :: options
@@ -779,8 +755,8 @@ let plugin_building name =
   let prods = [] in
   let prods, files, postlude =
     if name = "opabsl" then
-      ("serverLib.mli"::prods, path/"serverLib.mli"::files,
-       (ln_f (path/"serverLib.mli") (opp/"serverLib.mli")) :: postlude
+      ("serverLib.mli"::prods, p_path/"serverLib.mli"::files,
+       (ln_f (p_path/"serverLib.mli") (p_opp/"serverLib.mli")) :: postlude
       )
     else (prods, files, postlude)
   in
@@ -807,22 +783,23 @@ let plugin_building name =
       (* Tags all produced files (in %.opp) as file in (%) *)
       List.iter
         (fun file ->
-           let tags = Tags.elements (tags_of_pathname (path/file)) in
-           tag_file (opp/file) tags;
-
+           let tags = Tags.elements (tags_of_pathname (p_path/file)) in
+           tag_file (p_opp/file) tags;
         ) prods;
       prods
     )
     else prods
   in
-  let prods = List.map (fun file -> opp/file) prods in
+  let prods = List.map (fun file -> p_opp/file) prods in
   let prods = prods in
 
   (* Plugins deps *)
+
   let deps =
     files @ (tool_deps "jschecker.jar") @ (tool_deps "ppdebug") @
       (tool_deps "ppjs") @ (tool_deps opa_plugin_builder_name)
   in
+
   let deps (* Ocaml libs*) =
     let parent s =
       String.sub s 0 (String.rindex s '/')
@@ -834,16 +811,16 @@ let plugin_building name =
          match mlstate_lib_dir lib with
          | "." -> deps
          | dir -> ((parent dir)/lib^".cmxa") :: deps
-    ) tags deps
+    ) p_tags deps
   in
 
   rule (Printf.sprintf "Opa plugin: %s" name)
     ~deps
     ~prods
-    ~stamp:oppf
+    ~stamp:p_oppf
     (fun env build ->
        let opp_build =
-         Cmd (S (Sh("MLSTATELIBS=\""^ opa_prefix ^"\"") ::
+         Cmd (S (Sh("MLSTATELIBS=\""^ build_dir ^"\"") ::
                opa_plugin_builder::options
             ))
        in
@@ -859,28 +836,27 @@ let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
 let all_plugins_file = stdlib_packages_dir/"all.plugins" in
 
 (** Build here because the rule is always wanted. *)
-let () = List.iter
-  plugin_building
-  [ "opabsl"; ]
-in
+let () = plugin_building "opabsl" in
 
 (** This rule generates rules for all plugins *)
 let lazy_plugin_rules =
   lazy (
-    let all_plugins_file = opa_prefix / all_plugins_file in
-    Command.execute ~quiet:true ~pretend:false
-      (Cmd (S[
-        Sh"mkdir"; A"-p"; P (opa_prefix / stdlib_packages_dir); Sh"&&";
-        Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
-        P"./all_plugins.sh"; Sh">"; P all_plugins_file;
-      ])) ;
-    let plugins = string_list_of_file all_plugins_file in
-    List.iter plugin_building plugins
+      let all_plugins_file = build_dir / all_plugins_file in
+      Command.execute ~quiet:true ~pretend:false
+	(Cmd (S[
+		Sh"mkdir"; A"-p"; P (build_dir / stdlib_packages_dir); Sh"&&";
+		Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
+		P"./all_plugins.sh"; Sh">"; P all_plugins_file;
+	      ])) ;
+      let plugins = string_list_of_file all_plugins_file in
+      List.iter (plugin_building) plugins
   )
 in
 
+(* -- end plugins -- *)
 
-(* -- OPA packages -- *)
+
+(* -- begin packages -- *)
 
 let package_to_dir s0 =
   let s = String.copy s0 in
@@ -936,76 +912,50 @@ let make_all_packages = [
   stdlib_packages_dir/"all_packages.sh";
   stdlib_packages_dir/packages_exclude_node
 ] in
-let all_packages_file nodebackend =
-  if nodebackend then stdlib_packages_dir/"all.node.packages"
-  else stdlib_packages_dir/"all.packages" in
-
-let all_packages_building nodebackend =
-  let prod = all_packages_file nodebackend in
-  rule (if nodebackend then "all.node.packages" else "all.packages")
+let all_packages_file = stdlib_packages_dir/"all.node.packages" in
+let all_packages_building =
+  let prod = all_packages_file in
+  rule "all.node.packages"
     ~deps: make_all_packages
     ~prod
     (fun env build ->
          Cmd(S[
                Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
-               P"./all_packages.sh"; P (if nodebackend then packages_exclude_node else ""); Sh">"; P (Pathname.pwd / !Options.build_dir / prod);
+               P"./all_packages.sh"; P packages_exclude_node; Sh">"; P (Pathname.pwd / !Options.build_dir / prod);
              ])
     )
 in
 
-all_packages_building true;
-all_packages_building false;
-
-
-let opa_create_prefix = prefix_me "tools/opa-create/src/opa-create" in
-let opa_create_src = opa_create_prefix ^ ".opa" in
-let opa_create_dst = opa_create_prefix ^ ".exe" in
-
-let dir_all_files dir =
-  List.filter (fun p -> (not (Pathname.is_directory p))) (dirlist dir)
-in
-
-let dir_rec_all_files dir =
-  let dirs =  rec_subdirs [ dir ] in
-  List.fold_right (fun dir acc -> dir_all_files dir @ acc) dirs []
-in
-
-rule "opa application creator"
-  ~deps:(dir_rec_all_files (prefix_me "tools/opa-create"))
-  ~prods: [opa_create_dst]
-  (fun env build ->
-      Cmd(S[
-	(Sh ("MLSTATELIBS=\""^ opa_prefix ^"\""));
-        get_tool "opa-bin";
-        A"-o"; P opa_create_dst; P opa_create_src;
-        A"--opx-dir"; A "stdlib.qmljs";
-        A"--no-server";
-        A"-I"; A plugins_dir
-      ]));
-
-let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () =
+let packages_building ~name ~stamp ~core_only ~rebuild
+    ?(opacomp_stamp="opacomp.stamp")
+    ?(all_packages_file=all_packages_file)
+    ?(opx_dir="stdlib.qmljs")
+    ?(backend_opt=[]) () =
   Lazy.force lazy_plugin_rules;
-  let plugins = string_list_of_file (opa_prefix / all_plugins_file) in
-  let plugins = List.map (fun f -> plugins_dir/f/f -.- "oppf") plugins in
+  let plugins = string_list_of_file (build_dir / all_plugins_file) in
+  let plugins = List.map (
+    fun f -> prefixed_plugins_dir/f/f -.- "oppf"
+  ) plugins in
   rule name
     ~deps:(plugins @ [
       opacapi_validation;
       version_buildinfos;
-      all_packages_file nodebackend;
-      "opacomp.stamp"
+      all_packages_file;
+      opacomp_stamp
     ])
-    ~stamp
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
+    ~stamp
   (fun env build ->
      try
-       let packages = string_list_of_file (all_packages_file nodebackend) in
+       let packages = string_list_of_file all_packages_file in
        let packages =
-         if stdlib_only then
+         if core_only then
            let stdlib = "stdlib.core" in
            List.filter (
 	     fun package ->
-               String.length package >= String.length stdlib &&
-                 stdlib = String.sub package 0 (String.length stdlib)
+	       let stdlib_len = String.length stdlib in
+               String.length package >= stdlib_len &&
+                 stdlib = String.sub package 0 stdlib_len
 	   ) packages
          else packages in
        let list_package_files = List.map
@@ -1046,7 +996,6 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
          (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
          [A"--conf-opa-files"]
        in
-       let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
        let version = get_version_buildinfos () in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
        let extra_opt =
@@ -1059,17 +1008,13 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
           A"--no-warn-error";A"bsl.loading";
           A"--no-warn-error";A"bsl.projection";
           A"--warn"; A"jscompiler";
-         ] @
-           if nodebackend then
-	     (* we do not give --back-end because qmljs is the default one *)
-	     extra_opt
-           else extra_opt (* A"--back-end"::A""::extra_opt *)
+         ] @ backend_opt @ extra_opt
        in
        Seq[
          Echo(conf, "conf");
          Cmd(S([Sh"mkdir";A"-p";P opx_dir;]));
          Cmd(S([Sh"rm -rf";P (opx_dir/"*.opp")]));
-         Cmd(S([Sh("MLSTATELIBS=\""^ opa_prefix ^"\"");
+         Cmd(S([Sh("MLSTATELIBS=\""^ build_dir ^"\"");
                 get_tool "opa-bin";
                 A"--autocompile";
                 (* A"--verbose-build"; *)
@@ -1078,8 +1023,8 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
                 A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"--parser"; A"classic";
-                A"--opx-dir"; P opa_prefix;
-                A"-I"; A plugins_dir;
+                A"--opx-dir"; P build_dir;
+                A"-I"; A prefixed_plugins_dir;
                 opaopt;
                 S all_files;
                ] @ extra_opt));
@@ -1088,32 +1033,57 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
        fail_rule build
   ) in
 
-package_building
-  ~name:"opa-packages: meta-rule to build all .opx"
-  ~stamp:"opa-packages.stamp"
-  ~stdlib_only:false
-  ~rebuild:false
-  ();
-
-package_building
-  ~name:"opa-stdlib-packages: meta-rule to build all the stdlib .opx"
-  ~stamp:"opa-stdlib-packages.stamp"
-  ~stdlib_only:true
-  ~rebuild:false
-  ();
-
-package_building
-  ~name:"opa-node-packages: meta-rule to build all the stdlib .opx"
+packages_building
+  ~name:"opa-node-packages: meta-rule to build the node stdlib and .opx"
   ~stamp:"opa-node-packages.stamp"
-  ~stdlib_only:false
-  ~nodebackend:true
+  ~core_only:false
   ~rebuild:false
   ();
 
-rule "opa-both-packages"
-  ~deps:["opa-node-packages.stamp"; "opa-packages.stamp"]
-  ~stamp:"opa-both-packages.stamp"
-  (fun env build -> Nop);
+(* -- end packages -- *)
+
+
+(* -- begin opa-create -- *)
+
+let opa_create_prefix = prefix_me "tools/opa-create/src/opa-create" in
+let opa_create_src = opa_create_prefix ^ ".opa" in
+let opa_create_dst = opa_create_prefix ^ ".exe" in
+
+let dir_all_files dir =
+  List.filter (fun p -> (not (Pathname.is_directory p))) (dirlist dir)
+in
+
+let dir_rec_all_files dir =
+  let dirs =  rec_subdirs [ dir ] in
+  List.fold_right (fun dir acc -> dir_all_files dir @ acc) dirs []
+in
+
+rule "opa application creator"
+  ~deps:(dir_rec_all_files (prefix_me "tools/opa-create"))
+  ~prods: [opa_create_dst]
+  (fun env build ->
+      Cmd(S([
+	(Sh ("MLSTATELIBS=\""^ build_dir ^"\""));
+        get_tool "opa-bin";
+        A"-o"; P opa_create_dst; P opa_create_src;
+        A"--opx-dir"; A app_opx_dir;
+        A"--no-server";
+        A"-I"; A prefixed_plugins_dir
+      ] @ more_app_opts)));
+
+(* -- end opa-create -- *)
+
+
+(* -- begin misc -- *)
+
+rule "opa bash_completion: opa-bin -> bash_completion"
+  ~deps: (tool_deps "opa-bin")
+  ~prod: "bash_completion"
+  (fun env build ->
+     Seq[Cmd(S[get_tool "opa-bin"; A"--bash-completion"])]);
+
+(* -- end misc -- *)
+
 
 rule "node-packages"
   ~deps:["opa-node-packages.stamp"]

@@ -116,6 +116,7 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
                    { print "internal_lib", $3 ? "~dir:\""prefix$3"\"" : "", "\""$2"\";" }' $i
         fi
     done
+    cat $BUILD_VARS
     for i in $BUILD_RULES; do
         if [ -e "$i" ]; then
             echo "#1 \"$i\""
