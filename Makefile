@@ -76,9 +76,15 @@ stdlib: opa-both-packages
 stdlib-flat: opa-flat-packages
 stdlib-node: opa-node-packages
 
-DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml # opa-cloud opa-db-server opa-db-tool opatop opa-translate
+.PHONY: opa_tools
+opa_tools:
+ifndef NO_TOOLS
+	$(MAKE) opa-create
+else
+	@echo "Not building tools"
+endif
 
-OPA_TOOLS = opa-create
+DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml # opa-cloud opa-db-server opa-db-tool opatop opa-translate
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
@@ -86,7 +92,7 @@ distrib: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	@tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../.. --prefix $(realpath $(BUILD_DIR))
 	$(MAKE) manpages
-	$(MAKE) $(OPA_TOOLS)
+	$(MAKE) opa_tools
 
 .PHONY: distrib-all
 distrib-all: $(MYOCAMLBUILD)
