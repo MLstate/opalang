@@ -1350,10 +1350,10 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
            | `virtualpath (id, _, _) ->
                let coerce =
                  match kind with
-                 | Db.Default -> FakeOpacapi.DbVirtual.hack_coerce_default
-                 | Db.Option ->  FakeOpacapi.DbVirtual.hack_coerce_option
-                 | Db.Valpath -> FakeOpacapi.DbVirtual.hack_coerce_vvpath
-                 | Db.Ref -> FakeOpacapi.DbVirtual.hack_coerce_vrpath
+                 | Db.Default -> OptionalOpacapi.DbVirtual.hack_coerce_default
+                 | Db.Option ->  OptionalOpacapi.DbVirtual.hack_coerce_option
+                 | Db.Valpath -> OptionalOpacapi.DbVirtual.hack_coerce_vvpath
+                 | Db.Ref -> OptionalOpacapi.DbVirtual.hack_coerce_vrpath
                  | _ -> assert false (* TODO - ...*)
                in
                let coerce = QmlAstCons.UntypedExpr.ident (val_ coerce) in

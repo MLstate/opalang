@@ -148,8 +148,8 @@ let rewrite_expr ~typed bp_typer ~side ~renaming_client ~renaming_server gamma a
             * so simple that who needs type anyway ? *)
            let bp =
              match d with
-             | `closure_create _ -> FakeOpacapi.Opabsl.BslClosure.create_and_register
-             | `closure_create_no_function _ -> FakeOpacapi.Opabsl.BslClosure.create_no_function_and_register in
+             | `closure_create _ -> OptionalOpacapi.Opabsl.BslClosure.create_and_register
+             | `closure_create_no_function _ -> OptionalOpacapi.Opabsl.BslClosure.create_no_function_and_register in
            let pos = Annot.pos label in
            let annotmap, ccreate = QmlAstCons.TypedExpr.bypass ~pos annotmap bp (bp_typer bp) in
            let annotmap, identifier, is_other_side = mk_identifier ~typed ~side ~renaming_client ~renaming_server gamma annotmap f in
@@ -164,7 +164,7 @@ let rewrite_expr ~typed bp_typer ~side ~renaming_client ~renaming_server gamma a
            tra annotmap e
        | Q.Directive (label, `closure_define_function (clos, code, _tsc), _, _) ->
            (* FIXME: same as above *)
-           let bp = FakeOpacapi.Opabsl.BslClosure.define_function in
+           let bp = OptionalOpacapi.Opabsl.BslClosure.define_function in
            let pos = Annot.pos label in
            let annotmap, define = QmlAstCons.TypedExpr.bypass ~pos annotmap bp (bp_typer bp) in
            let e_clos = QmlAstCons.UntypedExpr.ident clos in

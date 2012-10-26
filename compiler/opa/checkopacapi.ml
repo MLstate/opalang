@@ -94,7 +94,7 @@ let fopps = MutableList.create ()
 (* t *)
 
 let target = ref None
-let fake = ref false
+let optional = ref false
 
 let (|>) = InfixOperator.(|>)
 let (!>) = Format.sprintf
@@ -107,11 +107,11 @@ let spec = [
   !>
     " specify a target for the trace file";
 
-(* -check-fake *)
-  "-check-fake",
-  Arg.Unit (fun _ -> fake := true),
+(* -check-optional *)
+  "-check-optional",
+  Arg.Unit (fun _ -> optional := true),
   !>
-    " also check fake opacapi"
+    " also check optional opacapi"
 
 ]
 
@@ -278,10 +278,10 @@ let _ =
       Hashtbl.fold
 	(fun key _ acc -> StringSet.add (BslKey.to_string key) acc)
 	Opacapi.Opabsl.table StringSet.empty in
-    if !fake then (
+    if !optional then (
       Hashtbl.fold
 	(fun key _ acc -> StringSet.add (BslKey.to_string key) acc)
-	FakeOpacapi.Opabsl.table res
+	OptionalOpacapi.Opabsl.table res
     )
     else res
   in strict_equality "bypass" "opabsl" "opacapi" opabsl opacapi;

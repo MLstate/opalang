@@ -180,7 +180,7 @@ rule "Opa Compiler Interface Validation (opacapi)"
      Cmd(S ([ get_tool "checkopacapi" ;
               A "-o" ;
               P opacapi_validation ;
-            ] @ (if check_fake then [A "-check-fake"] else [])
+            ] @ (if check_optional then [A "-check-optional"] else [])
 	    @ (List.rev_map (fun file -> P file) opa_opacapi_files)
             @ (List.map (fun x -> P (Printf.sprintf "%s/%s.%s" prefixed_plugins_dir x "opp")) opa_opacapi_plugins)
 	   )

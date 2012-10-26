@@ -1229,7 +1229,7 @@ let runtime_bt_collection bt_pos _f_string _larg expr =
     QC.string bt_pos
     #<End>
   in
-  let bt_add = qml_other_call FakeOpacapi.Opabsl.BslCps.bt_add in
+  let bt_add = qml_other_call OptionalOpacapi.Opabsl.BslCps.bt_add in
   QC.letin [Ident.next "_", (QC.apply bt_add [bt_info])]
     expr
 

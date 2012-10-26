@@ -4,6 +4,6 @@ let app_opx_dir = "stdlib.qmljs" in
 
 let more_app_opts = [] in
 
-let check_fake = false in
+let check_optional = false in
 
 let opa_opacapi_plugins = [] in
