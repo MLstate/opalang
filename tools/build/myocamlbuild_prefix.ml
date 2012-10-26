@@ -151,7 +151,9 @@ let trx_build_aux ~just_binary src dst ext ops = fun env build ->
             failwith (Printf.sprintf "Circular build detected (%s already seen in [%s])"
                         f (String.concat "; " path))
           else
-            let prefix = let p = Pathname.to_string (Pathname.dirname f) in if p = "." then "" else p^"/" in
+            let prefix =
+	      let p = Pathname.to_string (Pathname.dirname f) in
+	      if p = "." then "" else p^"/" in
             let deps = List.map ((^) prefix) (string_list_of_file (f -.- "depends")) in
             let dep_files = List.map (fun d -> d -.- "depends") deps in
             build_list build dep_files;
@@ -192,16 +194,17 @@ let trx_build_aux ~just_binary src dst ext ops = fun env build ->
            else []))
   in
   let get_tool_trx_file () =
-    match Hashtbl.find tools_table trx_tool with Internal f -> f | _ -> assert false
+    match Hashtbl.find tools_table trx_tool with
+    | Internal f -> f
+    | _ -> assert false
   in
   match Outcome.wrap build [tool_deps trx_tool] with
     | Outcome.Good _ -> do_build ()
     | Outcome.Bad _ ->
         let cache = Pathname.pwd / env dst -.- "cache" in
-        if Sys.file_exists (get_tool_trx_file ())
-        then do_build ()
-        else if trx_cache_tag && Sys.file_exists cache
-        then (
+        if Sys.file_exists (get_tool_trx_file ()) then (
+	  do_build ()
+	) else if trx_cache_tag && Sys.file_exists cache then (
           Ocamlbuild_pack.Log.dprintf 1 "Using cached file (%s) to bootstrap trx" (env dst -.- "cache");
           cp cache (env dst)
         )

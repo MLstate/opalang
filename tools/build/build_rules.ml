@@ -301,7 +301,7 @@ rule " ofile"
   (fun env build ->
      let dir = Pathname.dirname (env "%.of") in
      build_list build (string_list_of_file (env "%.of"));
-     Cmd(S[get_tool "ofile"; A"-path"; P(Pathname.pwd / !Options.build_dir); P(env "%.of")]));
+     Cmd(S[get_tool "ofile"; A"-path"; P(opa_prefix); P(env "%.of")]));
 
 (* -- Proto rules -- *)
 
@@ -460,8 +460,7 @@ rule "Client lib JS validation"
   Needs to access lots of files. Cf jsdocdir/README.txt
 *)
 let jsdocdir =
-  let opageneral = Pathname.to_string Pathname.pwd in
-  opageneral ^ "/tools/jsdoc-toolkit"
+  Pathname.pwd/"tools"/"jsdoc-toolkit"
 in
 
 let jsdoc_target = "doc.jsbsl" in
