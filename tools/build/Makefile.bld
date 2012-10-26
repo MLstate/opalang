@@ -60,17 +60,18 @@ distclean: clean
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
 
+# FIXME: duplicated in gen_myocamlbuild.sh
 ifdef private
-  BUILD_RULES := $(wildcard build_rules*.ml)
-  BUILD_LIBS := $(wildcard build_libs*)
-  BUILD_TOOLS := $(wildcard build_tools*)
+  BUILD_RULES := $(wildcard $(BLDDIR)/build_rules*.ml)
+  BUILD_LIBS := $(wildcard $(BLDDIR)/build_libs*)
+  BUILD_TOOLS := $(wildcard $(BLDDIR)/build_tools*)
 else
   BUILD_RULES := $(BLDDIR)/build_rules.ml
   BUILD_LIBS := $(BLDDIR)/build_libs
   BUILD_TOOLS := $(BLDDIR)/build_tools
 endif
 
-MYOCAMLBUILD_SOURCES = $(BLDDIR)/gen_myocamlbuild.sh $(BLDDIR)/myocamlbuild_prefix.ml $(BLDDIR)/myocamlbuild_suffix.ml $(CONFIG_PATH)/config.ml $(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
+MYOCAMLBUILD_SOURCES = $(BLDDIR)/gen_myocamlbuild.sh
 
 $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
 	@echo "Ocamlbuild plugin generation"
