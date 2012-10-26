@@ -42,8 +42,6 @@ internal qml2js		      	      compiler/qml2js
 internal qml2ocaml	  	      compiler/qml2ocaml
 internal qmlcpsrewriter	      	      compiler/qmlcps
 internal qmlcpsserver	  	      compiler/qmlcps
-internal qmlflatcompiler  	      compiler/qmlflat
-internal qmlflatserver	      	      compiler/qmlflat
 internal qmljsimp	  	      compiler/qmljsimp
 internal qmlpasses	  	      compiler/qmlpasses
 internal qmlslicer	  	      compiler/qmlslicer

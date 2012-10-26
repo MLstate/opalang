@@ -42,34 +42,6 @@ module S2 = Passes
 (* S3 implementations. *)
 module S3 = S3Passes
 
-let flat_backend = Compiler.make_backend "qmlflat"
-  ~aliases:["native"] (
-    PassHandler.make_pass (
-      fun e -> e
-
-      |> PH.old_if_handler ~if_:If.closure
-	  "ServerQmlLambdaLifting" (S2.pass_LambdaLifting2 ~typed:false ~side:`server)
-
-      |?> (If.constant_sharing,
-	   "QmlConstantSharing", S3.pass_QmlConstantSharing)
-
-      |>  PH.old_if_handler ~if_:If.closure
-	  "ServerQmlUncurry" (S2.pass_QmlUncurry2 ~typed:false ~side:`server)
-
-      |?> (If.closure,
-	   "ServerQmlClosure", S3.pass_ServerQmlClosure)
-
-      |+> ("QmlCompilation", QmlflatPasses.pass_QmlCompilation)
-
-      |+> ("OcamlSplitCode", QmlflatPasses.pass_OcamlSplitCode)
-
-      |+> ("OcamlGeneration", QmlflatPasses.pass_OcamlGeneration)
-
-      |+> ("OcamlCompilation", QmlflatPasses.pass_OcamlCompilation)
-
-    )
-  ) (Some Flat_Compiler.dynloader) BslLanguage.ml Flat_Compiler.register_field_name
-
 let js_backend = Compiler.make_backend "qmljs"
   ~aliases:["node";"js";"nodejs";"node.js"] (
     PassHandler.make_pass (
@@ -87,4 +59,4 @@ let js_backend = Compiler.make_backend "qmljs"
     )
   ) None BslLanguage.nodejs ignore
 
-let () = Compiler.compile([js_backend; flat_backend])
+let () = Compiler.compile([js_backend])

@@ -48,7 +48,7 @@ let warning_set =
 
   !++ I18nAndComputedString.warning_set ;
 
-  !++ Flat_Compiler.warning_set ;
+  (* !++ Flat_Compiler.warning_set ; *)
 
   !++ Pass_CheckPatternMatching.warning_set ;
 

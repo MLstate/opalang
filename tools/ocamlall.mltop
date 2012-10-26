@@ -515,24 +515,24 @@ compiler/qmljsimp/Imp_Inlining
 compiler/qmlcps/QmlCpsIL
 compiler/qmlcps/QmlCpsRewriter
 
-# private modules
-compiler/qmlflat/flat/Flat_Bsl
-compiler/qmlflat/flat/Flat_BypassGeneration
-compiler/qmlflat/flat/Flat_Common
-compiler/qmlflat/flat/Flat_DotGeneration
-compiler/qmlflat/flat/Flat_Env
-compiler/qmlflat/flat/Flat_ExprGeneration
-compiler/qmlflat/flat/Flat_Field
-compiler/qmlflat/flat/Flat_MatchGeneration
-compiler/qmlflat/flat/Flat_Opabsl
-compiler/qmlflat/flat/Flat_Options
-compiler/qmlflat/flat/Flat_RecordGeneration
-compiler/qmlflat/flat/Flat_Shared
-compiler/qmlflat/flat/Flat_Simple
-compiler/qmlflat/flat/Flat_VTable
-compiler/qmlflat/flat/Flat_Warnings
-# Public module
-compiler/qmlflat/Flat_Compiler
+# # private modules
+# compiler/qmlflat/flat/Flat_Bsl
+# compiler/qmlflat/flat/Flat_BypassGeneration
+# compiler/qmlflat/flat/Flat_Common
+# compiler/qmlflat/flat/Flat_DotGeneration
+# compiler/qmlflat/flat/Flat_Env
+# compiler/qmlflat/flat/Flat_ExprGeneration
+# compiler/qmlflat/flat/Flat_Field
+# compiler/qmlflat/flat/Flat_MatchGeneration
+# compiler/qmlflat/flat/Flat_Opabsl
+# compiler/qmlflat/flat/Flat_Options
+# compiler/qmlflat/flat/Flat_RecordGeneration
+# compiler/qmlflat/flat/Flat_Shared
+# compiler/qmlflat/flat/Flat_Simple
+# compiler/qmlflat/flat/Flat_VTable
+# compiler/qmlflat/flat/Flat_Warnings
+# # Public module
+# compiler/qmlflat/Flat_Compiler
 
 compiler/protocols/Tools
 compiler/protocols/Reorder_functions
@@ -552,9 +552,9 @@ compiler/opalib/OpaEnv
 compiler/opalib/StaticsInclude
 compiler/opalib/OpaWalker
 # TODO, missing modules of lang design
-compiler/qmlflat/Flat_Runtime
-compiler/qmlflat/ServerLib
-compiler/qmlflat/QmlFlatServerLib
+# compiler/qmlflat/Flat_Runtime
+# compiler/qmlflat/ServerLib
+# compiler/qmlflat/QmlFlatServerLib
 
 compiler/passes/SurfaceAstPasses
 compiler/passes/SurfaceAstPassesTypes

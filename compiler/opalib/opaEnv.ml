@@ -636,7 +636,7 @@ struct
       let non_release = (* Please preserve the alphabetical order *)
         PassHandler.Arg.options @
         Pass_DbSchemaGeneration.Arg.options @
-        Flat_Compiler.Arg.options @
+        (* Flat_Compiler.Arg.options @ *)
         ObjectFiles.Arg.private_options @
         [
           (* Undocumented options *)

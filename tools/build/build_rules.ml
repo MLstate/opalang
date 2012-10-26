@@ -17,7 +17,6 @@
 (* -- Directory contexts -- *)
 
 shared_namespace_dir "compiler/libqmlcompil";
-include_subdirs "compiler/qmlflat";
 shared_namespace_dir "compiler/opa";
 include_subdirs "compiler/opalib";
 shared_namespace_dir "compiler/opalang";
@@ -929,9 +928,8 @@ let files_of_package pkg =
     let files = List.sort String.compare files in
     files in
 
-let packages_exclude_node = "node.exclude"in
-let packages_exclude_qmlflat = "qmlflat.exclude"in
-let make_all_packages = [stdlib_packages_dir/"all_packages.sh"; stdlib_packages_dir/packages_exclude_node ; stdlib_packages_dir/packages_exclude_qmlflat] in
+let packages_exclude_node = "node.exclude" in
+let make_all_packages = [stdlib_packages_dir/"all_packages.sh"; stdlib_packages_dir/packages_exclude_node] in
 let all_packages_file nodebackend = if nodebackend then stdlib_packages_dir/"all.node.packages" else stdlib_packages_dir/"all.packages" in
 
 let all_packages_building nodebackend =
@@ -942,7 +940,7 @@ let all_packages_building nodebackend =
     (fun env build ->
          Cmd(S[
                Sh"cd"; P (Pathname.pwd / stdlib_packages_dir); Sh"&&";
-               P"./all_packages.sh"; P (if nodebackend then packages_exclude_node else packages_exclude_qmlflat); Sh">"; P (Pathname.pwd / !Options.build_dir / prod);
+               P"./all_packages.sh"; P (if nodebackend then packages_exclude_node else ""); Sh">"; P (Pathname.pwd / !Options.build_dir / prod);
              ])
     )
 in
@@ -1040,7 +1038,7 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
          (*List.concat (List.map (fun (_,files) -> List.map (fun f -> P f) files) list_package_files)*)
          [A"--conf-opa-files"]
        in
-       let opx_dir = if nodebackend then "stdlib.qmljs" else "stdlib.qmlflat" in
+       let opx_dir = if nodebackend then "stdlib.qmljs" else "" in
        let version = get_version_buildinfos () in
        let extra_opt = if rebuild then [A"--rebuild"] else [] in
        let extra_opt =
@@ -1055,8 +1053,9 @@ let package_building ?(nodebackend=false) ~name ~stamp ~stdlib_only ~rebuild () 
           A"--warn"; A"jscompiler";
          ] @
            if nodebackend then
-             A"--back-end"::A"qmljs"::extra_opt
-           else A"--back-end"::A"qmlflat"::extra_opt
+	     (* we do not give --back-end because qmljs is the default one *)
+	     extra_opt
+           else A"--back-end"::A""::extra_opt
        in
        Seq[
          Echo(conf, "conf");
