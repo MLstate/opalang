@@ -36,7 +36,6 @@
 <pass_MacroExpansion.{ml,mli}>: use_libqmlcompil, use_passlib, use_opalib, use_opalang
 <pass_OpaDocApi.{ml,mli}>: use_libqmlcompil, use_opalib, use_opalang, use_opapasses, use_qmlpasses, with_mlstate_debug
 <pass_JavascriptCompilation.{ml,mli}>: use_libqmlcompil, use_libbsl, use_opalib, use_qml2js, use_opalang, use_jslang, use_qmljsimp, use_pplib
-<pass_ServerJavascriptOptimization.{ml,mli}>: use_jslang, use_libqmlcompil, use_passlib, use_libbsl, use_qml2js
 <pass_RegisterAppSrcCode.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
 <pass_TreatNoClientCalls.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
 <pass_DbEngineImportation.{ml,mli}>: use_libqmlcompil, use_opalang
