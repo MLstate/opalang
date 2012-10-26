@@ -58,16 +58,15 @@
 
 # s3 main
 <{s3Passes,qmljsPasses,qmlflatPasses}.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlslicer, use_passlib, use_opapasses, use_qml2ocaml, use_opalang, use_libbsl, use_qmlfakecompiler, use_ocamllang, use_qmlpasses, use_qml2js, use_jslang, use_qmlflatcompiler
-<{main,compiler,gen_opa_manpage}.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib, use_libbsl, use_qmlflatcompiler, use_qml2ocaml, use_qml2js
+<{compiler,gen_opa_manpage}.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib, use_libbsl, use_qml2ocaml, use_qml2js
 <syntaxHelper.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_qml2ocaml, use_passlib
 
 # linking
-<{main,opa_parse,checkopacapi,gen_opa_manpage,syntaxHelper}.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmlflatcompiler, use_qml2ocaml, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi
+<{opa_parse,checkopacapi,gen_opa_manpage,syntaxHelper}.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmlflatcompiler, use_qml2ocaml, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi
 
 <opa_InsertRemote.ml>: with_mlstate_debug
 <main_utils.ml>: with_mlstate_debug
 <passes.ml>: with_mlstate_debug
-<main.ml>: with_mlstate_debug
 
 # Temporary dependencies introduced by the refactoring
 # needed to remove the dependency of opalang on opalib

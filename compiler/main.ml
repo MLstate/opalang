@@ -16,7 +16,7 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(** The main program for the OPA compiler. S3 version. *)
+(** The main program for the Opa compiler. *)
 
 (* Opening the generic pass system. *)
 module PH = PassHandler
