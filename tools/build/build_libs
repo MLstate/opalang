@@ -40,6 +40,7 @@ internal qmlcpsserver	  	      compiler/qmlcps
 internal qmljsimp	  	      compiler/qmljsimp
 internal qmlpasses	  	      compiler/qmlpasses
 internal qmlslicer	  	      compiler/qmlslicer
+internal libopa			      compiler/opa
 internal opa 	  	      	      compiler/opa
 
 internal opabsl_for_compiler	      lib/plugins/opabsl.opp
