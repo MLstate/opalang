@@ -258,7 +258,11 @@ let compile
   let js_code =
     let keep = (fun i -> JsIdentSet.mem i exported ||
                   match i with
-                  | JsAst.ExprIdent i -> is_distant i
+                  | JsAst.ExprIdent i ->
+                      let i =
+                        try QmlRenamingMap.new_from_original env.E.srenaming i with Not_found -> i
+                      in
+                      is_distant i
                   | _ -> false
                )
     in
