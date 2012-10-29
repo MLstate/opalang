@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -37,8 +37,6 @@ package stdlib.apis.mongo
 /* Type support */
 
 MongoTypeSelect = {{
-
-  @private ML = MongoLog
 
   /** Abbreviations for common types **/
   tempty = {TyRecord_row=[]}
@@ -79,7 +77,7 @@ MongoTypeSelect = {{
   order_field(f1, f2): Order.ordering = String.ordering(f1.label,f2.label)
   FieldSet = Set_make(((Order.make(order_field):order(OpaType.field,Order.default))))
 
-  /** Set difference, bizarrely missing from Set module. **/ 
+  /** Set difference, bizarrely missing from Set module. **/
   diff(s1,s2) = FieldSet.fold(FieldSet.remove,s2,s1)
 
   /** Overlay two types, matching and merging sub-types **/
@@ -121,7 +119,9 @@ MongoTypeSelect = {{
       | _ ->
         rec1str = OpaType.to_pretty(rec1)
         rec2str = OpaType.to_pretty(rec2)
-        ML.fatal("TypeSelect.tmrgrecs","Attempt to merge non-record types {rec1str} and {rec2str}",-1)
+        msg = "Attempt to merge non-record types {rec1str} and {rec2str}"
+        do Log.fatal("TypeSelect.tmrgrecs",msg)
+        @fail(msg)
 
   /** Add a row to a column **/
   taddcol(cty,row) =
@@ -159,7 +159,10 @@ MongoTypeSelect = {{
     | ({TyRecord_row=row1 ...},{TyRecord_row=row2 ...}) -> compare_rows(row1,row2)
     | ({TySum_col=col1 ...},{TySum_col=col2 ...}) ->
        (match List.for_all2((r1, r2 -> compare_rows(r1,r2)),col1,col2) with | {result=tf} -> tf | _ -> false)
-    | _ -> ML.fatal("TypeSelect.naive_type_compare","Can't compare {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
+    | _ ->
+      msg = "Can't compare {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}"
+      do Log.error("TypeSelect.naive_type_compare",msg)
+      @fail(msg)
 
   /** Extract the type from a named type (not recursively) **/
   name_type(ty:OpaType.ty): OpaType.ty =
@@ -197,7 +200,7 @@ MongoTypeSelect = {{
        frow = filter_row(row)
        (frow != [],{TyRecord_row=frow})
     | {TySum_col=col}
-    | {TySum_col=col; TySum_colvar=_} -> 
+    | {TySum_col=col; TySum_colvar=_} ->
        (match List.filter((r -> r != []),List.map(filter_row,col)) with
         | [] -> (true,{TyRecord_row=[]})
         | [r] -> (false,{TyRecord_row=r})
@@ -212,7 +215,7 @@ MongoTypeSelect = {{
    **/
   explode_dot(ty:OpaType.ty): OpaType.ty =
     explode_row(row) =
-         List.map((f -> 
+         List.map((f ->
                    match String.explode(".",f.label) with
                    | [] | [_] -> f
                    | [dot|dots] ->

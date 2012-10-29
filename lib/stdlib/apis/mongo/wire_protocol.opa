@@ -110,7 +110,6 @@ type WireProtocol.Message = {
 
 @private E = Pack.Encode
 @private U = Pack.Unser
-@private ML = MongoLog
 
 WireProtocol = {{
 
@@ -385,33 +384,26 @@ WireProtocol = {{
         | {success=(input,name)} ->
            (match code with
             | /*el_eoo*/0 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_eoo",void)
               {success=(input,none)}
             | /*el_double*/1 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_double",void)
               (match U.float(true, input) with
                | {success=(input,f)} -> {success=(input,{some={~name; value={Double=f}}})}
                | {~failure} -> {~failure})
             | /*el_string*/2 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_string",void)
               (match U.tuple2(input,U.skip(_, 4),U.cstring) with
                | {success=(input,(_,s))} -> {success=(input,{some={~name; value={String=s}}})}
                | {~failure} -> {~failure})
             | /*el_object*/3 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_object",void)
               (match unser_document(input) with
                | {success=(input,doc)} -> {success=(input,{some={~name; value={Document=doc}}})}
                | {~failure} -> {~failure})
             | /*el_array*/4 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_array",void)
               (match unser_document(input) with
                | {success=(input,arr)} -> {success=(input,{some={~name; value={Array=arr}}})}
                | {~failure} -> {~failure})
             | /*el_bindata*/5 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_bindata",void)
               (match U.tuple2(input,U.ulong_le,U.uoctet) with
                | {success=(input,(size, stbin))} ->
-                  do if (Pack.debug) then ML.debug("unser_item","  size={size} stbin={stbin}",void)
                   (match U.skip(input, if stbin == 2 then 4 else 0) with
                    | {success=(input,_)} ->
                       {success=({input with pos=input.pos+size},
@@ -419,56 +411,45 @@ WireProtocol = {{
                    | {~failure} -> {~failure})
                | {~failure} -> {~failure})
             | /*el_oid*/7 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_oid",void)
               (match U.fixed_binary(input, 12) with
                | {success=(input,oid)} ->
                   {success=(input,{some={~name; value={ObjectID=oid}}})}
                | {~failure} -> {~failure})
             | /*el_bool*/8 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_bool",void)
               (match U.bool(input) with
                | {success=(input,b)} -> {success=(input,{some={~name; value={Boolean=b}}})}
                | {~failure} -> {~failure})
             | /*el_date*/9 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_date",void)
               (match U.longlong_le(input) with
                | {success=(input,milli)} -> {success=(input,{some={~name; value={Date=Date.milliseconds(milli)}}})}
                | {~failure} -> {~failure})
             | /*el_null*/10 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_null",void)
               {success=(input,{some={~name; value={Null}}})}
             | /*el_regex*/11 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_regex",void)
               (match U.tuple2(input,U.cstring,U.cstring) with
                | {success=(input,(pat,opts))} -> {success=(input,{some={~name; value={Regexp=(pat,opts)}}})}
                | {~failure} -> {~failure})
             | /*el_code*/13 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_code",void)
               (match U.tuple2(input,U.skip(_,4),U.cstring) with
                | {success=(input,(_,code))} -> {success=(input,{some={~name; value={Code=code}}})}
                | {~failure} -> {~failure})
             | /*el_symbol*/14 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_symbol",void)
               (match U.tuple2(input,U.skip(_,4),U.cstring) with
                | {success=(input,(_,symbol))} -> {success=(input,{some={~name; value={Symbol=symbol}}})}
                | {~failure} -> {~failure})
             | /*el_codewscope*/15 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_codewscope",void)
               (match U.tuple3(input,U.skip(_,8),U.cstring,unser_document) with
                | {success=(input,(_,code,scope))} -> {success=(input,{some={~name; value={CodeScope=(code,scope)}}})}
                | {~failure} -> {~failure})
             | /*el_int*/16 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_int",void)
               (match U.long_le(input) with
                | {success=(input,i)} -> {success=(input,{some={~name; value={Int32=i}}})}
                | {~failure} -> {~failure})
             | /*el_timestamp*/17 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_timestamp",void)
               (match U.tuple2(input,U.ulong_le,U.ulong_le) with
                | {success=(input,(i,t))} -> {success=(input,{some={~name; value={Timestamp=(i,t)}}})}
                | {~failure} -> {~failure})
             | /*el_long*/18 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_long",void)
               (match U.int64_le(input) with
                | {success=(input,i64)} ->
                   match Int64.to_int_signed_opt(i64)
@@ -479,10 +460,8 @@ WireProtocol = {{
                   end
                | {~failure} -> {~failure})
             | /*el_minkey*/255 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_minkey",void)
               {success=(input,{some={~name; value={Max}}})}
             | /*el_maxkey*/127 ->
-              do if (Pack.debug) then ML.debug("unser_item","el_maxkey",void)
               {success=(input,{some={~name; value={Min}}})}
             | _ -> {failure="unser_item: Bad code {code}"}
            )

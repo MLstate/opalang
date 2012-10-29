@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -44,7 +44,6 @@ type Mongo.su_status =
 
 MongoSelectUpdate = {{
 
-  @private ML = MongoLog
   @private H = Bson.Abbrevs
 
   empty(): Bson.document = []
@@ -300,8 +299,11 @@ MongoSelectUpdate = {{
          tys = List.map(type_of_bson_value,List.map((e -> e.value),adoc))
          //dbg do println("type_of_bson_element: Array({element.name}) tys={List.list_to_string((_,ty) -> OpaType.to_pretty(ty),tys)}")
          List.fold(sutymrg,tys,(stat,T.tempty))
-      | _ -> ML.fatal("MongoSelectUpdate.type_of_bson_element",
-                      "key {element.name} requires an array value, actually {Bson.to_pretty([element])}",-1)
+      | _ ->
+        msg = "key {element.name} requires an array value, actually {Bson.to_pretty([element])}"
+        do Log.error("MongoSelectUpdate.type_of_bson_element",
+                      msg)
+        @fail(msg)
     else
       match element.name with
       | "$mod" -> (stat,T.tnumeric)
@@ -323,9 +325,11 @@ MongoSelectUpdate = {{
     //dbg do println("subtype: sty={OpaType.to_pretty(sty)}\n         ty={OpaType.to_pretty(ty)}")
     missing_label(row, label) =
       labels = List.list_to_string((s -> s),List.map((f -> f.label),row))
-      ML.warning("MongoSelectUpdate.subtype","Missing label {label} in row {labels}",false)
+      do Log.warning("MongoSelectUpdate.subtype","Missing label {label} in row {labels}")
+      false
     incomparable() =
-      ML.warning("MongoSelectUpdate.subtype","Incomparable types {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}",false)
+      do Log.warning("MongoSelectUpdate.subtype","Incomparable types {OpaType.to_pretty(sty)} and {OpaType.to_pretty(ty)}")
+      false
     sty = MongoTypeSelect.explode_dot(sty)
     //dbg do println("explode={OpaType.to_pretty(sty)}")
     esty = empty_ty(sty)
@@ -390,8 +394,8 @@ MongoSelectUpdate = {{
         sutstr = string_of_su_status(sut)
         dtystr = OpaType.to_pretty(dty)
         tystr = OpaType.to_pretty(ty)
-        ML.warning("MongoSelectUpdate.check","Inappropriate {sutstr} type {dtystr} for collection({tystr})",void)
-    else ML.warning("MongoSelectUpdate.check","Applying {string_of_su_status(dsut)} to {string_of_su_status(sut)}",void)
+        Log.warning("MongoSelectUpdate.check","Inappropriate {sutstr} type {dtystr} for collection({tystr})")
+    else Log.warning("MongoSelectUpdate.check","Applying {string_of_su_status(dsut)} to {string_of_su_status(sut)}")
 
 }}
 

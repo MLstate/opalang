@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -82,19 +82,23 @@ type Mongo.foreign('a,'b,'c,'d,'e) = {
 
 MongoView = {{
 
-  @private ML = MongoLog
-
   @private make_reg(fld) = {fld with ty={TyName_args=[fld.ty]; TyName_ident="Bson.register"}}
 
   @private
   type_from_fields(pty:OpaType.ty, fields:Mongo.fields): OpaType.ty =
     if not(MongoCollection.Fields.validate(fields))
-    then ML.fatal("View.type_from_fields","Fields failed to validate",-1)
+    then
+      msg = "Fields failed to validate"
+      do Log.error("View.type_from_fields",msg)
+      @fail(msg)
     else
       tst =
         match List.unique_list_of(List.map((e -> Bson.int_of_value(e.value)),List.filter((e -> e.name != "_id"),fields))) with
         | [{some=num}] -> (match num with 0 -> not | _ -> (tf -> tf))
-        | _ -> ML.fatal("View.type_from_fields","Bad fields value {fields}",-1)
+        | _ ->
+          msg = "Bad fields value {fields}"
+          do Log.error("View.type_from_fields",msg)
+          @fail(msg)
       dfields = List.map((e -> String.explode(".",e.name)),fields)
       MongoTypeSelect.filter_field(pty, (fs -> tst(List.mem(fs,dfields))))
 
@@ -104,7 +108,10 @@ MongoView = {{
     //do println("ty2={OpaType.to_pretty(MongoTypeSelect.name_type(ty2))}")
     // We can't use the fancy caching in compare_ty since our altered types mess with the caching
     if not(MongoTypeSelect.naive_type_compare(ty1, ty2))
-    then ML.fatal(from,"{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}",-1)
+    then
+      msg = "{msg} {OpaType.to_pretty(ty1)} and {OpaType.to_pretty(ty2)}"
+      do Log.error(from, msg)
+      @fail(msg)
     else void
 
   create(c:Mongo.collection('collection), vfields:Mongo.fields, is_opa:bool): Mongo.view('collection,'view) =
@@ -152,14 +159,17 @@ MongoForeign = {{
        : Mongo.foreign('ps,'pr,'fs,'fr,('pr,Bson.register('fr))) =
     pty = @typeval('ps)
     pkt = MongoTypeSelect.find_label_in_row(pty,pkey)
+    fatal(msg) =
+      do Log.error("Foreign.create","Can't find primary key {pkey} in type {OpaType.to_pretty(pty)}")
+      @fail(msg)
     do if not(Option.is_some(pkt))
-       then ML.fatal("Foreign.create","Can't find primary key {pkey} in type {OpaType.to_pretty(pty)}",-1)
+       then fatal("Can't find primary key {pkey} in type {OpaType.to_pretty(pty)}")
     fty = @typeval('fs)
     fkt = MongoTypeSelect.find_label_in_row(fty,fkey)
     do if not(Option.is_some(fkt))
-       then ML.fatal("Foreign.create","Can't find foreign key {fkey} in type {OpaType.to_pretty(fty)}",-1)
+       then fatal("Can't find foreign key {fkey} in type {OpaType.to_pretty(fty)}")
     do if not(MongoTypeSelect.naive_type_compare((Option.get(pkt)).ty,(Option.get(fkt)).ty))
-       then ML.fatal("Foreign.create","Mismatching primary {OpaType.to_pretty(pty)} and foreign {OpaType.to_pretty(fty)}",-1)
+       then fatal("Mismatching primary {OpaType.to_pretty(pty)} and foreign {OpaType.to_pretty(fty)}")
     { ~primary; ~foreign; ~pkey; ~fkey }
 
   find_one(f:Mongo.foreign('ps,'pr,'fs,'fr,'view), select:Mongo.select('ps)): outcome('view,Mongo.failure) =

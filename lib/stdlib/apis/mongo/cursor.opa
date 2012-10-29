@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -67,7 +67,6 @@ type Mongo.cursor = {
 @server_private
 MongoCursor = {{
 
-  @private ML = MongoLog
   @private H = Bson.Abbrevs
 
   @private error_document(err:string, code:int): Bson.document = [H.str("$err",err), H.i32("code",code)]
@@ -277,7 +276,6 @@ MongoCursor = {{
    **/
   start(m:Mongo.db, ns:string, query:Bson.document, limit:int): Mongo.cursor =
     c = init(m,ns)
-    do if limit == 1 then ML.warning("MongoCursor.start","Cursor with limit==1 will only return one document.",void)
     c = set_limit(c,limit)
     c = set_query(c,{some=query})
     next(c)

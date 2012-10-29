@@ -101,7 +101,6 @@ type Mongo.pkg('value) =
 
 MongoCollection = {{
 
-  @private ML = MongoLog
   @private H = Bson.Abbrevs
 
   /**
@@ -149,9 +148,9 @@ MongoCollection = {{
                                            | {some=_} | {none} -> (z,o,g+1)),
                                         fields,(0,0,0))
       if zeros > 0 && ones > 0
-      then ML.warning("Fields.validate","Can't mix include and exclude fields {Bson.to_pretty(fields)}",false)
+      then do Log.warning("Fields.validate","Can't mix include and exclude fields {Bson.to_pretty(fields)}") false
       else if others > 0
-      then ML.warning("Fields.validate","Can only use 0 and 1 in fields {Bson.to_pretty(fields)}",false)
+      then do Log.warning("Fields.validate","Can only use 0 and 1 in fields {Bson.to_pretty(fields)}") false
       else true
   }}
 
@@ -177,7 +176,10 @@ MongoCollection = {{
   openfatal(name:string, dbname:string, collection:string): Mongo.collection('value) =
     match open(name, dbname, collection) with
     | {success=coll} -> coll
-    | {~failure} -> ML.fatal("MongoCollection.openfatal","Can't connect: {MongoCommon.string_of_failure(failure)}",-1)
+    | {~failure} ->
+      msg = "Can't connect: {MongoCommon.string_of_failure(failure)}"
+      do Log.fatal("MongoCollection.openfatal",msg)
+      @fail(msg)
 
   /** Supply a set of useful values associated with a collection **/
   makepkg(c:Mongo.collection('value)): Mongo.pkg('value) =
@@ -274,7 +276,7 @@ MongoCollection = {{
   /**
    * Get the current SlaveOK status.
    **/
-  get_slaveok(c:Mongo.collection('value)): bool = MongoDriver.get_slaveok(c.db.mongo)
+  get_slaveok(c:Mongo.collection('value)): bool = MongoConnection.get_slaveok(c.db)
 
   /**
    * Insert an OPA value into a collection.

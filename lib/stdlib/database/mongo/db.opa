@@ -436,9 +436,6 @@ Then use option --db-remote instead of --db-local.
 
     default_remote = {
       seeds=[] : list((string, int))
-      bufsize = 50*1024
-      poolsize = 100
-      log = true
       auth = [] : Mongo.auths
     }
 
@@ -449,13 +446,14 @@ Then use option --db-remote instead of --db-local.
         | [] -> {args with seeds = [default_seed]}
         | _ -> args
       connect() =
+        conf = {MongoDriver.default_conf with auths = args.auth}
         match args.seeds with
         | [(host, port)] ->
-          MongoDriver.open(name, args.bufsize, args.poolsize, false/*allowslaveok*/, true, host, port, args.log, args.auth)
+          MongoDriver.open(name, conf, host, port)
         | seeds ->
-          mdb = MongoReplicaSet.init(name, args.bufsize, args.poolsize, false/*allowslaveok*/, args.log, args.auth, seeds)
+          mdb = MongoReplicaSet.init(name, conf, seeds)
           match MongoReplicaSet.connect(mdb) with
-          | {success=(_/*slaveok*/,m)} -> MongoDriver.check(m)
+          | {success=m} -> MongoDriver.check(m)
           | {~failure} -> {~failure}
           end
       match connect() with
@@ -532,7 +530,6 @@ Then use option --db-remote instead of --db-local.
         )
         open_remote_aux(name, default_remote, seed)
 
-   @private
    open_local(name, args, seed) : DbMongo.t = open_synchronisation(name, -> open_local_aux(name, args, seed) )
 
    @private
@@ -642,9 +639,9 @@ Then use option --db-remote instead of --db-local.
       }}
       #<End>
 
-    @private seeds_parser(name, f) =
+    @private seeds_parser(f) =
       auth_parser = parser user=((![:] .)+)[:] password=((![@] .)+) [@] ->
-       {user=Text.to_string(user); password=Text.to_string(password); dbname=name}
+       {user=Text.to_string(user); password=Text.to_string(password)}
       seed_parser = parser
        | auth=auth_parser? host=((![:] .)*)[:] port={Rule.natural} ->
          (auth, (Text.to_string(host), port))
@@ -665,7 +662,7 @@ Then use option --db-remote instead of --db-local.
             description = "Use a remote mongo database(s), (default: {seed.f1}:{seed.f2})"
             param_doc = "[user:password@]host[:<port>][,[user:password@]host[:<port>]]*"
             on_param(acc) =
-              seeds_parser(name, (seeds ->
+              seeds_parser((seeds ->
                 acc = match acc with
                   | {some = {remote = acc}} -> acc
                   | _ -> default_remote
@@ -695,7 +692,7 @@ Then use option --db-remote instead of --db-local.
         | {some = {local = {some = path}}} -> open_local(name, ~{path}, seed)
         | {some = {remote = {some = remote}}} ->
           Parser.try_parse(
-            seeds_parser(name, (seeds ->
+            seeds_parser((seeds ->
                 (auth,seeds) = List.unzip(seeds)
                 auth = List.filter_map(x->x, auth)
                 open_remote(name, {default_remote with ~seeds ~auth}, seed)))

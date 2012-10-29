@@ -81,8 +81,27 @@ type Mongo.replSetInitiate =
 
 MongoReplicaSet = {{
 
-  @private ML = MongoLog
   @private H = Bson.Abbrevs
+
+  @private
+  Log = {{
+
+    @private
+    @expand
+    gen(f, m, fn:string, msg) =
+      if m.conf.verbose then f("MongoReplicaSet({m.name}).{fn}", msg)
+      else void
+
+    @expand
+    info(m, fn, msg) = gen(@toplevel.Log.info, m, fn, msg)
+
+    @expand
+    debug(m, fn, msg) = gen(@toplevel.Log.debug, m, fn, msg)
+
+    @expand
+    error(m, fn, msg) = gen(@toplevel.Log.error, m, fn, msg)
+
+  }}
 
   /**
    * Freeze a replica set (can't become primary for the given number of seconds).
@@ -102,6 +121,7 @@ MongoReplicaSet = {{
    **/
   replSetGetStatus(m:Mongo.mongodb): Mongo.result =
     MongoCommands.simple_int_command(m, "admin", "replSetGetStatus", 1)
+
   replSetGetStatusOpa(m:Mongo.mongodb): outcome(Mongo.replSetGetStatus,Mongo.failure) =
     MongoCommands.adminToOpa(m,"replSetGetStatus")
 
@@ -146,17 +166,15 @@ MongoReplicaSet = {{
   /**
    * Initialize a [Mongo.db] connection using the given list of seeds.
    **/
-  init(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool,
-       auth:Mongo.auths, seeds:list(Mongo.mongo_host)): Mongo.db =
-    m = MongoDriver.init(name, bufsize, pool_max, allow_slaveok, true, log, auth)
+  init(name:string, conf, seeds:list(Mongo.mongo_host)): Mongo.db =
+    m = MongoDriver.init(name, conf)
     {m with ~seeds}
 
   /**
    * Initialize a [Mongo.db] connection using a single seed.
    **/
-  init_single(name:string, bufsize:int, pool_max:int, allow_slaveok:bool, log:bool,
-              auth:Mongo.auths, seed:Mongo.mongo_host): Mongo.db =
-    init(name,bufsize,pool_max,allow_slaveok,log,auth,[seed])
+  init_single(name, conf, seed): Mongo.db =
+    init(name, conf, [seed])
 
   /**
    * Generate a [Mongo.mongo_host] value from a string: "host:port".
@@ -182,7 +200,7 @@ MongoReplicaSet = {{
            (match (Bson.doc2opa(hosts_doc):option({hosts:list(string)})) with
             | {some={~hosts}} ->
                hosts = (List.filter(((_,p) -> p != 0),List.map(mongo_host_of_string,hosts)))
-               do if m.log then ML.info("MongoReplicaSet.check_seed","hosts={hosts}",void)
+               do Log.info(m, "check_seed","hosts={hosts}")
                (m,hosts)
             | {none} -> (m,[]))
         | {none} -> (m,[]))
@@ -204,16 +222,8 @@ MongoReplicaSet = {{
         end
     aux(l1, l2)
 
-  @private do_authenticate(slaveok:bool, m:Mongo.db): outcome((bool,Mongo.db),Mongo.failure) =
-    match m.auth with
-    | [] -> {success=(slaveok,m)}
-    | _ ->
-       match MongoDriver.do_authenticate_ll({success=m}) with
-       | {success=m} -> {success=(slaveok,m)}
-       | {~failure} -> {~failure}
-       end
-    end
-
+  @private do_authenticate(m:Mongo.db): outcome(Mongo.db, Mongo.failure) =
+    MongoDriver.do_authenticate_ll(m)
 
   /**
    * Connect (and reconnect) to a replica set.
@@ -227,10 +237,9 @@ MongoReplicaSet = {{
    * In theory, we could have unbounded recursion so the recursion depth is limited.
    * In practice, this should never happen.
    **/
-  connect(m:Mongo.db): outcome((bool,Mongo.db),Mongo.failure) =
-    //m = {m with log=true}
-    do if m.log then ML.debug("MongoReplicaSet.connect","depth={m.depth} allowslaveok={m.allow_slaveok}",void)
-    do if m.seeds == [] then ML.fatal("MongoReplicaSet.connect","Tried to connect with no seeds",-1) else void
+  connect(m:Mongo.db): outcome(Mongo.db,Mongo.failure) =
+    do Log.debug(m, "connect", "depth={m.depth} allowslaveok={m.conf.slaveok}")
+    do if m.seeds == [] then Log.error(m, "connect", "Tried to connect with no seeds")
     rec aux(m, seeds) =
       match seeds with
       | [seed|rest] ->
@@ -245,37 +254,38 @@ MongoReplicaSet = {{
       | [] -> {failure={Error="MongoReplicaSet.connect: No connecting seeds"}}
     match aux(m, m.seeds) with
     | {success=(m,hosts)} ->
-       do if m.log then ML.info("MongoReplicaSet.connect","got hosts {hosts}",void)
+       do Log.info(m, "connect", "got hosts {hosts}")
        rec aux2(m, hosts) =
          (match hosts with
           | [host|rest] ->
             (match MongoDriver.connect(m, host.f1, host.f2) with
              | {success=m} ->
-                do if m.log then ML.info("MongoReplicaSet.connect","connected to host {host}\nm={m}",void)
+                do Log.info(m, "connect","connected to host {host}\nm={m}")
                 (match isMasterLL(m) with
                  | {success=doc} ->
-                    do if m.log then ML.info("MongoReplicaSet.connect","isMasterLL: doc={doc}",void)
+                    do Log.debug(m, "connect","isMasterLL: doc={doc}")
                     (match (Bson.find_bool(doc,"ismaster"),Bson.find_string(doc,"setName")) with
                      | ({some=ismaster},setName) ->
-                        do if m.log then ML.info("MongoReplicaSet.connect","ismaster={ismaster} setName={setName}",void)
-                        if ismaster && (Option.default("...",setName) == m.name)
+                        do Log.info(m, "connect","ismaster={ismaster} setName={setName}")
+                        goodset = setName == m.conf.replica || m.conf.replica == none
+                        if ismaster && goodset
                         then
-                          do_authenticate(false,m)
+                          do_authenticate(m)
                         else
                           (match Bson.find_string(doc,"primary") with
                            | {some=primary} ->
                               primary_host = mongo_host_of_string(primary)
                               (match List.extract_p((host -> host == primary_host),rest) with
                                | ({some=p},rest) ->
-                                  do if m.log then ML.info("MongoReplicaSet.connect","jump to primary",void)
+                                  do Log.info(m, "connect", "jump to primary")
                                   aux2(m,[p|rest])
                                | ({none},rest) -> aux2(m,rest))
                            | {none} ->
-                              do if m.log then ML.info("MongoReplicaSet.connect","no primary",void)
-                              if m.allow_slaveok
+                              do Log.info(m, "connect","no primary")
+                              if m.conf.slaveok
                               then
-                                do if m.log then ML.info("MongoReplicaSet.connect","using secondary",void)
-                                do_authenticate(true,m)
+                                do Log.info(m, "connect","using secondary")
+                                do_authenticate(m)
                               else aux2(m,rest)
                           )
                      | _ -> aux2(m,rest))

@@ -11,6 +11,9 @@
 */
 import-plugin socket
 
+type Socket.t = {mbox:Mailbox.t; conn:Socket.connection}
+
+@abstract
 type Socket.connection = external
 
 type Mailbox.t = {
@@ -20,6 +23,8 @@ type Mailbox.t = {
   min : int;
   hint : int;
 }
+
+type Socket.host = (string, int)
 
 /**
     {1 About this module}

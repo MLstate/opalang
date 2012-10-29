@@ -30,7 +30,6 @@ type Mongo.mongo_host = (string, int)
 
 
 type Mongo.auth = {
-  dbname:string;
   user:string;
   password:string;
 }

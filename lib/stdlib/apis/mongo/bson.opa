@@ -131,8 +131,6 @@ type Bson.incomplete('a) = {found:'a} / {not_found} / {incomplete}
 @server_private
 Bson = {{
 
-  @private ML = MongoLog
-
   /**
    * [Register].  Exactly like [Option] but for [Bson.register].
    **/
@@ -772,7 +770,10 @@ Bson = {{
     | {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
     | {TyName_args=[kty, dty]; TyName_ident="map"} -> map_to_bson(key, @unsafe_cast(v), kty, dty)
     | {TyName_args=tys; TyName_ident=tyid} -> opa_to_document(key, v, OpaType.type_of_name(tyid, tys))
-    | _ -> ML.fatal("Bson.opa_to_bson","unknown value {Debug.dump(v)} of type {OpaType.to_pretty(ty)}",-1)
+    | _ ->
+      msg = "unknown value {Debug.dump(v)} of type {OpaType.to_pretty(ty)}"
+      do Log.error("Bson.opa_to_bson", msg)
+      @fail(msg)
 
   opa_to_bson(v:'a, ty_opt:option(OpaType.ty)): Bson.document =
     ty = match ty_opt with {some=ty} -> ty | {none} -> @typeof(v)
@@ -800,7 +801,8 @@ Bson = {{
     error_msg(str) = "Try to unserialize {bson} with {ty}\n Error : {str}"
 
     error_no_retry(str, v) =
-      ML.error("Bson.bson_to_opa", error_msg(str), v)
+      do Log.error("Bson.bson_to_opa", error_msg(str))
+      v
 
     error(str) =
       // Try to traverse the document. It's a bit hacky : the good value can be
@@ -808,13 +810,15 @@ Bson = {{
       match bson with
       | [~{name value=~{Document}}] ->
         match bson_to_opa_aux(Document, ty, default) with
-        | {none} -> ML.error("Bson.bson_to_opa", "Traverse in '{name}' fail\n{error_msg(str)}", {none})
+        | {none} -> error_no_retry("Traverse in '{name}' fail\n{error_msg(str)}", {none})
         | x -> x
         end
-      | _ -> ML.error("Bson.bson_to_opa", error_msg("Can't traverse document {bson}"), {none})
+      | _ -> error_no_retry("Can't traverse document {bson}", {none})
       end
 
-    fatal(str) = ML.fatal("Bson.bson_to_opa", str, -1)
+    fatal(str) =
+      do Log.error("Bson.bson_to_opa", str)
+      @fail(str)
 
     isrcrdtype(ty:OpaType.ty): bool =
       match ty with
