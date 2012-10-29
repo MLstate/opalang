@@ -656,7 +656,10 @@ rule "opadep: .opa -> .opa.depends"
 (* -- begin plugins -- *)
 
 (** Generates a rule to build the [name] Opa plugin *)
-let plugin_building plugins_dir name =
+let plugin_building
+    ?(additional=(fun _ _ -> ([], Tags.empty)))
+    ?rule_name
+    plugins_dir name =
 
   (* Plugins paths *)
 
@@ -686,7 +689,7 @@ let plugin_building plugins_dir name =
            | "." -> "+"^d
            | dir ->
 	       let dir =
-		 (* HACK *)
+		 (* HACK: always prefix opabsl.opp *)
 		 if dir = "lib/plugins/opabsl.opp" then prefix_me dir
 		 else dir in
 	       build_dir/dir
@@ -840,6 +843,10 @@ let plugin_building plugins_dir name =
 
   let stamp = p_oppf in
 
+  let name =
+    match rule_name with
+    | None -> name
+    | Some n -> n in
   rule (Printf.sprintf "Opa plugin: %s" name)
     ~deps
     ~prods
@@ -861,9 +868,6 @@ let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
 (** The all plugins file, list of all Opa plugins in stdlib *)
 let all_plugins_file = stdlib_packages_dir/"all.node.plugins" in
 
-(** Build here because the rule is always wanted. *)
-let () = plugin_building prefixed_plugins_dir "opabsl" in
-
 (** This rule generates rules for all plugins *)
 let lazy_plugin_rules =
   lazy (
@@ -876,7 +880,7 @@ let lazy_plugin_rules =
 		Sh">"; P all_plugins_file;
 	      ])) ;
       let plugins = string_list_of_file all_plugins_file in
-      List.iter (plugin_building prefixed_plugins_dir) plugins;
+      List.iter (plugin_building ~additional prefixed_plugins_dir) plugins;
       List.map (
 	fun f -> prefixed_plugins_dir/f/f -.- "oppf"
       ) plugins
@@ -921,7 +925,7 @@ let files_of_package pkg =
     let files = files @ opack in
     (* return relative filenames *)
     let files =
-      let len = String.length Pathname.pwd + 1 in (* the additinal '/' *)
+      let len = String.length Pathname.pwd + 1 in (* the additional '/' *)
       let relative_part s = String.sub s len (String.length s - len) in
       List.map relative_part files
     in
@@ -962,12 +966,16 @@ let all_packages_building =
 in
 
 let packages_building ~name ~stamp ~core_only ~rebuild
+    ~additional
     ~lazy_plugin_rules
     ?(opacomp_stamp="opacomp.stamp")
     ?(all_packages_file=all_packages_file)
     ?(opx_dir="stdlib.qmljs")
     ?(backend_opt=[])
+    ?(opacapi_validation=opacapi_validation)
     () =
+  plugin_building ~additional:additional ~rule_name:(name^" opabsl")
+    prefixed_plugins_dir "opabsl";
   let plugins = Lazy.force lazy_plugin_rules in
   rule name
     ~deps:(plugins @ [
@@ -1070,6 +1078,7 @@ packages_building
   ~stamp:"opa-node-packages.stamp"
   ~core_only:false
   ~rebuild:false
+  ~additional
   ~lazy_plugin_rules
   ();
 
