@@ -77,7 +77,7 @@ PingRegister = {{
       ClientTbl.create()
 
     @private
-    ping_delay = 30 * 1000
+    ping_delay = 20 * 1000
 
     /**
      * Associate the [entry] to the [client].
