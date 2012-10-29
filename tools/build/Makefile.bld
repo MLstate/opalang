@@ -70,7 +70,7 @@ MYOCAMLBUILD_SOURCES = \
 	$(BLDDIR)/gen_myocamlbuild.sh \
 	$(BLDDIR)/myocamlbuild_prefix.ml \
 	$(BLDDIR)/myocamlbuild_suffix.ml \
-	$(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
+	$(BUILD_VARS) $(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
 
 $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
 	@echo "Ocamlbuild plugin generation"
