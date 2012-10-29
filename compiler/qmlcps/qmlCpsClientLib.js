@@ -226,7 +226,7 @@ function callcc_directive(f, k){
 }
 
 function default_handler_cont(k){
-    return cont(function(exn){console.error("Error : uncaught OPA exn", exn)}, k[1][0], k[1][1]);
+    return cont(function(exn){console.error("Error : uncaught OPA exn", exn, "\n", get_cps_trace(k))}, k[1][0], k[1][1]);
 }
 
 function handler_cont(k){
