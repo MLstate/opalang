@@ -10,6 +10,24 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
 
+let pp = Format.fprintf
+in
+
+let fmt_sprintf fmt =
+  Format.kfprintf (fun _ -> Format.flush_str_formatter ()) Format.str_formatter fmt
+in
+
+let pp_list sep ?singleton p f l =
+  match l with
+    | [] -> ()
+    | h :: t ->
+        (match singleton, t with Some p, [] -> p f h | _ -> p f h);
+        let rec aux = function
+          | [] -> ()
+          | h :: t -> pp f sep; p f h; aux t in
+        aux t
+in
+
 (* ------------------------------------------------------------ *)
 (* Tags, flags, directory contexts and custom stuff             *)
 (* ------------------------------------------------------------ *)
@@ -171,6 +189,13 @@ let opa_opacapi_files =
   files
 in
 
+let stdlib_packages_dir = prefix_me "lib"/"stdlib" in
+let stdlib_parser_options =
+  let files = string_list_of_file (stdlib_packages_dir/"new_syntax") in
+  [A "--parser" ; A (fmt_sprintf "js-like:%a" (pp_list "," Format.pp_print_string) files)
+  ;A "--parser" ; A "classic"
+  ]
+in
 (* used in mkinstall *)
 let opacapi_validation = "opacapi.validation" in
 rule "Opa Compiler Interface Validation (opacapi)"
@@ -180,7 +205,7 @@ rule "Opa Compiler Interface Validation (opacapi)"
      Cmd(S ([ get_tool "checkopacapi" ;
               A "-o" ;
               P opacapi_validation ;
-            ] @ (if check_optional then [A "-check-optional"] else [])
+            ] @ (stdlib_parser_options ) @ (if check_optional then [A "-check-optional"] else [])
 	    @ (List.rev_map (fun file -> P file) opa_opacapi_files)
             @ (List.map (fun x -> P (Printf.sprintf "%s/%s.%s" prefixed_plugins_dir x "opp")) opa_opacapi_plugins)
 	   )
@@ -494,7 +519,6 @@ rule "opa-bslgenMLRuntime JS documentation"
 
 (* -- begin compiler -- *)
 
-let stdlib_packages_dir = prefix_me "lib"/"stdlib" in
 let build_tools_dir = prefix_me "tools"/"build" in
 
 let opaopt = try Sh(Sys.getenv "OPAOPT") with Not_found -> N in
@@ -1032,12 +1056,11 @@ let packages_building ~name ~stamp ~core_only ~rebuild
                 A"--slicer-check"; A "low";
                 A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
-                A"--parser"; A"classic";
                 A"--opx-dir"; P build_dir;
                 A"-I"; A prefixed_plugins_dir;
                 opaopt;
                 S all_files;
-               ] @ extra_opt));
+               ] @ extra_opt @ stdlib_parser_options));
        ]
      with RuleFailure.E ->
        fail_rule build
