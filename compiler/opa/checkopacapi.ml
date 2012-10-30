@@ -82,8 +82,6 @@ module SA = SurfaceAst
 
 (* -- *)
 
-let _ = OpaSyntax.Args.r := {!OpaSyntax.Args.r with OpaSyntax.Args.parser = OpaSyntax.Classic}
-
 let validation_ok = ref true
 
 (* f *)
@@ -113,7 +111,7 @@ let spec = [
   !>
     " also check optional opacapi"
 
-]
+] @ OpaSyntax.Args.options
 
 let anon_fun file =
   let ext = File.extension file in

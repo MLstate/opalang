@@ -189,8 +189,6 @@ type opa_options = {
 
   i18n : I18n.options ;
 
-  parser_ : OpaSyntax.Args.options;
-
   parallelism : int; (* maximum number of // compilations *)
   package_version: string; (* The version to be used when outputting
                               the package.json file *)
@@ -867,7 +865,7 @@ struct
     no_assert = !ArgParser.no_assert ;
     no_server =
       (match !ArgParser.no_server with
-       | None when (!OpaSyntax.Args.r).OpaSyntax.Args.parser = OpaSyntax.Js -> Some false
+       | None when OpaSyntax.Args.get_parser None = OpaSyntax.Js -> Some false
        | x -> x)
     ;
 
@@ -914,7 +912,6 @@ struct
     publish_src_code = !ArgParser.publish_src_code;
 
     i18n = !I18n.r;
-    parser_ = !OpaSyntax.Args.r;
 
     parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;

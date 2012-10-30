@@ -1900,6 +1900,6 @@ let makeFamilly syntax =
     end : Familly)
 
 let getDefaultFamilly () =
-  (module (val (makeFamilly !(OpaSyntax.Args.r).OpaSyntax.Args.printer) : Familly) : Familly)
+  (module (val (makeFamilly (OpaSyntax.Args.get_printer ())) : Familly) : Familly)
 
 include (val (makeFamilly OpaSyntax.Js) : Familly)

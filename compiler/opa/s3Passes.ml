@@ -470,7 +470,6 @@ let pass_Print =
             ignore (close_out oc);
             ignore (try (* verification that we can reparse *)
               OpaParser.code
-                ~parser_:(!OpaSyntax.Args.r.OpaSyntax.Args.printer)
                 ~cache:false
                 ~filename:fn
                 (File.content fn)
@@ -1009,7 +1008,7 @@ let pass_CompileRecursiveValues =
        let annotmap = typerEnv.QmlTypes.annotmap in
        let code = env.Passes.qmlAst in
        let val_ = OpaMapToIdent.val_ in
-       if !(OpaSyntax.Args.r).OpaSyntax.Args.parser == OpaSyntax.Js then
+       if OpaSyntax.Args.get_parser None == OpaSyntax.Js then
          WarningClass.set_warn Pass_CompileRecursiveValues.Warning.recval_lambda false;
        let gamma, annotmap, code = Pass_CompileRecursiveValues.process_code ~val_ gamma annotmap code in
        let typerEnv = {typerEnv with QmlTypes.gamma; annotmap} in

@@ -29,7 +29,7 @@ let hash = OpaParserVersion.hash
 module Opa_parser = struct
   module A = OpaSyntax.Args
   let select ~js ~classic ?_filename ?_start v =
-    match (!A.r).A.parser with
+    match A.get_parser _filename with
     | OpaSyntax.Classic -> classic ?_filename ?_start v
     | OpaSyntax.Js      -> js ?_filename ?_start v
   let parse_opa_parser_expr_eoi = select ~js:Opa_js_parser.parse_opa_parser_expr_eoi  ~classic:Opa_classic_parser.parse_opa_parser_expr_eoi
@@ -172,8 +172,6 @@ let parse_error_flag =
     let _ = Str.search_forward search_for lang 0 in "⚐"
   with Not_found -> "-->"
 
-module OA = OpaSyntax.Args
-
 
 
 let check_unmatched_tag ppf content =
@@ -182,20 +180,20 @@ let check_unmatched_tag ppf content =
     let num = Parser_utils.count_open_tags tag in
     let num2 = Parser_utils.count_close_tags_in_string content tag in
     if num>num2
-      then Format.fprintf ppf 
+      then Format.fprintf ppf
        "@[<2>@{<bright>Hint:@}@\nThe @{<magenta>%s@}, found at %a, might be open\n"
         (fst tag) QmlLoc.pp_pos_short ((QmlLoc.pos (snd tag)), false)
       else ()
   )
   with Parser_utils.No_tag -> ()
 
-let show_content ppf (content, pos) = 
+let show_content ppf (content, pos) =
   let n = max 0 (min pos (String.length content-1)) in
   let begin_citation = get_index_N_lines_before content n 5 in
   let length_citation = n-begin_citation in
   let begin_error_zone = get_index_N_lines_before content n 0 in
-  let length_error_zone = 
-    min((get_index_N_lines_after content n 5)-begin_error_zone+1) 
+  let length_error_zone =
+    min((get_index_N_lines_after content n 5)-begin_error_zone+1)
         (String.length content -begin_error_zone) in
     Format.fprintf ppf
       ("@[The@ error@ may@ be@ in@ the@ following@ citation,@ " ^^
@@ -203,12 +201,12 @@ let show_content ppf (content, pos) =
        "or@ just@ before:@.@\n@[@{<green>%s@}%s@{<red>%s@}@]")
           parse_error_flag
           (String.sub content begin_citation    length_citation  )
-          parse_error_flag 
+          parse_error_flag
           (String.sub content begin_error_zone  length_error_zone)
 
 let show_parse_error file_name content error_summary error_details pos =
   let _pos = FilePos. make_pos file_name pos pos in
-  OManager.error 
+  OManager.error
      ("%a@\n@[<2>%s@\n@[%a@]@\n" ^^
      "@[<2>@{<bright>Hint@}:@\n%s@]%a@]@.")
       FilePos.pp_pos _pos error_summary
@@ -230,15 +228,12 @@ let hl_factory parser_rule name ?filename contents =
 let expr = hl_factory Opa_parser.parse_opa_parser_expr_eoi "Expression"
 let ty = hl_factory Opa_parser.parse_opa_parser_ty_eoi "Type"
 
-let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") ?(sugar=false) content =
+let code ?(cache=false) ?(filename="") ?(sugar=false) content =
   (*print_string content;*)
   if sugar then Parser_utils.set_sugar_mode();
   FilePos.add_file filename content;
   match if cache then CacheParse.get filename content else None with
   | None ->
-      let r = OA.r in
-      let old = (!r).OA.parser in
-      r := {!r with OA.parser=parser_} ;
       #<If:PARSER_CACHE_DEBUG>OManager.printf "Cache @{<red>miss@} for %s@." filename#<End>;
       let res =
         try
@@ -264,7 +259,6 @@ let code ?(parser_=(!OA.r).OA.parser) ?(cache=false) ?(filename="") ?(sugar=fals
       in
       OManager.flush_errors (); (* make sure that if someone threw errors, then we stop before saving the cache *)
       if cache then CacheParse.set filename content res;
-      r := {!r with OA.parser=old} ;
       res
   | Some l ->
       #<If:PARSER_CACHE_DEBUG>OManager.printf "Cache @{<green>hit@} for %s@." filename#<End>;

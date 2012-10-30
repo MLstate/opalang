@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -22,12 +22,9 @@ type t = Classic | Js
 
 module Args : sig
 
-  type options = {
-    parser : t;
-    printer : t;
-  }
+  val get_printer : unit -> t
 
-  val r : options ref
+  val get_parser : string option -> t
 
   val options : (string * Base.Arg.spec * string) list
 
