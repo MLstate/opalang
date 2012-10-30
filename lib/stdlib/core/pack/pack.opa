@@ -9,7 +9,6 @@
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-
 import stdlib.core.args
 
 /**
@@ -207,6 +206,7 @@ type Pack.u =
  / {Float:float}
  / {Float:float; le:bool}
  / {Coded:Pack.codes}
+ / {List:(Pack.data,list(Pack.data)); null_terminated}
  / {List:(Pack.data,list(Pack.data))}
  / {List:(Pack.data,list(Pack.data)); le:bool}
  / {List:(Pack.data,list(Pack.data)); size:Pack.s}
@@ -221,6 +221,7 @@ type Pack.u =
  / {FixedBinary:(int,binary)} // fixed length binary
 
 // Other possibilities...
+// / {FixedList:(int,Pack.data,list(Pack.data))} // <-- see postregsql pg library
 // / {Record:list((field_name,field_type,data))} // <-- problem, type vars
 
 /**
@@ -962,6 +963,7 @@ Pack = {{
       | ({Float=_},{Float=_}) -> true
       | ({Float=_; le=le1},{Float=_; le=le2}) -> le1 == le2
       | ({Coded=_},{Coded=_}) -> true
+      | ({List=_; null_terminated},{List=_; null_terminated}) -> true
       | ({List=_},{List=_}) -> true
       | ({List=_; le=le1},{List=_; le=le2}) -> le1 == le2
       | ({List=_; size=s1},{List=_; size=s2}) -> s1 == s2
@@ -1001,28 +1003,34 @@ Pack = {{
      * @param data a list of data values to encode
      * @return the final endianness, signedness and integer width plus the usual outcome
      **/
+    @private do_list(buf, le, signed, size, typ, l) =
+      match l with
+      | [] -> (le, signed, size, {success=void})
+      | [data|t] ->
+         if same_data(typ, data)
+         then
+           match pack_data(buf, le, signed, size, data) with
+           | (le, signed, size, {success=_}) -> do_list(buf, le, signed, size, typ, t)
+           | failure -> failure
+           end
+         else (le, signed, size, {failure="Pack.Encode.list: non-matching list elements"})
+      end
     list(buf:Pack.t, ple:bool, ps:Pack.s, le:bool, signed:bool, s:Pack.s, typ:Pack.data, data:list(Pack.data))
          : (bool, bool, Pack.s, outcome(void,string)) =
       match mksize(ps, ple, List.length(data)) with
       | {success=size} ->
         match pack_u(buf, le, signed, s, size) with
         | (le, signed, size, {success=_}) ->
-           rec aux(le, signed, size, l) =
-             match l with
-             | [] -> (le, signed, size, {success=void})
-             | [data|t] ->
-                if same_data(typ, data)
-                then
-                  match pack_data(buf, le, signed, size, data) with
-                  | (le, signed, size, {success=_}) -> aux(le, signed, size, t)
-                  | failure -> failure
-                  end
-                else (le, signed, size, {failure="Pack.Encode.list: non-matching list elements"})
-             end
-           aux(le, signed, size, data)
+           do_list(buf, le, signed, size, typ, data)
         | failure -> failure
         end
       | {~failure} -> (le, signed, s, {~failure})
+
+    ntlist(buf:Pack.t, le:bool, signed:bool, s:Pack.s, typ:Pack.data, data:list(Pack.data))
+         : (bool, bool, Pack.s, outcome(void,string)) =
+      match do_list(buf, le, signed, s, typ, data) with
+      | (le, signed, size, {success=_}) -> (le, signed, size, octet(buf,0))
+      | (_, _, _, {~failure}) -> (le, signed, s, {~failure})
 
     // pack item length
     @private packitemsize(s:Pack.s, u:Pack.u) : (Pack.s, int, int) =
@@ -1075,6 +1083,8 @@ Pack = {{
          then (s,icnt,_) = packitemsize(s,code) (s,dcnt) = packdatasize(s,data) (s, icnt + dcnt, 0)
          else (s,0,0) // Bad code
       | {Coded=_} -> (s,0,0) // Will generate error
+      | {List=(_,l); null_terminated} ->
+         List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,1,0))
       | {List=(_,l); ~size; ...} ->
          List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(size),0))
       | {List=(_,l); ...} ->
@@ -1240,6 +1250,7 @@ Pack = {{
          then coded(buf, le, signed, size, code, data)
          else (le, signed, size, {failure="Pack.Encode.pack: Coded has invalid code {code}"})
       | {Coded=_} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has multiple codes"})
+      | {List=(t,l); null_terminated} -> ntlist(buf, le, signed, size, t, l)
       | {List=(t,l)} -> list(buf, le, size, le, signed, size, t, l)
       | {List=(t,l); le=ple} -> list(buf, ple, size, le, signed, size, t, l)
       | {List=(t,l); size=ps} -> list(buf, le, ps, le, signed, size, t, l)
@@ -2189,6 +2200,7 @@ Pack = {{
              | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float; le=actual_le}|data])}
              | {~failure} -> {~failure})
          | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
+         | {List=(_,_); null_terminated} -> @fail("no decode for ntlists, yet")
          | {List=(typ,_)} -> unpack_list(true, {none}, {none}, le, signed, size, typ, bin, pos, data)
          | {List=(typ,_); le=ple} -> unpack_list(true, {some=ple}, {none}, le, signed, size, typ, bin, pos, data)
          | {List=(typ,_); size=ps} -> unpack_list(true, {none}, {some=ps}, le, signed, size, typ, bin, pos, data)
