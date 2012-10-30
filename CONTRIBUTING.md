@@ -280,9 +280,9 @@ function ( iterator, structure, [more-arguments]) : 'result
 - unfoldi:     ( f:(int, 'counter)-> option(('item, 'counter)), init: 'counter): t('item)
 
 
-<!--
 # Opa Documentation format :
 
+```
 /**
  * {1 Tests}
  *
@@ -408,4 +408,4 @@ function ( iterator, structure, [more-arguments]) : 'result
  *   {custom custom tag}
  * }
  */
--->
+```
