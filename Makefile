@@ -36,7 +36,7 @@ include $(BUILD_PATH)/Makefile.bld
 node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
-	@$(MAKE) opa_tools
+	@$(MAKE) opa-tools
 
 .PHONY: node-runtime-libs
 node-runtime-libs: $(MYOCAMLBUILD)
@@ -53,13 +53,13 @@ opa: $(BUILD_DIR)/bin/opa
 
 .PHONY: opa-node-packages
 opa-node-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-node-packages.stamp
+	$(OCAMLBUILD) opabsl.qmljs.stamp opa-node-packages.stamp
 
 .PHONY: stdlib
 stdlib: opa-node-packages
 
-.PHONY: opa_tools
-opa_tools: $(MYOCAMLBUILD)
+.PHONY: opa-tools
+opa-tools: $(MYOCAMLBUILD)
 ifndef NO_TOOLS
 	@$(MAKE) opa-create
 else
@@ -72,7 +72,7 @@ DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerL
 distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
-	@$(MAKE) opa_tools
+	@$(MAKE) opa-tools
 
 ##
 ## MANPAGES
