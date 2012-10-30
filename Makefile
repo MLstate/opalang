@@ -34,7 +34,7 @@ include $(BUILD_PATH)/Makefile.bld
 # ALL_TOOLS is built by Makefile.bld from build_tools files
 .PHONY: node
 node: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(ALL_TOOLS))
 	@$(MAKE) opa-tools
 
@@ -44,7 +44,7 @@ node-runtime-libs: $(MYOCAMLBUILD)
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-node-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp opa-node-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
 	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
 
@@ -53,7 +53,7 @@ opa: $(BUILD_DIR)/bin/opa
 
 .PHONY: opa-node-packages
 opa-node-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp opa-node-packages.stamp
+	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp opa-node-packages.stamp
 
 .PHONY: stdlib
 stdlib: opa-node-packages
@@ -70,7 +70,7 @@ DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerL
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	@$(MAKE) opa-tools
 
@@ -262,4 +262,4 @@ doc.odocl:
 
 .PHONY: packages-api
 packages-api: $(MYOCAMLBUILD)
-	OPAOPT="$(OPAOPT) --api --parser classic" $(OCAMLBUILD) opa-node-packages.stamp
+	OPAOPT="$(OPAOPT) --api --parser classic" $(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp opa-node-packages.stamp

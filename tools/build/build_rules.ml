@@ -182,6 +182,8 @@ rule "stdlib embedded: stdlib_files -> opalib/staticsInclude.of"
   ~prod:(prefix_me "compiler/opalib/staticsInclude.of")
   (fun env build -> Echo (List.map (fun f -> f^"\n") stdlib_files, (prefix_me "compiler/opalib/staticsInclude.of")));
 
+(* begin opacapi *)
+
 let opa_opacapi_files =
   let dirs = rec_subdirs [prefix_me "lib/stdlib"] in
   let files = List.fold_right (fun dir acc -> dir_ext_files "opa" dir @ acc) dirs [] in
@@ -195,21 +197,29 @@ let stdlib_parser_options =
   ;A "--parser" ; A "classic"
   ]
 in
-(* used in mkinstall *)
-let opacapi_validation = "opacapi.validation" in
-rule "Opa Compiler Interface Validation (opacapi)"
-  ~deps:(tool_deps "checkopacapi" @ opa_opacapi_files)
-  ~prod:opacapi_validation
-  (fun env build ->
-     Cmd(S ([ get_tool "checkopacapi" ;
-              A "-o" ;
-              P opacapi_validation ;
-            ]
-		@ stdlib_parser_options
-	    @ (List.rev_map (fun file -> P file) opa_opacapi_files)
+
+let opacapi_validation_rule ?(opts=[]) name prod =
+  rule name
+    ~deps:(tool_deps "checkopacapi" @ opa_opacapi_files)
+    ~prod
+    (fun env build ->
+       Cmd(S ([ get_tool "checkopacapi" ;
+		A "-o" ;
+		P prod ;
+              ]
+	      @ (List.rev_map (fun file -> P file) opa_opacapi_files)
+		  @ stdlib_parser_options
+	      @ opts
 	   )
         )
-  );
+    );
+in
+
+let opacapi_validation = "opacapi.validation" in
+let () = opacapi_validation_rule "Opa Compiler Interface Validation (opacapi)" opacapi_validation in
+
+(* end opacapi *)
+
 
 (* -- Build infos and runtime version handling -- *)
 
@@ -869,23 +879,27 @@ let make_all_plugins = stdlib_packages_dir/"all_plugins.sh" in
 let all_plugins_file = stdlib_packages_dir/"all.node.plugins" in
 
 (** This rule generates rules for all plugins *)
-let lazy_plugin_rules =
-  lazy (
-      let all_plugins_file = build_dir / all_plugins_file in
-      Command.execute ~quiet:true ~pretend:false
-	(Cmd (S[
-		Sh"mkdir"; A"-p"; P (build_dir / stdlib_packages_dir); Sh"&&";
-		P (Pathname.pwd/stdlib_packages_dir/"all_plugins.sh");
-		P (Pathname.pwd/stdlib_packages_dir);
-		Sh">"; P all_plugins_file;
-	      ])) ;
-      let plugins = string_list_of_file all_plugins_file in
-      List.iter (plugin_building ~additional prefixed_plugins_dir) plugins;
-      List.map (
-	fun f -> prefixed_plugins_dir/f/f -.- "oppf"
-      ) plugins
-  )
+let node_plugins =
+  let all_plugins_file = build_dir / all_plugins_file in
+  Command.execute ~quiet:true ~pretend:false
+    (Cmd (S[
+	    Sh"mkdir"; A"-p"; P (build_dir / stdlib_packages_dir); Sh"&&";
+	    P (Pathname.pwd/stdlib_packages_dir/"all_plugins.sh");
+	    P (Pathname.pwd/stdlib_packages_dir);
+	    Sh">"; P all_plugins_file;
+	  ])) ;
+  string_list_of_file all_plugins_file
 in
+
+let plugins_deps =
+  List.map (
+    fun f -> prefixed_plugins_dir/f/f -.- "opa_plugin"
+  ) node_plugins in
+
+let plugins =
+  List.map (
+    fun f -> prefixed_plugins_dir/f/f -.- "oppf"
+  ) node_plugins in
 
 (* -- end plugins -- *)
 
@@ -953,7 +967,7 @@ let all_packages_file = stdlib_packages_dir/"all.node.packages" in
 let all_packages_building =
   let prod = all_packages_file in
   rule "all.node.packages"
-    ~deps: make_all_packages
+    ~deps:make_all_packages
     ~prod
     (fun env build ->
          Cmd(S[
@@ -966,23 +980,20 @@ let all_packages_building =
 in
 
 let packages_building ~name ~stamp ~core_only ~rebuild
-    ~additional
-    ~lazy_plugin_rules
+    ~plugins
     ?(opacomp_stamp="opacomp.stamp")
     ?(all_packages_file=all_packages_file)
     ?(opx_dir="stdlib.qmljs")
     ?(backend_opt=[])
     ?(opacapi_validation=opacapi_validation)
     () =
-  plugin_building ~additional:additional ~rule_name:(name^" opabsl")
-    prefixed_plugins_dir "opabsl";
-  let plugins = Lazy.force lazy_plugin_rules in
+
   rule name
     ~deps:(plugins @ [
-      opacapi_validation;
-      version_buildinfos;
-      all_packages_file;
-      opacomp_stamp
+	     opacapi_validation;
+	     version_buildinfos;
+	     all_packages_file;
+	     opacomp_stamp;
     ])
     ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
     ~stamp
@@ -1073,13 +1084,28 @@ let packages_building ~name ~stamp ~core_only ~rebuild
        fail_rule build
   ) in
 
+rule "Opabsl qmljs"
+  ~deps:[prefixed_plugins_dir/"opabsl"/"opabsl" -.- "opa_plugin"]
+  ~stamp:"opabsl.qmljs.stamp"
+  (fun env build ->
+     plugin_building prefixed_plugins_dir "opabsl";
+     Nop
+  );
+
+rule "Plugins qmljs"
+  ~deps:plugins_deps
+  ~stamp:"plugins.qmljs.stamp"
+  (fun env build ->
+     List.iter (plugin_building prefixed_plugins_dir) node_plugins;
+     Nop
+  );
+
 packages_building
   ~name:"opa-node-packages: meta-rule to build the node stdlib and .opx"
   ~stamp:"opa-node-packages.stamp"
   ~core_only:false
   ~rebuild:false
-  ~additional
-  ~lazy_plugin_rules
+  ~plugins
   ();
 
 (* -- end packages -- *)
@@ -1127,6 +1153,7 @@ rule "opa bash_completion: opa-bin -> bash_completion"
 
 (* -- end misc -- *)
 
+(* -- begin opa2js -- *)
 
 rule "node-packages"
   ~deps:["opa-node-packages.stamp"]
@@ -1138,5 +1165,7 @@ rule "node-packages"
             A"--build-dir";A"test"
            ] @ List.map (fun p -> A p) packages))
   );
+
+(* -- end opa2js -- *)
 
 () (* This file should be an expr of type unit *)

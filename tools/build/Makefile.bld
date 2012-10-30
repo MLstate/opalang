@@ -57,7 +57,6 @@ clean::
 distclean: clean
 	rm -f $(CONFIG_PATH)/config.{sh,ml,make,log}
 
-
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
 
