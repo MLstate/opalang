@@ -651,7 +651,7 @@ then lib-not-found "camlzip" "libzip-ocaml-dev"
 fi
 
 # - checking ocamlgraph
-if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph/graph")
+if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph" "graph")
 then lib-not-found "ocamlgraph" "libocamlgraph-ocaml-dev"
 fi
 
