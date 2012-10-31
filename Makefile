@@ -7,8 +7,8 @@
 #
 # More info in tools/build/Makefile.bld and tools/build/README
 
-.PHONY: default
-default: node
+.PHONY: all
+all: node
 
 OPALANG_DIR ?= .
 
