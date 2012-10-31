@@ -193,6 +193,7 @@ in
 let stdlib_packages_dir = prefix_me "lib"/"stdlib" in
 let stdlib_parser_options =
   let files = string_list_of_file (stdlib_packages_dir/"new_syntax") in
+  let files = List.map prefix_me files in
   [A "--parser" ; A (fmt_sprintf "js-like:%a" (pp_list "," Format.pp_print_string) files)
   ;A "--parser" ; A "classic"
   ]
@@ -208,7 +209,7 @@ let opacapi_validation_rule ?(opts=[]) name prod =
 		P prod ;
               ]
 	      @ (List.rev_map (fun file -> P file) opa_opacapi_files)
-		  @ stdlib_parser_options
+	      @ stdlib_parser_options
 	      @ opts
 	   )
         )
