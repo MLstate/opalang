@@ -39,6 +39,7 @@ let is_linux = Config.os = Config.Linux
 let is_win32 = Config.os = Config.Win32
 let is_cygwin = Config.os = Config.Cygwin
 let is_win = is_win32 || is_cygwin
+let compiler_ms = false
 
 let sed = if is_mac then P"gsed" else P"sed"
 let md5 = if is_fbsd then P"md5"  else P"md5sum"
@@ -51,7 +52,7 @@ let touch file = Cmd(S[A"touch"; P file])
 *)
 
 let c_wall,c_werror =
-  if is_win32 (*&& compiler=microsoft*) then "/Wall","/Wall"
+  if compiler_ms then "/Wall","/Wall"
     (* -Wdeprecated-declarations added for OpenSSL deprecation on 10.8 *)
   else if is_mac then "-Wall","-Wall"
   else "-Wall","-Werror"
