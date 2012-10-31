@@ -589,6 +589,7 @@ locate-ocaml-lib () {
         if [ -n "$OCAMLFIND" ] &&
            LIBDIR=$("$OCAMLFIND" query "$LIB" 2>/dev/null)
         then
+            LIBDIR=$(echo $LIBDIR | sed s/\\r//g)
             LIB=$(check-cmxa $LIBDIR $LIB "${LIB_NAMES[@]}") || return 1
             echo-ok -n "ocamlfind:$LIBDIR, "
         elif [ -d "$OCAMLLIB"/"$USUAL_DIR" ]
