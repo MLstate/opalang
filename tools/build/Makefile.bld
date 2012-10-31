@@ -67,9 +67,14 @@ BUILD_TOOLS := $(BLDDIR)/build_tools $(BUILD_TOOLS)
 
 MYOCAMLBUILD_SOURCES = \
 	$(BLDDIR)/gen_myocamlbuild.sh \
+	$(BLDDIR)/config.ml \
 	$(BLDDIR)/myocamlbuild_prefix.ml \
 	$(BLDDIR)/myocamlbuild_suffix.ml \
 	$(BUILD_VARS) $(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
+
+$(BLDDIR)/config.ml: configure
+	@echo "Please (re)launch ./configure"
+	@exit 1
 
 $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
 	@echo "Ocamlbuild plugin generation"

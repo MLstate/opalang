@@ -14,7 +14,7 @@ OPALANG_DIR ?= .
 
 BUILD_PATH = $(OPALANG_DIR)/tools/build
 
-include $(BUILD_PATH)/config.make
+-include $(BUILD_PATH)/config.make
 
 MAKE ?= $_
 OCAMLBUILD_OPT ?= -j 6
