@@ -131,6 +131,7 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
 # Compile the myocamlbuild
 
 OCAMLBUILD_LIB=$($OCAMLBUILD -where)
+OCAMLBUILD_LIB="$(echo $OCAMLBUILD_LIB | sed -e "s/\\\\/\//g")"
 
 cp $CONFIG_ML ${CONFIG_ML}i $BUILD_DIR/$CONFIG_PATH/
 cd $BUILD_DIR
