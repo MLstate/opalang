@@ -519,17 +519,28 @@ let add_path ~context gamma t path0 ty =
           let t, next_node = SchemaGraphLib.add_unknown_node t n (C.Field (str,0)) ~context in
           build t next_node path
       | (Db.Decl_set lidx)::[] ->
-          List.iter
-            (fun idx ->
-               try
-                 List.iter (fun f -> ignore (dots gamma [`string f] ty)) idx
-               with Formatted p ->
+          let check_decl ty =
+            List.iter
+              (fun idx ->
+                 try
+                   List.iter (fun f -> ignore (dots gamma [`string f] ty)) idx
+                 with Formatted p ->
                  QmlError.error context "Bad index declaration : %a" p ()
-            ) lidx;
+              ) lidx
+          in
+          let sub, ty =
+            match ty with
+            | Q.TypeName ([param],tid) when Q.TypeIdent.to_string tid = "GridFS.file" ->
+                check_decl param;
+                param, C.tydbset ty (Q.TypeVar (QmlAst.TypeVar.next ()))
+            | ty ->
+                check_decl ty;
+                ty, C.tydbset ty (Q.TypeVar (QmlAst.TypeVar.next ()))
+          in
           let t,n = SchemaGraphLib.set_node_label t n C.Multi in
-          let t,n = SchemaGraphLib.set_node_type t n
-            (C.tydbset ty (Q.TypeVar (QmlAst.TypeVar.next ()))) in
-          let t = add_subgraph ~is_plain:true ~context gamma t n (C.Multi_edge (C.Kfields lidx)) ty in
+          let t,n = SchemaGraphLib.set_node_type t n ty in
+          let t = add_subgraph ~is_plain:true ~context
+            gamma t n (C.Multi_edge (C.Kfields lidx)) sub in
           type_upwards t n
       | (Db.Decl_set [])::_path ->
           QmlError.error context
@@ -1058,7 +1069,12 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
         let new_annots, (query, options) =
           let ty =
             match SchemaGraphLib.type_of_node node with
-            | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" -> setparam
+            | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
+                begin match setparam with
+                | Q.TypeName ([setparam], name) when Q.TypeIdent.to_string name = "GridFS.file" ->
+                    setparam
+                | _ -> setparam
+                end
             | _ ->
                 try
                   SchemaGraphLib.type_of_key t node
@@ -1131,10 +1147,17 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
           ~kind ~epath0 vpath epath
       in
       (match setty with
-       | Q.TypeName ([_setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
-           let setty = C.Db.set dataty in
+       | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
+           let aux =
+             match setparam, epath with
+             | Q.TypeName ([_], name), []
+                 when Q.TypeIdent.to_string name = "GridFS.file" ->
+                 (fun ty -> C.Db.set (Q.TypeName ([ty], name)))
+             | _ -> (fun t -> C.Db.set t)
+           in
+           let setty = aux dataty in
            let partial = not (is_uniq t node query) in
-           setty, dnode, `virtualset (dataty, dataty, partial, (fun t -> C.Db.set t))
+           setty, dnode, `virtualset (dataty, dataty, partial, aux)
        | _ ->
            let keyty = SchemaGraphLib.type_of_key t node in
            let partial = not (is_uniq t node query) in
