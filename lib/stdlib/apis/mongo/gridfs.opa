@@ -18,10 +18,19 @@ type GridFS.t = {
     string      key,
 }
 
-abstract
-type GridFS.file = {
+private
+type GridFS.file_stored = {
     Mongo.reply reply,
     GridFS.t    grid,
+}
+
+private
+type GridFS.file_local = iter(binary)
+
+abstract
+type GridFS.file('a) = {
+    'a metadata,
+    {GridFS.file_stored stored} or {GridFS.file_local local} file,
 }
 
 private
@@ -104,21 +113,36 @@ module GridFS{
             )
         }
 
-        function writes(GridFS.t grid, binary data, Bson.value id, options){
-            length = Binary.length(data)
-            recursive function aux(n){
-                start = n * options.chunk_size
-                if(start > length) {success}
-                else {
-                    chunk_length = min((n+1) * options.chunk_size, length) - start
-                    data = Binary.get_binary(data, start, chunk_length)
-                    match(write(grid, id, ~{n, data, files_id:options.files_id})){
-                    case {success} : aux(n+1)
-                    case ~{failure} : ~{failure}
+        function writes(GridFS.t grid, Bson.value id, GridFS.file file, options){
+            ~{n, next} = Iter.fold(
+                function(bin, ~{n, next}){
+                    Log.notice("Fold", "{n}")
+                    blen = Binary.length(bin)
+                    nlen = Binary.length(next)
+                    if(blen + nlen < options.chunk_size){
+                        Binary.add_binary(next, bin)
+                        ~{n, next}
+                    } else {
+                        recursive function aux(n, start, next){
+                            nlen = Binary.length(next)
+                            split = min(blen, options.chunk_size + start)
+                            Log.notice("GridFS", "Add {nlen} {blen} {start} {split}")
+                            Binary.add_binary(next, Binary.get_binary(bin, start, split - start))
+                            //TODO - Error management
+                            _ = write(grid, id, {~n, data:next, files_id:options.files_id})
+                            if(split + options.chunk_size >= blen){
+                                {n:n+1, next:Binary.get_binary(bin, split, blen - split)}
+                            } else {
+                                aux(n+1, split, Binary.create(options.chunk_size))
+                            }
+                        }
+                        aux(n, 0, next)
                     }
-                }
-            }
-            aux(0)
+                },
+                GridFS.to_iterator(file),
+                {n:0, next:Binary.create(options.chunk_size)}
+            )
+            write(grid, id, {~n, data:next, files_id:options.files_id})
         }
 
         function read(GridFS.t grid, Bson.value id){
@@ -131,7 +155,7 @@ module GridFS{
             ]
             match(MongoDriver.query(grid.db, 0, chunks_ns(grid), 0, 0, selector, none)){
             case {none} : {failure : {Error : "Connection error"}}
-            case {some:reply} : {success : GridFS.file ~{reply, grid}}
+            case {some:reply} : {success : GridFS.file_stored ~{reply, grid}}
             }
         }
 
@@ -165,8 +189,9 @@ module GridFS{
                         {name:"length", value:{Int64:options.length}},
                         {name:"chunkSize", value:{Int64:options.chunk_size}},
                         {name:"uploadDate", value:{Date:Date.now()}},
+                        {name:"metadata", value:{Document:options.metadata}},
                         md5
-                    ] ++ Bson.document options.doc) }
+                    ]) }
                 case _ : {failure : {Error : "Unexpected result of 'filemd5' commands: {bson}"}}
                 }
             case {failure:_} as e -> e
@@ -206,16 +231,14 @@ module GridFS{
      * @param db The databases which host the grid.
      * @param namespace The namespace where the grid is stored
      */
-    function GridFS.t make(Mongo.db db, string namespace){
+    function GridFS.t open(Mongo.db db, string namespace){
         ns = namespace
         namespace = "{db.name}.{namespace}"
         grid = ~{db, namespace, ns, key:"_id"}
-        Log.notice("GridFS", "Before")
         result = MongoDriver.create_index(db, Chunk.chunks_ns(grid), [
             {name:"files_id", value:{Int32:1}},
             {name:"n", value:{Int32:1}},
         ], Bitwise.lor(0, MongoCommon.UniqueBit))
-        Log.notice("GridFS", "After")
         if(result){
             Log.notice("GridFS", "Indexes was successfully created")
         } else {
@@ -225,32 +248,72 @@ module GridFS{
     }
 
     /**
+     * Create a driver for specific file
+     */
+    module Driver(conf){
+
+        function write(GridFS.t grid, Bson.value id, GridFS.file('a) file){
+            chunk_options = {chunk_size:conf.chunk_size, files_id:id}
+            match(Chunk.writes(grid, id, file, chunk_options)){
+            case {failure:_} as e : e
+            case {success} :
+                file_options = {chunk_size : conf.chunk_size,
+                                length : 0,
+                                metadata : conf.serialize(file.metadata)}
+                File.save(grid, id, file_options)
+            }
+        }
+
+        function outcome(GridFS.file, _) read(GridFS.t grid, Bson.value id){
+            match(Chunk.read(grid, id)){
+            case {failure:_} as e : e
+            case {success:stored} :
+                match(File.read(grid, id)){
+                case {failure:_} as e : e
+                case {success:document} :
+                    match(Bson.find_doc(document, "metadata")){
+                    case {none} : {failure : {Error : "No metadata found"}}
+                    case {some : doc} :
+                        {success : {metadata : conf.unserialize(doc), file : ~{stored}}}
+                    }
+                }
+            }
+        }
+
+        function GridFS.file create(metadata, iter(binary) iterator){
+            ~{metadata, file : {local : iterator}}
+        }
+    }
+
+    private
+    Void = Driver({
+        function serialize(void _v){[]},
+        function unserialize(_){void},
+        chunk_size : 256000
+    })
+
+    /**
+     * Create a file from a binary iterator.
+     * @param iterator A binary iterator which returns the file content
+     */
+    function create(iter(binary) iterator){
+        Void.create(void, iterator)
+    }
+
+    /**
      * Write [data] to the [grid].
      * @param grid The grid where the file is stored
      * @param data Content of the file
      * @param id The file identifier
      */
-    function write(GridFS.t grid, binary data, Bson.value id, options){
-        chunk_options = {chunk_size:options.chunk_size, files_id:id}
-        match(Chunk.writes(grid, data, id, chunk_options)){
-        case {failure:_} as e : e
-        case {success} :
-            Log.debug("GridFS", "Chunks are successfully saved")
-            file_options = {chunk_options extend
-                            length : Binary.length(data),
-                            doc : options.doc}
-            File.save(grid, id, file_options)
-        }
-    }
+    write = Void.write
 
     /**
      * Get binary data stored to the [grid]
      * @param grid The grid where the file is stored
      * @param id The file identifier
      */
-    function read(GridFS.t grid, Bson.value id){
-        Chunk.read(grid, id)
-    }
+    read = Void.read
 
     /**
      * Delete from the [grid] the file identified by [id].
@@ -268,36 +331,39 @@ module GridFS{
      * @param file A gridfs file
      * @return A binary iterator on the file content
      */
-    function iter(binary) iterator(GridFS.file file){
-        recursive function aux(n, size, file){
-            if (n < size){
-                match(MongoCommon.reply_document(file.reply, n)){
-                case {none} : @fail("Unexpected error: can't retreive document {n}/{size}")
-                case {some:doc} :
-                    match(Bson.find_value(doc, "data")){
-                    case {some : {Binary : bin}} :
-                        function next(){ aux(n+1, size, file) }
-                        {some : (bin, ~{next})}
-                    case _ : @fail("Unexpected error: bad formatted data")
+    function iter(binary) to_iterator(GridFS.file file){
+        match(file.file){
+        case ~{local ...} : local
+        case ~{stored ...} :
+            recursive function aux(n, size, file){
+                if (n < size){
+                    match(MongoCommon.reply_document(file.reply, n)){
+                    case {none} : @fail("Unexpected error: can't retreive document {n}/{size}")
+                    case {some:doc} :
+                        match(Bson.find_value(doc, "data")){
+                        case {some : {Binary : bin}} :
+                            function next(){ aux(n+1, size, file) }
+                            {some : (bin, ~{next})}
+                        case _ : @fail("Unexpected error: bad formatted data")
+                        }
                     }
-                }
-            } else {
-                cursor = MongoCommon.reply_cursorID(file.reply)
-                if(MongoCommon.is_null_cursorID(cursor)){ none; }
-                else {
-                    match(MongoDriver.get_more(file.grid.db, Chunk.chunks_ns(file.grid), 0, cursor)){
-                    case {none} : @fail("Can't get {n}th chunk")
-                    case {some:reply} :
-                        aux(0, MongoCommon.reply_numberReturned(reply),
-                            {file with ~reply})
+                } else {
+                    cursor = MongoCommon.reply_cursorID(file.reply)
+                    if(MongoCommon.is_null_cursorID(cursor)){ none; }
+                    else {
+                        match(MongoDriver.get_more(file.grid.db,
+                                                   Chunk.chunks_ns(file.grid), 0, cursor)){
+                        case {none} : @fail("Can't get {n}th chunk")
+                        case {some:reply} :
+                            aux(0, MongoCommon.reply_numberReturned(reply),
+                                {file with ~reply})
+                        }
                     }
                 }
             }
-        }
-        {
-            function next(){
-                aux(0, MongoCommon.reply_numberReturned(file.reply), file)
-            }
+            {function next(){
+                aux(0, MongoCommon.reply_numberReturned(stored.reply), stored)
+            }}
         }
     }
 
@@ -310,9 +376,8 @@ module GridFS{
         bin = Binary.create(1024)
         Iter.iter(function(chunk){
             Binary.add_binary(bin, chunk)
-        }, iterator(file))
+        }, to_iterator(file))
         bin
     }
+
 }
-
-
