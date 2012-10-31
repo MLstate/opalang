@@ -36,7 +36,7 @@
 #
 
 BUILD_DIR ?= _build
-MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild
+MYOCAMLBUILD = $(BUILD_DIR)/myocamlbuild$(EXT_EXE)
 OCAMLBUILD = $(MYOCAMLBUILD) -no-plugin $(OCAMLBUILD_OPT) $(OCAMLBUILD_FLAGS)
 
 BLDDIR ?= $(OPALANG_DIR)/tools/build
