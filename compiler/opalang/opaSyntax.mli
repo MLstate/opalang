@@ -26,6 +26,8 @@ module Args : sig
 
   val get_parser : string option -> t
 
+  val set_parser : t -> unit
+
   val options : (string * Base.Arg.spec * string) list
 
 end

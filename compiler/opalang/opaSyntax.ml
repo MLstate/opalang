@@ -50,6 +50,8 @@ module Args = struct
     | None -> !r.parser
     | Some filename -> try StringMap.find filename !r.files with Not_found -> !r.parser
 
+  let set_parser p = r := { !r with parser = p }
+
   let options = [
     ("--parser", Arg.String parser_options,
      "Select kind of the input syntax (classic or js-like)");
