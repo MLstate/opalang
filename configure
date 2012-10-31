@@ -223,6 +223,7 @@ fi
 
 echo-check ocamldir
 : ${OCAMLLIB:=$($OCAMLOPT -where)}
+OCAMLLIB=$(echo "$OCAMLLIB" | sed -e "s/\\\\/\//g")
 echo-ok $OCAMLLIB
 
 export OCAMLLIB
