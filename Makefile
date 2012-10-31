@@ -117,7 +117,6 @@ NODE_STDLIB_SUFFIX_DIR=stdlib.qmljs
 STDLIB_NODE_DIR=$(STDLIB_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
 BUILD_NODE_DIR=$(BUILD_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
 define install-node-package
-@printf "Installing into $(STDLIB_NODE_DIR)/$*.opx[K\n"
 @mkdir -p "$(STDLIB_NODE_DIR)/$*.opx/_build"
 @find "$(BUILD_NODE_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_NODE_DIR)/$*.opx/" \;
 @$(INSTALL) $(BUILD_NODE_DIR)/$*.opx/*.js "$(STDLIB_NODE_DIR)/$*.opx/"
