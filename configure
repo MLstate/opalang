@@ -112,11 +112,13 @@ echo-check your OS
 EXT_LIB="a"
 EXT_OBJ="o"
 EXT_SHARED="so"
+EXT_EXE=".exe"
 case $(uname) in
     CYGWIN*)
         echo-ok Windows/cygwin
         EXT_LIB="lib"
         EXT_SHARED="dll"
+        EXT_EXE=".exe"
         IS_WINDOWS=1;;
     Darwin*)
         echo-ok MacOS
@@ -760,6 +762,7 @@ end
 let ext_lib = "$EXT_LIB"
 let ext_obj = "$EXT_OBJ"
 let ext_shared = "$EXT_SHARED"
+let ext_exe = "$EXT_EXE"
 
 EOF
 
@@ -805,6 +808,7 @@ LIB_ULEX_DIR="$(dirname "$CONFIG_LIB_ULEX")"
 EXT_LIB="$EXT_LIB"
 EXT_OBJ="$EXT_OBJ"
 EXT_SHARED="$EXT_SHARED"
+EXT_EXE="$EXT_EXE"
 EOF
 
 sed 's/=["(]\(.*\)[)"]$/ := \1/' $CONFIG_PATH/config.sh > $CONFIG_PATH/config.make

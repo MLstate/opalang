@@ -142,5 +142,5 @@ if [ "${BYTECODE:-}" ]; then
 else
     $OCAMLOPT -I $CONFIG_PATH -c $CONFIG_PATH/config.mli
     $OCAMLOPT -I $CONFIG_PATH -c $CONFIG_PATH/config.ml
-    $OCAMLOPT -w y -I "$OCAMLBUILD_LIB" -I $CONFIG_PATH unix.cmxa ocamlbuildlib.cmxa $CONFIG_PATH/config.cmx myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmx -o myocamlbuild
+    $OCAMLOPT -w y -I "$OCAMLBUILD_LIB" -I $CONFIG_PATH unix.cmxa ocamlbuildlib.cmxa $CONFIG_PATH/config.cmx myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmx -o myocamlbuild$EXT_EXE
 fi
