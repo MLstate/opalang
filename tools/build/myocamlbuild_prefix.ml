@@ -19,6 +19,15 @@ let opalang_prefix =
 
 let prefix_me s = opalang_prefix ^ s
 
+let build_dir =
+  if (Pathname.is_relative !Options.build_dir) 
+  && not (Pathname.is_prefix Pathname.pwd !Options.build_dir)
+  (*is_relative does not work on cygwin/windows*)
+  then
+    Pathname.pwd / !Options.build_dir 
+  else
+    !Options.build_dir
+
 (**
    {6 Portability utility functions }
 *)
@@ -109,7 +118,7 @@ let build_list build targets =
   List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))
 
 let mlstatelibs = try Sys.getenv "MLSTATELIBS" with
-    Not_found -> Pathname.pwd / !Options.build_dir
+    Not_found -> build_dir
 
 type tool_type = Internal of Pathname.t | External of Pathname.t
 let tools_table = (Hashtbl.create 17: (string, tool_type) Hashtbl.t)
@@ -131,7 +140,7 @@ let get_tool ?local:(local=false) name =
   try
     (match Hashtbl.find tools_table name with
       | Internal f ->
-        let f = if local then f else Pathname.pwd / !Options.build_dir / f in
+        let f = if local then f else build_dir / f in
         let wintools_b, winf = try
           let c = List.assoc name as_wintools in
           true, (if c <> "" then c else (wingate f))
@@ -145,7 +154,7 @@ let get_tool ?local:(local=false) name =
 let force_copy_tool t =
   List.iter
     (fun x ->
-       let dir = Pathname.pwd / !Options.build_dir / Pathname.dirname x in
+       let dir = build_dir / Pathname.dirname x in
        Command.execute
          (Seq [ Cmd(S[P"mkdir"; A"-p"; P dir]);
                 cp x dir;
@@ -565,7 +574,7 @@ let _ = dispatch begin function
       );
 
       (* for C #includes *)
-      flag ["extension:c"] (S[A"-I";P (Pathname.pwd / !Options.build_dir)]);
+      flag ["extension:c"] (S[A"-I";P (build_dir)]);
 
       (* -- Directory contexts -- *)
 

@@ -51,7 +51,6 @@ def_stubs ~dir:"ocamllib/appruntime" "io";
 
 let prefixed_plugins_dir = prefix_me "lib" / "plugins" in
 let libbase_dir = prefix_me "ocamllib" / "libbase" in
-let build_dir = Pathname.pwd / !Options.build_dir in
 
 let extralib_opt = function
   | Some (lib,ldir,idir) ->
