@@ -20,11 +20,11 @@ let opalang_prefix =
 let prefix_me s = opalang_prefix ^ s
 
 let build_dir =
-  if (Pathname.is_relative !Options.build_dir) 
+  if (Pathname.is_relative !Options.build_dir)
   && not (Pathname.is_prefix Pathname.pwd !Options.build_dir)
   (*is_relative does not work on cygwin/windows*)
   then
-    Pathname.pwd / !Options.build_dir 
+    Pathname.pwd / !Options.build_dir
   else
     !Options.build_dir
 
