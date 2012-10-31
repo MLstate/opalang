@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -180,35 +180,35 @@ type GitHub.fork_sort = {newest} / {oldest} / {watchers}
 
   string_of_event(ev:GitHub.event_name) =
     match ev with
-    | {push} -> "push"           
-    | {issues} -> "issues"         
-    | {issue_comment} -> "issue_comment"  
-    | {commit_comment} -> "commit_comment" 
-    | {pull_request} -> "pull_request"   
-    | {gollum} -> "gollum"         
-    | {watch} -> "watch"          
-    | {download} -> "download"       
-    | {fork} -> "fork"           
-    | {fork_apply} -> "fork_apply"     
-    | {member} -> "member"         
-    | {`public`} -> "public"         
-    | {status} -> "status"         
+    | {push} -> "push"
+    | {issues} -> "issues"
+    | {issue_comment} -> "issue_comment"
+    | {commit_comment} -> "commit_comment"
+    | {pull_request} -> "pull_request"
+    | {gollum} -> "gollum"
+    | {watch} -> "watch"
+    | {download} -> "download"
+    | {fork} -> "fork"
+    | {fork_apply} -> "fork_apply"
+    | {member} -> "member"
+    | {`public`} -> "public"
+    | {status} -> "status"
 
   event_of_string(s:string) : GitHub.event_name =
     match s with
-    | "push" -> {push}           
-    | "issues" -> {issues}         
-    | "issue_comment" -> {issue_comment}  
-    | "commit_comment" -> {commit_comment} 
-    | "pull_request" -> {pull_request}   
-    | "gollum" -> {gollum}         
-    | "watch" -> {watch}          
-    | "download" -> {download}       
-    | "fork" -> {fork}           
-    | "fork_apply" -> {fork_apply}     
-    | "member" -> {member}         
-    | "public" -> {`public`}         
-    | "status" -> {status}         
+    | "push" -> {push}
+    | "issues" -> {issues}
+    | "issue_comment" -> {issue_comment}
+    | "commit_comment" -> {commit_comment}
+    | "pull_request" -> {pull_request}
+    | "gollum" -> {gollum}
+    | "watch" -> {watch}
+    | "download" -> {download}
+    | "fork" -> {fork}
+    | "fork_apply" -> {fork_apply}
+    | "member" -> {member}
+    | "public" -> {`public`}
+    | "status" -> {status}
     | _ -> {push}
 
   string_of_status_state(st) =
@@ -380,7 +380,7 @@ type GitHub.fork_sort = {newest} / {oldest} / {watchers}
       {some=res}
     else none
 
-  get_status(srcmap) = 
+  get_status(srcmap) =
     m = GP.map_funs(srcmap)
     if m.exists("id")
     then
@@ -589,7 +589,7 @@ GHRepos = {{
                   file:string) =
     // TODO: mimetype doesn't work on node, otherwise we could use it instead of content_type
     //do jlog("mimetype: {File.mimetype(file)}")
-    match File.content_opt(file) with
+    match File.read_opt(file) with
     | {some=content} ->
       json = GHLib.mkopts([{sreq=("name",name)},{ireq=("size",Binary.length(content))},
                            {sopt=("description",description)},{sopt=("content_type",content_type)}])
