@@ -9,7 +9,9 @@ LOOKED_PLACE=$@
 . ${OPA_SOURCE_DIR:-$(dirname $0)/../../}/tools/platform_helper.sh
 
 for d in $LOOKED_PLACE; do
-    DIRS=$(find $d -type d | sed "s|$d\/||" | sed "s|$d||")
+	cd $d
+    DIRS=$(find -type d | sed "s|^.\/||")
+    cd -
     for dir in $DIRS ; do
 	files=$(find $d/$dir -maxdepth 1 -name '*.opa')
 	if [ -n "$files" ] ; then
