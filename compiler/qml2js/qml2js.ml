@@ -114,7 +114,7 @@ struct
       "$NODE_PATH";
       "node_modules";
       static_path;
-      "/usr/local/lib/node_modules";
+      "`which npm > /dev/null 2>&1 && npm root -g`";
     ])
 
   (* Write shell script incantation to check dependencies,
