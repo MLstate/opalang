@@ -6,7 +6,7 @@ shift
 
 LOOKED_PLACE=$@
 
-if [ -f "$exclude" ]; then
+if [ -s "$exclude" ]; then
     : ${PACKAGE_FILTER:=grep -E -v -f $exclude}
 else
     : ${PACKAGE_FILTER:=cat}
