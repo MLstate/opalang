@@ -18,7 +18,7 @@
 (* CF mi *)
 
 type ('a, 'b) t = ('a, ('b, unit) Hashtbl.t) Hashtbl.t
-let create = Hashtbl.create
+let create i = Hashtbl.create #<Ifstatic:OCAML_VERSION_MAJOR 4> ~random:false #<End> i
 let clear = Hashtbl.clear
 let copy = Hashtbl.copy
 let remove = Hashtbl.remove

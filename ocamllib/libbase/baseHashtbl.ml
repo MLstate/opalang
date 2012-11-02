@@ -16,7 +16,7 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 type ('a,'b) t = ('a,'b) Hashtbl.t
-let create = Hashtbl.create
+let create i = Hashtbl.create #<Ifstatic:OCAML_VERSION_MAJOR 4> ~random:false #<End> i
 let clear = Hashtbl.clear
 let add = Hashtbl.add
 let copy = Hashtbl.copy
