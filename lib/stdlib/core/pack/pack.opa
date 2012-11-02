@@ -185,6 +185,7 @@ type Pack.u =
  / {Bool:bool}
  / {Cstring:string}
  / {String:string}
+ / {String:string; no_prefix}
  / {String:string; size:Pack.s}
  / {String:string; le:bool}
  / {String:string; le:bool; size:Pack.s}
@@ -194,6 +195,7 @@ type Pack.u =
  / {String:string; payload:Pack.data; le:bool}
  / {String:string; payload:Pack.data; le:bool; size:Pack.s}
  / {Binary:binary}
+ / {Binary:binary; no_prefix}
  / {Binary:binary; size:Pack.s}
  / {Binary:binary; le:bool}
  / {Binary:binary; le:bool; size:Pack.s}
@@ -685,6 +687,17 @@ Pack = {{
            else
              {success=Binary.add_string(buf, str)}
 
+    /**
+     * Encode raw string.
+     * This can only be used as the last entry in a [Pack.data] list, otherwise the
+     * size of the data during decode will have to be deduced by external routines.
+     *
+     * @param buf the binary data to append the binary to
+     * @param str the string to pack
+     **/
+    string_no_prefix(buf:Pack.t, str:string): outcome(void,string) =
+      {success=Binary.add_string(buf, str)}
+
     /** Encode byte-prefixed string **/
     string_b(buf:Pack.t, payload:Pack.data, str:string) : outcome(void,string) =
       string(buf, noEndian, {B}, payload, str)
@@ -739,7 +752,7 @@ Pack = {{
      * @param buf the binary data to append the binary to
      * @param le true=little endian, false=big endian
      * @param size the width of the size prefix
-     * @param str binary
+     * @param bin binary
      **/
     binary(buf:Pack.t, le:bool, size:Pack.s, payload:Pack.data, bin:binary): outcome(void,string) =
       len = Binary.length(bin)
@@ -762,6 +775,17 @@ Pack = {{
               | (_,_,_,{~failure}) -> {~failure})
            else
              {success=Binary.add_binary(buf, bin)}
+
+    /**
+     * Encode raw binary.
+     * This can only be used as the last entry in a [Pack.data] list, otherwise the
+     * size of the data during decode will have to be deduced by external routines.
+     *
+     * @param buf the binary data to append the binary to
+     * @param bin binary
+     **/
+    binary_no_prefix(buf:Pack.t, bin:binary): outcome(void,string) =
+      {success=Binary.add_binary(buf, bin)}
 
     /** Encode byte-prefixed binary **/
     binary_b(buf:Pack.t, payload:Pack.data, str:binary) : outcome(void,string) =
@@ -938,6 +962,7 @@ Pack = {{
       | ({Void},{Void}) -> true
       | ({Bool=_},{Bool=_}) -> true
       | ({Cstring=_},{Cstring=_}) -> true
+      | ({String=_; no_prefix},{String=_; no_prefix}) -> true
       | ({String=_},{String=_}) -> true
       | ({String=_; size=s1},{String=_; size=s2}) -> s1 == s2
       | ({String=_; le=le1},{String=_; le=le2}) -> le1 == le2
@@ -948,6 +973,7 @@ Pack = {{
       | ({String=_; payload=p1; le=le1; size=s1},{String=_; payload=p2; le=le2; size=s2}) ->
          leseq = le1 == le2 && s1 == s2 // non-lazy semantic???
          leseq && same_data(p1,p2)
+      | ({Binary=_; no_prefix},{Binary=_; no_prefix}) -> true
       | ({Binary=_},{Binary=_}) -> true
       | ({Binary=_; size=s1},{Binary=_; size=s2}) -> s1 == s2
       | ({Binary=_; le=le1},{Binary=_; le=le2}) -> le1 == le2
@@ -1066,6 +1092,7 @@ Pack = {{
          (_,payload_size) = packdatasize(s,payload)
          (s,sizesize(s)+payload_size+String.length(str),0)
       | {String=str; ~size; ...} -> (s,sizesize(size)+String.length(str),0)
+      | {String=str; no_prefix} -> (s,String.length(str),0)
       | {String=str; ...} -> (s,sizesize(s)+String.length(str),0)
       | {Binary=bin; ~payload; ~size; ...} ->
          (_,payload_size) = packdatasize(size,payload)
@@ -1074,6 +1101,7 @@ Pack = {{
          (_,payload_size) = packdatasize(s,payload)
          (s,sizesize(s)+payload_size+Binary.length(bin),0)
       | {Binary=bin; ~size; ...} -> (s,sizesize(size)+Binary.length(bin),0)
+      | {Binary=bin; no_prefix} -> (s,Binary.length(bin),0)
       | {Binary=bin; ...} -> (s,sizesize(s)+Binary.length(bin),0)
       | {Float32=_; ...} -> (s,4,0)
       | {Float=_; ...} -> (s,8,0)
@@ -1223,6 +1251,7 @@ Pack = {{
       | {~Bool} -> (le, signed, size, bool(buf, Bool))
       | {~Cstring} -> (le, signed, size, cstring(buf, Cstring))
       | {String=str} -> pack_string(buf, le, le, signed, size, size, [], str)
+      | {String=str; no_prefix} -> (le, signed, size, string_no_prefix(buf, str))
       | {String=str; size=actual_size} -> pack_string(buf, le, le, signed, actual_size, size, [], str)
       | {String=str; le=actual_le} -> pack_string(buf, actual_le, le, signed, size, size, [], str)
       | {String=str; le=actual_le; size=actual_size} -> pack_string(buf, actual_le, le, signed, actual_size, size, [], str)
@@ -1232,6 +1261,7 @@ Pack = {{
       | {String=str; ~payload; le=actual_le; size=actual_size} ->
          pack_string(buf, actual_le, le, signed, actual_size, size, payload, str)
       | {Binary=bin} -> pack_binary(buf, le, le, signed, size, size, [], bin)
+      | {Binary=bin; no_prefix} -> (le, signed, size, binary_no_prefix(buf, bin))
       | {Binary=bin; size=actual_size} -> pack_binary(buf, le, le, signed, actual_size, size, [], bin)
       | {Binary=bin; le=actual_le} -> pack_binary(buf, actual_le, le, signed, size, size, [], bin)
       | {Binary=bin; le=actual_le; size=actual_size} -> pack_binary(buf, actual_le, le, signed, actual_size, size, [], bin)
@@ -1737,6 +1767,13 @@ Pack = {{
           | {~failure} -> {~failure})
       | (_,{~failure}) -> {~failure}
 
+    /** Decode unprefixed string
+     *  This routine assumes that all the remaining data is part of the binary.
+     **/
+    string_no_prefix(data:Pack.t, pos:int) : outcome(string,string) =
+      do pinput("Pack.Decode.string_no_prefix",{binary=data; ~pos})
+      {success=(Binary.get_string(data, pos, Binary.length(data)-pos))}
+
     /** Decode 8-bit integer size-prefixed string */
     string_b = string(_, false, {B}, _, _)
 
@@ -1799,6 +1836,13 @@ Pack = {{
           | {~failure} -> {~failure})
       | {~failure} -> {~failure}
 
+    /** Decode unprefixed binary
+     *  This routine assumes that all the remaining data is part of the binary.
+     **/
+    binary_no_prefix(data:Pack.t, pos:int) : outcome(binary,string) =
+      do pinput("Pack.Decode.binary_no_prefix",{binary=data; ~pos})
+      {success=(Binary.get_binary(data, pos, Binary.length(data)-pos))}
+
     /** Decode 8-bit integer size-prefixed binary */
     binary_b = binary(_, false, {B}, _, _)
 
@@ -1838,14 +1882,14 @@ Pack = {{
     /** Decode fixed length string
      **/
     fixed_string(data:Pack.t, pos:int, len:int) : outcome(string,string) =
-      if Binary.length(data) > pos + len
+      if Binary.length(data) >= pos + len
       then {success=Binary.get_string(data, pos, len)}
       else {failure="Pack.Decode.fixed: not enough data for string"}
 
     /** Decode fixed length binary
      **/
     fixed_binary(data:Pack.t, pos:int, len:int) : outcome(binary,string) =
-      if Binary.length(data) > pos + len
+      if Binary.length(data) >= pos + len
       then {success=Binary.get_binary(data, pos, len)}
       else {failure="Pack.Decode.binary: not enough data for binary"}
 
@@ -2160,6 +2204,10 @@ Pack = {{
              | {success=s} -> {success=(le, signed, size, pos+String.byte_length(s)+1, [{Cstring=s}|data])}
              | {~failure} -> {~failure})
          | {String=_} -> unpack_string(data, {none}, le, signed, {none}, size, [], bin, pos)
+         | {String=_; no_prefix} ->
+            (match string_no_prefix(bin, pos) with
+             | {success=s} -> {success=(le, signed, size, Binary.length(bin), [{String=s; no_prefix}|data])}
+             | {~failure} -> {~failure})
          | {String=_; size=actual_size} -> unpack_string(data, {none}, le, signed, {some=actual_size}, size, [], bin, pos)
          | {String=_; le=actual_le} -> unpack_string(data, {some=actual_le}, le, signed, {none}, size, [], bin, pos)
          | {String=_; le=actual_le; size=actual_size} ->
@@ -2172,6 +2220,10 @@ Pack = {{
          | {String=_; ~payload; le=actual_le; size=actual_size} ->
             unpack_string(data, {some=actual_le}, le, signed, {some=actual_size}, size, payload, bin, pos)
          | {Binary=_} -> unpack_binary(data, {none}, le, signed, {none}, size, [], bin, pos)
+         | {Binary=_; no_prefix} ->
+            (match binary_no_prefix(bin, pos) with
+             | {success=b} -> {success=(le, signed, size, Binary.length(bin), [{Binary=b; no_prefix}|data])}
+             | {~failure} -> {~failure})
          | {Binary=_; size=actual_size} -> unpack_binary(data, {none}, le, signed, {some=actual_size}, size, [], bin, pos)
          | {Binary=_; le=actual_le} -> unpack_binary(data, {some=actual_le}, le, signed, {none}, size, [], bin, pos)
          | {Binary=_; le=actual_le; size=actual_size} ->
@@ -2510,9 +2562,23 @@ Pack = {{
 
     /** Unpack fixed-length binary **/
     fixed_binary(input:Pack.input, len:int) : Pack.result(binary) =
-      do pinput("Pack.Unser.binary", input)
+      do pinput("Pack.Unser.fixed_binary(len={len})", input)
       match Decode.fixed_binary(input.binary, input.pos, len) with
       | {success=b} -> {success=({input with pos=input.pos+len},b)}
+      | {~failure} -> {~failure}
+
+    /** Unpack string, from current position to end of buffer **/
+    string_no_prefix(input:Pack.input) : Pack.result(string) =
+      do pinput("Pack.Unser.string_no_prefix", input)
+      match Decode.string_no_prefix(input.binary, input.pos) with
+      | {success=s} -> {success=({input with pos=Binary.length(input.binary)},s)}
+      | {~failure} -> {~failure}
+
+    /** Unpack binary, from current position to end of buffer **/
+    binary_no_prefix(input:Pack.input) : Pack.result(binary) =
+      do pinput("Pack.Unser.binary_no_prefix", input)
+      match Decode.binary_no_prefix(input.binary, input.pos) with
+      | {success=b} -> {success=({input with pos=Binary.length(input.binary)},b)}
       | {~failure} -> {~failure}
 
     /** Unpack size-prefixed string.
