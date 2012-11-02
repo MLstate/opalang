@@ -1259,7 +1259,7 @@ struct
         | Q.TypeVar   _
         | Q.TypeConst _
         | Q.TypeArrow _
-        | Q.TypeAbstract _
+        | Q.TypeAbstract
           -> []
 
         (* border line cases *)
@@ -1519,7 +1519,7 @@ struct
           let ident = QC.ident ident in
           let r= QC.letin ( List.map (fun n-> n,ident) names) (QC.match_ ident el) in
           Some(r) (* cons#match_ cons#ident_with_annot *)
-      | End _  -> None
+      | End -> None
 
 
     (* todo, adding global position of the pattern matching *)

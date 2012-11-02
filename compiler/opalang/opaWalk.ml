@@ -46,7 +46,7 @@ struct
           acc,
           if pr == pr' then orig_pat else
             (PatRecord (pr', rowvar), lab)
-      | PatAny _
+      | PatAny
       | PatConst _
       | PatVar _ -> acc, orig_pat
       | PatAs (p,i) ->
@@ -87,7 +87,7 @@ struct
       match t with
       | TypeConst _
       | TypeVar _
-      | TypeExternal _ -> acc, orig_ty
+      | TypeExternal -> acc, orig_ty
       | TypeArrow (((TyRow (fields,rowvar),lab2) as tyrow),ty) ->
           let acc, fields' =
             List.fold_left_map_stable

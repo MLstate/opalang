@@ -474,7 +474,7 @@ let unroll_graph gamma t root =
   assert (SchemaGraph0.mem_vertex t root);
   let make_multi _gamma t node =
     match (V.label (SchemaGraphLib.get_parent_node t node)).C.nlabel with
-      | C.Hidden _ -> t
+      | C.Hidden -> t
       | _ -> insert_multi t node
   in
   let loops: E.t list list = SchemaGraph.detect_loops t root in

@@ -190,7 +190,7 @@ struct
             (fun (s, p) ->
                pattern_to_bindings (same_pos (SA.Dot (expr, s)) p) p
             ) spl
-      | SA.PatAny _ -> []
+      | SA.PatAny -> []
       | SA.PatConst _ ->
           (* how to rewrite 2 = x in Qml ?
            * one could do assert (2 = x)

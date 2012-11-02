@@ -998,8 +998,8 @@ module Classic = struct
 
     method private typedef_visibility f = function
       | SurfaceAst.TDV_public -> ()
-      | SurfaceAst.TDV_abstract _ -> pp f "@@abstract@ "
-      | SurfaceAst.TDV_private _ -> pp f "@@private@ "
+      | SurfaceAst.TDV_abstract -> pp f "@@abstract@ "
+      | SurfaceAst.TDV_private -> pp f "@@private@ "
 
     method private typedef ~print_visibility f ty_def =
       self#label (self#typedef_node ~print_visibility) f ty_def
@@ -1688,8 +1688,8 @@ module Js = struct
 
     method private typedef_visibility f = function
       | SurfaceAst.TDV_public -> ()
-      | SurfaceAst.TDV_abstract _ -> pp f "abstract@ "
-      | SurfaceAst.TDV_private _ -> pp f "private@ "
+      | SurfaceAst.TDV_abstract -> pp f "abstract@ "
+      | SurfaceAst.TDV_private -> pp f "private@ "
 
     method private typedef ~print_visibility f ty_def =
       self#label (self#typedef_node ~print_visibility) f ty_def

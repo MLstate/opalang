@@ -71,7 +71,7 @@ let get_parent_node t node = E.src (get_parent_edge t node)
 let string_of_edge e = match (E.label e).C.label with
   | C.Field (s,_) -> s
   | C.SumCase _ -> "."
-  | C.Hidden_edge _ -> ""
+  | C.Hidden_edge -> ""
   | C.Multi_edge _ -> "_"
 
 let node_label n = (V.label n).C.nlabel
