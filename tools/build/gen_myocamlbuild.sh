@@ -10,9 +10,13 @@ set -e
 # You can then run your compilations with:
 # $ <build_dir>/myocamlbuild -no-plugin -j 6 <targets>
 
-
+OPALANG_DIR=${OPALANG_DIR:-"."}
 TOOLS_PATH=$OPALANG_DIR/tools
 CONFIG_PATH=$TOOLS_PATH/build
+BUILD_VARS=${BUILD_VARS:-"tools/build/build_vars.ml"}
+BUILD_TOOLS=${BUILD_TOOLS:-"tools/build/build_tools"}
+BUILD_LIBS=${BUILD_LIBS:-"tools/build/build_libs"}
+BUILD_RULES=${BUILD_RULES:-"tools/build/build_rules"}
 
 CONFIG_SH=$CONFIG_PATH/config.sh
 if [ ! -e $CONFIG_SH ]; then
