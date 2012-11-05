@@ -120,7 +120,20 @@ in_repo () {
     if ! is_git_root $REPO; then
         echo "[!] Git repo info for $REPO not found" >&2; exit 1
     fi
-    "$@"
+    if [ -e "opalang" ]; then
+	CWD=$PWD
+	cd opalang
+	local N=$($@)
+	cd $CWD
+	local M=$($@)
+	if [ "$N" -eq "$N" ] && [ "$M" -eq "$M" ]; then
+	    echo $(($N+$M))
+	else
+	    echo "$N"_"$M"
+	fi;
+    else
+	$@
+    fi;
     cd $P
 }
 
