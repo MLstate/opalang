@@ -126,7 +126,7 @@ in_repo () {
 	local N=$($@)
 	cd $CWD
 	local M=$($@)
-	if [ "$N" -eq "$N" ] && [ "$M" -eq "$M" ]; then
+	if [ "$N" -eq "$N" ] 2>/dev/null && [ "$M" -eq "$M" ] 2>/dev/null; then
 	    echo $(($N+$M))
 	else
 	    echo "$N"_"$M"
