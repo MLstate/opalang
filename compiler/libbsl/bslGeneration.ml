@@ -30,6 +30,8 @@ module BI = BslInterface
 module BR = BslRegisterLib
 module List = BaseList
 
+let ( / ) a b = a ^ "/" ^ b (* linux or cygwin compliant, ok for build see for user's space use *)
+
 let files_generated = ref 0
 
 type options = {
@@ -136,7 +138,7 @@ let opp_dir opt =
   if opt.no_opp then opt.build_dir
   else
     let opp = opt.bsl_pref ^ "." ^ BslConvention.Extension.plugin in
-    Filename.concat opt.build_dir opp
+    opt.build_dir / opp
 
 let output_prefix ?(mkdir=true) opt prefix filename =
   (*
@@ -153,7 +155,7 @@ let output_prefix ?(mkdir=true) opt prefix filename =
     output directory
   *)
   let directory = opp_dir opt in
-  let directory = Filename.concat directory dirname in
+  let directory = directory/dirname in
 
   (*
     eventually, check or create the directory
@@ -161,9 +163,11 @@ let output_prefix ?(mkdir=true) opt prefix filename =
   if mkdir then (
     if not (File.check_create_path directory) then
       OManager.error "cannot create directory %s" directory
+    else
+      OManager.printf "Ok, exists directory %s" directory
   );
 
-  let filename = Filename.concat directory filename in
+  let filename = directory/filename in
   filename
 
 let files_of_opt opt =
@@ -457,11 +461,11 @@ let may_add_format opt =
    Marshal should be used with binary channel
    for a win OS compatilibity *)
 let handle_open_out file =
-  try open_out_bin file
+  try open_out_bin (PathTransform.string_to_mysys file)
   with
   | Sys_error s ->
       OManager.error
-        "@[<2>@{<bright>bslregister@}: cannot open_out @{<bright>%s@}:@\n%s@]"
+        "@[<2>@{<bright>bslregister@}: cannot open_out opa file @{<bright>%s@}:@\n%s@]"
         file s
 
 let handle_close_out file oc =
