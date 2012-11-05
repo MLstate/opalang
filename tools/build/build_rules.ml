@@ -1154,7 +1154,7 @@ rule "opa bash_completion: opa-bin -> bash_completion"
 
 (* -- end misc -- *)
 
-(* -- begin opa2js -- *)
+(* -- begin opx2js -- *)
 
 rule "node-packages"
   ~deps:["opa-node-packages.stamp"]
@@ -1167,6 +1167,6 @@ rule "node-packages"
            ] @ List.map (fun p -> A p) packages))
   );
 
-(* -- end opa2js -- *)
+(* -- end opx2js -- *)
 
 () (* This file should be an expr of type unit *)
