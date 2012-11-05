@@ -73,7 +73,7 @@ MYOCAMLBUILD_SOURCES = \
 	$(BUILD_VARS) $(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
 
 $(BLDDIR)/config.ml: configure
-	@echo "Please (re)launch ./configure"
+	@echo "configure file has changed. Please (re)run ./configure"
 	@exit 1
 
 $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
