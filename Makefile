@@ -232,15 +232,15 @@ install-bld:
 	@$(INSTALL) $(BUILD_PATH)/gen_myocamlbuild.sh $(BUILD_PATH)/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
-maxmem: tools/maxmem.c
-	gcc tools/maxmem.c -o tools/maxmem
+maxmem: $(OPALANG_DIR)/tools/maxmem.c
+	gcc $(OPALANG_DIR)/tools/maxmem.c -o $(OPALANG_DIR)/tools/maxmem
 
 # installs some dev tools on top of the normal install; these should not change often
 install-all:: install install-bld maxmem
-	@$(INSTALL) tools/platform_helper.sh $(INSTALL_DIR)/bin/
-	@$(INSTALL) tools/maxmem $(INSTALL_DIR)/bin/
-	@rm tools/maxmem
-	@$(INSTALL) tools/plotmem $(INSTALL_DIR)/bin/
+	@$(INSTALL) $(OPALANG_DIR)/tools/platform_helper.sh $(INSTALL_DIR)/bin/
+	@$(INSTALL) $(OPALANG_DIR)/tools/maxmem $(INSTALL_DIR)/bin/
+	@rm $(OPALANG_DIR)/tools/maxmem
+	@$(INSTALL) $(OPALANG_DIR)/tools/plotmem $(INSTALL_DIR)/bin/
 
 ##
 ## DOCUMENTATION
