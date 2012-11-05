@@ -1187,7 +1187,7 @@ struct
          ignore(SumCondition.implies_decision condition decision);
          true
        with
-       | SumCondition.Inconsistency _ -> false
+       | SumCondition.Inconsistency -> false
     in
     (* the set of inconsistents field for this condition *)
     let inconsistent_absent_fields = FieldSet.filter (fun field -> not(check_field_constency false field)) fields in

@@ -117,7 +117,7 @@ let repartition_of_fields acc stm =
     (fun acc e ->
        match e with
        | J.Je_dot (_, _, field)
-       | J.Je_binop (_, J.Jb_hashref _, _, J.Je_string (_, field, _)) ->
+       | J.Je_binop (_, J.Jb_hashref , _, J.Je_string (_, field, _)) ->
            StringMap.add field ((try StringMap.find field acc with Not_found -> 0) + 1) acc
        | _ -> acc)
     acc stm

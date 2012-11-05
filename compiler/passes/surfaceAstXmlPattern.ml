@@ -33,11 +33,6 @@ let fresh_name = Parser_utils.fresh_name
 let (!) = C.E.ident
 let (&) = C.E.applys
 
-let option_bind e (pat,expr) =
-  C.E.match_opt e
-    (C.P.none (), C.E.none ())
-    (C.P.some pat, expr)
-
 let pattern_of_opt = function
   | None -> C.P.any ()
   | Some name -> C.P.ident name

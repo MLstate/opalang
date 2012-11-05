@@ -836,7 +836,7 @@ module Generator = struct
                                   "Try to select an id on %a" QmlPrint.pp#ty dty
                          ),
                          `expr uexpr::embed_field
-                     | DbAst.NewKey _
+                     | DbAst.NewKey
                      | DbAst.Query _ ->
                          QmlError.error context
                            "This kind of sub selection is not yet implemented by mongo generator")

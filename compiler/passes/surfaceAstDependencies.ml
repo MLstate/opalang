@@ -148,8 +148,6 @@ let merge_contexts merge_other empty_context contexts =
 (* should be consistent with merge *)
 let add_root s context = {context with db_roots = s :: context.db_roots}
 let add_group g context = {context with fields_groups = g :: context.fields_groups}
-let add_type t context = {context with types = t :: context.types}
-let add_types ts context = {context with types = ts @ context.types}
 let add_val v context = {context with vals = (v,None) :: context.vals}
 let add_vals vs context = {context with vals = List.map (fun v -> v,None) vs @ context.vals}
 let add_database context = {context with database = true}
@@ -158,7 +156,7 @@ let add_database context = {context with database = true}
    a declaration may contain many values *)
 type directive_dep = [ `magic_tostring | `magic_to_xhtml ]
 type dep = directive_dep list
-type dep_context = dep gen_dep_context
+type _dep_context = dep gen_dep_context
 let empty_dep_context = empty_gen_dep_context []
 let merge_dep_other = (@)
 let merge_dep_context = merge_context merge_dep_other
@@ -311,12 +309,12 @@ let get_code_elt_dep_context (code_elt_node, _label) =
     | Package _ -> assert false
 
 (* contains what a declaration has to offer *)
-type api = unit
-type api_context = api gen_dep_context
+(*type api = unit
+type api_context = api gen_dep_context*)
 let empty_api_context = empty_gen_dep_context ()
-let merge_api_other _ _ = ()
+(*let merge_api_other _ _ = ()
 let merge_api_context = merge_context merge_api_other
-let merge_api_contexts = merge_contexts merge_api_other empty_api_context
+let merge_api_contexts = merge_contexts merge_api_other empty_api_context*)
 
 (**
    [get_code_elt_api_context] gives you what is provided by a code_elt
@@ -389,12 +387,6 @@ let context_linker_cache iapis : context_linker_cache =
        List.fold_left (fun fields g -> FieldsMap.safe_add g i fields) fields api.fields_groups,
        (if api.database then i :: database else database)
     ) empty_context_linker_cache iapis
-
-let identmap_find i m =
-  match IdentMap.find_opt i m with
-    | None ->
-        OManager.i_error "SurfaceAstDependencies.identmap_find: %s\n%!" (Ident.to_string i)
-    | Some v -> v
 
 let get_deps ((vals,types,db_roots,_fields,database):context_linker_cache) ideps =
   List.map
@@ -533,11 +525,6 @@ let reorder_toplevel ?roots create_groups lcode =
   let lcode = List.concat_map special_flatten declss in
   debug "end" pp_code lcode;
   lcode
-
-let safe_union s1 s2 =
-  let s = IdentSet.union s1 s2 in
-  assert (IdentSet.cardinal s1 + IdentSet.cardinal s2 = IdentSet.cardinal s);
-  s
 
 let get_all_deps get_var_set bindings =
   let names, exprs = List.split bindings in
@@ -694,7 +681,7 @@ let module_names ident_expr_list =
    association list) contains a mapping from [field1] to [ident1]
    This simplification is done recursively if possible
 *)
-let rec resolve_path :
+let resolve_path :
     _ ->
       ((string * (access * Ident.t)) list IdentMap.t)
         -> Ident.t -> (string * QmlLoc.annot) list

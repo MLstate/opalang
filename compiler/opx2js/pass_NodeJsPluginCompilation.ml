@@ -268,7 +268,7 @@ and project level gamma expr (ty:QmlAst.ty) way =
   match ty with
   | Q.TypeConst _
   | Q.TypeVar _
-  | Q.TypeAbstract _ -> false, expr
+  | Q.TypeAbstract -> false, expr
   | Q.TypeArrow (args, ret) -> project_lambda level gamma args ret expr way
   | Q.TypeRecord Q.TyRow (fields, _rvar) ->
       let fields, proj = List.fold_right_map

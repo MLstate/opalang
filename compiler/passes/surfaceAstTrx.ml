@@ -23,7 +23,6 @@
 module Parser_utils = OpaParserUtils
 
 open Trx_ast
-open SurfaceAst
 open SurfaceAstHelper
 
 let opt_compile_ranges = true
@@ -65,13 +64,10 @@ let (&) = C.E.applys
 let (<.>) = C.E.dot
 
  (* FIXME, this should go to SurfaceAstCons or similar module *)
-let opa_plus e1 e2 = (!"Int" <.> "add") & [e1; e2]
 let opa_eq e1 e2 = (!"Int" <.> "==") & [e1; e2]
-let opa_gt e1 e2 = (!"Int" <.> ">") & [e1; e2]
 let opa_ge e1 e2 = (!"Int" <.> ">=") & [e1; e2]
 let opa_and e1 e2 = (!"&&") & [e1; e2]
 let opa_or e1 e2 = (!"||") & [e1; e2]
-let opa_string_length src = (!"String" <.> "length") & [src]
 
 let itextrator_next e = (!"Itextrator" <.> "next") & [e]
 
@@ -270,7 +266,7 @@ and translate_suffix ~nested ~res_needed input (i, loc) =
   SurfaceAstCons.with_label loc generate
 
 and translate_primary ~nested ~res_needed input (p, loc) =
-  let rec generate p =
+  let generate p =
     match p with
     | Parens e ->
         translate_expression ~nested ~res_needed input e

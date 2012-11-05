@@ -271,8 +271,8 @@ type server_code_kind =
 (**
    A weakened form of type [privacy], exported to the rest of the compiler
 *)
-type publication = [ `Published of [`sync | `async | `funaction ]
-                   | `Private ]
+(*type publication = [ `Published of [`sync | `async | `funaction ]
+                   | `Private ]*)
 
 type privacy =
   | Published of bool (* the bool indicate that the publish was implicit *)
@@ -658,8 +658,8 @@ struct
   include G
   let iter_succ f graph node =
     iter_succ (fun node -> match node.privacy with Published _ -> () | _ -> f node) graph node
-  let exists_succ f graph node =
-    exists_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node) graph node
+  (*let exists_succ f graph node =
+    exists_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node) graph node*)
   let find_succ f graph node =
     find_succ (fun node -> match node.privacy with Published _ -> false | _ -> f node)  graph node
   let find_opt_succ f graph node =
@@ -776,7 +776,7 @@ let pp_private_path pp_pos f info =
  * this function contains some bugs anyway *)
 let direct_dep_on_the_server env node =
   let informations = env.informations in
-  let rec aux tra bnds = function
+  let aux tra bnds = function
     | Q.Lambda _ -> true
     | Q.Ident (_, i) as expr -> (
         (* we don't have to care about recursive deps

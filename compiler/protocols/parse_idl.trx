@@ -21,8 +21,6 @@ read ocaml_keywords.trx
 read ocaml_parser.trx
 
 types:{{
-open Ocaml
-open Tgrammar
 
 type idl =
   | IDLLet of Ocaml.expr

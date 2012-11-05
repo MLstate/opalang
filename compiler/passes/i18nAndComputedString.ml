@@ -104,8 +104,6 @@ let warning_set =
 module SA = SurfaceAst
 module SAC = SurfaceAstCons.ExprIdentCons
 
-let copy_label v = {v with QmlLoc.notes = SurfaceAstCons.Fresh.id ()}
-
 (* generate a call to directive i18n_lang (or equivalent form *)
 (* when cleaning of js code must be done, shoud really use the directive to simplify code analysis *)
 let i18n_lang () =
@@ -272,9 +270,9 @@ let generate_declaration_custom f tf =
   Format.fprintf f "  _   -> %a" OpaPrint.readable_ident#expr tf.default_expr
 
 (* same from an AST *)
-let generate_declaration f tf =
+(*let generate_declaration f tf =
   let pat_id = SurfaceAstCons.with_same_pos tf.initial_expr (fun()-> SAC.P.var (template_ident_cons tf.id)) in
-  Format.fprintf f "%a\n\n" OpaPrint.readable_ident#code_elt_node (SA.NewVal ([pat_id,tf.body],false))
+  Format.fprintf f "%a\n\n" OpaPrint.readable_ident#code_elt_node (SA.NewVal ([pat_id,tf.body],false))*)
 
 (* generate the source of a translation package *)
 let generate_opa_file name collection target =
@@ -414,8 +412,3 @@ let process_directives__i18n__string ~options env =
     end;
     exit 0
   ) else replace_directives__i18n__string ~i18n_dir:i18n.dir ~i18n_pkg:i18n.pkg env
-
-let process_directives__i18n_lang ~options env =
-  let  _ = options in
-  env
-

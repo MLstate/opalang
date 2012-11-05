@@ -134,7 +134,7 @@ let index_of str a = Array.fold_left_i (fun ii b i -> if b = str then i else ii)
 
 let iter_norpt f a = ignore (Array.fold_left (fun dn x -> if List.mem x dn then dn else (f x; x::dn) ) [] a)
 
-let rec mktab1 ?(header="")
+let mktab1 ?(header="")
                ?(prefix="is")
                ?(failfn_opt=None)
                ?(ci = false)

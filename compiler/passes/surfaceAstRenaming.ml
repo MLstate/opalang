@@ -109,11 +109,6 @@ type var_in_scope =
   | Normal of Ident.t
   | OpenedIdent of string Tree.t * Ident.t * string list
 
-type scope_env =
-    { scope_vars : var_in_scope StringMap.t;
-      scope_types : Ident.t StringMap.t ;
-    }
-
 (* these properties are used to issue warnings *)
 type properties =
     { used : bool
@@ -175,16 +170,6 @@ type env = {
 (*---------- debug printing -----------*)
 (*-------------------------------------*)
 
-let pp_key f map =
-  StringMap.iter (fun name key ->
-                    let is_m =
-                      match key with
-                        | [OpenedIdent _] -> true
-                        | _ -> false in
-                    Printf.fprintf f "%s-%d-%B " name (List.length key) is_m
-                 ) map;
-  Printf.fprintf f "\n\n%!"
-
 let pp_stringmap_aux p f set =
   StringMap.iter (fun k v -> Format.fprintf f "@ (%S,%a);" k p v) set
 let pp_stringmap p f map =
@@ -215,16 +200,13 @@ let pp_folding_env f {fglobal=fglobal; _} =
   Format.fprintf f "{fglobal=%a; ...}"
     (pp_identmap pp_information) fglobal
 let pp_local_env = pp_fixme
-let pp_all_envs ff {t = t; l = l; f = f} =
+let _pp_all_envs ff {t = t; l = l; f = f} =
   Format.fprintf ff "@[@[<v 2>{@,@[<2>t:@ %a@]@ \
                                  @[<2>l:@ %a@]@ \
                                  @[<2>f:@ %a@]@]@,}@]"
     pp_toplevel_env t
     pp_local_env l
     pp_folding_env f
-let print_and_return env =
-  Format.printf "%a@." pp_all_envs env;
-  env
 
 (*-------------------------------*)
 (*--------- hierarchy -----------*)
@@ -279,19 +261,6 @@ let empty_folding_env =
   ; data = ()
   }
 
-let empty_toplevel_env =
-  { tnames = StringMap.empty
-  ; ttypes = StringMap.empty
-  }
-
-let empty_envs =
-  { t = empty_toplevel_env
-  ; l = empty_local_env
-  ; f = empty_folding_env
-  }
-
-let with_typevars r t =
-  {r with f = {r.f with ftypevars = t }}
 let with_tnames r tnames =
   {r with t = {r.t with tnames = tnames }}
 let with_data r v =
@@ -379,27 +348,6 @@ and tree_option_of_expr name e =
 (*----------------------------------*)
 (*---- error/warning management ----*)
 (*----------------------------------*)
-let typ_merge_error i j =
-  let p1, p2 = Ident.get_package_name i, Ident.get_package_name j in
-  OManager.error "Conflicts beetwen packages @{<bright>%s@} and @{<bright>%s@} : both define type @{<bright>%s@}" p1 p2 (Ident.original_name i)
-
-let val_merge_error i j =
-  let p1, p2 = Ident.get_package_name i, Ident.get_package_name j in
-  OManager.error "Conflicts beetwen packages @{<bright>%s@} and @{<bright>%s@} : both define value @{<bright>%s@}" p1 p2 (Ident.original_name i)
-
-(* Gives you an advice when you have an unbound variable *)
-let filter_closest name li =
-  let dist = (float_of_int (String.length name)) *. 2. /. 3. in
-  let li = List.filter (fun (_, d) -> d < dist) li in
-  let li =
-    List.fold_left (fun (li, (old, delta)) (name, d) ->
-                      let d' =  old -. d in if d' <= delta
-                      then ((name, d)::li, (d, d'))
-                      else (li, (old, delta)) ) ([], (0., dist)) li |> fst |> List.rev in
-  li
-let get_closest_field_names typo l =
-  HintUtils.get_closest_names (List.map fst l) typo
-
 (* Error/Warning: Using OpaError *)
 
 let exists_duplicatesL0 = ref false
@@ -414,7 +362,6 @@ let print_duplicatesL0 () =
 let make_placeholder label name = ident_of_string ~label "renaming_placeholder" (fake_hierar name)
 let is_placeholder ident = Ident.original_name ident = "renaming_placeholder"
 let pos_of_label label = QmlLoc.pos label
-let string_of_label label = FilePos.to_string (pos_of_label label)
 (* Following the standard layout for error messages *)
 let make_error error label fmt =
   let context = OpaError.Context.pos (pos_of_label label) in
@@ -633,12 +580,6 @@ let use_var ident all_env =
         Not_found ->
           all_env
 
-let add_type name hierar all_env label =
-  let ident = ident_of_string ~label name hierar in
-  let infos = init_property ~exported:true ~is_type:true ident label in
-    {all_env with l = {all_env.l with ltypes = StringMap.add name ident all_env.l.ltypes};
-                  f = {all_env.f with fglobal = IdentMap.add ident infos all_env.f.fglobal}},
-  ident
 let push_in_front k v map = try StringMap.add k (v :: (StringMap.find k map)) map with Not_found -> StringMap.add k [v] map
 let add_global_type name hierar all_env label =
   let ident = ident_of_string ~label name hierar in
@@ -853,9 +794,6 @@ let rec f_typeinstance_node label all_env hierar (Typeident ident,tyl) =
   let f_env, tyl = f_tys {all_env with f = f_env} hierar tyl in
   f_env, (Typeident ident, tyl)
 
-and f_arrow_t all_env hierar (arrow_t_node, label) =
-  let f_env, arrow_t_node = f_arrow_t_node all_env hierar arrow_t_node in
-  f_env, (arrow_t_node, label)
 and f_arrow_t_node all_env hierar (row_t, ty) =
   let f_env, row_t = f_row_t all_env hierar row_t in
   let f_env, ty = f_ty {all_env with f = f_env} hierar ty in
@@ -1061,11 +999,6 @@ let f_ty_make_ext func ~empty_type_env ~give_original all_env hierar v =
 *)
 let f_ty_ext ~empty_type_env =
   f_ty_make_ext f_ty ~empty_type_env
-let f_arrow_t_ext ~empty_type_env =
-  f_ty_make_ext f_arrow_t ~empty_type_env
-let f_flatvars_ext label ~empty_type_env =
-  f_ty_make_ext (f_list_aux (f_flatvar label)) ~empty_type_env
-
 
 
 (*------------------------------*)
@@ -1095,41 +1028,6 @@ let f_typedef all_env hierar (tyvl,ty) =
   (* discarding everything from the renaming of the ty but the global_env *)
   let all_env = {all_env with f = {f_env with data = original_data; ftypevars = original_ftypevars}} in
   all_env, (tyvl, ty)
-
-let f_typedefs all_env hierar typedefs =
-  check_unicity
-    ~case: "a type definition"
-    ~compare_by:
-      (fun ({ SurfaceAst.ty_def_name = Typeident i ; _ }, label) -> (i, label))
-    typedefs ;
-  let all_env, l =
-    List.fold_left
-      (fun (all_env, l)
-         ({
-            SurfaceAst.ty_def_options = options ;
-            SurfaceAst.ty_def_visibility = visibility ;
-            SurfaceAst.ty_def_name = Typeident name ;
-            SurfaceAst.ty_def_params = c ;
-            SurfaceAst.ty_def_body = d ;
-          }, e) ->
-           let (all_env, ident) = add_type name hierar all_env e in
-         all_env, (options, visibility, ident, c, d, e) :: l)
-      (all_env,[]) typedefs in
-  (* The list of types is reversed once, but it doesn't matter since there is
-     no ambiguity (no types occurs several times in the list). *)
-  List.fold_left
-    (fun (all_env, l) (options, visibility, ident, tyvl, ty, e) ->
-       let (all_env, (tyvl, ty)) = f_typedef all_env hierar (tyvl, ty) in
-       all_env, (
-         {
-           SurfaceAst.ty_def_options = options ;
-           SurfaceAst.ty_def_visibility = visibility ;
-           SurfaceAst.ty_def_name = Typeident ident ;
-           SurfaceAst.ty_def_params = tyvl ;
-           SurfaceAst.ty_def_body = ty ;
-         }, e) :: l)
-    (all_env, []) l
-
 
 (*------------------------------*)
 (*---- renaming for patterns ---*)
@@ -1294,11 +1192,6 @@ let path_expr_to_fields e all_env =
           List.filter (fun t -> List.mem (Tree.value t) opened_field) children
         in
           opened_trees, ident, path
-
-(* env2 overwrites env1 if they have common keys *)
-let merge_env env1 env2 =
-  {env1 with lnames = StringMap.fold StringMap.add env2 env1.lnames}
-
 
 (*------------------------------*)
 (*-- renaming for expressions --*)
@@ -1803,7 +1696,7 @@ let update_toplevel_names all_env pel rec_ =
 (*-----------------------------*)
 (*----- renaming newvals ------*)
 (*-----------------------------*)
-let rec f_code_elt_node all_env : _ -> _ * (_,_) code_elt_node list = function
+let f_code_elt_node all_env : _ -> _ * (_,_) code_elt_node list = function
   | `NewVal (envpel,rec_) ->
       let pel = List.map (fun (_env,p,e) -> (p,e)) envpel in
       let all_env,make_all_env_after,rec_ = update_toplevel_names all_env pel rec_ in

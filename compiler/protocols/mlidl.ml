@@ -392,7 +392,7 @@ let opa_arg_type_cte = function
   | O.TypeBool -> "opa[bool]"
   | O.TypeUnit -> "opa[void]"
 
-let rec opa_arg_type_te name = function
+let opa_arg_type_te name = function
   | O.TypeConst cte -> opa_arg_type_cte cte
   | _ -> sprintf "opa[%s_%s]" !mns name
 
@@ -1712,7 +1712,7 @@ let create_opa_type tyns = function
        | _ -> type_opa_te tyns te)
   | te -> type_opa_te tyns te
 
-let rec create_te_fn tyns name = function
+let create_te_fn tyns name = function
   | O.TypeName (tes,tn) -> [], [], [], ""
   | O.TypeConst cte -> ["__"^name], [type_ocaml_cte cte], [type_opa_cte cte], ("__"^name)
   | O.TypeTuple tes ->

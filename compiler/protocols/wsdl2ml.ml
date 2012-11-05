@@ -68,7 +68,7 @@ let geturl url =
 
 (*let get_tree_url url = WC.get_tree_string (geturl url)*)
 
-let rec resolve_imports (ns,(dtd,tree)) =
+let resolve_imports (ns,(dtd,tree)) =
   raise (Failure "resolve_imports: Not implemented")
   (*let rec aux imps = function
     | WC.E (((_,"import"),atts) as name, trees) ->
@@ -168,11 +168,9 @@ let get_idx idmap _type =
 let sidmap idmap = String.sconcat ~left:"[" ~right:"]" "; " (List.map (fun (t,i) -> sprintf "(%s,%d)" (ste t) i) idmap)
 
 let rec inslst a l =
-  let rec aux = function
+  match l with
     | [] -> [a]
     | (h::t) as l -> if h = a then l else h::(inslst a t)
-  in
-  aux l
 
 let single_type ctxt name t =
   eprintf "single_type: name=%s t=%s\n%!" name (ste t);
@@ -557,15 +555,13 @@ and get_elements top ctxt oc trees =
                     (ctxt,acc@els)) (ctxt,[]) els
 
 let get_schemas ctxt oc tree =
-  let rec aux = function
+  match tree with
     | WC.E (((_,"schema"),atts), trees) ->
         let _efd = WC.find_att ("", "elementFormDefault") atts in
         let _targns = WC.find_att ("", "targetNamespace") atts in
         (*eprintf "schema\n";*)
         get_elements true ctxt oc trees
     | _ -> ctxt, []
-  in
-  aux tree
 
 (* Start of generation phases *)
 
@@ -1529,7 +1525,7 @@ let extfile filename suffix ext =
 let files = ref ([]:string list)
 let it_ref = ref Idx
 
-let rec get_names trees =
+let get_names trees =
   let aux acc = function
     | WC.E (((_,("complexType"|"element")),atts),trees) ->
         (match WC.find_att ("","name") atts with

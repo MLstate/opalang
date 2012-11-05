@@ -164,7 +164,7 @@ let get_sects name opts = function
        "\n    let p = %n in\n    "^skip^(S.concat "" lets),
        "("^name^" ("^(S.concat ", " vs)^"))")
 
-let rec map_pre_to_cons lst pre =
+let map_pre_to_cons lst pre =
   match L.fold_left (fun l (p,n) -> if p = pre then n::l else l) [] lst with
   | [] -> eprintf "map_pre_to_cons: no matches\n"; flush stderr; ("%n","","<no matches>")
   | [(G.Raw (name,(p,opts),sects))] -> get_sects name opts sects

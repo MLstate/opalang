@@ -669,7 +669,7 @@ let aux_boolean
       try
         SumAnalysis.decisions menv.condition analysed_sum_case
       with
-      | SumCondition.Inconsistency _ ->
+      | SumCondition.Inconsistency ->
           unused_pattern ()
     in
     if Option.is_none decisions
@@ -918,7 +918,7 @@ let aux_pattern ~env ~penv ~menv ~matched ~pat =
                 the pattern is invalidated statically.
                 This is a dead pattern, we simply skip it of the code.
               *)
-            | SumCondition.Inconsistency _ ->
+            | SumCondition.Inconsistency ->
                 (*
                   FIXME: what wclass should we use there ?
                   Probably a part of this analysis will be done by a common pass to the server and
@@ -1181,7 +1181,7 @@ let aux_pattern ~env ~penv ~menv ~matched ~pat =
         try
           Impl.fold_right SumCondition.add_implication implications condition
         with
-        | SumCondition.Inconsistency _ ->
+        | SumCondition.Inconsistency ->
             (*
               This is an internal error.
               If we end-up there, that means that the condition is equivalent to [False],
