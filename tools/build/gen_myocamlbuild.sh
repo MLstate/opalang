@@ -94,7 +94,9 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
     for i in $BUILD_TOOLS; do
         if [ -e "$i" ]; then
 	    DIR=$(echo $i | cut -d "/" -f1)
-	    if [ $DIR = "." ]; then
+	    if [ "$DIR" = "." ]; then
+		PREFIX=""
+	    elif [ "$DIR" = "" ]; then
 		PREFIX=""
 	    else
 		PREFIX="$DIR/"
@@ -108,7 +110,9 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
     for i in $BUILD_LIBS; do
         if [ -e "$i" ]; then
 	    DIR=$(echo $i | cut -d "/" -f1)
-	    if [ $DIR = "." ]; then
+	    if [ "$DIR" = "." ]; then
+		PREFIX=""
+	    elif [ "$DIR" = "" ]; then
 		PREFIX=""
 	    else
 		PREFIX="$DIR/"
