@@ -38,7 +38,7 @@ $(TARGETDIR)/%.1: %.man
 # second run specific manpage generation programs
 # --
 $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native: $(OPALANG_DIR)/compiler/opa/gen_opa_manpage.ml
-	$(OCAMLBUILD) $(OPALANG_PREFIX)compiler/opa/gen_opa_manpage.native
+	$(OCAMLBUILD) opabsl.qmljs.stamp $(OPALANG_PREFIX)compiler/opa/gen_opa_manpage.native
 
 $(TARGETDIR)/opa.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.native
 	@mkdir -p $(TARGETDIR)
@@ -46,7 +46,7 @@ $(TARGETDIR)/opa.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opa/gen_opa_manpage.nat
 	gzip -f --best $@
 
 $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native: $(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.ml
-	$(OCAMLBUILD) $(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native
+	$(OCAMLBUILD) opabsl.qmljs.stamp $(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native
 
 $(TARGETDIR)/opatop.1: $(BUILD_DIR)/$(OPALANG_DIR)/compiler/opatop/gen_opatop_manpage.native
 	@mkdir -p $(TARGETDIR)
