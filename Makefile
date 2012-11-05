@@ -232,8 +232,11 @@ install-bld:
 	@$(INSTALL) $(BUILD_PATH)/gen_myocamlbuild.sh $(BUILD_PATH)/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
+maxmem: tools/maxmem.c
+	gcc tools/maxmem.c -o tools/maxmem
+
 # installs some dev tools on top of the normal install; these should not change often
-install-all:: install install-bld tools/maxmem
+install-all:: install install-bld maxmem
 	@$(INSTALL) tools/platform_helper.sh $(INSTALL_DIR)/bin/
 	@$(INSTALL) tools/maxmem $(INSTALL_DIR)/bin/
 	@rm tools/maxmem
