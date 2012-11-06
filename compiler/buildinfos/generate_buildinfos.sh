@@ -83,7 +83,7 @@ done
 REPOS="$ROOT_REPO"
 PATH_TO_REPOS="repos"
 
-git_version_cmd () { git log --pretty=oneline | wc -l; }
+git_version_cmd () { git log --pretty=oneline | wc -l | tr -d " "; }
 git_sha_cmd ()     { git log -n1 --pretty=format:%h; }
 git_date_cmd ()    { git log -n1 --pretty=format:%ad --date=short; }
 
