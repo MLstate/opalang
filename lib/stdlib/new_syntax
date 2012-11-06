@@ -2,3 +2,4 @@ lib/stdlib/apis/mongo/gridfs.opa
 lib/stdlib/core/web/client/xhr.opa
 lib/stdlib/meteor/spark/spark.opa
 lib/stdlib/meteor/spark/reactive.opa
+lib/stdlib/apis/apigenlib/apigenlib.opa
