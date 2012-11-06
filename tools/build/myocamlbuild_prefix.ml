@@ -306,7 +306,7 @@ let _ = dispatch begin function
 	    if String.get dir 0 == '/' then lib
 	    else dir/lib
 	| None  -> lib in
-        ocaml_lib ~extern ?dir ~tag_name lib;
+        ocaml_lib ~extern ~byte:false ~native:true ?dir ~tag_name lib;
         match dir with Some dir -> flag ["use_"^lib; "doc"] (S[A"-I"; P dir])
         | None -> ()
       in
