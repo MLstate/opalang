@@ -1,2 +1,3 @@
 lib/stdlib/apis/mongo/gridfs.opa
 lib/stdlib/core/web/client/xhr.opa
+lib/stdlib/apis/apigenlib/apigenlib.opa
