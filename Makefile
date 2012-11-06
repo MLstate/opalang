@@ -241,6 +241,7 @@ install-all:: install install-bld maxmem
 	@$(INSTALL) $(OPALANG_DIR)/tools/maxmem $(INSTALL_DIR)/bin/
 	@rm $(OPALANG_DIR)/tools/maxmem
 	@$(INSTALL) $(OPALANG_DIR)/tools/plotmem $(INSTALL_DIR)/bin/
+	@printf "All Installation into $(INSTALL_DIR) done.[K\n"
 
 ##
 ## DOCUMENTATION
