@@ -601,7 +601,7 @@ let _ = dispatch begin function
 	let dir = prefix_me dir in
         let file = dir / "lib" ^ name -.- !Options.ext_lib in
         dep ["ocaml"; tag] [file];
-        flag ["ocaml"; "byte"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name);A"-custom"]);
+        (* flag ["ocaml"; "byte"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name);A"-custom"]); *)
         flag ["ocaml"; "native"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name)]);
       in
 
