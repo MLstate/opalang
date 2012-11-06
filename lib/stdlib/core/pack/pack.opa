@@ -208,7 +208,7 @@ type Pack.u =
  / {Float:float}
  / {Float:float; le:bool}
  / {Coded:Pack.codes}
- / {List:(Pack.data,list(Pack.data)); null_terminated}
+ / {List:(Pack.data,list(Pack.data)); null:Pack.s}
  / {List:(Pack.data,list(Pack.data))}
  / {List:(Pack.data,list(Pack.data)); le:bool}
  / {List:(Pack.data,list(Pack.data)); size:Pack.s}
@@ -989,7 +989,7 @@ Pack = {{
       | ({Float=_},{Float=_}) -> true
       | ({Float=_; le=le1},{Float=_; le=le2}) -> le1 == le2
       | ({Coded=_},{Coded=_}) -> true
-      | ({List=_; null_terminated},{List=_; null_terminated}) -> true
+      | ({List=_; null=null1},{List=_; null=null2}) -> null1 == null2
       | ({List=_},{List=_}) -> true
       | ({List=_; le=le1},{List=_; le=le2}) -> le1 == le2
       | ({List=_; size=s1},{List=_; size=s2}) -> s1 == s2
@@ -1052,10 +1052,12 @@ Pack = {{
         end
       | {~failure} -> (le, signed, s, {~failure})
 
-    ntlist(buf:Pack.t, le:bool, signed:bool, s:Pack.s, typ:Pack.data, data:list(Pack.data))
+    ntlist(buf:Pack.t, le:bool, signed:bool, s:Pack.s, null:Pack.s, typ:Pack.data, data:list(Pack.data))
          : (bool, bool, Pack.s, outcome(void,string)) =
       match do_list(buf, le, signed, s, typ, data) with
-      | (le, signed, size, {success=_}) -> (le, signed, size, octet(buf,0))
+      | (le, signed, size, {success=_}) ->
+         f = match null with | {B} -> octet | {S} -> ushort_le | {L} -> ulong_le | {Ll} -> longlong_le end
+         (le, signed, size, f(buf,0))
       | (_, _, _, {~failure}) -> (le, signed, s, {~failure})
 
     // pack item length
@@ -1111,8 +1113,8 @@ Pack = {{
          then (s,icnt,_) = packitemsize(s,code) (s,dcnt) = packdatasize(s,data) (s, icnt + dcnt, 0)
          else (s,0,0) // Bad code
       | {Coded=_} -> (s,0,0) // Will generate error
-      | {List=(_,l); null_terminated} ->
-         List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,1,0))
+      | {List=(_,l); ~null} ->
+         List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(null),0))
       | {List=(_,l); ~size; ...} ->
          List.fold((data, (s,cnt,bnd) -> (s,dcnt) = packdatasize(s, data) (s, cnt+dcnt, bnd)),l,(s,sizesize(size),0))
       | {List=(_,l); ...} ->
@@ -1280,7 +1282,7 @@ Pack = {{
          then coded(buf, le, signed, size, code, data)
          else (le, signed, size, {failure="Pack.Encode.pack: Coded has invalid code {code}"})
       | {Coded=_} -> (le, signed, size, {failure="Pack.Encode.pack: Coded has multiple codes"})
-      | {List=(t,l); null_terminated} -> ntlist(buf, le, signed, size, t, l)
+      | {List=(t,l); ~null} -> ntlist(buf, le, signed, size, null, t, l)
       | {List=(t,l)} -> list(buf, le, size, le, signed, size, t, l)
       | {List=(t,l); le=ple} -> list(buf, ple, size, le, signed, size, t, l)
       | {List=(t,l); size=ps} -> list(buf, le, ps, le, signed, size, t, l)
@@ -1988,6 +1990,21 @@ Pack = {{
       | {success=(le, signed, size, npos, item)} -> {success=(le, signed, size, npos, [item|data])}
       | {~failure} -> {~failure}
 
+    /** Decode a null-terminated list.
+     */
+    ntlist(lora:bool, typ:Pack.data, null:Pack.s, bin:Pack.t, pos:int) : outcome((int, Pack.u),string) =
+      do pinput("Pack.Decode.ntlist",{binary=bin; ~pos})
+      rec aux(l, pos) =
+        match unpack([{Int=0; size=null; signed=false}], bin, pos) with
+        | {success=(npos,[{Int=0; ...}])} ->
+           {success=(npos, mksla(lora, none, none, typ, List.rev(l)))}
+        | _ ->
+          match unpack(typ, bin, pos) with
+          | {success=(npos,ndata)} -> aux([ndata|l], npos)
+          | {~failure} -> {~failure}
+          end
+      aux([], pos)
+
     /** Decode a coded value.
      *
      * Since this function is out of context and packing data can change the
@@ -2252,7 +2269,10 @@ Pack = {{
              | {success=Float} -> {success=(le, signed, size, pos+8, [{~Float; le=actual_le}|data])}
              | {~failure} -> {~failure})
          | {~Coded} -> unpack_coded(Coded, data, le, signed, size, bin, pos)
-         | {List=(_,_); null_terminated} -> @fail("no decode for ntlists, yet")
+         | {List=(typ,_); ~null} ->
+            (match ntlist(true, typ, null, bin, pos) with
+             | {success=(pos, item)} -> {success=(le, signed, size, pos, [item|data])}
+             | {~failure} -> {~failure})
          | {List=(typ,_)} -> unpack_list(true, {none}, {none}, le, signed, size, typ, bin, pos, data)
          | {List=(typ,_); le=ple} -> unpack_list(true, {some=ple}, {none}, le, signed, size, typ, bin, pos, data)
          | {List=(typ,_); size=ps} -> unpack_list(true, {none}, {some=ps}, le, signed, size, typ, bin, pos, data)
@@ -2787,6 +2807,25 @@ Pack = {{
              end
          aux(input, 0, [])
       | {~failure} -> {~failure}
+
+    /** Unpack a null-terminated list of values.
+     * @param a function to unpack the values
+     * @param null the width for the null value
+     * @param input the input value
+     * @result a Pack.result of a list of values of the type returned by the unpack function
+     **/
+    ntlist(a:Pack.input -> Pack.result('a), null:Pack.s, input:Pack.input) : Pack.result(list('a)) =
+      do pinput("Pack.Unser.ntlist", input)
+      rec aux(input, l) =
+        match int(false, false, null, input) with
+        | {success=(input,0)} ->
+          {success=(input,List.rev(l))}
+        | _ ->
+          match a(input) with
+          | {success=(input, v:'a)} -> aux(input, [v|l])
+          | {~failure} -> {~failure}
+          end
+      aux(input, [])
 
     /** Unpack array of values.
      * @param a function to unpack the values
