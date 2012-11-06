@@ -1752,7 +1752,7 @@ Pack = {{
       do pinput("Pack.Decode.string",{binary=data; ~pos})
       match
         match (le, size) with
-        | (_, {B}) -> (pos+1,uoctet(data, pos))
+        | (_, {B}) -> (pos+1,octet(data, pos))
         | ({false}, {S}) -> (pos+2,short_be(data, pos))
         | ({true}, {S}) -> (pos+2,short_le(data, pos))
         | ({false}, {L}) -> (pos+4,long_be(data, pos))
@@ -1761,12 +1761,15 @@ Pack = {{
         | ({true}, {Ll}) -> (pos+8,longlong_le(data, pos))
       with
       | (pos,{success=len}) ->
-         (match get_payload(payload, data, pos) with
-          | {success=(pos,payload)} ->
-             if Binary.length(data) >= pos + len
-             then {success=(payload,Binary.get_string(data, pos, len))}
-             else {failure="Pack.Decode.string: not enough data for string"}
-          | {~failure} -> {~failure})
+         if len <= 0
+         then {success=([],"")}
+         else
+           (match get_payload(payload, data, pos) with
+            | {success=(pos,payload)} ->
+               if Binary.length(data) >= pos + len
+               then {success=(payload,Binary.get_string(data, pos, len))}
+               else {failure="Pack.Decode.string: not enough data for string"}
+            | {~failure} -> {~failure})
       | (_,{~failure}) -> {~failure}
 
     /** Decode unprefixed string
@@ -1821,22 +1824,25 @@ Pack = {{
       do pinput("Pack.Decode.binary",{binary=data; ~pos})
       match
         match (le, size) with
-        | (_, {B}) -> uoctet(data, pos)
-        | ({false}, {S}) -> short_be(data, pos)
-        | ({true}, {S}) -> short_le(data, pos)
-        | ({false}, {L}) -> long_be(data, pos)
-        | ({true}, {L}) -> long_le(data, pos)
-        | ({false}, {Ll}) -> longlong_be(data, pos)
-        | ({true}, {Ll}) -> longlong_le(data, pos)
+        | (_, {B}) -> (pos+1,octet(data, pos))
+        | ({false}, {S}) -> (pos+2,short_be(data, pos))
+        | ({true}, {S}) -> (pos+2,short_le(data, pos))
+        | ({false}, {L}) -> (pos+4,long_be(data, pos))
+        | ({true}, {L}) -> (pos+4,long_le(data, pos))
+        | ({false}, {Ll}) -> (pos+8,longlong_be(data, pos))
+        | ({true}, {Ll}) -> (pos+8,longlong_le(data, pos))
       with
-      | {success=len} ->
-         (match get_payload(payload, data, pos) with
-          | {success=(pos,payload)} ->
-             if Binary.length(data) > pos + len
-             then {success=(payload,Binary.get_binary(data, pos + 1, len))}
-             else {failure="Pack.Decode.binary: not enough data for binary"}
-          | {~failure} -> {~failure})
-      | {~failure} -> {~failure}
+      | (pos,{success=len}) ->
+         if len <= 0
+         then {success=([],Binary.create(0))}
+         else
+           (match get_payload(payload, data, pos) with
+            | {success=(pos,payload)} ->
+               if Binary.length(data) >= pos + len
+               then {success=(payload,Binary.get_binary(data, pos, len))}
+               else {failure="Pack.Decode.binary: not enough data for binary"}
+            | {~failure} -> {~failure})
+      | (_,{~failure}) -> {~failure}
 
     /** Decode unprefixed binary
      *  This routine assumes that all the remaining data is part of the binary.
