@@ -18,6 +18,7 @@ internal libbase	  	      ocamllib/libbase
 #internal libruntime	  	      ocamllib/libruntime
 #internal libsecurity	  	      ocamllib/libsecurity
 #internal oparuntime	  	      ocamllib/oparuntime
+internal libjsminify				ocamllib/libjsminify
 
 internal js_passes	  	      compiler/js_passes
 internal buildinfos		      compiler/buildinfos
