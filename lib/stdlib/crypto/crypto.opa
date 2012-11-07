@@ -34,6 +34,13 @@ type Crypto.RSA.key = external
 
 Crypto = {{
 
+  /**
+   * Returns a cryptographically strong pseudo-random binary data.
+   * @param length The length of the binary data to generate
+   * @return A cryptographically strong pseudo-random binary data.
+   */
+  random(length) = %%BslCrypto.secure_random%%(length)
+
   Base64 = {{
 
     encode =  %% BslCrypto.base64_encode %% : binary -> string
