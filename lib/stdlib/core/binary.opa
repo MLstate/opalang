@@ -611,6 +611,39 @@ Binary = {{
   get_double_be : binary, int -> float = %%BslBinary.get_double_be%%
   get_double_ber : binary, int -> outcome(float,string) = %%BslBinary.get_double_ber%%
 
+  /**
+   * The default order of binary data.
+   */
+  order : order(binary, Order.default) = Order.make(ordering)
+
+  /**
+   * Return an ordering of two binary data.
+   */
+  ordering(bin1, bin2) =
+    len1 = length(bin1)
+    len2 = length(bin2)
+    match Int.ordering(len1, len2)
+    | {eq} ->
+      rec aux(i) =
+        if i == len1 then {eq}
+        else
+          match Int.ordering(get_int8(bin1, i), get_int8(bin2, i))
+          | {eq} -> aux(i+1)
+          | x -> x
+      aux(0)
+    | x -> x
+
+  /**
+   * Comparison of two binary data.
+   */
+  compare(bin1, bin2) = ordering(bin1, bin2) <: Order.comparison
+
+  /**
+   * Checks the equality of two binary
+   */
+  equals(bin1, bin2) = ordering(bin1, bin2) == {eq}
+
+
 }}
 
 
