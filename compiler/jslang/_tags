@@ -5,7 +5,7 @@
 
 # todo: find a way to link fewer libs
 <{jspp,jsstat,globalizer}.{byte,native}>: use_passlib, use_opacapi, use_libtrx, use_ulex, use_str, use_unix, use_buildinfos, use_libbase, use_libqmlcompil, use_compilerlib, use_graph, use_nums, use_dynlink, use_jslang, use_ocamllang, use_libbsl, use_opalang, use_pplib, use_qmloptions, use_qml2js, use_qmlcpsrewriter, use_qmlpasses
-<{jspp,jsstat,globalizer}.{ml,byte,native}>: use_libruntime, use_oparuntime, use_ssl, use_appruntime, use_libnet, use_libsecurity, use_qmljsimp
+<{jspp,jsstat,globalizer}.{ml,byte,native}>: use_libruntime, use_oparuntime, use_appruntime, use_libnet, use_libsecurity, use_qmljsimp
 
 <jsstat.{ml,byte,native}>: use_libjsminify
 
