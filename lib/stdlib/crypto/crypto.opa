@@ -32,6 +32,11 @@ import-plugin crypto
 
 type Crypto.RSA.key = external
 
+type Crypto.salted = {
+  data : binary;
+  salt : binary;
+}
+
 Crypto = {{
 
   /**
@@ -153,6 +158,96 @@ Crypto = {{
      * @return the calculated digest
      */
     ripemd160(data) = digest("ripemd160", data)
+
+  }}
+
+  Salt = {{
+
+    /**
+     * A generic salt + hash function.
+     */
+    @private salt0(data, salt, hash):Crypto.salted =
+      bin = Binary.create(Binary.length(data) + Binary.length(salt))
+      do Binary.add_binary(bin, data)
+      do Binary.add_binary(bin, salt)
+      {~salt data = hash(bin)}
+
+    /**
+     * A generic salt + hash function.
+     */
+    @private salt(data, length, hash):Crypto.salted =
+      salt0(data, Crypto.random(length), hash)
+
+    /**
+     * Returns a salted and md5 hashed binary data from [data]
+     * @param data The data to salt and hash
+     * @param length The length of the random salt
+     */
+    md5(data, length) = salt(data, length, Hash.md5_bin)
+
+    /**
+     * Returns a salted and sha1 hashed binary data from [data]
+     * @param data The data to salt and hash
+     * @param length The length of the random salt
+     */
+    sha1(data, length) = salt(data, length, Hash.sha1)
+
+    /**
+     * Returns a salted and sha256 hashed binary data from [data]
+     * @param data The data to salt and hash
+     * @param length The length of the random salt
+     */
+    sha256(data, length) = salt(data, length, Hash.sha256)
+
+    /**
+     * Returns a salted and ripemd160 hashed binary data from [data]
+     * @param data The data to salt and hash
+     * @param length The length of the random salt
+     */
+    ripemd160(data, length) = salt(data, length, Hash.ripemd160)
+
+    /**
+     * A generic check function.
+     */
+    @private check(data, salted, hash):bool =
+      result = salt0(data, salted.salt, hash)
+      Binary.equals(result.data, salted.data)
+
+    /**
+     * Checks if the given [data] matches with the [salted] data, using the md5
+     * hash algorithm.
+     * @param data The data to check
+     * @param salted The salted data used for comparison.
+     * @return A boolean that indicates if [data] matches with the [salted] data
+     */
+    check_md5(data, salted) = check(data, salted, Hash.md5_bin)
+
+    /**
+     * Checks if the given [data] matches with the [salted] data, using the sha1
+     * hash algorithm.
+     * @param data The data to check
+     * @param salted The salted data used for comparison.
+     * @return A boolean that indicates if [data] matches with the [salted] data
+     */
+    check_sha1(data, salted) = check(data, salted, Hash.sha1)
+
+    /**
+     * Checks if the given [data] matches with the [salted] data, using the sha256
+     * hash algorithm.
+     * @param data The data to check
+     * @param salted The salted data used for comparison.
+     * @return A boolean that indicates if [data] matches with the [salted] data
+     */
+    check_sha256(data, salted) = check(data, salted, Hash.sha256)
+
+    /**
+     * Checks if the given [data] matches with the [salted] data, using the ripemd160
+     * hash algorithm.
+     * @param data The data to check
+     * @param salted The salted data used for comparison.
+     * @return A boolean that indicates if [data] matches with the [salted] data
+     */
+    check_ripemd160(data, salted) = check(data, salted, Hash.ripemd160)
 
   }}
 
