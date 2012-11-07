@@ -1265,14 +1265,18 @@ let generate_prepare_cache memo_tables =
   let clear_all = OcamlG.sequence (List.map clear_one memo_tables) in
   Ocaml.make_Let (Ocaml.pf "prepare_cache") (OcamlG.lambda (Ident.source "()") (*FIXME*) clear_all)
 
-let generate_try_parse_functions prod_funs_part =
-  let rec parse_fn_blocks = function
-    | [] -> []
-    | x::xs ->
-        let make_prod_fun (_pn, fn, body) = Ocaml.pf fn, body in
-        Ocaml.Letrec (List.map make_prod_fun x) :: parse_fn_blocks xs
+let generate_try_parse_functions dep_g prod_funs_part =
+  (* check for strong component that access itself *)
+  let is_rec = function
+    | [(_,fn,_)] -> not (G.mem_vertex dep_g fn) || List.exists (G.V.equal fn) (G.succ dep_g fn)
+    | _ -> true
   in
-  parse_fn_blocks prod_funs_part
+  let let_ rec_ l = if rec_ then Ocaml.Letrec l else Ocaml.Let l in
+  List.map (fun part ->
+    let_ (is_rec part) (List.map (fun (_pn, fn, body) -> 
+      Ocaml.pf fn, body
+    ) part)
+  ) prod_funs_part
 
 let generate_parse_functions peg start_prods =
   let make_parse_fn fn =
@@ -1334,7 +1338,7 @@ let generate_parser_for peg =
   let prepare_cache = generate_prepare_cache memo_tables in
   let empty_cache = generate_empty_cache memo_tables_retain in
   let grammar_rules = Ocaml.Let [ Ocaml.pf "_grammar_rules", grammar_rules peg ] in
-  let parse_functions = generate_try_parse_functions prod_funs_part in
+  let parse_functions = generate_try_parse_functions dep_g prod_funs_part in
   let parse_entry_functions = generate_parse_functions peg start_prods in
   let memo_tables_decl = List.map (fun (t, e) -> Ocaml.make_Let (Ocaml.pf t) e) memo_tables in
   let declarations =
