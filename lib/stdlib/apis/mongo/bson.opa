@@ -663,19 +663,20 @@ Bson = {{
 
   @private // TODO - Move
   percent_encode(source:string, escape:Unicode.character -> bool) =
-    String.replace_char(source, escape, Int.to_hex)
+    String.replace_char(source, escape, (x -> "%" + Int.to_hex(x)))
 
   @private // TODO - Move + be stable if no replacement needed
   percent_decode(source) =
     b = Buffer.create(String.length(source))
     p : Parser.general_parser(void) = parser
-      | [%] h=Rule.hexadecimal -> Buffer.append(b, Cactutf.cons(h))
+      | [%] h1=Rule.hexadecimal h2=Rule.hexadecimal ->
+        Buffer.append(b, Cactutf.cons(16*h1+h2))
       | c=. -> Buffer.append(b, Cactutf.cons(c))
     do Parser.parse(parser p+ -> void, source)
     Buffer.contents(b)
 
   encode_field =
-    percent_encode(_, (|'.' | '$' -> true | _ -> false))
+    percent_encode(_, (| '%' |'.' | '$' -> true | _ -> false))
 
   decode_field = percent_decode
 
