@@ -422,9 +422,10 @@ Pack = {{
    * @param name string to prefix the output
    * @param input the current Pack.input value
    **/
+  @private limit = 32
   @expand pinput(name:string, input:Pack.input) =
     #<Ifstatic:OPA_PACK_DEBUG>
-      data = Binary.get_binary(input.binary,input.pos,Int.min(32,Binary.length(input.binary)-input.pos))
+      data = Binary.get_binary(input.binary,input.pos,Int.min(limit,Binary.length(input.binary)-input.pos))
       //Log.debug("{name}: input=\n{bindump(data)}") // Can't find Log
       jlog("{name}: input=\n{bindump(data)}")
     #<Else>
@@ -439,9 +440,9 @@ Pack = {{
   @expand poutput(name:string, output:Pack.t) =
     #<Ifstatic:OPA_PACK_DEBUG>
       data =
-        if Binary.length(output) <= 32
+        if Binary.length(output) <= limit
         then Binary.get_binary(output, 0, Binary.length(output))
-        else Binary.get_binary(output,Binary.length(output)-32,32)
+        else Binary.get_binary(output,Binary.length(output)-limit,limit)
       //Log.debug("{name}: output=\n{bindump(data)}")
       jlog("{name}: output=\n{bindump(data)}")
     #<Else>
@@ -1588,7 +1589,7 @@ Pack = {{
       do pinput("Pack.Decode.long_be",{binary=data; ~pos})
       if Binary.length(data) >= pos + 4
       then {success=Binary.get_int32_be(data, pos)}
-      else {failure="Pack.Decode.long_le: not enough data for long"}
+      else {failure="Pack.Decode.long_be: not enough data for long"}
 
     /** Decode 32-bit signed little-endian integer **/
     long_le(data:Pack.t, pos:int) : outcome(int,string) =
