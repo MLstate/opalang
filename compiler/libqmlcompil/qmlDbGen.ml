@@ -259,7 +259,14 @@ module Schema = struct
                 Map (QmlAst.TypeConst QmlAst.TyInt, next.C.ty)
             | C.Multi_edge C.Kstring ->
                 Map (QmlAst.TypeConst QmlAst.TyString, next.C.ty)
-            | C.Multi_edge (C.Kfields _) -> DbSet next.C.ty
+            | C.Multi_edge (C.Kfields _) ->
+                begin match node.C.ty with
+                | QmlAst.TypeName ([QmlAst.TypeName ([_], gridfs); _],dbset)
+                    when (QmlAst.TypeIdent.to_string gridfs = "GridFS.file"
+                          && QmlAst.TypeIdent.to_string dbset = "dbset") ->
+                      DbSet (QmlAst.TypeName ([next.C.ty], gridfs))
+                | _ -> DbSet next.C.ty
+                end
             | _ -> assert false
             end
         | [] -> OManager.i_error "Found any successors from a multi node"
