@@ -878,11 +878,19 @@ module Generator = struct
                   (annotmap, build, query, [default; skip; limit; select])
               | DbAst.Valpath ->
                   let annotmap, build =
-                    OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
-                      Api.DbSet.build_vpath annotmap gamma
+                    if is_gridfs && embed <> None then
+                      QmlError.error context
+                        "First-class path of embedded path in a GridFS.file are not yet implemented"
+                    else if is_gridfs then
+                      OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
+                        Api.DbSet.build_gridfs_vpath annotmap gamma
+                    else
+                      OpaMapToIdent.typed_val ~label ~ty:[QmlAstCons.Type.next_var (); dataty]
+                        Api.DbSet.build_vpath annotmap gamma
                   in
                   let annotmap, read_map = get_read_map setkind postdot dataty uniq annotmap gamma in
                   (annotmap, build, query, [default; skip; limit; select; read_map])
+
               | DbAst.Ref ->
                   let annotmap, read_map = get_read_map setkind postdot dataty uniq annotmap gamma in
                   let build_rpath, (annotmap, write_map) =
@@ -901,7 +909,14 @@ module Generator = struct
                     in
                     match setkind, uniq with
                     | DbSchema.DbSet _, true ->
-                        Api.DbSet.build_rpath, write_map_uniq ()
+                        let build =
+                          if is_gridfs && embed <> None then
+                            QmlError.error context
+                              "First-class path of embedded path in a GridFS.file are not yet implemented"
+                          else if is_gridfs then Api.DbSet.build_gridfs_rpath
+                          else Api.DbSet.build_rpath
+                        in
+                        build, write_map_uniq ()
                     | DbSchema.Map (_kty, _dty), true ->
                         Api.DbSet.build_rpath, write_map_uniq ()
                     | DbSchema.DbSet _, false ->
