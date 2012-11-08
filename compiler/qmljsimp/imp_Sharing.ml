@@ -58,6 +58,7 @@ let rewrite_expr jsmap = JsWalk.Expr.map
    | e -> e
   )
 
+
 let rec rewrite jsmap code =
   List.filter_map
     (function
@@ -103,12 +104,13 @@ let process_code ~pass code =
   in
   R.save env;
   let env = R.fold ~deep:true (JsIdentMap.merge (fun _ _ -> assert false)) env in
+  #<If:JS_IMP>
   let _outputer oc tosave =
     let fmt = Format.formatter_of_out_channel oc in
     Format.fprintf fmt "%a%!" S.pp tosave
   in
   ignore(PassTracker.file ~filename:"js_imp_sharing" _outputer env);
-
+  #<End>;
   let code = rewrite env code in
   code, env
 
