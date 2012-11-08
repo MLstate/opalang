@@ -507,5 +507,14 @@ module GridFS{
         bin
     }
 
+    /**
+     * Produces a new file by mapping the metadata
+     * @param file The file to map
+     * @param f The function to map the medatada
+     * @return The mapped file
+     */
+    function GridFS.file map(f, GridFS.file file){
+        {metadata: f(file.metadata), file : file.file}
+    }
 
 }
