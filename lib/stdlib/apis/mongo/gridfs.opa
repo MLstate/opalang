@@ -307,6 +307,26 @@ module GridFS{
     read = Document.read
 
     /**
+     * Get files stored to the [grid]
+     * @param grid The grid where the file is stored
+     * @param query The bson query
+     * @param filter An optional filter for results
+     * @param skip The number of file to skip
+     * @param limit The maximal number of file to return
+     */
+    query = Document.query
+
+    /**
+     * Get metadatas stored to the [grid]
+     * @param grid The grid where the file is stored
+     * @param query The bson query
+     * @param filter An optional filter for results
+     * @param skip The number of file to skip
+     * @param limit The maximal number of file to return
+     */
+    query_metadata = Document.query_metadata
+
+    /**
      * Apply the given [update] on all metadatas that match the [query]
      * @param grid The grid where the files are stored
      * @param query The bson query
@@ -420,6 +440,19 @@ module GridFS{
                         }
                     }
                 }, docs)}
+            }
+        }
+
+        function outcome(iter('a), Mongo.failure) query_metadata(GridFS.t grid, query, filter, skip, limit){
+            match(File.query(grid, query, filter, skip, limit)){
+            case {failure:_} as e : e
+            case {success:reply} :
+                docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
+                {success : Iter.filter_map(function(doc){
+                    match(get_metadata(doc)){
+                    case {failure:e} : Log.error("GridFS", "{e}, skip it"); {none}
+                    case {success:a} : {some : a}
+                    }}, docs)}
             }
         }
 
