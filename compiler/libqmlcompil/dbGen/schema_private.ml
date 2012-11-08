@@ -424,26 +424,7 @@ let rec add_subgraph ?(is_plain = false) ~context ?(boundnames = []) gamma t par
                  add_subgraph ~context ~boundnames gamma t node (C.SumCase 0) ty)
               t tycol
         | Q.TypeSumSugar _ -> assert false (* normally the type went through type_of_type *)
-(*
-        | Q.TypePath p ->
-            assert (0 = SchemaGraph0.out_degree t cur_node);
-            let linkto = skip_path t (SchemaGraphLib.find_path t p) in
-            let edge = SchemaGraphLib.get_parent_edge t cur_node in
-            let t = SchemaGraph0.add_edge_e t (E.create (E.src edge) { (E.label edge) with is_main = false } linkto) in
-              SchemaGraph0.remove_vertex t cur_node
-                (*     | Some (TypeChecker.TypeVar tvar) -> (\* FIXME: replace variables beforehand *\) *)
-                (*         (match TypeVar.value tvar with *)
-                (*            | TypeVar.Instantiated e -> *)
-                (*                let t,cur_node = SchemaGraphLib.set_node_type t cur_node e in *)
-                (*                  add_subgraph ~boundnames gamma t cur_node *)
-                (*            | _ -> error (Printf.sprintf "uninstantiated variable found in db definition")) *)
-                (*     | Some (TypeChecker.TypeVar tvar as ty) -> *)
-                (*         let t,node = SchemaGraphLib.set_node_type t cur_node (TypeEnv.val_of_type ty) *)
-                (*         in add_subgraph ~boundnames gamma t node *)
-                (*         error (Printf.sprintf "invalid tvar perennial type") *)
-                (*     | Some (TypeChecker.TypeName atid) -> *)
-                (*         error (Printf.sprintf "invalid abstract perennial type") *)
-*)
+
         | ty ->
             QmlError.error context
               "Elements of type @{<bright>%a@} cannot be stored in the database" QmlPrint.pp#ty ty
