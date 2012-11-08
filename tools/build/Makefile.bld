@@ -60,7 +60,6 @@ distclean: clean
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
 
-BUILD_VARS ?= $(BLDDIR)/build_vars.ml
 BUILD_RULES := $(BLDDIR)/build_rules.ml $(BUILD_RULES)
 BUILD_LIBS := $(BLDDIR)/build_libs $(BUILD_LIBS)
 BUILD_TOOLS := $(BLDDIR)/build_tools $(BUILD_TOOLS)
@@ -70,7 +69,7 @@ MYOCAMLBUILD_SOURCES = \
 	$(BLDDIR)/config.ml \
 	$(BLDDIR)/myocamlbuild_prefix.ml \
 	$(BLDDIR)/myocamlbuild_suffix.ml \
-	$(BUILD_VARS) $(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
+	$(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
 
 $(BLDDIR)/config.ml: configure
 	@echo "configure file has changed. Please (re)run ./configure"

@@ -13,7 +13,6 @@ set -e
 OPALANG_DIR=${OPALANG_DIR:-"."}
 TOOLS_PATH=$OPALANG_DIR/tools
 CONFIG_PATH=$TOOLS_PATH/build
-BUILD_VARS=${BUILD_VARS:-"tools/build/build_vars.ml"}
 BUILD_TOOLS=${BUILD_TOOLS:-"tools/build/build_tools"}
 BUILD_LIBS=${BUILD_LIBS:-"tools/build/build_libs"}
 BUILD_RULES=${BUILD_RULES:-"tools/build/build_rules"}
@@ -124,7 +123,6 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
                    { print "internal_lib", $3 ? "~dir:\""prefix$3"\"" : "", "\""$2"\";" }' $i
         fi
     done
-    cat $BUILD_VARS
     for i in $BUILD_RULES; do
         if [ -e "$i" ]; then
             echo "#1 \"$i\""
