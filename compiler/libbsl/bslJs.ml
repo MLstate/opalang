@@ -851,7 +851,7 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs d
     else code
   in
   let env = empty ~name:(Printf.sprintf "%s.%s"
-                           (Option.get options.BI.basename)
+                           (Option.default "builtin" options.BI.basename)
                            BslConvention.Extension.plugin) in
   let sep_env = SeparatedEnv.init ~ty_spec_map:env.ty_spec_map ~renaming:env.renaming in
   let sep_env = List.fold_left SeparatedEnv.fold sep_env plugins in
