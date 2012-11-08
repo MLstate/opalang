@@ -235,6 +235,11 @@ module GridFS{
             case {some:reply} : {success:reply}
             }
         }
+
+        function update(GridFS.t grid, query, update){
+            updateerr(grid.db, 0, files_ns(grid), query, update, false)
+        }
+
     }
 
     /**
@@ -287,6 +292,14 @@ module GridFS{
      * @param id The file identifier
      */
     read = Void.read
+
+    /**
+     * Apply the given [update] on all metadatas that match the [query]
+     * @param grid The grid where the files are stored
+     * @param query The bson query
+     * @param update The update operation to apply
+     */
+    update = File.update
 
     /**
      * Delete from the [grid] the file identified by [id].
