@@ -23,6 +23,12 @@
 import stdlib.apis.apigenlib
 import stdlib.crypto
 
+type Postgres.msg = list((int,string))
+
+type Postgres.en =
+   { error : Postgres.msg }
+ / { notice : Postgres.msg }
+
 type Postgres.auth_reply =
      { Ok }
    / { MD5Password: binary }
@@ -35,8 +41,8 @@ type Postgres.auth_reply =
 
 type Postgres.reply =
    { ReadyForQuery: string }
- / { ErrorResponse: list(tuple_2(int, string)) }
- / { NoticeResponse: list(tuple_2(int, string)) }
+ / { ErrorResponse: Postgres.msg }
+ / { NoticeResponse: Postgres.msg }
  / { DataRow: list(binary) }
  / { RowDescription: list(tuple_7(string, int, int, int, int, int, int)) }
  / { EmptyQueryResponse }
@@ -58,14 +64,16 @@ type Postgres.reply =
 
 type Postgres.failure =
    { api_failure : Apigen.failure }
- / { postgres : list((int,string)) }
+ / { postgres : Postgres.en }
  / { bad_reply : Postgres.reply }
  / { bad_row : (list(Postgres.rowdesc),list(binary)) }
  / { bad_format : int }
 
+type Postgres.unsuccessful = (Postgres.connection,Postgres.failure)
+
 type Postgres.success = Postgres.connection
 
-type Postgres.result = outcome(Postgres.success,Postgres.failure)
+type Postgres.result = outcome(Postgres.success,Postgres.unsuccessful)
 
 type Postgres.rowdesc = {
   name : string
@@ -77,9 +85,13 @@ type Postgres.rowdesc = {
   format_code : int
 }
 
+type Postgres.rowdescs = list(Postgres.rowdesc)
+
 type Postgres.data = {text:string} / {binary:binary}
 
-type Postgres.rows = (list(Postgres.rowdesc),list(list(Postgres.data)))
+type Postgres.row = list(binary)
+
+type Postgres.rows = (list(Postgres.rowdesc),list(Postgres.row))
 
 type Postgres.connection = {
   conn : ApigenLib.connection
@@ -89,28 +101,44 @@ type Postgres.connection = {
   params : stringmap(string)
   processid : int
   secret_key : int
+  query : string
   status : string
-  error : option(Postgres.result)
+  error : option(Postgres.failure)
   empty : bool
   completed : list(string)
-  rowdescs : list((string,int,int,int,int,int,int))
-  rows : list(list(binary))
+  rowdescs : Postgres.rowdescs
+  rows : int
+  rowcc : continuation((int,Postgres.rowdescs,Postgres.row))
+  endcc : continuation(void)
+  errcc : continuation(Postgres.unsuccessful)
 }
 
 Postgres = {{
 
   @private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
+  @private to_rowdesc((name,table_id,table_attribute_number,type_id,data_type_size,type_modifier,format_code)) =
+    ~{name table_id table_attribute_number type_id data_type_size type_modifier format_code} : Postgres.rowdesc 
+
   default_host = Pg.default_host
 
   Conn = Pg.Conn
+
+  @private rowcc = Continuation.make(row -> Log.error("Postgres","missing row callback row={row}"))
+                 : continuation((int,Postgres.rowdescs,Postgres.row))
+  @private endcc = Continuation.make(_ -> Log.error("Postgres","missing finalize callback"))
+                 : continuation(void)
+  @private errcc = Continuation.make((_,err) -> Log.error("Postgres","missing error callback err={err}"))
+                 : continuation(Postgres.unsuccessful)
 
   connect(name:string, dbase:string, user:string, password:string) : outcome(Postgres.connection,Apigen.failure) =
     match Pg.connect(name) with
     | {success=conn} ->
       {success={ ~conn ~dbase ~user ~password
-                 params=StringMap.empty processid=-1 secret_key=-1 status="" error=none
-                 empty=true completed=[] rowdescs=[] rows=[] }}
+                 params=StringMap.empty processid=-1 secret_key=-1 query="" status="" error=none
+                 empty=true completed=[] rowdescs=[] rows=0
+                 ~rowcc ~endcc ~errcc
+               }}
     | {~failure} -> {~failure}
 
   close(conn:Postgres.connection) : outcome(Postgres.connection,Apigen.failure) =
@@ -129,77 +157,64 @@ Postgres = {{
   status(conn:Postgres.connection) : option(string) =
     if conn.status == "" then {none} else {some=conn.status}
 
-  @private flush(conn:Postgres.connection) : Postgres.result =
+  @private flush(conn:Postgres.connection, k:continuation(Postgres.result)) : void =
     match Pg.Conn.rcv({success=conn.conn}) with
     | {success=binary} -> 
       match (Pg.unpack_PostgresReply({~binary; pos=0})) with
-      | {success=(_,{Authentication={Ok}}:Postgres.reply)} -> flush(conn)
-      | {success=(_,{Authentication={MD5Password=salt}}:Postgres.reply)} ->
+      | {success=(_,{Authentication={Ok}})} ->
+         flush(conn,k)
+      | {success=(_,{Authentication={MD5Password=salt}})} ->
          inner = Crypto.Hash.md5(conn.password^conn.user)
          outer = Crypto.Hash.md5(inner^(%%bslBinary.to_encoding%%(salt,"binary")))
          md5password = "md5"^outer
          match (Pg.md5pass({success=conn.conn},md5password)) with
-         | {success={}} -> flush(conn)
-         | ~{failure} -> flush({conn with error={some={failure={api_failure=failure}}}})
+         | {success={}} -> flush(conn,k)
+         | ~{failure} -> flush({conn with error={some={api_failure=failure}}},k)
          end
-      | {success=(_,{ParameterStatus=(n,v)}:Postgres.reply)} -> flush({conn with params=StringMap.add(n,v,conn.params)})
-      | {success=(_,{BackendKeyData=(processid,secret_key)}:Postgres.reply)} -> flush({conn with ~processid ~secret_key})
-      | {success=(_,{~CommandComplete}:Postgres.reply)} -> flush({conn with completed=[CommandComplete|conn.completed]})
-      | {success=(_,{EmptyQueryResponse}:Postgres.reply)} -> flush({conn with empty=true})
-      | {success=(_,{~RowDescription}:Postgres.reply)} -> flush({conn with rowdescs=RowDescription})
-      | {success=(_,{~DataRow}:Postgres.reply)} -> flush({conn with rows=[DataRow|conn.rows]})
-      | {success=(_,{~NoticeResponse}:Postgres.reply)} ->
-        do Log.notice("Postgres/Notices","{String.concat("\n",List.map(((c,n) -> "{c}: {n}"),NoticeResponse))}")
-        flush(conn)
-      | {success=(_,{ErrorResponse=msgs}:Postgres.reply)} -> flush({conn with error={some={failure={postgres=msgs}}}})
-      | {success=(_,{ReadyForQuery=status}:Postgres.reply)} -> Option.default({success={conn with ~status}},conn.error)
-      | {success=(_,reply:Postgres.reply)} -> {failure={bad_reply=reply}}
-      | {~failure} -> {failure={api_failure={pack=failure}}}
+      | {success=(_,{ParameterStatus=(n,v)})} ->
+         flush({conn with params=StringMap.add(n,v,conn.params)},k)
+      | {success=(_,{BackendKeyData=(processid,secret_key)})} ->
+         flush({conn with ~processid ~secret_key},k)
+      | {success=(_,{~CommandComplete})} ->
+         flush({conn with completed=[CommandComplete|conn.completed]},k)
+      | {success=(_,{EmptyQueryResponse})} ->
+         flush({conn with empty=true},k)
+      | {success=(_,{~RowDescription})} ->
+         flush({conn with rowdescs=List.map(to_rowdesc,RowDescription)},k)
+      | {success=(_,{~DataRow})} ->
+         do Continuation.return(conn.rowcc,(conn.rows,conn.rowdescs,DataRow))
+         flush({conn with rows=conn.rows+1},k)
+      | {success=(_,{~NoticeResponse})} ->
+         do Continuation.return(conn.errcc,(conn,{postgres={notice=NoticeResponse}}))
+         flush(conn,k)
+      | {success=(_,{~ErrorResponse})} ->
+         do Continuation.return(conn.errcc,(conn,{postgres={error=ErrorResponse}}))
+         flush({conn with error={some={postgres={error=ErrorResponse}}}},k)
+      | {success=(_,{ReadyForQuery=status})} ->
+         result =
+           match conn.error with
+           | {some=failure} -> {failure=(conn,failure)}
+           | {none} -> {success={conn with ~status}}
+         Continuation.return(k,result)
+      | {success=(_,reply)} ->
+         Continuation.return(k,{failure=(conn,{bad_reply=reply})})
+      | {~failure} ->
+         Continuation.return(k,{failure=(conn,{api_failure={pack=failure}})})
       end
-    | ~{failure} -> {failure={api_failure=failure}}
+    | ~{failure} -> Continuation.return(k,{failure=(conn,{api_failure=failure})})
     end
 
-  authenticate(conn:Postgres.connection) =
+  authenticate(conn:Postgres.connection, errcc) =
+    conn = {conn with error=none; empty=false; completed=[]; rowdescs=[]; rows=0; query="authentication"; ~rowcc; ~endcc; ~errcc}
     match Pg.start({success=conn.conn}, (196608, [("user",conn.user),("database",conn.dbase)])) with
-    | {success={}} -> flush(conn)
-    | ~{failure} -> {failure={api_failure=failure}}
+    | {success={}} -> @callcc(k -> flush(conn,k))
+    | ~{failure} -> {failure=(conn,{api_failure=failure})}
 
-  query(conn:Postgres.connection, q) =
-    conn = {conn with error=none; empty=false; completed=[]; rowdescs=[]; rows=[]}
-    match Pg.query({success=conn.conn},q) with
-    | {success={}} -> flush(conn)
-    | ~{failure} -> {failure={api_failure=failure}}
+  query(conn:Postgres.connection, query, rowcc, errcc) =
+    conn = {conn with error=none; empty=false; completed=[]; rowdescs=[]; rows=0; ~query; ~rowcc; ~errcc}
+    match Pg.query({success=conn.conn},query) with
+    | {success={}} -> @callcc(k -> flush(conn,k))
+    | ~{failure} -> {failure=(conn,{api_failure=failure})}
     end
-
-  to_rowdesc((name,table_id,table_attribute_number,type_id,data_type_size,type_modifier,format_code)) : Postgres.rowdesc =
-    ~{name table_id table_attribute_number type_id data_type_size type_modifier format_code}
-
-  query_row(row:list(binary), rows:outcome(Postgres.rows,Postgres.failure)) =
-    match rows with
-    | {success=(rowdescs,rows)} ->
-      if List.length(rowdescs) == List.length(row)
-      then
-        aux2(rowdesc,bin,row) =
-          match row with
-          | {success=row} ->
-            aux(el) = {success=[el|row]}
-            match rowdesc.format_code with
-            | 0 -> aux({text=string_of_binary(bin)})
-            | 1 -> aux({binary=bin})
-            | n -> {failure={bad_format=n}}
-            end
-          | {~failure} -> {~failure}
-        aux3(row) =
-          match row with
-          | {success=row} -> {success=(rowdescs,[List.rev(row)|rows])}
-          | {~failure} -> {~failure}
-        aux3(List.fold2(aux2,rowdescs,row,{success=[]}))
-      else {failure={bad_row=(rowdescs,row)}}
-    | {~failure} -> {~failure}
-
-  query_rows(conn:Postgres.connection) =
-    if conn.empty
-    then {success=([],[])}
-    else List.fold(query_row,conn.rows,{success=(List.map(to_rowdesc,conn.rowdescs),[])})
 
 }}
