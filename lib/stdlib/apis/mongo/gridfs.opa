@@ -271,11 +271,13 @@ module GridFS{
     })
 
     /**
-     * Create a file from a binary iterator.
+     * Create a file from a binary iterator and metadata.
+     * @param metadata Metadata of the file
      * @param iterator A binary iterator which returns the file content
+     * @return A new file
      */
-    function create(iter(binary) iterator){
-        Void.create(void, iterator)
+    function GridFS.file('a) create('a metadata, iter(binary) iterator){
+        {~metadata, file : {local : iterator}}
     }
 
     /**
@@ -284,14 +286,14 @@ module GridFS{
      * @param data Content of the file
      * @param id The file identifier
      */
-    write = Void.write
+    write = Document.write
 
     /**
-     * Get binary data stored to the [grid]
+     * Get a file data stored to the [grid]
      * @param grid The grid where the file is stored
      * @param id The file identifier
      */
-    read = Void.read
+    read = Document.read
 
     /**
      * Apply the given [update] on all metadatas that match the [query]
