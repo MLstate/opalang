@@ -25,13 +25,14 @@ module Format = BaseFormat
   identifier is not duplicated in the code containing the insertion.
 *)
 let opacapi_check s =
-  let is_in_opacapi =
+  let is_in_opacapi table =
     try
-      let ss = Hashtbl.find Opacapi.table s in
+      let ss = Hashtbl.find table s in
       s == ss
     with
     | Not_found -> false
   in
+  let is_in_opacapi = is_in_opacapi Opacapi.table || is_in_opacapi OptionalOpacapi.table in
   if not is_in_opacapi
   then (
     #<If:OPACAPI_LOOSE>
