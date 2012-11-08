@@ -47,6 +47,8 @@ type GridFS.conf('a) = {
       unserialize,
     int
       chunk_size,
+    option(Bson.document)
+      filter,
 }
 
 /**
@@ -214,11 +216,10 @@ module GridFS{
             }
         }
 
-        function read(GridFS.t grid, Bson.value id){
-            query = files_selector(id)
-            match(MongoDriver.query(grid.db, 0, files_ns(grid), 0, 0, query, none)){
-            case {none} : {failure : {Error : "Connection error"}}
-            case {some:reply} :
+        function read(GridFS.t grid, Bson.value id, filter){
+            match(query(grid, files_selector(id), filter, 0, 1)){
+            case {failure:_} as e : e
+            case {success:reply} :
                 match(MongoCommon.reply_document(reply, 0)){
                 case {none} : {failure : {Error : "No document"}}
                 case {some:document} : {success : document}
@@ -228,6 +229,13 @@ module GridFS{
 
         function delete(GridFS.t grid, Bson.value id){
             MongoDriver.deletee(grid.db, 0, files_ns(grid), files_selector(id))
+        }
+
+        function query(GridFS.t grid, query, filter, skip, limit){
+            match(MongoDriver.query(grid.db, 0, files_ns(grid), skip, limit, query, filter)){
+            case {none} : {failure : {Error : "Connection error"}}
+            case {some:reply} : {success:reply}
+            }
         }
     }
 
@@ -256,7 +264,8 @@ module GridFS{
     Void = Driver({
         function serialize(void _v){[]},
         function unserialize(_){some(void)},
-        chunk_size : 256000
+        filter : none,
+        chunk_size : 256000,
     })
 
     /**
@@ -303,6 +312,17 @@ module GridFS{
      */
     module Driver(GridFS.conf conf){
 
+        private
+        function get_metadata(doc){
+            doc = List.filter(function(~{name, ...}){
+                name != "_id" && name != "md5"
+            }, doc)
+            match(conf.unserialize(doc)){
+            case {some:metadata} : {success : metadata}
+            case {none} : {failure : {Error : "Metadata are corrupted"}}
+            }
+        }
+
         function write(GridFS.t grid, Bson.value id, GridFS.file('a) file){
             chunk_options = {chunk_size:conf.chunk_size, files_id:id}
             match(Chunk.writes(grid, id, file, chunk_options)){
@@ -319,18 +339,40 @@ module GridFS{
             match(Chunk.read(grid, id)){
             case {failure:_} as e : e
             case {success:stored} :
-                match(File.read(grid, id)){
+                match(File.read(grid, id, conf.filter)){
                 case {failure:_} as e : e
                 case {success:document} :
-                    doc = List.filter(
-                        function(~{name, ...}){
-                            name != "_id" && name != "md5"
-                        }, document)
-                    match(conf.unserialize(doc)){
-                    case {some:metadata} : {success : {~metadata, file : ~{stored}}}
-                    case {none} : {failure : {Error : "Metadata are corrupted"}}
+                    match(get_metadata(document)){
+                    case {failure:_} as e : e
+                    case {success:metadata} :
+                        {success : {~metadata, file:~{stored}}}
                     }
                 }
+            }
+        }
+
+        function outcome(iter(GridFS.file), Mongo.failure) query(GridFS.t grid, query, skip, limit){
+            match(File.query(grid, query, conf.filter, skip, limit)){
+            case {failure:_} as e : e
+            case {success:reply} :
+                docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
+                {success : Iter.map(function(doc){
+                    match(Bson.find_value(doc, "_id")){
+                    case {none} :
+                        @fail("Can't find file identifier from document: {doc}")
+                    case {some:id} :
+                        match(Chunk.read(grid, id)){
+                        case {failure:e} :
+                            @fail("Can't find chunks of file: {id}\nfailure : {e}")
+                        case {success:stored} :
+                            match(get_metadata(doc)){
+                            case {failure: e} : @fail("{e}")
+                            case {success: metadata} :
+                                GridFS.file {~metadata, file : ~{stored}}
+                            }
+                        }
+                    }
+                }, docs)}
             }
         }
 
@@ -345,6 +387,7 @@ module GridFS{
     function GridFS.conf('a) driver_conf(){
         {serialize   : Bson.opa2doc,
          unserialize : Bson.doc2opa,
+         filter      : none,
          chunk_size  : 256000}
     }
 
@@ -356,36 +399,14 @@ module GridFS{
     function iter(binary) to_iterator(GridFS.file file){
         match(file.file){
         case ~{local ...} : local
-        case ~{stored ...} :
-            recursive function aux(n, size, file){
-                if (n < size){
-                    match(MongoCommon.reply_document(file.reply, n)){
-                    case {none} : @fail("Unexpected error: can't retreive document {n}/{size}")
-                    case {some:doc} :
-                        match(Bson.find_value(doc, "data")){
-                        case {some : {Binary : bin}} :
-                            function next(){ aux(n+1, size, file) }
-                            {some : (bin, ~{next})}
-                        case _ : @fail("Unexpected error: bad formatted data")
-                        }
-                    }
-                } else {
-                    cursor = MongoCommon.reply_cursorID(file.reply)
-                    if(MongoCommon.is_null_cursorID(cursor)){ none; }
-                    else {
-                        match(MongoDriver.get_more(file.grid.db,
-                                                   Chunk.chunks_ns(file.grid), 0, cursor)){
-                        case {none} : @fail("Can't get {n}th chunk")
-                        case {some:reply} :
-                            aux(0, MongoCommon.reply_numberReturned(reply),
-                                {file with ~reply})
-                        }
-                    }
+        case {stored:~{grid, reply} ...} :
+            docs = MongoDriver.to_iterator(grid.db, Chunk.chunks_ns(grid), reply)
+            Iter.map(function(doc){
+                match(Bson.find_value(doc, "data")){
+                case {some : {Binary : bin}} : bin
+                case _ : @fail("Unexpected error: bad formatted data")
                 }
-            }
-            {function next(){
-                aux(0, MongoCommon.reply_numberReturned(stored.reply), stored)
-            }}
+            }, docs)
         }
     }
 
