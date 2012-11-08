@@ -168,8 +168,12 @@ module GridFS{
             }
         }
 
-        function delete(GridFS.t grid, Bson.value id){
+        function deleteId(GridFS.t grid, Bson.value id){
             MongoDriver.deletee(grid.db, 0, chunks_ns(grid), chunks_selector(id))
+        }
+
+        function delete(GridFS.t grid, Bson.document query){
+            MongoDriver.deletee(grid.db, 0, chunks_ns(grid), query)
         }
     }
 
@@ -225,8 +229,15 @@ module GridFS{
             }
         }
 
-        function delete(GridFS.t grid, Bson.value id){
-            MongoDriver.deletee(grid.db, 0, files_ns(grid), files_selector(id))
+        function deleteId(GridFS.t grid, Bson.value id){
+            delete(grid, files_selector(id))
+        }
+
+        function delete(GridFS.t grid, Bson.document query){
+            match(MongoDriver.deletee(grid.db, 0, files_ns(grid), query)){
+            case {none} : {failure : {Error:"Can't retreive status of delete"}}
+            case {some:_reply} : {success}
+            }
         }
 
         function query(GridFS.t grid, query, filter, skip, limit){
@@ -308,10 +319,34 @@ module GridFS{
      * @param grid The grid where the file is stored
      * @param id The file identifier
      */
-    function delete(GridFS.t grid, Bson.value id){
-        _ = Chunk.delete(grid, id)
-        _ = File.delete(grid, id)
+    function deleteId(GridFS.t grid, Bson.value id){
+        _ = File.deleteId(grid, id)
+        _ = Chunk.deleteId(grid, id)
         void
+    }
+
+    /**
+     * Delete from the [grid] all files that matches the given [query]
+     * @param grid The grid where the file are stored
+     * @param query The query used to select files to delete
+     */
+    function delete(GridFS.t grid, Bson.document query){
+        match(File.query(grid, query, some([{name:"_id", value:{Int32:1}}]), 0, 0)){
+        case {failure:_} as f : f
+        case {success:reply} :
+            docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
+            (_, ids) = Iter.fold(function(doc, (i, acc)){
+                match(doc){
+                case [{name:"_id", ~value}] : (i+1, {name:Int.to_string(i), ~value} +> acc)
+                case doc :
+                    Log.error("GridFS.delete", "Can't find _id in {doc} skip it");
+                    (i, acc)
+                }
+            }, docs, (0, []))
+            ids = {Document : ids}
+            _ = Chunk.delete(grid, [{name:"files_id", value:{Document : [{name:"$in", value:ids}]}}])
+            File.delete(grid, query)
+        }
     }
 
     /**
