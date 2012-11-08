@@ -125,7 +125,6 @@ module GridFS{
         function writes(GridFS.t grid, Bson.value id, GridFS.file file, options){
             ~{n, next} = Iter.fold(
                 function(bin, ~{n, next}){
-                    Log.notice("Fold", "{n}")
                     blen = Binary.length(bin)
                     nlen = Binary.length(next)
                     if(blen + nlen < options.chunk_size){
@@ -133,9 +132,7 @@ module GridFS{
                         ~{n, next}
                     } else {
                         recursive function aux(n, start, next){
-                            nlen = Binary.length(next)
                             split = min(blen, options.chunk_size + start)
-                            Log.notice("GridFS", "Add {nlen} {blen} {start} {split}")
                             Binary.add_binary(next, Binary.get_binary(bin, start, split - start))
                             //TODO - Error management
                             _ = write(grid, id, {~n, data:next, files_id:options.files_id})
@@ -266,9 +263,7 @@ module GridFS{
             {name:"files_id", value:{Int32:1}},
             {name:"n", value:{Int32:1}},
         ], Bitwise.lor(0, MongoCommon.UniqueBit))
-        if(result){
-            Log.notice("GridFS", "Indexes was successfully created")
-        } else {
+        if(not(result)){
             Log.error("GridFS", "Cannot create indexes")
         }
         grid
