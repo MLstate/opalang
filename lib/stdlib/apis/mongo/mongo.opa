@@ -662,4 +662,20 @@ MongoDriver = {{
   create_simple_index(m:Mongo.db, ns:string, field:string, options:int): bool =
     create_index(m, ns, [H.i32(field,1)], options)
 
+  to_iterator(m:Mongo.db, ns:string, reply:Mongo.reply):iter(Bson.document) =
+    rec aux(i, size, reply) = (
+      if i < size then
+        match MongoCommon.reply_document(reply, i) with
+        | {none} -> @fail("Unexpected error: can't retreive document {i}/{size}")
+        | {some=doc} -> {some = (doc, {next = -> aux(i+1, size, reply)})}
+      else
+        cursor = MongoCommon.reply_cursorID(reply)
+        if MongoCommon.is_null_cursorID(cursor) then {none}
+        else
+          match MongoDriver.get_more(m, ns, 0, cursor) with
+          | {none} -> @fail("Can't get more document from cursor({MongoCommon.string_of_cursorID(cursor)})")
+          | {some=reply} -> aux(0, MongoCommon.reply_numberReturned(reply), reply)
+    )
+    { next = -> aux(0, MongoCommon.reply_numberReturned(reply), reply) }
+
 }}
