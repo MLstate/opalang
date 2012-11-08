@@ -9,7 +9,7 @@ package stdlib.core.db
 @opacapi type dbset('a, 'engine) = DbSet.t('a, 'engine)
 
 DbSet = {{
-  @package build(iter, engine) = ~{iter engine}
+  @package build(iter, engine):dbset = ~{iter engine}
 
   fold(init, dbset:dbset(_, _))(f) =
       Iter.fold(acc, e -> f(e, acc), dbset.iter, init)
@@ -27,6 +27,12 @@ DbSet = {{
     )
     Text.to_string(tx)
 
+  engine(dbset:dbset('a, 'engine)):'engine = dbset.engine
+
+  map(f : 'a -> 'b, dbset:dbset('a, 'engine)) : dbset('b, 'engine) =
+    {iter = Iter.map(f, dbset.iter); engine = dbset.engine}
+
 }}
 
 @opacapi DbSet_genbuild = DbSet.build
+@opacapi DbSet_map = DbSet.map
