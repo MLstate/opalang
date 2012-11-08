@@ -556,7 +556,7 @@ module ApilibConnection(Socket.host default_host) {
       case {success:len}:
         //jlog("read: len={len}")
         if (len+offset == bound) // the size was at the end
-          Mailbox.sub(mailbox, len)
+          Mailbox.sub(mailbox, offset+len)
         else if (len < bound)
           {failure:"Inconsistent packet size: len={len} bound={bound}"}
         else {
