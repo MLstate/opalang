@@ -951,6 +951,27 @@ DbMongoSet = {{
             , false)
     {vpath with more=~{write remove}}
 
+  @package build_gridfs_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter, read_map:DbMongoSet.t(GridFS.file('a)) -> option(GridFS.file('b))):DbMongo.private.val_path(GridFS.file('b)) =
+    {
+      id = path_to_id(path)
+      read() = read_map(build_gridfs(db, path, selector, @unsafe_cast(default), skip, limit, filter)):option(GridFS.file('b))
+      default = GridFS.create(default, Iter.empty)
+      more = void
+    }
+
+  @package build_gridfs_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter, read_map:DbMongoSet.t(GridFS.file('a)) -> option(GridFS.file('b)), write_map:'b -> Bson.document, _embed:option(string)):DbMongo.private.ref_path(GridFS.file('b)) =
+    id = path_to_id(path)
+    vpath = build_gridfs_vpath(db, path, selector, default, skip, limit, filter, read_map)
+    grid = GridFS.open(db.get().db, id)
+    write(file) =
+      Outcome.is_success(
+        GridFS.write(grid, selector, GridFS.map(write_map, file))
+      )
+    remove() =
+      _ = GridFS.delete(grid, selector)
+      void
+    {vpath with more=~{write remove}}
+
   @package build_rpath_collection(
              db:DbMongo.t,
              path:list(string),
