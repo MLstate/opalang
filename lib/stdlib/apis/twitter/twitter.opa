@@ -1864,19 +1864,19 @@ Twitter(conf:Twitter.configuration) = {{
  * Check credentials
  *
  * This function checks if provided credentials are correct.
- * Returns a Twitter.tweet object corresponding to the last status of the user if the credentials are correct. If incorrect, returns an empty Twitter.tweet object.
+ * Returns a Twitter.full_user object corresponding to the last status of the user if the credentials are correct. If incorrect, returns an empty Twitter.full_user object.
  *
  * @param include_entities The entities node will not be included when set to false.
  * @param skip_status When set to either true, t or 1 statuses will not be included in the returned user objects.
  * @param credentials The user credentials.
  */
-  check_credentials(include_entities:option(bool), skip_status:option(bool), credentials) =
+  verify_credentials(include_entities:option(bool), skip_status:option(bool), credentials) =
     path = "/1.1/account/verify_credentials.json"
     params =
       []
       |> add_bopt("include_entities", include_entities)
       |> add_bopt("skip_status", skip_status)
-    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_tweet)
+    Twitter_private(c)._get_res(path, params, credentials, TwitParse._build_full_user)
 
   default_settings = {
     trend_location_woeid = none
