@@ -179,6 +179,10 @@ struct
   let (!!) s = !! ("DbMongoSet_" ^ s)
   let build = !! "build"
   let update = !! "update"
+  let build_gridfs = !! "build_gridfs"
+  let build_embed_gridfs = !! "build_embed_gridfs"
+  let write_gridfs = !! "write_gridfs"
+  let update_gridfs = !! "update_gridfs"
   let opa2doc = !! "opa2doc"
   let add_to_document = !! "add_to_document"
   let indexes = !! "indexes"
@@ -191,6 +195,8 @@ struct
   let set_to_docs = !! "set_to_docs"
   let build_vpath = !! "build_vpath"
   let build_rpath = !! "build_rpath"
+  let build_gridfs_rpath = !! "build_gridfs_rpath"
+  let build_gridfs_vpath = !! "build_gridfs_vpath"
   let build_rpath_collection = !! "build_rpath_collection"
   let default = !! "default"
 end
