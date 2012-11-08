@@ -791,10 +791,13 @@ module Generator = struct
 
     | _ ->
         (* Preprocessing of the embedded path, for select only useful data. *)
-        let dataty =
+        let is_gridfs, dataty =
           match setkind with
-          | DbSchema.DbSet ty -> ty
-          | DbSchema.Map (_, ty) -> ty
+          | DbSchema.DbSet (Q.TypeName ([dataty], gridfs))
+              when QmlAst.TypeIdent.to_string gridfs = "GridFS.file" ->
+              true, dataty
+          | DbSchema.DbSet ty -> false, ty
+          | DbSchema.Map (_, ty) -> false, ty
         in
         let select0, postdot, postty, embed_field =
           let dot str ty =
@@ -865,8 +868,13 @@ module Generator = struct
               in
               begin match kind with
               | DbAst.Default | DbAst.Option ->
+                  let build =
+                    if is_gridfs && embed = None then Api.DbSet.build_gridfs
+                    else if is_gridfs then Api.DbSet.build_embed_gridfs
+                    else Api.DbSet.build
+                  in
                   let annotmap, build =
-                    OpaMapToIdent.typed_val ~label ~ty:[dataty] Api.DbSet.build annotmap gamma in
+                    OpaMapToIdent.typed_val ~label ~ty:[dataty] build annotmap gamma in
                   (annotmap, build, query, [default; skip; limit; select])
               | DbAst.Valpath ->
                   let annotmap, build =
@@ -927,28 +935,44 @@ module Generator = struct
               end
 
           | DbAst.Update (u, o) ->
-              let (annotmap, query) = query_to_expr gamma annotmap query [] in
-              let (annotmap, update) =
-                let u = Option.default_map u
-                  (function embed -> DbAst.UFlds [convert_embeded_path (fun x -> x) embed, u])
-                  embed
+              let annotmap, query = query_to_expr gamma annotmap query [] in
+              let u = Option.default_map u
+                (function embed -> DbAst.UFlds [convert_embeded_path (fun x -> x) embed, u])
+                embed
+              in
+              if is_gridfs then
+                match embed, uniq with
+                | None, true -> (* Write file *)
+                    let file = match u with | DbAst.UExpr e -> e | _ -> assert false in
+                    let annotmap, build =
+                      OpaMapToIdent.typed_val ~label ~ty:[dataty]
+                        Api.DbSet.write_gridfs annotmap gamma
+                    in annotmap, build, query, [file]
+                | None, false -> assert false
+                | _ ->
+                    let annotmap, update = update_to_expr gamma annotmap u in
+                    let annotmap, build =
+                      OpaMapToIdent.typed_val ~label
+                        Api.DbSet.update_gridfs annotmap gamma
+                    in annotmap, build, query, [update]
+              else
+                let (annotmap, update) =
+                  let u =
+                    (* Hack : When map value is simple, adding the "value" field *)
+                    match setkind with
+                    | DbSchema.Map (_, tyval) when ty_is_const gamma tyval ->
+                        DbAst.UFlds [[`string "value"], u]
+                    | _ -> u
+                  in
+                  update_to_expr gamma annotmap u
                 in
-                let u =
-                  (* Hack : When map value is simple, adding the "value" field *)
-                  match setkind with
-                  | DbSchema.Map (_, tyval) when ty_is_const gamma tyval -> DbAst.UFlds [[`string "value"], u]
-                  | _ -> u
+                let annotmap, upsert =
+                  if o.DbAst.ifexists then C._false (annotmap, gamma)
+                  else C._true (annotmap, gamma)
                 in
-                update_to_expr gamma annotmap u
-              in
-              let annotmap, upsert =
-                if o.DbAst.ifexists then C._false (annotmap, gamma)
-                else C._true (annotmap, gamma)
-              in
-              let (annotmap, build) =
-                OpaMapToIdent.typed_val ~label Api.DbSet.update annotmap gamma
-              in
-              (annotmap, build, query, [update; upsert])
+                let annotmap, build =
+                  OpaMapToIdent.typed_val ~label Api.DbSet.update annotmap gamma
+                in annotmap, build, query, [update; upsert]
         in
         (* database *)
         let (annotmap, database) = node_to_dbexpr gamma annotmap node in
