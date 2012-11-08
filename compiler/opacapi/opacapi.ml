@@ -130,6 +130,7 @@ module DbSet =
 struct
   let (!!) s = !! ("DbSet_" ^ s)
   let genbuild = !! "genbuild"
+  let map = !! "map"
 end
 
 module type DB =
