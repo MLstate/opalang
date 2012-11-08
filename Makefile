@@ -34,9 +34,8 @@ include $(BUILD_PATH)/Makefile.bld
 # ALL_TOOLS is built by Makefile.bld from build_tools files
 .PHONY: node
 node: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(ALL_TOOLS))
-	@$(MAKE) opa-tools
 
 .PHONY: node-runtime-libs
 node-runtime-libs: $(MYOCAMLBUILD)
@@ -59,20 +58,15 @@ opa-node-packages: $(MYOCAMLBUILD)
 stdlib: opa-node-packages
 
 .PHONY: opa-tools
-opa-tools: $(MYOCAMLBUILD)
-ifndef NO_TOOLS
-	@$(MAKE) opa-create
-else
-	@echo "Not building tools"
-endif
+opa-tools: $(MYOCAMLBUILD) opa-create
+	@echo "Tools build"
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml # opa-cloud opa-db-server opa-db-tool opatop opa-translate
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp
+	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(DISTRIB_TOOLS))
-	@$(MAKE) opa-tools
 
 ##
 ## MANPAGES

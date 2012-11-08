@@ -17,6 +17,9 @@ open Command
 let opalang_prefix =
   try Sys.getenv "OPALANG_PREFIX" with Not_found -> ""
 
+let no_tools =
+  try Sys.getenv "NO_TOOLS" = "1" with Not_found -> false
+
 let prefix_me s = opalang_prefix ^ s
 
 let build_dir =

@@ -1127,10 +1127,14 @@ let dir_rec_all_files dir =
   List.fold_right (fun dir acc -> dir_all_files dir @ acc) dirs []
 in
 
-rule "opa application creator"
-  ~deps:(dir_rec_all_files (prefix_me "tools/opa-create"))
+let opa_create name stamp deps ?(more_app_opts=[]) app_opx_dir =
+rule name
+  ~deps:(deps @ tool_deps "opa-bin" @ dir_rec_all_files (prefix_me "tools/opa-create"))
+  ~stamp
   ~prods: [opa_create_dst]
   (fun env build ->
+     if no_tools then Nop
+     else
       Cmd(S([
 	(Sh ("MLSTATELIBS=\""^ build_dir ^"\""));
         get_tool "opa-bin";
@@ -1140,6 +1144,9 @@ rule "opa application creator"
         A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
         A"-I"; A prefixed_plugins_dir
       ] @ more_app_opts)));
+in
+
+let _ = opa_create "opa node application creator" "qmljs.opa.create" ["opabsl.qmljs.stamp"; "plugins.qmljs.stamp"] "stdlib.qmljs" in
 
 (* -- end opa-create -- *)
 
