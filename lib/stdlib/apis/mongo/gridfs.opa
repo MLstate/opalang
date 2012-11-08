@@ -390,7 +390,12 @@ module GridFS{
             }
         }
 
-        function write(GridFS.t grid, Bson.value id, GridFS.file('a) file){
+        function writeId(GridFS.t grid, Bson.value id, GridFS.file('a) file){
+            write(grid, [{name:"_id", value:id}], file)
+        }
+
+        function write(GridFS.t grid, query, GridFS.file('a) file){
+            id = Bson.find_value(query, "_id") ? {ObjectID : MongoCommon.new_oid()}
             chunk_options = {chunk_size:conf.chunk_size, files_id:id}
             match(Chunk.writes(grid, id, file, chunk_options)){
             case {failure:_} as e : e
