@@ -183,8 +183,6 @@ struct
   let add_to_document = !! "add_to_document"
   let indexes = !! "indexes"
   let to_map = !! "to_map"
-  let iterator = !! "iterator"
-  let iterator_map = !! "iterator_map"
   let map_to_uniq = !! "map_to_uniq"
   let set_to_uniq = !! "set_to_uniq"
   let map_to_uniq_def = !! "map_to_uniq_def"
@@ -364,7 +362,6 @@ struct
   let char = !! "Unicode.character"
   let continuation = !! "continuation"
   let dbset = !! "dbset"
-  let dbmongoset = !! "DbMongoSet.t"
   let dbdropboxset = !! "DbDropboxSet.t"
   let dom = !! "dom"
   let finite_single_thread_lazy = !! "finite_single_thread_lazy"
@@ -411,6 +408,7 @@ struct
   module DbMongoSet =
   struct
     let (!!) s = !! ("DbMongoSet." ^ s)
+    let t  = !! "t"
     let engine  = !! "engine"
   end
 

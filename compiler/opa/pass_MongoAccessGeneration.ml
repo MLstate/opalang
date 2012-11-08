@@ -485,26 +485,6 @@ module Generator = struct
         "Can't generates mongo access because : %s is not yet implemented"
         s
 
-  let dbMongoSet_to_dbSet gamma annotmap set dataty imap =
-    let setident = Ident.next "mongoset" in
-    let annotmap, identset =
-      let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
-        Api.Types.DbMongoSet.engine gamma in
-      C.ident annotmap setident tyset
-    in
-    let annotmap, iterator =
-      let annotmap, iterator =
-        OpaMapToIdent.typed_val ~label ~ty:[dataty]
-          Api.DbSet.iterator annotmap gamma
-      in
-      imap (C.apply ~ty:dataty gamma annotmap iterator [identset])
-    in
-    let annotmap, genset =
-      let annotmap, identset = C.copy annotmap identset in
-      C.record annotmap [("iter", iterator); ("engine", identset)]
-    in
-    C.letin annotmap [setident, set] genset
-
   let get_read_map setkind postdot dty uniq annotmap gamma =
     let aty = QmlAstCons.Type.next_var () in
     let wrap_uniq (annotmap, map) =
@@ -555,17 +535,18 @@ module Generator = struct
         C.lambda annotmap [idx, aty] body
     | DbSchema.DbSet dataty, false ->
         let idset = Ident.next "set" in
-        let tyset = OpaMapToIdent.specialized_typ ~ty:[dataty]
-          Api.Types.DbMongoSet.engine gamma in
+        let tyset = OpaMapToIdent.specialized_typ Api.Types.DbMongoSet.engine gamma in
         let annotmap, set = C.ident annotmap idset tyset in
         let postdot =
           match postdot with
           | None -> (fun x -> x)
           | Some postdot ->
-              (fun (annotmap, iterator) ->
-                 let annotmap, imap =
-                   OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty]
-                     Api.DbSet.iterator_map annotmap gamma
+              (fun (annotmap, dbset) ->
+                 let annotmap, dbset_map =
+                   let tyset = OpaMapToIdent.specialized_typ
+                     Api.Types.DbMongoSet.engine gamma in
+                   OpaMapToIdent.typed_val ~label ~ty:[dataty; dataty; tyset]
+                     Opacapi.DbSet.map annotmap gamma
                  in
                  let annotmap, postdot =
                    let idx = Ident.next "x" in
@@ -573,10 +554,10 @@ module Generator = struct
                    let annotmap, x = postdot (annotmap, x) in
                    C.lambda annotmap [idx, dty] x
                  in
-                 C.apply gamma annotmap imap [postdot; iterator]
+                 C.apply gamma annotmap dbset_map [postdot; dbset]
               )
         in
-        let annotmap, set = dbMongoSet_to_dbSet gamma annotmap set dty postdot in
+        let annotmap, set = postdot (annotmap, set) in
         let annotmap, set = C.some annotmap gamma set in
         C.lambda annotmap [idset, tyset] set
 
@@ -1003,16 +984,16 @@ module Generator = struct
               in
               (match setkind, uniq with
                | DbSchema.DbSet _, false ->
-                   let imap = function (annotmap, iterator) ->
-                     match postmap with
-                     | None -> annotmap, iterator
-                     | Some (map, postty) ->
-                         let annotmap, imap =
-                           OpaMapToIdent.typed_val ~label ~ty:[dataty; postty]
-                             Api.DbSet.iterator_map annotmap gamma
-                         in C.apply ~ty gamma annotmap imap [map; iterator]
-                   in
-                   dbMongoSet_to_dbSet gamma annotmap set dataty imap
+                   begin match postmap with
+                   | None -> annotmap, set
+                   | Some (map, postty) ->
+                       let annotmap, dbset_map =
+                         let tyset = OpaMapToIdent.specialized_typ
+                           Api.Types.DbMongoSet.engine gamma in
+                         OpaMapToIdent.typed_val ~label ~ty:[dataty; postty; tyset]
+                           Opacapi.DbSet.map annotmap gamma
+                       in C.apply ~ty gamma annotmap dbset_map [map; set]
+                   end
                | DbSchema.Map (keyty, _), false ->
                    let (annotmap, postdot), postty =
                      match postmap with

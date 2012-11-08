@@ -171,7 +171,7 @@ module Db = struct
     let ident =
       match engine with
       | `db3 -> OptionalOpacapi.Types.db3set
-      | `mongo -> Opacapi.Types.dbmongoset
+      | `mongo -> Opacapi.Types.DbMongoSet.t
       | `dropbox -> Opacapi.Types.dbdropboxset
     in
     QmlAst.TypeName ([ty], typ ident)
