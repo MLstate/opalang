@@ -130,6 +130,19 @@ Iter = {{
         | {none} -> none
     } : iter
 
+  /**
+   * Lazy
+   */
+  filter_map(f, iter: iter) : iter =
+    rec aux() =
+      match iter.next()
+      | {none} -> {none}
+      | {some = res} ->
+        match f(res.f1) with
+        | {none} -> aux()
+        | {some=r2} -> {some = (r2, filter_map(f, res.f2))}
+    { next() = aux() }
+
   fold(f, i:iter, acc) =
      match i.next() : option
      | {some=res} -> fold(f, res.f2, f(res.f1, acc))
