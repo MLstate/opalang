@@ -786,20 +786,6 @@ DbMongoSet = {{
     iter = Iter.filter_map(Bson.doc2opa_default(_, default), engine.iter)
     DbSet_genbuild(iter, engine)
 
-//  @package build_gridfs(db:DbMongo.t, path:list(string), selector, default, skipn limit, filter) =
-
-  // @package build_and_modify(db:DbMongo.t, path:list(string), selector, default:'a,
-  //                           skip, limit, filter, update):DbMongoSet.engine('a) =
-  //   #<Ifstatic:DBGEN_DEBUG>
-  //   do Log.notice("DbGen/Mongo", "DbSet.build_and_modify : Selector {selector}")
-  //   do Log.notice("DbGen/Mongo", "DbSet.build_and_modify : Filter {filter}")
-  //   do Log.notice("DbGen/Mongo", "DbSet.build_and_modify : Update {update}")
-  //   #<End>
-  //   id = DbSet.path_to_id(path)
-  //   ns = "{db.name}.{id}"
-  //   genbuild(db, ns, id, default,
-  //            MongoCommands.findAndUpdate(db.db, db.name, ns, selector, update, none, noneskip, limit, selector, filter), limit)
-
   @package update(db:DbMongo.t, path:list(string), selector, update, upsert) =
     db = db.get()
     id = path_to_id(path)
