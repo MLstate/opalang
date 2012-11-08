@@ -68,6 +68,7 @@ type Postgres.failure =
  / { bad_reply : Postgres.reply }
  / { bad_row : (list(Postgres.rowdesc),list(binary)) }
  / { bad_format : int }
+ / { not_found }
 
 type Postgres.unsuccessful = (Postgres.connection,Postgres.failure)
 
@@ -91,6 +92,8 @@ type Postgres.data = {text:string} / {binary:binary}
 
 type Postgres.row = list(binary)
 
+type Postgres.full_row = (int,Postgres.rowdescs,Postgres.row)
+
 type Postgres.rows = (list(Postgres.rowdesc),list(Postgres.row))
 
 type Postgres.connection = {
@@ -108,7 +111,7 @@ type Postgres.connection = {
   completed : list(string)
   rowdescs : Postgres.rowdescs
   rows : int
-  rowcc : continuation((int,Postgres.rowdescs,Postgres.row))
+  rowcc : continuation(Postgres.full_row)
   endcc : continuation(void)
   errcc : continuation(Postgres.unsuccessful)
 }
@@ -216,5 +219,20 @@ Postgres = {{
     | {success={}} -> @callcc(k -> flush(conn,k))
     | ~{failure} -> {failure=(conn,{api_failure=failure})}
     end
+
+  get_row_value_by_column_name(name:string, row:Postgres.full_row) : outcome((Postgres.rowdesc,Postgres.data),Postgres.failure) =
+    rec aux(rds, r) =
+      match (rds, r) with
+      | ([rd|rds],[el|r]) ->
+         if rd.name == name
+         then
+           match rd.format_code with
+           | 0 -> {success=(rd,{text=string_of_binary(el)})}
+           | 1 -> {success=(rd,{binary=el})}
+           | n -> {failure={bad_format=n}}
+         else aux(rds, r)
+      | ([],[]) -> {failure={not_found}}
+      | _ -> {failure={bad_row=(row.f2, row.f3)}}
+    aux(row.f2, row.f3)
 
 }}
