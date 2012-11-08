@@ -797,6 +797,40 @@ DbMongoSet = {{
     #<End>
     DbMongo.updateerr(db, tag, "{db.name}.{id}", selector, update, id, upsert)
 
+  @package build_gridfs(db:DbMongo.t, path, selector, default:'a, skip, limit, filter):DbMongoSet.t(GridFS.file('a)) =
+    db = db.get()
+    gfs = GridFS.open(db.db, path_to_id(path))
+    iter = match GridFS.query(gfs, selector, filter, skip, limit) with
+      | ~{success} -> success
+      | ~{failure} -> error("{failure}")
+    engine = {iter=Iter.empty; db=db.db; default=Magic.black(default)}
+    iter =
+      Iter.map(file -> GridFS.map(doc -> Bson.doc2opa_default(doc, default) ? default, file)
+               , iter)
+    DbSet_genbuild(iter, engine)
+
+  @package build_embed_gridfs(db:DbMongo.t, path, selector, default:'a, skip, limit, filter):DbMongoSet.t('a) =
+    db = db.get()
+    gfs = GridFS.open(db.db, path_to_id(path))
+    iter = match GridFS.query_metadata(gfs, selector, filter, skip, limit) with
+      | ~{success} -> success
+      | ~{failure} -> error("{failure}")
+    engine = {iter=Iter.empty; db=db.db; default=Magic.black(default)}
+    iter =
+      Iter.filter_map(doc -> Bson.doc2opa_default(doc, default), iter)
+    DbSet_genbuild(iter, engine)
+
+  @package write_gridfs(db:DbMongo.t, path:list(string), selector, file:GridFS.file('a)) =
+    db = db.get()
+    gfs = GridFS.open(db.db, path_to_id(path))
+    map = GridFS.map(Bson.opa2doc, file)
+    GridFS.write(gfs, selector, map)
+
+  @package update_gridfs(db:DbMongo.t, path:list(string), selector, update) =
+    db = db.get()
+    gfs = GridFS.open(db.db, path_to_id(path))
+    GridFS.update(gfs, selector, update)
+
   @package to_list(dbset:DbMongoSet.t('a)) =
     Iter.fold(a, acc -> a +> acc, DbSet.iterator(dbset), [])
 
