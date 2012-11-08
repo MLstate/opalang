@@ -47,8 +47,6 @@ type GridFS.conf('a) = {
       unserialize,
     int
       chunk_size,
-    option(Bson.document)
-      filter,
 }
 
 /**
@@ -261,10 +259,9 @@ module GridFS{
     }
 
     private
-    Void = Driver({
-        function serialize(void _v){[]},
-        function unserialize(_){some(void)},
-        filter : none,
+    Document = Driver({
+        function serialize(doc){doc},
+        function unserialize(doc){some(doc)},
         chunk_size : 256000,
     })
 
@@ -339,7 +336,7 @@ module GridFS{
             match(Chunk.read(grid, id)){
             case {failure:_} as e : e
             case {success:stored} :
-                match(File.read(grid, id, conf.filter)){
+                match(File.read(grid, id, none)){
                 case {failure:_} as e : e
                 case {success:document} :
                     match(get_metadata(document)){
@@ -351,8 +348,8 @@ module GridFS{
             }
         }
 
-        function outcome(iter(GridFS.file), Mongo.failure) query(GridFS.t grid, query, skip, limit){
-            match(File.query(grid, query, conf.filter, skip, limit)){
+        function outcome(iter(GridFS.file), Mongo.failure) query(GridFS.t grid, query, filter, skip, limit){
+            match(File.query(grid, query, filter, skip, limit)){
             case {failure:_} as e : e
             case {success:reply} :
                 docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
@@ -387,7 +384,6 @@ module GridFS{
     function GridFS.conf('a) driver_conf(){
         {serialize   : Bson.opa2doc,
          unserialize : Bson.doc2opa,
-         filter      : none,
          chunk_size  : 256000}
     }
 
