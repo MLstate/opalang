@@ -40,6 +40,15 @@ type GridFS.chunk = {
     binary data,
 }
 
+type GridFS.conf('a) = {
+    'a -> Bson.document
+      serialize,
+    Bson.document -> option('a)
+      unserialize,
+    int
+      chunk_size,
+}
+
 /**
  * GridFS is a storage for large files in MongoDb.
  *
@@ -186,12 +195,8 @@ module GridFS{
                 case {some : md5} :
                     {success : (Bson.document [
                         {name:"_id", value:id},
-                        {name:"length", value:{Int64:options.length}},
-                        {name:"chunkSize", value:{Int64:options.chunk_size}},
-                        {name:"uploadDate", value:{Date:Date.now()}},
-                        {name:"metadata", value:{Document:options.metadata}},
                         md5
-                    ]) }
+                    ] ++ options.metadata) }
                 case _ : {failure : {Error : "Unexpected result of 'filemd5' commands: {bson}"}}
                 }
             case {failure:_} as e -> e
@@ -247,48 +252,10 @@ module GridFS{
         grid
     }
 
-    /**
-     * Create a driver for specific file
-     */
-    module Driver(conf){
-
-        function write(GridFS.t grid, Bson.value id, GridFS.file('a) file){
-            chunk_options = {chunk_size:conf.chunk_size, files_id:id}
-            match(Chunk.writes(grid, id, file, chunk_options)){
-            case {failure:_} as e : e
-            case {success} :
-                file_options = {chunk_size : conf.chunk_size,
-                                length : 0,
-                                metadata : conf.serialize(file.metadata)}
-                File.save(grid, id, file_options)
-            }
-        }
-
-        function outcome(GridFS.file, _) read(GridFS.t grid, Bson.value id){
-            match(Chunk.read(grid, id)){
-            case {failure:_} as e : e
-            case {success:stored} :
-                match(File.read(grid, id)){
-                case {failure:_} as e : e
-                case {success:document} :
-                    match(Bson.find_doc(document, "metadata")){
-                    case {none} : {failure : {Error : "No metadata found"}}
-                    case {some : doc} :
-                        {success : {metadata : conf.unserialize(doc), file : ~{stored}}}
-                    }
-                }
-            }
-        }
-
-        function GridFS.file create(metadata, iter(binary) iterator){
-            ~{metadata, file : {local : iterator}}
-        }
-    }
-
     private
     Void = Driver({
         function serialize(void _v){[]},
-        function unserialize(_){void},
+        function unserialize(_){some(void)},
         chunk_size : 256000
     })
 
@@ -324,6 +291,61 @@ module GridFS{
         _ = Chunk.delete(grid, id)
         _ = File.delete(grid, id)
         void
+    }
+
+    /**
+     * Create a driver for specific metadata. A specific driver configuration for
+     * a spedific type can be easily builded by coercing a call to
+     * [GridFS.driver_conf]. As example for a type [t] write [GridFS.conf(t)
+     * tconf = GridFS.driver_conf()].
+     * @param conf The driver configuration
+     * @return A specific GridFS driver
+     */
+    module Driver(GridFS.conf conf){
+
+        function write(GridFS.t grid, Bson.value id, GridFS.file('a) file){
+            chunk_options = {chunk_size:conf.chunk_size, files_id:id}
+            match(Chunk.writes(grid, id, file, chunk_options)){
+            case {failure:_} as e : e
+            case {success} :
+                file_options = {chunk_size : conf.chunk_size,
+                                length : 0,
+                                metadata : conf.serialize(file.metadata)}
+                File.save(grid, id, file_options)
+            }
+        }
+
+        function outcome(GridFS.file, _) read(GridFS.t grid, Bson.value id){
+            match(Chunk.read(grid, id)){
+            case {failure:_} as e : e
+            case {success:stored} :
+                match(File.read(grid, id)){
+                case {failure:_} as e : e
+                case {success:document} :
+                    doc = List.filter(
+                        function(~{name, ...}){
+                            name != "_id" && name != "md5"
+                        }, document)
+                    match(conf.unserialize(doc)){
+                    case {some:metadata} : {success : {~metadata, file : ~{stored}}}
+                    case {none} : {failure : {Error : "Metadata are corrupted"}}
+                    }
+                }
+            }
+        }
+
+        function GridFS.file create(metadata, iter(binary) iterator){
+            ~{metadata, file : {local : iterator}}
+        }
+    }
+
+    /**
+     * Build a specific configuration for a GridFS driver. See [GridFS.Driver].
+     */
+    function GridFS.conf('a) driver_conf(){
+        {serialize   : Bson.opa2doc,
+         unserialize : Bson.doc2opa,
+         chunk_size  : 256000}
     }
 
     /**
@@ -379,5 +401,6 @@ module GridFS{
         }, to_iterator(file))
         bin
     }
+
 
 }
