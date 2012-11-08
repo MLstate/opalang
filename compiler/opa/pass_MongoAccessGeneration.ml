@@ -1108,7 +1108,13 @@ module Generator = struct
       )
     | _ -> annotmap, Q.Path (label, dbpath, kind, select)
 
-  let indexes gamma annotmap _schema node rpath lidx =
+  let indexes gamma annotmap _schema node ty rpath lidx =
+    let rpath = match ty with
+      | Q.TypeName (_, gridfs)
+          when QmlAst.TypeIdent.to_string gridfs = "GridFS.file" ->
+          "files"::rpath
+      | _ -> rpath
+    in
     let (annotmap, database) =
       node_to_dbexpr gamma annotmap node in
     let (annotmap, build) =
@@ -1160,17 +1166,17 @@ let clean_code gamma annotmap schema code =
            let fake_path =
              match p with
              | DbAst.Decl_fld k::_ -> [DbAst.FldKey k]
-             | _ -> []
+             | _ -> assert false
            in
            let fake_node = DbSchema.get_node schema fake_path in
            if fake_node.DbSchema.database.DbSchema.options.DbAst.backend = `mongo then
              begin match decl with
-             | DbAst.Db_TypeDecl ((DbAst.Decl_fld _)::p, _) ->
+             | DbAst.Db_TypeDecl ((DbAst.Decl_fld _)::p, ty) ->
                  let rec aux rpath p =
                    match p with
                    | (DbAst.Decl_set lidx)::[] ->
                        let (annotmap, init) =
-                         Generator.indexes gamma annotmap schema fake_node rpath lidx
+                         Generator.indexes gamma annotmap schema fake_node ty rpath lidx
                        in
                        let id = Ident.next "_index_setup" in
                        annotmap, Some (Q.NewVal (label, [id, init]))
