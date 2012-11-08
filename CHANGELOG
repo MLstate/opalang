@@ -1,5 +1,9 @@
 - Removed native backend.
 
+  * Bootstrap:
+    - upgraded to Bootstrap 2.2.1
+    - added stdlib.themes.bootstrap.v2.1.0 for compatibility
+
 
 2012.10.08, Version 1.0.7 (stable), v3523
 
