@@ -1100,6 +1100,40 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       (SchemaGraphLib.string_path_of_node t node)
       QmlPrint.pp#path_elts epath0
   ;
+  let aux_multi epath partial =
+    let setty = node.C.ty in
+    let dataty, dnode, _ =
+      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node)
+        ~kind ~epath0 vpath epath
+    in
+    (match setty with
+     | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
+         let wdataty, aux =
+           match setparam, epath with
+           | Q.TypeName ([_], name), []
+               when Q.TypeIdent.to_string name = "GridFS.file" ->
+                 let wrap_gfs ty =
+                   if epath = [] then Q.TypeName ([ty], name)
+                   else ty
+                 in
+                 wrap_gfs dataty,
+                 (fun ty ->
+                    let ty = wrap_gfs ty in
+                    if partial then C.Db.set ty
+                    else ty
+                 )
+           | _ -> dataty, (fun t -> if partial then C.Db.set t else t)
+         in
+         let setty = aux dataty in
+         setty, dnode, `virtualset (dataty, wdataty, partial, aux)
+     | _ ->
+         let keyty = SchemaGraphLib.type_of_key t node in
+         let rebuildt dataty =
+           Q.TypeName ([keyty; dataty], Q.TypeIdent.of_string Opacapi.Types.map)
+         in
+         rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
+    )
+  in
   match epath, (V.label node).C.nlabel with
   | path, C.Hidden ->
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath path
@@ -1122,34 +1156,10 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       in
       find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
   | (Db.Query (query, _))::epath, C.Multi ->
-      let setty = node.C.ty in
-      let dataty, dnode, _ =
-        find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node)
-          ~kind ~epath0 vpath epath
-      in
-      (match setty with
-       | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
-           let aux =
-             match setparam, epath with
-             | Q.TypeName ([_], name), []
-                 when Q.TypeIdent.to_string name = "GridFS.file" ->
-                 (fun ty -> C.Db.set (Q.TypeName ([ty], name)))
-             | _ -> (fun t -> C.Db.set t)
-           in
-           let setty = aux dataty in
-           let partial = not (is_uniq t node query) in
-           setty, dnode, `virtualset (dataty, dataty, partial, aux)
-       | _ ->
-           let keyty = SchemaGraphLib.type_of_key t node in
-           let partial = not (is_uniq t node query) in
-           let rebuildt dataty =
-             Q.TypeName ([keyty; dataty], Q.TypeIdent.of_string Opacapi.Types.map)
-           in
-           rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
-      )
-
-  | (Db.ExprKey _e)::epath, C.Multi ->
-      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
+      let partial = not (is_uniq t node query) in
+      aux_multi epath partial
+  | (Db.ExprKey _)::epath, C.Multi ->
+      aux_multi epath false
   | (Db.FldKey fld)::_rp, C.Sum ->
       let e = SchemaGraphLib.find_field_edge t node fld in
       find_exprpath_aux ~context t ~node:(E.dst e) ~kind ~epath0 vpath epath
@@ -1199,7 +1209,7 @@ module Preprocess = struct
         let ty =
           match virtual_ with
           | `realpath -> ty
-          | `virtualset (r, _, _, _) -> r
+          | `virtualset (_, w, _, _) -> w
           | _ -> assert false
         in
         let rec update (ty:QmlAst.ty) u =
@@ -1329,8 +1339,7 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
          let exprty =
            let dataty = match virtual_ with
              |`realpath -> realty
-             |`virtualset (_, _, true, _) -> realty
-             |`virtualset (d, _, false, _) -> d
+             |`virtualset (_, _, _, _) -> realty
              | _ -> OManager.i_error "Virtual path are NYI"
            in
            match kind with
