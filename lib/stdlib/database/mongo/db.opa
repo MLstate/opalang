@@ -721,15 +721,14 @@ Then use option --db-remote instead of --db-local.
 
 @abstract
 @opacapi
-type DbMongoSet.engine('a) = {
-    reply: Mongo.reply;
-    default : 'a;
-    limit : int;
-    next : int, Mongo.reply -> option(DbMongoSet.engine('a))
+type DbMongoSet.engine = {
+  iter : iter(Bson.document)
+  db   : Mongo.db
+  default : black
 }
 
 @opacapi
-type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine('a))
+type DbMongoSet.t('a) = dbset('a, DbMongoSet.engine)
 
 
 /**
@@ -758,32 +757,17 @@ DbMongoSet = {{
       List.iter(idx -> index(db, path, idx), idxs)
     )
 
-  @package genbuild(db, ns, id, default:'a, reply, limit):DbMongoSet.engine('a) =
+  @package genbuild(db, ns, id, default, reply):DbMongoSet.engine =
     match reply with
     | {none} ->
       do Log.error("DbGen/Mongo", "(failure) Read from {id} set doesn't returns anything")
       error("DbSet build error")
     | {some=reply} ->
-      rec next(consummed, reply) =
-        cursor = MongoCommon.reply_cursorID(reply)
-        if MongoCommon.is_null_cursorID(cursor) then
-          none
-        else if limit != 0 && consummed >= limit then none
-        else
-          limit = if limit == 0 then 0 else consummed - limit
-          match MongoDriver.get_more(db.db, ns, limit, cursor) with
-          | {none} ->
-            do Log.error("DbGen/Mongo",
-               "(failure) Get more data from {id} set doesn't returns anything")
-            {none}
-          | {some = reply} ->
-            next(c, r) = next(consummed+c, r)
-            {some = ~{reply default next limit}}
-          end
-//        # <End>
-       ~{reply default next limit}
+      iter = MongoDriver.to_iterator(db, ns, reply)
+      default = Magic.black(default)
+      ~{iter; db; default}
 
-  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit, filter):DbMongoSet.engine('a) =
+  @package build(db:DbMongo.t, path:list(string), selector, default:'a, skip, limit, filter):DbMongoSet.t('a) =
     #<Ifstatic:DBGEN_DEBUG>
     do Log.notice("DbGen/Mongo", "DbSet.build : Selector {selector}")
     do Log.notice("DbGen/Mongo", "DbSet.build : Filter {filter}")
@@ -797,8 +781,12 @@ DbMongoSet = {{
         // returns all fields instead of any
         | {some=[]} -> {some=[{name="`" value={Int32=1}}]}
         | _ -> filter
-    genbuild(db, ns, id, default,
-             MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter), limit)
+    reply = MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter)
+    engine = genbuild(db.db, ns, id, default, reply)
+    iter = Iter.filter_map(Bson.doc2opa_default(_, default), engine.iter)
+    DbSet_genbuild(iter, engine)
+
+//  @package build_gridfs(db:DbMongo.t, path:list(string), selector, default, skipn limit, filter) =
 
   // @package build_and_modify(db:DbMongo.t, path:list(string), selector, default:'a,
   //                           skip, limit, filter, update):DbMongoSet.engine('a) =
@@ -823,72 +811,17 @@ DbMongoSet = {{
     #<End>
     DbMongo.updateerr(db, tag, "{db.name}.{id}", selector, update, id, upsert)
 
+  @package to_list(dbset:DbMongoSet.t('a)) =
+    Iter.fold(a, acc -> a +> acc, DbSet.iterator(dbset), [])
 
-  @private fold_doc(init, dbset:DbMongoSet.engine, f) =
-    rec aux(size, dbset, i, acc) =
-      if i == size then
-        match dbset.next(size, dbset.reply):option(DbMongoSet.engine('a)) with
-        | {some = dbset} -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0, acc)
-        | _ -> acc
-      else
-        match MongoCommon.reply_document(dbset.reply, i) with
-        | {none} ->
-          do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
-          aux(size, dbset, i+1, acc)
-        | {some=doc} -> aux(size, dbset, i+1, f(acc, doc))
-    aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0, init)
+  @package fold_doc(acc, dbset:DbMongoSet.t('a), f) =
+    Iter.fold(f, DbSet.engine(dbset).iter, acc)
 
-  @package iterator(dbset:DbMongoSet.engine('a)):iter('a) =
-    rec aux(size, dbset, i) =
-      if i == size then
-        match dbset.next(size, dbset.reply):option(DbMongoSet.engine('a)) with
-        | {some = dbset} -> aux(MongoCommon.reply_numberReturned(dbset.reply), dbset, 0)
-        | _ -> {none}
-      else
-        match MongoCommon.reply_document(dbset.reply, i) with
-        | {none} ->
-          do Log.error("DbGen/Mongo", "Unexpected error : can't retreive document {i}")
-          aux(size, dbset, i+1)
-        | {some=doc} ->
-            #<Ifstatic:DBGEN_DEBUG>
-            do Log.notice("DbGen/Mongo", "Unserialize {doc} with {@typeval('a)} {dbset.default}")
-            #<End>
-            match Bson.doc2opa_default(doc, dbset.default) with
-            | {none} ->
-               // Note: we should really test for error before unserialize but it would have an adverse effect on performance.
-               if Bson.is_error(doc)
-               then
-                 do Log.error("DbGen/Mongo",
-                      "(failure) Unexpected error : MongoDB returned error document {Bson.string_of_doc_error(doc)}")
-                 aux(size, dbset, i+1)
-               else
-                 do Log.error("DbGen/Mongo",
-                      "(failure) dbset unserialize {doc} from {OpaType.to_pretty(@typeval('a))} with default value : {dbset.default}")
-                 aux(size, dbset, i+1)
-
-            | {some=opa} ->
-              #<Ifstatic:DBGEN_DEBUG>
-              do Log.notice("DbGen/Mongo", "Unserialize success {opa}")
-              #<End>
-              {some = (opa, {next=->aux(size, dbset, i+1)})}
-            end
-        end
-      Iter.cache({next = ->
-         nb = MongoCommon.reply_numberReturned(dbset.reply)
-         nb = if dbset.limit != 0 then min(nb, dbset.limit) else nb
-         if nb == 0 then none
-         else aux(nb, dbset, 0)})
-
-  @private fold(init, dbset, f) =
-    Iter.fold(f, iterator(dbset), init)
-
-  @package to_list(dbset:DbMongoSet.engine('a)) = fold([], dbset, (a, acc -> a +> acc))
-
-  @package to_map(dbset:DbMongoSet.engine('a), f : 'v0 -> 'v1):map('key, 'v1) =
+  @package to_map(dbset:DbMongoSet.t('a), f : 'v0 -> 'v1):map('key, 'v1) =
     #<Ifstatic:DBGEN_DEBUG>
       do Log.notice("DbGen/Mongo", "DbSet.to_map key:{@typeval('key)} v0:{@typeval('v0)} v1:{@typeval('v1)}")
     #<End>
-    fold_doc(Map.empty, dbset, (map:map('key, 'v1), doc:Bson.document ->
+    fold_doc(Map.empty, dbset, (doc:Bson.document, map:map('key, 'v1) ->
         #<Ifstatic:DBGEN_DEBUG>
         do Log.notice("DbGen/Mongo", "Map fold doc {doc}")
         #<End>
@@ -902,7 +835,7 @@ DbMongoSet = {{
                  "(failure) map unserialize key {kdoc} from {@typeval('key)}")
             map
           | {some=key} ->
-            match Bson.doc2opa_default(vdoc, @unsafe_cast(dbset.default)):option('v0) with
+            match Bson.doc2opa_default(vdoc, Magic.id(DbSet.engine(dbset).default)):option('v0) with
             | {none} ->
               do Log.error("DbGen/Mongo",
                    "(failure) map unserialize value {vdoc} from {@typeval('value)}")
@@ -918,12 +851,12 @@ DbMongoSet = {{
       )
     )
 
-  @package map_to_uniq(dbset:DbMongoSet.engine('a)):option('value) =
-    fold_doc(none, dbset, (opt, doc ->
+  @package map_to_uniq(dbset:DbMongoSet.t('a)):option('value) =
+    fold_doc(none, dbset, (doc, opt ->
         do @assert(Option.is_none(opt))
         match List.extract_p(x -> x.name == "_id", doc) with
         | (_, vdoc) ->
-          match Bson.doc2opa_default(vdoc, @unsafe_cast(dbset.default)):option('value) with
+          match Bson.doc2opa_default(vdoc, Magic.id(DbSet.engine(dbset).default)):option('value) with
           | {none} ->
             do Log.error("DbGen/Mongo",
                  "(failure) map_to_uniq unserialize value {vdoc} from {@typeval('value)}")
@@ -940,30 +873,30 @@ DbMongoSet = {{
         Bson.opa2doc(v))
        tl = docs}, map, [])
 
-  @package set_to_docs(dbset:DbMongoSet.engine('a)):list(Bson.document) =
-    fold_doc([], dbset, (l, d -> {hd=d tl=l}))
+  @package set_to_docs(dbset:DbMongoSet.t('a)):list(Bson.document) =
+    fold_doc([], dbset, (d, l -> {hd=d tl=l}))
 
-  @package map_to_uniq_def(dbset:DbMongoSet.engine('a)):'value =
+  @package map_to_uniq_def(dbset:DbMongoSet.t('a)):'value =
     match map_to_uniq(dbset) with
     | {some=v:'value} -> v
-    | {none} -> @unsafe_cast(dbset.default)
+    | {none} -> @unsafe_cast(DbSet.engine(dbset).default)
 
-  @package set_to_uniq(dbset:DbMongoSet.engine('a)):option('a) =
+  @package set_to_uniq(dbset:DbMongoSet.t('a)):option('a) =
     match to_list(dbset) with
     | [] -> none
     | [uniq] -> some(uniq)
     | _ -> do @assert(false) error("___")
 
-  @package set_to_uniq_def(dbset:DbMongoSet.engine('a)):'a =
+  @package set_to_uniq_def(dbset:DbMongoSet.t('a)):'a =
     match set_to_uniq(dbset) with
-    | {none} -> dbset.default
+    | {none} -> @unsafe_cast(DbSet.engine(dbset).default)
     | {some = uniq} -> uniq
 
   @package add_to_document(doc, name, value, ty):Bson.document =
     List.append(doc, Bson.opa_to_document(name, value, ty))
 
   @package build_vpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
-              read_map:DbMongoSet.engine('a) -> option('b)):DbMongo.private.val_path('b) =
+              read_map:DbMongoSet.t('a) -> option('b)):DbMongo.private.val_path('b) =
     {
       id = path_to_id(path)
       read() = read_map(build(db, path, selector, @unsafe_cast(default), skip, limit, filter)):option('b)
@@ -972,7 +905,7 @@ DbMongoSet = {{
     }
 
   @package build_rpath(db:DbMongo.t, path:list(string), selector, default:'b, skip, limit, filter,
-                       read_map:DbMongoSet.engine('a) -> option('b), write_map:'b -> Bson.document,
+                       read_map:DbMongoSet.t('a) -> option('b), write_map:'b -> Bson.document,
                        embed:option(string)):DbMongo.private.ref_path('b) =
     id = path_to_id(path)
     vpath = build_vpath(db, path, selector, default, skip, limit, filter, read_map)
@@ -1006,7 +939,7 @@ DbMongoSet = {{
              skip,
              limit,
              filter,
-             read_map:DbMongoSet.engine('a) -> option('b),
+             read_map:DbMongoSet.t('a) -> option('b),
              write_map:'b -> list(Bson.document),
              embed:option(string)):DbMongo.private.ref_path('b) =
     id = path_to_id(path)
