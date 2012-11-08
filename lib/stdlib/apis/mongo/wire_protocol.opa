@@ -265,11 +265,11 @@ WireProtocol = {{
     (->
       b = Binary.create(12)
       ts = Date.in_milliseconds(Date.now()) / 1000
-      do Binary.add_int32_be(b, ts)
-      do Binary.add_int32_be(b, Random.int(0xffffffff))
+      do Binary.add_uint32_be(b, ts)
+      do Binary.add_uint32_be(b, Random.int(0xffffffff))
       cnt = ServerReference.get(counter)
       do ServerReference.set(counter, cnt+1)
-      do Binary.add_int32_be(b, cnt)
+      do Binary.add_uint32_be(b, cnt)
       b)
 
   oid(name,oid) = (14+String.length(name),[{Byte=el_oid}, {Cstring=name}, {FixedBinary=(12,oid)}])
