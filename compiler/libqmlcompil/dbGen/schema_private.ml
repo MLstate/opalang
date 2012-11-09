@@ -1129,7 +1129,10 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
      | _ ->
          let keyty = SchemaGraphLib.type_of_key t node in
          let rebuildt dataty =
-           Q.TypeName ([keyty; dataty], Q.TypeIdent.of_string Opacapi.Types.map)
+           if partial then
+             Q.TypeName ([keyty; dataty], Q.TypeIdent.of_string Opacapi.Types.map)
+           else
+             dataty
          in
          rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
     )
