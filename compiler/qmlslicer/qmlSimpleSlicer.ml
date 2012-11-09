@@ -1620,7 +1620,13 @@ let split_code ~gamma:_ ~annotmap_old env code =
                       let e = snd (List.find (fun (j,_) -> Ident.equal new_i j) more_server) in
                       let server_publish = IdentMap.add new_i None server_publish in
                       let sync = variant_of_async info.async in
-                      let annotmap, e = directive_publish new_i (`ajax_publish sync) annotmap e in
+
+                      let annotmap, e =
+                        let lifted = match info.lambda_lifted with
+                          | env, [] -> assert (env=0); `toplevel
+                          | env, _ -> `lifted env
+                        in
+                        directive_publish new_i (`ajax_publish (lifted, sync)) annotmap e in
                       let label = Annot.nolabel "QmlSimpleSlicer.rev_code_server" in
                       (annotmap, Q.NewVal (label, [Ident.refresh ~map:(fun s -> "skel_"^s) new_i, e]) :: rev_code_server, server_publish)
                     else acc

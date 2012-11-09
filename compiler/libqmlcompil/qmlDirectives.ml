@@ -429,6 +429,14 @@ let create_lazy_record_exprs record info =
 
 module Format = Base.Format
 
+let publish_lifted = function
+  | `lifted i -> Printf.sprintf "([env %d])" i
+  | `toplevel -> ""
+
+let publish_async = function
+  | `sync -> "`sync"
+  | `async -> "`async"
+
 let to_string d =
   match d with
   | `deprecated -> "deprecated"
@@ -464,10 +472,11 @@ let to_string d =
   | `closure_apply -> "closure_apply"
   | `closure_create_no_function _ -> "closure_create_no_function"
   | `closure_define_function _ -> "closure_define_function"
-  | `ajax_publish b -> Printf.sprintf "ajax_publish(%s)" (match b with `sync -> "`sync" | `async -> "`async")
+  | `ajax_publish (pl, sy) ->
+      Printf.sprintf "ajax_publish%s%s" (publish_async sy) (publish_lifted pl)
+
   | `ajax_call b -> Printf.sprintf "ajax_call(%s)" (match b with `sync -> "`sync" | `async -> "`async")
-  | `comet_publish `toplevel -> "comet_publish"
-  | `comet_publish `lifted env -> Printf.sprintf "comet_publish[env %d]" env
+  | `comet_publish pl -> Printf.sprintf "comet_publish%s" (publish_lifted pl)
   | `comet_call -> "comet_call"
   | `insert_server_value i -> Printf.sprintf "insert_server_value(%s)" (Ident.to_string i)
   | `doctype _ -> "doctype"

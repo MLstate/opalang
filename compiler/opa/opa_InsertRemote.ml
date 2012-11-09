@@ -43,7 +43,7 @@ let full_apply gamma annotmap fun_ tys args =
   let annotmap, e = QmlAstCons.TypedExpr.apply_partial gamma annotmap fun_ (tys @ args) in
   QmlAstCons.TypedExpr.directive annotmap (`full_apply (List.length tys)) [e] []
 
-type publish_directive = [`ajax_publish of [`sync | `async] | `comet_publish of [`lifted of int | `toplevel]]
+type publish_directive = QmlAst.publish_slicer_directive
 
 type call_directive = [`ajax_call of [`sync | `async] | `comet_call]
 
@@ -120,12 +120,12 @@ let call_directive_to_sync = function
   | _ -> `sync
 
 let publish_directive_to_sync = function
-  | `ajax_publish b -> b
+  | `ajax_publish (_, b) -> b
   | _ -> `sync
 
 let publish_directive_to_lifted = function
-  | `ajax_publish _ -> `toplevel
-  | `comet_publish b -> b
+  | `ajax_publish (x, _) -> x
+  | `comet_publish x -> x
 
 let _call, _stub, _skel, _insert, _reset, get_info =
   #<If>

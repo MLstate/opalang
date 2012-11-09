@@ -959,6 +959,16 @@ type type_directive = [
 
 ]
 
+type publish_slicer_directive =
+    [ `ajax_publish of [`lifted of int | `toplevel] * [`sync | `async]
+        (** only appear at the top of an expression in a newval
+            indicate that a server-side stub should be produced for the binding
+        *)
+    | `comet_publish of [`lifted of int | `toplevel]
+        (** symmetric directive to `ajax_publish. The boolean indicates if the
+            published lambda has been lifted. *)
+    ]
+
 (**
    Directives inserted by the new slicer
    (it doesn't use any directives)
@@ -966,15 +976,9 @@ type type_directive = [
 type simple_slicer_directive =
     [ `ajax_call    of [`sync | `async]
         (** remote call client -> server *)
-    | `ajax_publish of [`sync | `async]
-        (** only appear at the top of an expression in a newval
-            indicate that a server-side stub should be produced for the binding
-        *)
+
 
     | `comet_call   (** symmetric directive to `ajax_call *)
-    | `comet_publish of [`lifted of int | `toplevel]
-        (** symmetric directive to `ajax_publish. The boolean indicates if the
-            published lambda has been lifted. *)
 
     | `insert_server_value of Ident.t
         (** only appears at the top of an expression in a newval in the client code
@@ -982,7 +986,8 @@ type simple_slicer_directive =
             indicate that the expression on the client should be replaced at server
             startup by the value of the server identifier
         *)
-    | `sliced_expr ] (** see the description in surfaceAst *)
+    | `sliced_expr
+    | publish_slicer_directive ] (** see the description in surfaceAst *)
 
 type userland_public_visibility_directive = [`sync | `async ]
 type compiler_public_visibility_directive = [ `funaction ]
