@@ -231,7 +231,7 @@ struct
   type engine = [
   |`db3
   |`mongo
-  |`dropbox 
+  |`dropbox
   ]
 
   type options = {
@@ -972,13 +972,16 @@ type simple_slicer_directive =
         *)
 
     | `comet_call   (** symmetric directive to `ajax_call *)
-    | `comet_publish(** symmetric directive to `ajax_publish *)
+    | `comet_publish of [`lifted of int | `toplevel]
+        (** symmetric directive to `ajax_publish. The boolean indicates if the
+            published lambda has been lifted. *)
+
     | `insert_server_value of Ident.t
-      (** only appears at the top of an expression in a newval in the client code
-          the ident in the variant is a server-side identifier
-          indicate that the expression on the client should be replaced at server
-          startup by the value of the server identifier
-      *)
+        (** only appears at the top of an expression in a newval in the client code
+            the ident in the variant is a server-side identifier
+            indicate that the expression on the client should be replaced at server
+            startup by the value of the server identifier
+        *)
     | `sliced_expr ] (** see the description in surfaceAst *)
 
 type userland_public_visibility_directive = [`sync | `async ]

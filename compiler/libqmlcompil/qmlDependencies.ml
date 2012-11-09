@@ -379,7 +379,7 @@ let merge_api_contexts = merge_contexts merge_api_other empty_api_context
    [get_code_elt_api_context] gives you what is provided by a code_elt
 *)
 let get_expr_api_context = function
-  | Q.Directive (_, (`ajax_publish _|`comet_publish), el, _) -> (
+  | Q.Directive (_, (`ajax_publish _|`comet_publish _), el, _) -> (
       match el with
       | [ Q.Ident (_, i) ] -> [(remote_call_ident i, None)]
       | _ -> assert false

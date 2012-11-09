@@ -1254,11 +1254,7 @@ let directive_publish ident dir annotmap expr =
   let ty = QmlAnnotMap.find_ty (Q.QAnnot.expr expr) annotmap in
   let pos = Q.Pos.expr expr in
   let annotmap, expr = QmlAstCons.TypedExpr.ident ~pos annotmap ident ty in
-  match dir with
-  | `comet_publish ->
-      make_dir `comet_publish ~inner:true annotmap expr
-  | `ajax_publish b ->
-      make_dir (`ajax_publish b) ~inner:true annotmap expr
+  make_dir dir ~inner:true annotmap expr
 
 (* builds (fun x1 x2 ... -> @comet_call(client_name)(x1,x2,...))
    the type of client_name is refreshed so that ei can propagate type vars
@@ -1604,7 +1600,13 @@ let split_code ~gamma:_ ~annotmap_old env code =
                       let new_i = rename_client i in
                       let e = snd (List.find (fun (j,_) -> Ident.equal new_i j) more_client) in
                       let client_publish = IdentMap.add new_i None client_publish in
-                      let annotmap, e = directive_publish new_i `comet_publish annotmap e in
+                      let annotmap, e =
+                        let lifted = match info.lambda_lifted with
+                          | env, [] -> assert (env=0); `toplevel
+                          | env, _ -> `lifted env
+                        in
+                        directive_publish new_i (`comet_publish lifted)
+                          annotmap e in
                       let label = Annot.nolabel "QmlSimpleSlicer.rev_code_client" in
                       (annotmap, Q.NewVal (label, [Ident.refresh ~map:(fun s -> "skel_"^s) new_i, e]) :: rev_code_client, client_publish)
                     else acc

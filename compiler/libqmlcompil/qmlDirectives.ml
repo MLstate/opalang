@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -214,7 +214,7 @@ let ty directive exprs tys =
   | `ajax_call _
   | `ajax_publish _
   | `comet_call
-  | `comet_publish -> Ty.id ()
+  | `comet_publish _ -> Ty.id ()
   | `insert_server_value _ ->
       (match tys with
        | [ty] -> Q.TypeArrow ([], ty)
@@ -466,7 +466,8 @@ let to_string d =
   | `closure_define_function _ -> "closure_define_function"
   | `ajax_publish b -> Printf.sprintf "ajax_publish(%s)" (match b with `sync -> "`sync" | `async -> "`async")
   | `ajax_call b -> Printf.sprintf "ajax_call(%s)" (match b with `sync -> "`sync" | `async -> "`async")
-  | `comet_publish -> "comet_publish"
+  | `comet_publish `toplevel -> "comet_publish"
+  | `comet_publish `lifted env -> Printf.sprintf "comet_publish[env %d]" env
   | `comet_call -> "comet_call"
   | `insert_server_value i -> Printf.sprintf "insert_server_value(%s)" (Ident.to_string i)
   | `doctype _ -> "doctype"

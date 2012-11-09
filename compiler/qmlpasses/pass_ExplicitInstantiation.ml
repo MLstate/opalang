@@ -1048,13 +1048,13 @@ let arg_of_type_col ~val_ side set gamma annotmap t =
 (** Inserting directives for Explicit Instantiation *)
 (* Directives just rewrite type*)
 type 'a directive_just_type =
-    [`ajax_publish of [`sync | `async] | `comet_publish
+    [`ajax_publish of [`sync | `async] | `comet_publish of [`lifted of int | `toplevel]
     | `insert_server_value of QmlAst.ident ]
 
 (* Directives not to traverse *)
 type call = [ `ajax_call of [`sync | `async] | `comet_call ]
 type directive_no_traverse =
-    [`ajax_publish of [`sync | `async] | `comet_publish | call ]
+    [`ajax_publish of [`sync | `async] | `comet_publish of [`lifted of int | `toplevel] | call ]
 
 let console_debug hdr fmt =
   OManager.printf (

@@ -43,7 +43,7 @@ let full_apply gamma annotmap fun_ tys args =
   let annotmap, e = QmlAstCons.TypedExpr.apply_partial gamma annotmap fun_ (tys @ args) in
   QmlAstCons.TypedExpr.directive annotmap (`full_apply (List.length tys)) [e] []
 
-type publish_directive = [`ajax_publish of [`sync | `async] | `comet_publish ]
+type publish_directive = [`ajax_publish of [`sync | `async] | `comet_publish of [`lifted of int | `toplevel]]
 
 type call_directive = [`ajax_call of [`sync | `async] | `comet_call]
 
@@ -113,7 +113,7 @@ let optimized = false
 
 let directive_to_side = function
   | `ajax_publish _ | `comet_call -> `server
-  | `comet_publish | `ajax_call _ | `insert_server_value _ -> `client
+  | `comet_publish _ | `ajax_call _ | `insert_server_value _ -> `client
 
 let call_directive_to_sync = function
   | `ajax_call b -> b
@@ -122,6 +122,10 @@ let call_directive_to_sync = function
 let publish_directive_to_sync = function
   | `ajax_publish b -> b
   | _ -> `sync
+
+let publish_directive_to_lifted = function
+  | `ajax_publish _ -> `toplevel
+  | `comet_publish b -> b
 
 let _call, _stub, _skel, _insert, _reset, get_info =
   #<If>
@@ -558,7 +562,7 @@ let check_and_get ?(msg="") ~annotmap ~gamma:_ explicit_map expr =
     @param sync True if the call is synchronous, false if it is asynchronous i.e. result doesn't matter
     @param expr The body of the function
 *)
-let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr =
+let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side ~lifted expr =
   (* Check and get *)
   let expr, ident, _ty, _tsc, nb_tyvar, nb_rowvar, nb_colvar, oty, otsc, number_of_lambdas =
     check_and_get ~msg:"generate_skeleton" ~annotmap ~gamma  explicit_map expr
@@ -1052,8 +1056,9 @@ let resolving_slicer_directive ~annotmap ~stdlib_gamma ~gamma ~side code
          | Q.Directive (_, (#publish_directive as d), [expr], _) ->
              assert(side = directive_to_side d);
              let sync = publish_directive_to_sync d in
+             let lifted = publish_directive_to_lifted d in
              let annotmap, gamma, nrvals =
-               publish_resolver ~annotmap ~stdlib_gamma ~gamma ~side expr in
+               publish_resolver ~annotmap ~stdlib_gamma ~gamma ~side ~lifted expr in
              let annotmap, gamma, other_nrvals =
                if ObjectFiles.Arg.is_fully_separated () then
                  generate_stub_from_publish ~annotmap ~stdlib_gamma ~gamma ~side ~sync expr
@@ -1187,11 +1192,11 @@ let generate_stub_from_publish,
 (** Publish resolver. This resolver can be work on both side. This
     resolver generate a skeleton and an expression for register this
     skeleton. *)
-let make_publish_resolver genskel explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side expr =
+let make_publish_resolver genskel explicit_map renamingmap ~annotmap ~stdlib_gamma ~gamma ~side ~lifted expr =
   try
     _skel ();
     let annotmap, gamma, (iskeleton, skeleton) =
-      genskel explicit_map ~annotmap ~stdlib_gamma ~gamma ~side expr in
+      genskel explicit_map ~annotmap ~stdlib_gamma ~gamma ~side ~lifted expr in
     let annotmap, gamma, cpl_register =
       register_skeleton ~renamingmap ~annotmap ~stdlib_gamma ~gamma ~side expr iskeleton in
     (match iskeleton with
