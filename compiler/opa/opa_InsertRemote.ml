@@ -644,13 +644,21 @@ let generate_skeleton explicit_map ~annotmap ~stdlib_gamma ~gamma ~side ~lifted 
     (*try*)
       if is_a_function then
         let args_ty = list_expr_ty @ list_expr_row @ list_expr_col in
-        match number_of_lambdas with
-        | `one_lambda env ->
+        match lifted, number_of_lambdas with
+        | `lifted env, `one_lambda 0 ->
             let env_args, list_expr_val =  List.split_at env list_expr_val in
             full_apply gamma annotmap expr (args_ty @ env_args) list_expr_val
-        | `two_lambdas ->
+        | (`toplevel | `lifted _), `one_lambda env ->
+            (* Here the lambda lifting informations are propagated by ei *)
+            let env_args, list_expr_val =  List.split_at env list_expr_val in
+            full_apply gamma annotmap expr (args_ty @ env_args) list_expr_val
+        | `toplevel, `two_lambdas ->
             let annotmap, apply1 = QmlAstCons.TypedExpr.apply gamma annotmap expr args_ty in
             QmlAstCons.TypedExpr.apply gamma annotmap apply1 list_expr_val
+        | `lifted env, `two_lambdas ->
+            let annotmap, apply1 = QmlAstCons.TypedExpr.apply gamma annotmap expr args_ty in
+            let env_args, list_expr_val = List.split_at env list_expr_val in
+            full_apply gamma annotmap apply1 env_args list_expr_val
       else (
         assert (list_expr_val = []);
         TypedExpr.may_apply gamma annotmap expr (list_expr_ty @ list_expr_row @ list_expr_col)
