@@ -27,6 +27,8 @@ export
 
 include $(BUILD_PATH)/Makefile.bld
 
+MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
+
 ##
 ## STANDARD TARGETS
 ##
@@ -34,7 +36,7 @@ include $(BUILD_PATH)/Makefile.bld
 # ALL_TOOLS is built by Makefile.bld from build_tools files
 .PHONY: node
 node: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
+	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(ALL_TOOLS))
 
 .PHONY: node-runtime-libs
@@ -43,7 +45,7 @@ node-runtime-libs: $(MYOCAMLBUILD)
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp opa-node-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) plugins.qmljs.stamp opa-node-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
 	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
 
@@ -52,7 +54,7 @@ opa: $(BUILD_DIR)/bin/opa
 
 .PHONY: opa-node-packages
 opa-node-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp opa-node-packages.stamp
+	$(OCAMLBUILD) plugins.qmljs.stamp opa-node-packages.stamp
 
 .PHONY: stdlib
 stdlib: opa-node-packages
@@ -65,7 +67,7 @@ DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerL
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create
+	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 
 ##
@@ -259,4 +261,4 @@ doc.odocl:
 
 .PHONY: packages-api
 packages-api: $(MYOCAMLBUILD)
-	OPAOPT="$(OPAOPT) --api --parser classic" $(OCAMLBUILD) opabsl.qmljs.stamp plugins.qmljs.stamp opa-node-packages.stamp
+	OPAOPT="$(OPAOPT) --api --parser classic" $(OCAMLBUILD) plugins.qmljs.stamp opa-node-packages.stamp
