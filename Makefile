@@ -23,6 +23,10 @@ ifndef NO_REBUILD_OPA_PACKAGES
 OPAOPT += --rebuild
 endif
 
+ifdef DEBUG_OCAMLBUILD
+OCAMLBUILD_OPT += -classic-display
+endif
+
 export
 
 include $(BUILD_PATH)/Makefile.bld
