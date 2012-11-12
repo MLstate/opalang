@@ -71,7 +71,7 @@ distrib: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 
 ##
-## MANPAGES
+## MANPAGES - done in install_release.sh
 ##
 
 .PHONY: manpages
