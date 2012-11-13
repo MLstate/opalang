@@ -1444,7 +1444,7 @@ and f_bindings ~rec_ all_env hierar iel =
 and f_directive all_env hierar (variant, el, tl) =
   let f_env, el = f_expr_list all_env hierar el in
   let f_env, tl =
-    let not_coerce = variant != `coerce in
+    let not_coerce = match variant with | `coerce | `typeval -> false | _ -> true in
     let fold_map f_env ty =
       let all_env, ty =
         f_ty_ext

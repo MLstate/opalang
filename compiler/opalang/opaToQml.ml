@@ -567,7 +567,7 @@ struct
   and directive opa_annot ((c, e, t) as d) : QA.expr =
     match c, e, t with
     | (
-        `typeof | `opensums | `openrecord | `extendwith | `unsafe_cast
+        `typeof | `typeval | `opensums | `openrecord | `extendwith | `unsafe_cast
       | `nonexpansive | `doctype _ | `module_ | `module_field_lifting
       | `spawn | `wait | `atomic | `callcc | `js_ident | `expand _
       | `create_lazy_record | `assert_  | `fail

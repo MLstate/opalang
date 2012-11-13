@@ -395,7 +395,7 @@ just_type_without_sum <- just_type_const:t {{ t }}
                        / external {{ TypeExternal }}
                        / lpar just_typ:t rpar {{ t }}
                        / type_tuple
-                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t 
+                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t
                            {{ TypeForall(typevars, [], [], t) }}
                        / type_module
 
@@ -1190,6 +1190,9 @@ directive1 <-
   / "unsafe_cast" {{ `unsafe_cast }}
   / "wait" {{ `wait }}
 
+directive1_typ <-
+  / "typeval" {{ `typeval }}
+
 directive0pack <-
   / "from" {{ fun x -> `from x }}
 
@@ -1217,21 +1220,14 @@ directive <-
   (* FIXME: could accept assert_message(,_e)(s)
    * instead of just assert_message(s,e) *)
   / "@xml(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
-  / "@typeval(" typ:t rpar {{
-      (* For convenience, directive [@typeval] is handled as thin syntactic sugar.
-         Therefore [@typeval(t)] is parsed as [@typeof(@unsafe_cast("dummy_for_typeval"):t)]
-      *)
-      let expr_cast      = (directive1 `unsafe_cast (void (nlabel t)), nlabel t) in
-      let expr_coerced   = coerce_expr expr_cast t                   in
-      let just_typeof    = directive1 `typeof expr_coerced           in
-      just_typeof
-    }}
   / "@" (=exact_ident(directive0)):v !"("
     {{ Directive (v,[],[]) }}
   / "@" (=exact_ident(directive0pack)):v Opa_lexer.lpar_nosp package_identifier:pck rpar
     {{ Directive (v pck,[],[]) }}
   / "@" (=exact_ident(directive1)):v Opa_lexer.lpar_nosp expr:e rpar
     {{ Directive (v,[e],[]) }}
+  / "@" (=exact_ident(directive1_typ)):v Opa_lexer.lpar_nosp typ:t rpar
+    {{ Directive (v,[],[t]) }}
   / "@" (=exact_ident(directive1str)):v Opa_lexer.lpar_nosp string:str rpar
     {{ Directive (v str,[],[]) }}
   / "@" (=exact_ident(directive1rec)):v Opa_lexer.lpar_nosp (=deco(record)):e rpar

@@ -656,6 +656,9 @@ directive1 <-
   / "unsafe_cast" {{ `unsafe_cast }}
   / "wait" {{ `wait }}
 
+directive1_typ <-
+  / "typeval" {{ `typeval }}
+
 directive0pack <-
   / "from" {{ fun x -> `from x }}
 
@@ -698,6 +701,8 @@ directive <-
     {{ Directive (v pck,[],[]) }}
   / "@" (=exact_ident(directive1)):v Opa_lexer.lpar_nosp expr:e rpar
     {{ Directive (v,[e],[]) }}
+  / "@" (=exact_ident(directive1_typ)):v Opa_lexer.lpar_nosp typ:t rpar
+    {{ Directive (v,[],[t]) }}
   / "@" (=exact_ident(directive1str)):v Opa_lexer.lpar_nosp string:str rpar
     {{ Directive (v str,[],[]) }}
   / "@" (=exact_ident(directive1rec)):v Opa_lexer.lpar_nosp (=deco(just_record)):e rpar
@@ -1213,7 +1218,7 @@ just_type_without_sum <- just_type_const:t {{ t }}
                        / external {{ TypeExternal }}
                        / lpar just_typ:t rpar {{ t }}
                        / type_tuple
-                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t 
+                       / forall (lpar (=list1(just_flatvar,comma)):l rpar {{l}}):typevars (=exact_symbol(".")) typ:t
                            {{ TypeForall(typevars, [], [], t) }}
                        / just_type_module
 

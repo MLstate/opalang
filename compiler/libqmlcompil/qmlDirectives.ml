@@ -90,6 +90,9 @@ struct
     let alpha = next () in
     Q.TypeArrow ([alpha], opaty)
 
+  let typeval () =
+    Q.TypeArrow ([], opaty)
+
   let callcc () =
     let alpha = next () in
     let f_cont =
@@ -238,6 +241,7 @@ let ty directive exprs tys =
   (* === *)
   (* Magic *)
   | `typeof -> Ty.typeof ()
+  | `typeval -> Ty.typeval()
   | `specialize _ ->
       let n = List.length exprs in
       assert (n >= 1);
@@ -452,6 +456,7 @@ let to_string d =
   | `extendwith -> "extendwith"
   | `assert_ -> "assert"
   | `typeof -> "typeof"
+  | `typeval -> "typeval"
   | `atomic -> "atomic"
   | `immovable -> "immovable"
   | `thread_context -> "thread_context"

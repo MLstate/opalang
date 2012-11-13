@@ -297,6 +297,7 @@ type magic_directive =
         *)
 
     | `typeof
+    | `typeval
     | `specialize of [ `strict | `polymorphic ]
     ]
 
