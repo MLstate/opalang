@@ -1,0 +1,525 @@
+// Configuration for PostrgreSQL command messages
+
+// Standard MLState copyright header
+PARAMETER since 2011
+COPYRIGHT     Copyright © %%SINCE%% MLstate
+COPYRIGHT 
+COPYRIGHT     This file is part of Opa.
+COPYRIGHT 
+COPYRIGHT     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+COPYRIGHT 
+COPYRIGHT     The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+COPYRIGHT 
+COPYRIGHT     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+COPYRIGHT
+
+// Any floating documentation is accumulated at the start of the generated output
+/** Pg module
+/**
+/** This file generates low-level messages for the Postgresql API
+/**
+/** Packing functions are named "pack_<message_name>"
+/** Unpacking functions are named "unpack_<message_name>"
+/**
+/** You probably won't need to use the packing/unpacking functions,
+/** there are message send and receive functions provided which use these.
+/**
+/** The sending functions are: start, password, query, parse, bind, execute,
+/** describe, closePS, sync and flush.
+/**
+/** The only receive function is reply which handles all incoming messages from PostgreSQL.
+/**
+
+// This is what we call the generated module and prefix the types with
+APINAME Pg
+
+// Some fundamental parameters
+PARAMETER endianness big
+
+// The connection handler
+PARAMETER default_host ("localhost",5432)
+PARAMETER connection true
+PARAMETER connection_name postgres
+
+// These  vvvvvvvvvvvvv  are for the PostgreSQL protocol, not this file
+PARAMETER major_version 3
+PARAMETER minor_version 0
+
+// Packet parameters (where to find the length)
+PARAMETER length.offset 1
+PARAMETER length.le false
+PARAMETER length.signed false
+PARAMETER length.size L
+
+// Some optional extras
+//PARAMETER check_all_input_consumed true
+//PARAMETER emacs_mode_line true
+
+// Debug is still pretty basic, 0 or 1
+PARAMETER debug 0
+
+MESSAGE B AuthenticationOk
+/** An authentication request.
+//const char "R"
+const int32 8
+const int32 0
+END
+
+MESSAGE B AuthenticationKerberosV5
+/** An authentication request.
+//const char "R"
+const int32 8
+const int32 2
+END
+
+MESSAGE B AuthenticationCleartextPassword
+/** An authentication request.
+//const char "R"
+const int32 8
+const int32 3
+END
+
+MESSAGE B AuthenticationMD5Password
+/** An authentication request.
+//const char "R"
+const int32 12
+const int32 5
+param binary fixed 4 salt /** The salt to use when encrypting the password.
+END
+
+MESSAGE B AuthenticationSCMCredential
+/** An authentication request.
+//const char "R"
+const int32 8
+const int32 6
+END
+
+MESSAGE B AuthenticationGSS
+/** An authentication request.
+//const char "R"
+const int32 8
+const int32 7
+END
+
+MESSAGE B AuthenticationSSPI
+/** An authentication request.
+//const char "R"
+const int32 8
+const int32 9
+END
+
+MESSAGE B AuthenticationGSSContinue
+//const char "R"
+length32 offset -1
+const int32 8
+param binary to_end data
+END
+
+MESSAGE B BackendKeyData
+/** Cancellation key data. The frontend must save these values if it wishes to be able to issue CancelRequest messages later.
+//const char "K"
+length32 offset -1
+param int32 processid /** The process ID of this backend.
+param int32 secret_key /** The secret key of this backend.
+END
+
+MESSAGE F Bind
+/** A Bind command.
+const char "B"
+length32 offset -1
+param cstring destination_portal /** The name of the destination portal (an empty string selects the unnamed portal).
+param cstring source_statement /** The name of the source prepared statement (an empty string selects the unnamed prepared statement).
+param list16 unsigned16 codes /** The parameter format codes. Each must presently be zero (text) or one (binary).
+param list16 binary32 parameters /** The parameters in the format indicated by the associated format code.
+param list16 int16 result_column_codes /** The result-column format codes. Each must presently be zero (text) or one (binary).
+END
+
+MESSAGE B BindComplete
+/** A Bind-complete indicator.
+//const char "2"
+const int32 4
+END
+
+MESSAGE F CancelRequest
+/** Cancel request.
+const int32 16
+const int32 80877102 /** The cancel request code. The value is chosen to contain 1234 in the most significant 16 bits, and 5678 in the least 16 significant bits. (To avoid confusion, this code must not be the same as any protocol version number.) */
+param int32 processid /** The process ID of the target backend.
+param int32 secret_key /** The secret key for the target backend.
+END
+
+MESSAGE F Close
+/** A Close command.
+const char "C"
+length32 offset -1
+param char S_or_P /** 'S' to close a prepared statement; or 'P' to close a portal.
+param cstring name /** The name of the prepared statement or portal to close (an empty string selects the unnamed prepared statement or portal).
+END
+
+MESSAGE B CloseComplete
+/** A Close-complete indicator.
+//const char "3"
+const int32 4
+END
+
+MESSAGE B CommandComplete
+/** A command-completed response.
+//const char "C"
+length32 offset -1
+param cstring tag /** The command tag. This is usually a single word that identifies which SQL command was completed.
+END
+
+MESSAGE F CopyDataF
+/** COPY data.
+const char "d"
+param binary32 data /** 
+END
+
+MESSAGE B CopyDataB
+/** COPY data.
+//const char "d"
+param binary32 data /** 
+END
+
+MESSAGE F CopyDoneF
+/** A COPY-complete indicator.
+const char "c"
+const int32 4
+END
+
+MESSAGE B CopyDoneB
+/** A COPY-complete indicator.
+//const char "c"
+const int32 4
+END
+
+MESSAGE B CopyFail
+/** COPY-failure indicator.
+//const char "f"
+length32 offset -1
+param cstring error_message /** An error message to report as the cause of failure.
+END
+
+MESSAGE B CopyInResponse
+/** Start Copy In response. The frontend must now send copy-in data (if not prepared to do so, send a CopyFail message).
+//const char "G"
+length32 offset -1
+param int8 is_textual /** 0 indicates the overall COPY format is textual (rows separated by newlines, columns separated by separator characters, etc). 1 indicates the overall copy format is binary (similar to DataRow format).
+param list16 unsigned16 column_codes /** The format codes to be used for each column. Each must presently be zero (text) or one (binary). All must be zero if the overall copy format is textual.
+END
+
+MESSAGE B CopyOutResponse
+/** Start Copy Out response. This message will be followed by copy-out data.
+//const char "H"
+length32 offset -1
+param int8 is_textual /** 0 indicates the overall COPY format is textual (rows separated by newlines, columns separated by separator characters, etc). 1 indicates the overall copy format is binary (similar to DataRow format).
+param list16 unsigned16 column_codes /** The format codes to be used for each column. Each must presently be zero (text) or one (binary). All must be zero if the overall copy format is textual.
+END
+
+MESSAGE B CopyBothResponse
+/** Start Copy Both response. This message is used only for Streaming Replication.
+//const char "W"
+length32 offset -1
+param int8 is_textual /** 0 indicates the overall COPY format is textual (rows separated by newlines, columns separated by separator characters, etc). 1 indicates the overall copy format is binary (similar to DataRow format).
+param list16 unsigned16 little column_codes /** The format codes to be used for each column. Each must presently be zero (text) or one (binary). All must be zero if the overall copy format is textual.
+END
+
+MESSAGE B DataRow
+/** Data row.
+//const char "D"
+length32 offset -1
+param list16 binary32 arguments /** Column values, in the format indicated by the associated format code.
+END
+
+MESSAGE F Describe
+/** A Describe command.
+const char "D"
+length32 offset -1
+param char S_or_P /** 'S' to describe a prepared statement; or 'P' to describe a portal.
+param cstring name /** The name of the prepared statement or portal to describe (an empty string selects the unnamed prepared statement or portal).
+END
+
+MESSAGE B EmptyQueryResponse
+/** Response to an empty query string. (This substitutes for CommandComplete.)
+//const char "I"
+const int32 4
+END
+
+MESSAGE B code_msg
+param unsigned8 code /** A code identifying the field type; if zero, this is the message terminator and no string follows.
+param cstring msg /** The field value.
+END
+
+MESSAGE B ErrorResponse
+/** An error response.
+//const char "E"
+length32 offset -1
+param ntlist code_msg error_messages
+END
+
+MESSAGE F Execute
+/** An Execute command.
+const char "E"
+length32 offset -1
+param cstring portal_name /** The name of the portal to execute (an empty string selects the unnamed portal).
+param int32 rows_to_return /** Maximum number of rows to return, if portal contains a query that returns rows (ignored otherwise). Zero denotes "no limit".
+END
+
+MESSAGE F Flush
+/** A Flush command.
+const char "H"
+const int32 4
+END
+
+MESSAGE F FunctionCall
+/** A function call.
+const char "F"
+length32 offset -1
+param unsigned32 objectid /** Specifies the object ID of the function to call.
+param list16 unsigned16 codes /** The argument format codes. Each must presently be zero (text) or one (binary).
+param list16 binary32 arguments /** Argument, in the format indicated by the associated format code.
+param unsigned16 result_code /** The format code for the function result. Must presently be zero (text) or one (binary).
+END
+
+MESSAGE B FunctionCallResponse
+/** Function call result.
+//const char "V"
+length32 offset -1
+param binary32 results /** The value of the function result, in the format indicated by the associated format code.
+END
+
+MESSAGE B NoData
+/** No-data indicator.
+//const char "n"
+const int32 4
+END
+
+MESSAGE B code_notice
+param unsigned8 code /** A code identifying the field type; if zero, this is the message terminator and no string follows.
+param cstring notice /** The field value.
+END
+
+MESSAGE B NoticeResponse
+/** A notice.
+//const char "N"
+length32 offset -1
+param ntlist code_notice notice_messages
+END
+
+MESSAGE B NotificationResponse
+/** A notification response.
+//const char "A"
+length32 offset -1
+param unsigned32 processid /** The process ID of the notifying backend process.
+param cstring channel_name /** The name of the channel that the notify has been raised on.
+param cstring payload /** The "payload" string passed from the notifying process.
+END
+
+MESSAGE B ParameterDescription
+/** A parameter description.
+//const char "t"
+length32 offset -1
+param list16 unsigned32 objectids /** Object IDs of the parameter data type.
+END
+
+MESSAGE B ParameterStatus
+/** A run-time parameter status report.
+//const char "P"
+length32 offset -1
+param cstring name /** The name of the run-time parameter being reported.
+param cstring value /** The current value of the parameter.
+END
+
+MESSAGE F Parse
+/** A Parse command.
+const char "P"
+length32 offset -1
+param cstring name /** The name of the destination prepared statement (an empty string selects the unnamed prepared statement).
+param cstring query /** The query string to be parsed.
+param list16 int32 objectids /** Object IDs of the parameter data type. Placing a zero here is equivalent to leaving the type unspecified.
+END
+
+MESSAGE B ParseComplete
+/** Parse-complete indicator.
+//const char "1"
+const int32 4
+END
+
+MESSAGE F PasswordMessage
+/** A password response. Note that this is also used for GSSAPI and SSPI response messages (which is really a design error, since the contained data is not a null-terminated string in that case, but can be arbitrary binary data).
+const char "p"
+length32 offset -1
+param cstring password /** The password (encrypted, if requested).
+END
+
+MESSAGE B PortalSuspended
+/** A portal-suspended indicator. Note this only appears if an Execute message's row-count limit was reached.
+//const char "s"
+const int32 4
+END
+
+MESSAGE F Query
+/** A simple query.
+const char "Q"
+length32 offset -1
+param cstring query /** The query string itself.
+END
+
+MESSAGE B ReadyForQuery
+/** ReadyForQuery is sent whenever the backend is ready for a new query cycle.
+//const char "Z"
+const int32 5
+param char status /** Current backend transaction status indicator. Possible values are 'I' if idle (not in a transaction block); 'T' if in a transaction block; or 'E' if in a failed transaction block (queries will be rejected until block is ended).
+END
+
+MESSAGE B row_desc
+/** Individual row description data.
+param cstring name /** The field name.
+param unsigned32 table_id /** If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
+param unsigned16 table_attribute_number /** If the field can be identified as a column of a specific table, the attribute number of the column; otherwise zero.
+param unsigned32 type_id /** The object ID of the field's data type.
+param int16 data_type_size /** The data type size (see pg_type.typlen). Note that negative values denote variable-width types.
+param int32 type_modifier /** The type modifier (see pg_attribute.atttypmod). The meaning of the modifier is type-specific.
+param int16 format_code /** The format code being used for the field. Currently will be zero (text) or one (binary). In a RowDescription returned from the statement variant of Describe, the format code is not yet known and will always be zero.
+END
+
+MESSAGE B RowDescription
+/** A row description.
+//const char "T"
+length32 offset -1
+param list16 row_desc descriptions /** List of row descriptions.
+END
+
+MESSAGE F SSLRequest
+/** The SSL request code. The value is chosen to contain 1234 in the most significant 16 bits, and 5679 in the least 16 significant bits. (To avoid confusion, this code must not be the same as any protocol version number.)
+const int32 8
+const int32 80877103
+END
+
+MESSAGE F name_value
+/** Auxiliary type, simple name-value pair of strings.
+param cstring name /** Name.
+param cstring value /** Value.
+END
+
+MESSAGE F StartupMessage
+/** Startup message.  NOTE: No byte code in this message (historical reasons, apparently).
+length32
+param int32 version /** The protocol version number. The most significant 16 bits are the major version number. The least significant 16 bits are the minor version number.
+param ntlist name_value parameters /** One or more pairs of parameter name and value strings.
+END
+
+MESSAGE F Sync
+/** A Sync command.
+const char "S"
+const int32 4
+END
+
+MESSAGE F Terminate
+/** Termination.
+const char "X"
+const int32 4
+END
+
+MESSAGE B two_int32s
+/** Unpack two int32 values
+/** Used by nested coding parser for Authentication
+param int32 size
+param int32 code
+END
+
+MESSAGE B Ok
+/** Empty parser for Ok Authentication submessage
+END
+
+MESSAGE B KerberosV5
+/** Empty parser for KerberosV5 Authentication submessage
+END
+
+MESSAGE B CleartextPassword
+/** Empty parser for CleartextPassword Authentication submessage
+END
+
+MESSAGE B MD5Password
+/** Empty parser for MD5Password Authentication submessage
+param binary fixed 4 salt
+END
+
+MESSAGE B SCMCredential
+/** Empty parser for SCMCredential Authentication submessage
+END
+
+MESSAGE B GSS
+/** Empty parser for GSS Authentication submessage
+END
+
+MESSAGE B SSPI
+/** Empty parser for SSPI Authentication submessage
+END
+
+MESSAGE B GSSContinue
+/** Parser for GSSContinue Authentication submessage
+param binary to_end data
+END
+
+CODED B Authentication two_int32s
+/** Second level parser for authentication messages which all have the same code "R".
+/** There is a second (integer) code which comes after the message size so for
+/** convenience we disambiguate on the length and the second code.
+/**
+code Ok (8,0) /** Ok returned when authentication succeeds
+code KerberosV5 (8,2) /** KerberosV5: Initiate Kerberos authentication
+code CleartextPassword (8,3) /** CleartextPassword: request clear text password
+code MD5Password (12,5) /** MD5Password: request MD5 encoded password
+code SCMCredential (8,6) /** SCMCredential: Initiate SCM authentication
+code GSS (8,7) /** GSS: Initiate GSS authentication
+code SSPI (8,9) /** SSPI: Initiate SSPI authentication
+code GSSContinue (_,8) /** GSSContinue: part of GSS authentication
+END
+
+CODED B PostgresReply char
+/** The main read loop from Postgres server.
+/** The Postgres docs recommend having a single read point for all messages
+/** from the server.  Here we handle all our supported messages and call the
+/** requested continuations, update the connection object and return a suitable
+/** status value.
+/**
+code Authentication "R" /** Authentication message (subclass, see Authentication)
+code BackendKeyData "K" /** Keys needed for cancellation facilities, stored in connection
+code BindComplete "2" /** Finished Bind operation, no action required (may be deferred)
+code CloseComplete "3" /** Finished Close operation, no action required (may be deferred)
+code CommandComplete "C" /** Command completed, stored in list of completed commands (may be deferred)
+code CopyDataB "d" /** Copy data message, unimplemented
+code CopyDoneB "c" /** Copy data complete, unimplemented
+code CopyOutResponse "H" /** Copy data out message, unimplemented
+code CopyBothResponse "W" /** Copy data in and out, unimplemented
+code DataRow "D" /** Data row, description should already have been received, call row continuation
+code EmptyQueryResponse "I" /** Query was empty, replaces description+rows
+code ErrorResponse "E" /** Postgres error message, call error continuation
+code FunctionCallResponse "V" /** Function call return, unimplemented
+code NoData "n" /** No data message, no action required
+code NoticeResponse "N" /** Postgres notice, call error continuaion
+code NotificationResponse "A" /** Notification, unimplemented
+code ParameterDescription "t" /** Description of results for execute command, stored in connection
+code ParameterStatus "S" /** Current value of the indicated parameter, stored in connection
+code ParseComplete "1" /** Finished Parse operation, no action required (may be deferred)
+code PortalSuspended "s" /** Execute command went into suspended state, set flag in connection
+code ReadyForQuery "Z" /** Terminates SQL command sequence, call final continuation
+code RowDescription "T" /** Description of requested (or implied by simple query) row
+END
+
+SND start StartupMessage /** Send startup message
+SND password PasswordMessage /** Return requested password (MD5-encoded, if requested)
+SND query Query /** Send simple Query command
+SND parse Parse /** Send Parse query
+SND bind Bind /** Send Bind query to portal
+SND execute Execute /** Execute named portal
+SND describe Describe /** Get returned values for requested portal
+SND closePS Close /** Close portal or statement
+SND sync Sync /** Sync to given operations (processes messages until server ready)
+SND flush Flush /** Flush current operations (processes messages until server ready)
+SND terminate Terminate /** Send terminate message
+SND cancel CancelRequest /** Send cancellation message
+
+RCV reply PostgresReply /** Read in coded reply from postgres server
+
