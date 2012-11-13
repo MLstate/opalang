@@ -729,6 +729,11 @@ block_binding <- binding_pattern:b
 /** expression **/
 expr <- expr_op:e {{e}}
 
+expr_or_block <-
+/  (=deco(block)):b {{ b }}
+/  (=deco(binding)):b {{ error1 "Found a binding while a block or an expression is expected"  (snd b) }}
+/  expr:e {{ e }}
+
 
 (* ******************************************************************)
 (**
@@ -862,7 +867,8 @@ match <- (=deco(Opa_lexer.MATCH lpar expr:e rpar {{Some (e:(_, _) SurfaceAst.exp
                   lambda n (m, a)
             in aux e
          }}
-       / Opa_lexer.IF lpar expr:e1 rpar expr:e2 (Opa_lexer.ELSE expr:e {{ e }})?:o
+       / Opa_lexer.IF lpar expr:e1 rpar expr_or_block:e2 (Opa_lexer.ELSE expr_or_block:e {{ e }})?:o
+
         {{ if_then_else e1 e2 o }}
 
 match_case <- (Opa_lexer.CASE / match_sep)
