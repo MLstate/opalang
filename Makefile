@@ -41,7 +41,7 @@ MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
 # ALL_TOOLS is built by Makefile.bld from build_tools files
 .PHONY: node
 node: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
+	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create qmljs.apigen
 	@$(call copy-tools,$(ALL_TOOLS))
 	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
 
@@ -66,14 +66,14 @@ opa-node-packages: $(MYOCAMLBUILD)
 stdlib: opa-node-packages
 
 .PHONY: opa-tools
-opa-tools: $(MYOCAMLBUILD) opa-create
+opa-tools: $(MYOCAMLBUILD) opa-create apigen
 	@echo "Tools build"
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml # opa-cloud opa-db-server opa-db-tool opatop opa-translate
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create
+	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create qmljs.apigen
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 
 ##
@@ -106,6 +106,25 @@ install-opa-create:
 	@mkdir -p $(PREFIX)/bin
 	$(INSTALL) $(BUILD_DIR)/bin/opa-create $(INSTALL_DIR)/bin/opa-create
 	@chmod 755 $(INSTALL_DIR)/bin/opa-create
+
+##
+## APIGEN
+##
+
+target-tool-apigen = $(OPALANG_DIR)/tools/apigen/apigen.exe
+
+.PHONY: apigen
+apigen: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) $(target-tool-apigen)
+	@mkdir -p $(BUILD_DIR)/bin
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-apigen) $(BUILD_DIR)/bin/apigen
+	@chmod 755 $(BUILD_DIR)/bin/apigen
+
+.PHONY: install-apigen
+install-apigen:
+	@mkdir -p $(PREFIX)/bin
+	$(INSTALL) $(BUILD_DIR)/bin/apigen $(INSTALL_DIR)/bin/apigen
+	@chmod 755 $(INSTALL_DIR)/bin/apigen
 
 ##
 ## INSTALLATION
