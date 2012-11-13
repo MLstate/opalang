@@ -297,13 +297,198 @@ module ApigenLib {
 
 }
 
-type ApigenLib.read_packet =
-  Socket.connection, int, Mailbox.t, int, bool, bool, Pack.s -> outcome((Mailbox.t,binary),string)
+/**
+ * Generalized configuration for API and protocol code.
+ * Only contains the basics, in future this may be customizable.
+ */
+type ApigenLib.conf = {
+  Socket.host default_host,
+  string user,
+  string password,
+  int bufsize,
+  int poolmax,
+  int timeout,
+  bool verbose,
+}
 
 /**
- *
+ * Length definition, describes where in a packet to find the length information.
  */
-abstract
+type ApigenLib.length = {
+  int offset,
+  bool le,
+  bool signed,
+  Pack.s size
+}
+
+/**
+ * Wrapper type for configuration, will be used to host customized parameters later.
+ */
+type ApigenLib.params = {
+  ApigenLib.conf conf
+}
+
+protected @package
+module ApigenLibConf(Socket.host default_host) {
+
+  private
+  ApigenLib.conf default_conf_ = {
+    ~default_host,
+    user          : "user",
+    password      : "password",
+    bufsize       : 50*1024,
+    poolmax       : 10,
+    timeout       : 60 * 60 * 1000,
+    verbose       : false,
+  }
+
+  private Hashtbl.t(string, ApigenLib.params) params = Hashtbl.create(3)
+
+  private
+  auth_parser = parser {
+    case user=((![:] .)+)[:] password=((![@] .)+):
+      {user:Text.to_string(user), password:Text.to_string(password)}
+  }
+
+  private
+  function (string,option(int)) host_of_string(string s) {
+    match (String.explode(":",s)) {
+    case [host|[port|[]]]: (host,{some:Int.of_string(port)})
+    default: (s,none)
+    }
+  }
+
+  private
+  function family(family_name, name) {
+    family_name = if (family_name == "") "apigenlib" else family_name
+    name = if (name == "") "" else ":{name}"
+    {
+      title:"Options for {family_name} connection",
+      init:{conf:default_conf_},
+      anonymous:[],
+      parsers:[ // TODO: filter these out, not all possible clients will need all options. (Also allow custom options).
+        {CommandLine.default_parser with
+           names:["--{family_name}-bufsize{name}"],
+           description:"Hint for initial {name} connection buffer size",
+           param_doc:"<int>",
+           on_param:function (p) {
+             parser {
+               case n={Rule.natural}:
+                 {no_params:{ p with conf.bufsize:n }}
+             }
+           }
+        },
+        {CommandLine.default_parser with
+           names:["--{family_name}-pool{name}"],
+           description:"Number of sockets in socket pool (>=2 enables socket pool)",
+           param_doc:"<int>",
+           on_param:function (p) {
+             parser {
+               case n={Rule.natural}:
+                 {no_params:{ p with conf.poolmax:Int.max(n,1) }}
+             }
+           }
+        },
+        {CommandLine.default_parser with
+           names:["--{family_name}-timeout{name}"],
+           description:"Timeout for read/write operations",
+           param_doc:"<int>",
+           on_param:function (p) {
+             parser {
+               case n={Rule.natural}:
+                 {no_params:{ p with conf.timeout:Int.max(n,1) }}
+             }
+           }
+        },
+        {CommandLine.default_parser with
+           names:["--{family_name}-log{name}"],
+           description:"Enable logging",
+           param_doc:"<bool>",
+           on_param:function (p) {
+             parser {
+               case b={Rule.bool}:
+                 {no_params:{ p with conf.verbose:b }}
+             }
+           }
+        },
+        {CommandLine.default_parser with
+           names:["--{family_name}-default-host{name}"],
+           description:"Set the host for connection {name}",
+           param_doc:"<host>[:<port>]",
+           on_param:function (p) {
+             parser {
+               case s={Rule.consume}:
+                 {no_params:
+                   match (host_of_string(s)) {
+                   case (host,{some:port}): { p with conf.default_host:(host,port) }
+                   case (host,{none}): { p with conf.default_host:(host,p.conf.default_host.f2) }
+                   }
+                 }
+             }
+           }
+        },
+        {CommandLine.default_parser with
+           names:["--{family_name}-auth{name}"],
+           description:"Generic user authentication for connection {name}",
+           param_doc:"user:password",
+           on_param:function (p) {
+             parser {
+               case auth={auth_parser}:
+                 {no_params:{p with conf.user:auth.user, conf.password:auth.password}}
+             }
+           }
+        },
+      ]
+    }
+  }
+
+  private
+  function command_line_conf(family_name, name) {
+    match (Hashtbl.try_find(params, "{family_name}{name}")) {
+    case {some:conf}: conf
+    case {none}:
+      conf = CommandLine.filter(family(family_name, name))
+      Hashtbl.add(params, "{family_name}{name}", conf)
+      conf
+    }
+  }
+
+  private
+  function ApigenLib.params overload(c0, c1) {
+    c1 = if (c1.conf.default_host == default_conf_.default_host) {c1 with conf.default_host:c0.conf.default_host} else c1
+    c1 = if (c1.conf.user == default_conf_.user) {c1 with conf.user:c0.conf.user} else c1
+    c1 = if (c1.conf.password == default_conf_.password) {c1 with conf.password:c0.conf.password} else c1
+    c1 = if (c1.conf.bufsize == default_conf_.bufsize) {c1 with conf.bufsize:c0.conf.bufsize} else c1
+    c1 = if (c1.conf.poolmax == default_conf_.poolmax) {c1 with conf.poolmax:c0.conf.poolmax} else c1
+    c1 = if (c1.conf.timeout == default_conf_.timeout) {c1 with conf.timeout:c0.conf.timeout} else c1
+    c1 = if (c1.conf.verbose == default_conf_.verbose) {c1 with conf.verbose:c0.conf.verbose} else c1
+    c1
+  }
+
+  /**
+   * Returns configuration for the database [name], overloaded by the command
+   * line options.
+   * @param conf The default configuration.
+   * @param name The name of the configuration.
+   * @return The same configuration of [conf] but overloaded by the command line.
+   */
+  function get(conf, family_name, name) {
+    overload(~{conf}, command_line_conf(family_name, name))
+  }
+
+  /**
+   * As get but with the default configuration.
+   */
+  function get_default(family_name, name) { get(default_conf_, family_name, name).conf }
+
+}
+
+type ApigenLib.read_packet = Socket.connection, int, Mailbox.t -> outcome((Mailbox.t,binary),string)
+
+/**
+ * Basic connection information.
+ * Has the configuration data plus the temporary data to manage the socket pool, etc.
+ */
 type ApigenLib.connection = {
   string name,
   ApigenLib.conf conf,
@@ -312,27 +497,14 @@ type ApigenLib.connection = {
   ApigenLib.read_packet read_packet
 }
 
-/**
- *
- */
-type ApigenLib.conf = {
-  Socket.host default_host,
-  int bufsize,
-  int poolmax,
-  int timeout,
-  bool verbose,
-  int length_offset,
-  bool length_le,
-  bool length_signed,
-  Pack.s length_size
-}
-
+private
 type ApigenLib.sr =
      {(ApigenLib.connection) recv} // Expect reply
   or {(ApigenLib.connection,binary) send} // Send and forget
   or {(ApigenLib.connection,binary) sendrecv} // Send and expect reply
   or {stop} // Stop the cell
 
+private
 type ApigenLib.srr =
      {Apigen.outcome(void) sendresult}
   or {Apigen.outcome(binary) sndrcvresult}
@@ -341,6 +513,8 @@ type ApigenLib.srr =
   or {Apigen.failure failure}
 
 module ApilibConnection(Socket.host default_host) {
+
+  Conf = ApigenLibConf(default_host)
 
   private module Log {
     private function gen(f, m, string fn, msg) {
@@ -351,38 +525,40 @@ module ApilibConnection(Socket.host default_host) {
     function error(m, fn, msg) { gen(@toplevel.Log.error, m, fn, msg) }
   }
 
-  ApigenLib.conf default_conf = ~{
-    default_host,
-    bufsize : 50 * 1024,
-    poolmax : 10,
-    timeout : 60 * 60 * 1000,
-    verbose : false,
-    length_offset : 1,
-    length_le : false,
-    length_signed : false,
-    length_size : {L}
-  }
+  /** Default length object, no offset, big endian, signed and 32-bit length. */
+  ApigenLib.length default_length = { offset : 0, le : false, signed : false, size : {L} }
 
   /**
    * Initialize a generalized connection.
    * @param name The name of the connection to open.
-   * @param conf The configuration of the connection to open. See [default_conf].
+   * @param conf The configuration of the connection to open.
    * @return A connection object (not connected).
-   **/
-  function ApigenLib.connection init(name, ApigenLib.conf _conf) {
-    conf = default_conf //get_conf(conf, name)
-    ~{ name,
-       conf,
-       conn:{none},
+   */
+  function ApigenLib.connection init(family_name, name) {
+    conf = Conf.get_default(family_name, name)
+    ~{ name, conf, conn:{none},
        pool:SocketPool.make(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose}),
-       read_packet:read_packet_prefixed
+       read_packet:read_packet_prefixed(default_length)
      }
   }
 
-  function ApigenLib.connection custom_read_packet(ApigenLib.connection c, ApigenLib.read_packet read_packet) {
-    {c with ~read_packet}
+  /**
+   * Install a custom packet reader.  Needed to ensure a complete packet is present
+   * in the buffer when message decode takes place.
+   * @param conn The connection object.
+   * @param read_packet A function to perform the read (see read_packet_prefixed for an example).
+   * @returns Updated connection object.
+   */
+  function ApigenLib.connection custom_read_packet(ApigenLib.connection conn, ApigenLib.read_packet read_packet) {
+    {conn with ~read_packet}
   }
 
+  /**
+   * Connect to the server (actualy makes a physical connection).
+   * @param conn The connection object.
+   * @param host The socket host definition (host, port).
+   * @returns Updated connection object with the physical connection installed.
+   */
   function Apigen.outcome(ApigenLib.connection) connect(ApigenLib.connection conn, Socket.host host) {
     Log.info(conn, "connect","addr={host.f1} port={host.f2}")
     SocketPool.reconnect(conn.pool,(host.f1,host.f2))
@@ -403,6 +579,9 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
+  /**
+   * Close the physical connection.
+   */
   function ApigenLib.connection close(ApigenLib.connection conn) {
     Log.info(conn, "close","{SocketPool.gethost(conn.pool)}")
     SocketPool.stop(conn.pool)
@@ -431,8 +610,7 @@ module ApilibConnection(Socket.host default_host) {
     case {some:conn}:
        match (send_no_reply_(c,msg,true)) {
        case {success:_}:
-         match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox,
-                              c.conf.length_offset, c.conf.length_le, c.conf.length_signed, c.conf.length_size)) {
+         match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox)) {
          case {success:(mailbox,reply)}:
            Log.debug(c, "receive", "\n{bindump(reply)}")
            ({some:mailbox},{success:reply})
@@ -455,8 +633,7 @@ module ApilibConnection(Socket.host default_host) {
   private function (option(Mailbox.t),Apigen.outcome(binary)) get_reply(ApigenLib.connection c) {
     match (c.conn) {
     case {some:conn}:
-    match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox,
-                         c.conf.length_offset, c.conf.length_le, c.conf.length_signed, c.conf.length_size)) {
+    match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox)) {
     case {success:(mailbox,reply)}:
       Log.debug(c, "receive", "\n{bindump(reply)}")
       ({some:mailbox},{success:reply})
@@ -510,8 +687,18 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-  function Apigen.outcome(void) snd(Apigen.outcome(ApigenLib.connection) c, binary msg) {
-    match (c) {
+  /**
+   * Send a binary message to a connection, no reply expected.
+   *
+   * Note that we accept an outcome as a parameter so that we can chain these
+   * function calls together, the first failure in the chain will terminate.
+   *
+   * @param conn The connection object outcome.
+   * @param msg The binary message.
+   * @returns Success void or a failure code.
+   */
+  function Apigen.outcome(void) snd(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
+    match (conn) {
     case {success:c}:
       match (srpool(c,{send:((c,msg))})) {
       case {~sendresult}: sendresult;
@@ -522,8 +709,18 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-  function Apigen.outcome(binary) sndrcv(Apigen.outcome(ApigenLib.connection) c, binary msg) {
-    match (c) {
+  /**
+   * Send a binary message to a connection and wait for a reply.
+   *
+   * Note that we accept an outcome as a parameter so that we can chain these
+   * function calls together, the first failure in the chain will terminate.
+   *
+   * @param conn The connection object outcome.
+   * @param msg The binary message.
+   * @returns Success of a reply message or a failure code.
+   */
+  function Apigen.outcome(binary) sndrcv(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
+    match (conn) {
     case {success:c}:
       match (srpool(c,{sendrecv:((c,msg))})) {
       case {~sndrcvresult}: sndrcvresult;
@@ -534,8 +731,17 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-  function Apigen.outcome(binary) rcv(Apigen.outcome(ApigenLib.connection) c) {
-    match (c) {
+  /**
+   * Wait for a reply from a connection.
+   *
+   * Note that we accept an outcome as a parameter so that we can chain these
+   * function calls together, the first failure in the chain will terminate.
+   *
+   * @param conn The connection object outcome.
+   * @returns Success of a reply message or a failure code.
+   */
+  function Apigen.outcome(binary) rcv(Apigen.outcome(ApigenLib.connection) conn) {
+    match (conn) {
     case {success:c}:
       match (srpool(c,{recv:c})) {
       case {~rcvresult}: rcvresult;
@@ -546,23 +752,36 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-  function outcome((Mailbox.t,binary),string) read_packet_prefixed(Socket.connection conn, int timeout, Mailbox.t mailbox,
-                                                                   int offset, bool le, bool signed, Pack.s size) {
-    bound = offset + Pack.sizesize(size)
-    //jlog("read: offset={offset} bound={bound}")
+  /**
+   * Read in a packet to a mailbox.
+   *
+   * This is a generic routine to ensure that there is a complete packet
+   * present in the mailbox.  The assumption is that somewhere in the packet
+   * is a value which can be read out to give the actual packet length.
+   *
+   * @param (first block) length The [ApigenLib.length] object describing the position of the packet length.
+   * @param (second block) conn The connection object.
+   * @param (second block) timeout The timeout for read operations.
+   * @param (second block) mailbox The mailbox to read the data into (may have data on entry).
+   * @returns The mailbox is guaranteed to contain at least one packet.
+   */
+  function outcome((Mailbox.t,binary),string) read_packet_prefixed(ApigenLib.length length
+                                                                  )(Socket.connection conn, int timeout, Mailbox.t mailbox) {
+    bound = length.offset + Pack.sizesize(length.size)
+    //jlog("read: offset={length.offset} bound={bound}")
     match (Socket.read_fixed(conn, timeout, bound, mailbox)) {
     case {success:mailbox}:
-      match (Pack.Decode.int(le, signed, size, mailbox.buf, mailbox.start+offset)) {
+      match (Pack.Decode.int(length.le, length.signed, length.size, mailbox.buf, mailbox.start+length.offset)) {
       case {success:len}:
         //jlog("read: len={len}")
-        if (len+offset == bound) // the size was at the end
-          Mailbox.sub(mailbox, offset+len)
+        if (len+length.offset == bound) // the size was at the end
+          Mailbox.sub(mailbox, length.offset+len)
         else if (len < bound)
           {failure:"Inconsistent packet size: len={len} bound={bound}"}
         else {
           //jlog("read: reading {len-bound}")
           match (Socket.read_fixed(conn, timeout, len-bound, mailbox)) {
-          case {success:mailbox}: Mailbox.sub(mailbox, offset+len)
+          case {success:mailbox}: Mailbox.sub(mailbox, length.offset+len)
           case {~failure}: {~failure}
           }
         }
