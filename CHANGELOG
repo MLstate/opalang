@@ -3,6 +3,7 @@
   * Bootstrap:
     - upgraded to Bootstrap 2.2.1
     - added stdlib.themes.bootstrap.v2.1.0 for compatibility
+    - embed button, collapse, dropdown, modal, popover, tab, tooltip, transition Bootstrap JS plugins into stdlib.widgets.bootstrap (v2.2.1)
 
 
 2012.10.08, Version 1.0.7 (stable), v3523
