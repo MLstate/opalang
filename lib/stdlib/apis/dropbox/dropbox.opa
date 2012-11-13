@@ -277,7 +277,7 @@ DropboxUser = {{
 
   build_file(data) =
     k() = { content = binary_of_string(data.content)
-            mime_type = data.mime_type
+            mime_type = data.header_get("content-type") ? "text/plain"
           } : Dropbox.file
     check_file_http_code(data.code, k)
 }}

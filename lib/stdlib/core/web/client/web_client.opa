@@ -71,7 +71,6 @@ type WebClient.failure =
  * A success of the web client
  */
 type WebClient.success('content) = {
-  mime_type:string/**The content type of the returned value*/
   code: int       /**The result status. Note that this status can signify an error, if the GET/POST request was successful but the server
                      rejected the request politely*/
   content: 'content /**The content of the reply.*/
@@ -175,6 +174,17 @@ type WebClient.Generic.options =
    ssl_policy:       option(SSL.policy)
  }
 
+/**
+ * Options for WebClient.request
+ */
+type WebClient.options('content) = {
+    method  : string
+    headers : list((string, string))
+    content : option('content)
+    timeout : option(Duration.duration)
+    ssl_key : option(SSL.private_key)
+    ssl_policy: option(SSL.policy)
+}
 
 /**
  * {1 Interface}
@@ -182,6 +192,47 @@ type WebClient.Generic.options =
 
 WebClient =
 {{
+
+  /**
+   * Default value for [WebClient.options]
+   */
+  default_options : WebClient.options = {
+    method = "GET"
+    headers = []
+    content = none
+    timeout = none
+    ssl_key = none
+    ssl_policy = none
+  }
+
+  /**
+   * The default function to place a request.
+   */
+  request(uri:Uri.uri, options:WebClient.options(binary)):WebClient.result(binary) =
+    aux(~{host port path https}) =
+      %%BslNet.Http_client.raw_request%%(
+        host, port, path, options.method, https,
+        options.headers, options.content,
+        Option.map(Duration.in_milliseconds, options.timeout), options.ssl_key, options.ssl_policy
+      )
+    match uri with
+      | ~{domain path port query fragment is_directory schema ...} ->
+        (port, https) =
+          match schema
+          | {some = "https"} -> (port ? 443, true)
+          | _ -> (port ? 80, false)
+        aux({host=domain port=port ~https
+             path=Uri.to_string(~{path query fragment is_directory is_from_root=true})})
+      | {address=_ query=_} -> //WTF...
+        {failure = {uri=Uri.to_string(uri) reason={incorrect_protocol}}}
+      | _ -> // Relative
+        aux({host="localhost" port=80 path=Uri.to_string(uri) https=false})
+
+   /**
+    * Same as [WebClient.request] but the result is give to the [callback].
+    */
+   request_async(uri, options, callback) =
+     Scheduler.push(-> callback(request(uri, options)))
 
    /**
     * {2 WebClient.Get}
@@ -750,7 +801,7 @@ WebClient =
                    /*is_secure*/bool, /*auth*/option(string), /*SSL key*/ option(SSL.private_key), /*SSL policy*/ option(SSL.policy),
                    /*timeout*/option(time_t),
                    /*custom_agent*/option(string), /*more_headers*/list(string),
-                   /*success*/(string, int, string, list(string), (string -> option(string)) -> void),
+                   /*success*/(int, string, list(string), (string -> option(string)) -> void),
                    /*failure*/(continuation(WebClient.failure))
                    -> void
 
@@ -770,7 +821,7 @@ WebClient =
                         | {none} -> on_failure({uri = Uri.to_string(location); reason = {incorrect_protocol}})
                         | {some = is_secure} ->
                            cb_failure = Continuation.make(on_failure)
-                           cb_success(mime_type:string, code:int, content:string,
+                           cb_success(code:int, content:string,
                                             headers:list(string), header_get:string -> option(string)) =
                              if (code == 301 || code == 302 || code == 303 || code == 307) then
                                   match options.redirect with
@@ -783,8 +834,8 @@ WebClient =
                                          end
                                         | {none}  -> on_failure({no_redirect})
                                        end
-                                    | {none} -> on_success(~{mime_type code content headers header_get})
-                             else on_success(~{mime_type code content headers header_get})
+                                    | {none} -> on_success(~{code content headers header_get})
+                             else on_success(~{code content headers header_get})
                      port = if is_secure then port?443 else port?80
                       // FIXME, broken date abstraction... [timeout_sec:float] fields in options should be replaced with [timeout:Duration.duration] but there was a problem with value restriction
                      timeout = Option.map((f:float -> Duration.ll_export(Duration.ms(Int.of_float(f * 1000.)))), options.timeout_sec)
@@ -816,7 +867,7 @@ WebClient =
             match Xmlns.try_parse(content) with
               | {none} -> {failure = {result_does_not_parse = success}}
               |~{some} -> //{success = {success with content = some}}
-                {success = {mime_type = success.mime_type
+                {success = {
                  code      = success.code
                  content   = some
                  headers   = success.headers
@@ -830,7 +881,7 @@ WebClient =
             match Json.deserialize(content) with
               | {none} -> {failure = {result_does_not_parse = success}}
               |~{some} -> //{success = {success with content = some}}
-                {success = {mime_type = success.mime_type
+                {success = {
                  code      = success.code
                  content   = some
                  headers   = success.headers
@@ -844,7 +895,7 @@ WebClient =
             match Parser.try_parse(UriParser.query_parser, content) with
               | {none} -> {failure = {result_does_not_parse = success}}
               |~{some} -> //{success = {success with content = some}}
-                {success = {mime_type = success.mime_type
+                {success = {
                  code      = success.code
                  content   = some
                  headers   = success.headers
