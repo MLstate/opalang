@@ -11,3 +11,4 @@
 <socket>: traverse
 <unix>: traverse
 
+<bootstrap-*>: traverse
