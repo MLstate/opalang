@@ -996,7 +996,6 @@ let packages_building ~name ~stamp ~core_only ~rebuild
 	     all_packages_file;
 	     opacomp_stamp;
     ])
-    ~prod:"i_dont_exist" (* forces ocamlbuild to always run the command *)
     ~stamp
   (fun env build ->
      try
