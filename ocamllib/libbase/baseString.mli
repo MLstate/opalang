@@ -317,7 +317,7 @@ val is_float : string -> bool
 
 (**
    Tell if a string is a valid universal identifier, working on most of languages.
-   This means that it uses only alphanumeric char, and [_] but does not start with
+   This means that it uses only alphanumeric char, [_] ad [-] but does not start with
    a numeric char
 *)
 val is_universal_ident : string -> bool
