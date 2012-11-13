@@ -67,3 +67,5 @@ val process :
   server: QmlBlender.qml_milkshake ->
   client: QmlBlender.qml_milkshake ->
   QmlBlender.qml_milkshake
+
+val get_current_package_deps : unit -> StringSet.t

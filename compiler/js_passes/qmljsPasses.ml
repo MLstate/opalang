@@ -28,6 +28,7 @@ type env_JsCompilation = {
   env_bsl : BslLib.env_bsl;
   loaded_bsl : Qml2js.loaded_bsl;
   is_distant : JsIdent.t -> bool;
+  client_depends : StringSet.t;
   depends : string list;
 }
 
@@ -108,7 +109,8 @@ let pass_ServerJavascriptCompilation =
          env_bsl;
          loaded_bsl;
          is_distant;
-	 depends = [];
+         client_depends = env.Passes.newFinalCompile_client_deps;
+         depends = [];
        }
     )
 
@@ -121,7 +123,8 @@ let pass_ServerJavascriptOptimization =
        let is_exported i = JsIdentSet.mem i exported || env.is_distant i in
        let depends, js_code =
          Pass_ServerJavascriptOptimization.process_code
-	   options.O.extrajs
+           ~client_deps:env.client_depends
+           options.O.extrajs
            env.env_bsl
            is_exported
            env.env_js_input.Qml2jsOptions.js_code
@@ -141,8 +144,8 @@ let pass_ServerJavascriptOptimization =
        in
        PH.make_env options
          { env with
-	     depends;
-	     env_js_input =
+             depends;
+             env_js_input =
              { env.env_js_input with Qml2jsOptions. js_code; js_init_contents }
          }
     )

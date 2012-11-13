@@ -19,5 +19,6 @@
 val process_code_elt : (JsIdent.t -> bool) -> JsAst.code_elt -> JsAst.code_elt
 
 val process_code :
+ client_deps:StringSet.t ->
  Qml2jsOptions.extra_lib list -> BslLib.env_bsl
   -> (JsIdent.t -> bool) -> JsAst.code -> (string list * JsAst.code)

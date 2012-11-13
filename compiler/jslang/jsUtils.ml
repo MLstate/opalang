@@ -328,3 +328,16 @@ let does_side_effects e =
        )
      | _ -> false
     ) e
+
+let get_package_deps code =
+  List.fold_left
+    (JsWalk.TStatement.fold
+       (fun real_depends _ -> real_depends)
+       (fun real_depends -> function
+        | J.Je_ident (_, JsIdent.ExprIdent i) ->
+            begin match Ident.safe_get_package_name i with
+            | None -> real_depends
+            | Some p -> StringSet.add p real_depends
+            end
+        | _ -> real_depends)
+    ) StringSet.empty code

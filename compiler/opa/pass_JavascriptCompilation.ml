@@ -58,6 +58,8 @@ end
 
 module R = ObjectFiles.Make(S)
 
+let current_package_deps = ref StringSet.empty
+
 (*
   Translating options.
 *)
@@ -322,6 +324,7 @@ let full_serialize
       client.QmlBlender.env
       client.QmlBlender.code
   in
+  current_package_deps := JsUtils.get_package_deps env_js_input.Qml2jsOptions.js_code;
   let rev_code = [] in
   let rev_code = List.fold_left
     (fun rev_code (ast,key_prefix) ->
@@ -387,6 +390,7 @@ let process
     ~server
     ~client
     =
+  current_package_deps := StringSet.empty;
   if client.QmlBlender.code = [] then (
     R.save {S.extralibs = Hashtbl.create 0; S.plugins = Hashtbl.create 0};
     Qml2js.Sugar.dummy_for_opa options.OpaEnv.js_back_end;
@@ -407,3 +411,5 @@ let process
     let server = reinjection ~options ~server ~rev_code in
     server
   )
+
+let get_current_package_deps () = !current_package_deps

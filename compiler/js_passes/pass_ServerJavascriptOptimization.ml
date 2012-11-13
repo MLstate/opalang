@@ -54,7 +54,7 @@ let cons_require opx =
       [(JsCons.Expr.string opx)]
   )
 
-let process_code extrajs env_bsl is_exported code =
+let process_code ~client_deps extrajs env_bsl is_exported code =
   (* Exports idents to global node scope *)
   let code = List.map (process_code_elt is_exported) code in
   (* Adding require *)
@@ -63,19 +63,8 @@ let process_code extrajs env_bsl is_exported code =
     if ObjectFiles.stdlib_package_names (ObjectFiles.get_current_package_name ()) then
       (fun _ -> true)
     else
-      let real_depends =
-        List.fold_left
-          (JsWalk.TStatement.fold
-             (fun real_depends _ -> real_depends)
-             (fun real_depends -> function
-              | J.Je_ident (_, JsIdent.ExprIdent i) ->
-                  begin match Ident.safe_get_package_name i with
-                  | None -> real_depends
-                  | Some p -> StringSet.add p real_depends
-                  end
-              | _ -> real_depends)
-          ) StringSet.empty code
-      in
+      let real_depends = JsUtils.get_package_deps code in
+      let real_depends = StringSet.union real_depends client_deps in
       (fun opx -> not (ObjectFiles.stdlib_package_names opx) || StringSet.mem opx real_depends)
   in
   let opx_requires =

@@ -87,3 +87,7 @@ val compare_code : JsAst.code -> JsAst.code -> int
 (** A very conservative approximation of which expressions do observable side
     effects *)
 val does_side_effects : JsAst.expr -> bool
+
+
+(** Get dependencies to Opa packages from a JavaScript code. *)
+val get_package_deps : JsAst.code -> StringSet.t

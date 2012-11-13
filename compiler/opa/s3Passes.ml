@@ -1751,6 +1751,7 @@ let pass_SlicedToFinal =
              newFinalCompile_renaming_server = eenv.P.sliced_env.P.server.P.original_renaming;
              newFinalCompile_renaming_client = eenv.P.sliced_env.P.client.P.original_renaming;
              newFinalCompile_exported = e.PH.env.P.env_gen.P.exported;
+             newFinalCompile_client_deps = StringSet.empty;
              newFinalCompile_closure_map = IdentMap.empty;
              newFinalCompile_stdlib_gamma = e.PH.env.P.env_gen.P.stdlib_gamma;
            } in
@@ -1853,9 +1854,11 @@ let pass_JavascriptCompilation =
           ~server
           ~client
       in
+      let client_deps = Pass_JavascriptCompilation.get_current_package_deps () in
       let server_finalenv = {
         server_finalenv with P.
           newFinalCompile_qml_milkshake = server ;
+          newFinalCompile_client_deps = client_deps ;
       } in
       mk_final_server_env server_finalenv
   in

@@ -383,6 +383,7 @@ type env_NewFinalCompile = {
   newFinalCompile_renaming_server : QmlRenamingMap.t;
   newFinalCompile_renaming_client : QmlRenamingMap.t;
   newFinalCompile_exported : IdentSet.t;
+  newFinalCompile_client_deps : StringSet.t;
   newFinalCompile_closure_map : Ident.t IdentMap.t; (* see QmlUncurry.mli *)
   newFinalCompile_stdlib_gamma : QmlTypes.gamma;
 }
