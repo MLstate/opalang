@@ -113,3 +113,7 @@ packages="nodejs cryptokit ocamlssl camlzip ocamlgraph ulex all"
 #camlzip
 #ocamlgraph
 #ulex
+
+echo 'open a root command line'
+echo 'assoc .pl=PerlScript'
+echo 'ftype PerlScript=perl.exe %1 %*'
