@@ -287,7 +287,7 @@ let _ = dispatch begin function
 	let lib = match dir with
 	| Some d ->
 	    let dir = Pathname.dirname d in
-	    if String.get dir 0 == '/' then lib
+	    if extern then lib
 	    else dir/lib
 	| None  -> lib in
         ocaml_lib ~extern ~byte:false ~native:true ?dir ~tag_name lib;
