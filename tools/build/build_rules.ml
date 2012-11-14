@@ -185,8 +185,8 @@ rule "stdlib embedded: stdlib_files -> opalib/staticsInclude.of"
 (* begin opacapi *)
 
 let opa_opacapi_files =
-  let dirs = rec_subdirs [prefix_me "lib/stdlib"] in
-  let files = List.fold_right (fun dir acc -> dir_ext_files "opa" dir @ acc) dirs [] in
+  let dirs = rec_subdirs [prefix_me "lib/stdlib/core"] @ rec_subdirs [prefix_me "lib/stdlib/database"] in
+  let files = List.fold_right (fun dir acc -> dir_ext_files "opa" dir @ acc) ((prefix_me "lib/stdlib/core")::dirs) [] in
   files
 in
 
