@@ -1348,7 +1348,7 @@ let preprocess_paths_expr ?(val_=(fun _ -> assert false)) t gamma e =
            match kind with
            | Db.Option ->
                begin match virtual_ with
-                 `virtualset (_, _, false, _) ->
+                 `virtualset (_, _, true, _) ->
                    QmlError.serror context
                      "This @{<bright>read access is inconsistent@} a database set always exists\nReplace the @{<bright>optional@} read access by a @{<bright>direct@} read access"
                | _ -> ()
