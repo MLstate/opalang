@@ -32,7 +32,10 @@ in
 (* Tags, flags, directory contexts and custom stuff             *)
 (* ------------------------------------------------------------ *)
 
+
 (* -- Directory contexts -- *)
+let set_mlstatelibs () = Unix.putenv "MLSTATELIBS" (String.map (function '/' -> '\\' | c -> c) build_dir) in
+let unset_mlstatelibs = Cmd(S[A "unset";A"MLSTATELIBS"]) in
 
 shared_namespace_dir (prefix_me "compiler/libqmlcompil");
 shared_namespace_dir (prefix_me "compiler/opa");
@@ -629,12 +632,15 @@ let opacomp build src dst_ext opt =
   build_list build
     (List.map ((/) (Pathname.dirname src)) (string_list_of_file (src-.-"depends")));
   let dst = Pathname.update_extension dst_ext src in
+  set_mlstatelibs ();
+  Seq [
   Cmd(S[
-        Sh("MLSTATELIBS=\""^ build_dir ^"\"");
         get_tool "opa-bin"; opt;
         opaopt;
         A"-o"; P dst; P src
-      ])
+      ]);
+  unset_mlstatelibs
+  ]
 in
 
 rule "js opa and server dependencies"
@@ -865,11 +871,10 @@ let plugin_building
     ~stamp
     (fun env build ->
        let opp_build =
-         Cmd (S (Sh("MLSTATELIBS=\""^ build_dir ^"\"") ::
-               opa_plugin_builder::options
-            ))
+         Cmd (S (opa_plugin_builder::options))
        in
-       (Seq (opp_build :: postlude))
+       set_mlstatelibs ();
+       (Seq (opp_build :: unset_mlstatelibs :: postlude))
     )
 in
 
@@ -1063,12 +1068,12 @@ let packages_building ~name ~stamp ~core_only ~rebuild
           A"--warn"; A"jscompiler";
          ] @ backend_opt @ extra_opt
        in
+       set_mlstatelibs();
        Seq[
          Echo(conf, "conf");
          Cmd(S([Sh"mkdir";A"-p";P opx_dir;]));
          Cmd(S([Sh"rm -rf";P (opx_dir/"*.opp")]));
-         Cmd(S([Sh("MLSTATELIBS=\""^ build_dir ^"\"");
-                get_tool "opa-bin";
+         Cmd(S([get_tool "opa-bin";
                 A"--autocompile";
                 (* A"--verbose-build"; *)
                 A"--conf";P "conf";
@@ -1080,6 +1085,7 @@ let packages_building ~name ~stamp ~core_only ~rebuild
                 opaopt;
                 S all_files;
                ] @ extra_opt @ stdlib_parser_options));
+         unset_mlstatelibs
        ]
      with RuleFailure.E ->
        fail_rule build
@@ -1134,19 +1140,24 @@ rule name
   ~prods: [opa_create_dst]
   (fun env build ->
      if no_tools then Nop
-     else
+     else (
+    set_mlstatelibs ();
+    Seq [
       Cmd(S([
-	(Sh ("MLSTATELIBS=\""^ build_dir ^"\""));
         get_tool "opa-bin";
         A"-o"; P opa_create_dst; P opa_create_src;
         A"--opx-dir"; A app_opx_dir;
         A"--no-server";
         A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
         A"-I"; A prefixed_plugins_dir
-      ] @ more_app_opts)));
-in
+      ] @ more_app_opts));
+      unset_mlstatelibs
+    ]
+    )
+  )
 
-let _ = opa_create "opa node application creator" "qmljs.opa.create" ["opabsl.qmljs.stamp"; "plugins.qmljs.stamp"] "stdlib.qmljs" in
+in
+opa_create "opa node application creator" "qmljs.opa.create" ["opabsl.qmljs.stamp"; "plugins.qmljs.stamp"] "stdlib.qmljs";
 
 (* -- end opa-create -- *)
 
@@ -1168,10 +1179,13 @@ rule "node-packages"
   ~stamp:"node-packages.stamp"
   (fun env build ->
      let packages = string_list_of_file all_packages_file in
-     Cmd(S([Sh("MLSTATELIBS=\""^ build_dir ^"\"");
-            get_tool "opx2js-bin";
+     set_mlstatelibs();
+     Seq [
+     Cmd(S([get_tool "opx2js-bin";
             A"--build-dir";A"test"
-           ] @ List.map (fun p -> A p) packages))
+           ] @ List.map (fun p -> A p) packages));
+     unset_mlstatelibs
+     ];
   );
 
 (* -- end opx2js -- *)
