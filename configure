@@ -27,6 +27,7 @@ cd "$OPA_SOURCE_DIR"
 
 NO_CAMLIDL=1
 NO_DBM=1
+NO_OPAPRO=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -636,9 +637,16 @@ locate-and-check-cryptokit () {
 }
 
 # - checking ocaml-ssl
-if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
-then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
+if [ $NO_OPAPRO -eq 1 ]; then
+    echo-check for ssl
+    echo-ok Disabled
+    CONFIG_LIB_OCAMLSSL="DISABLED_OCAMLSSL"
+else
+    if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
+    then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
+    fi
 fi
+
 
 # - checking cryptokit
 if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
