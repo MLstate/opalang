@@ -12,8 +12,12 @@ else
     : ${PACKAGE_FILTER:=cat}
 fi
 
+CWD=$PWD
+
 for d in $LOOKED_PLACE; do
-    DIRS=$(find $d -type d | sed "s|$d\/||" | sed "s|$d||")
+    cd $d
+    DIRS=$(find . -type d | sed "s|^\.\/||" | sed "s|^\.||")
+    cd $CWD
     for dir in $DIRS ; do
     	files=$(find $d/$dir -maxdepth 1 -name '*.opa')
     	if [ -n "$files" ] ; then
