@@ -532,28 +532,6 @@ let _ = dispatch begin function
       flag ["extension:c"; "compile"; "c_wall"] (S[A"-ccopt";A c_wall;A"-ccopt";A c_werror]);
 
 
-      (* PB WITH libcrypto.obj MISSING ??? *)
-      if is_win32 then (
-        (* openssl *)
-          let flags = S[A"-I";A "/windows_libs/openssl/include";
-                      A"-I";A "/windows_libs/openssl/lib"] in
-          flag ["use_ssl"; "compile"] flags;
-          flag ["use_ssl"; "link"] flags;
-
-        (* windows primitives *)
-          flag ["ocaml"; "link"] (S [A "Gdi32.lib"; A "User32.lib"]);
-
-        (* zlib *)
-          let flags = S[A"-I";A "/windows_libs/zlib/";
-                        A"-ccopt";A "-L/windows_libs/zlib/"  ] in
-          flag ["use_zip"; "compile"] flags;
-          flag ["use_zip"; "link"] flags;
-
-        (* dns *)
-          let flags = S[A"-ccopt";A"DnsAPI.Lib"] in
-          flag ["use_io";"link"] flags
-      );
-
       if is_mac then (
 	flag ["ocaml"; "link"; "iconv"] (S[A"-cclib";A"-liconv"]);
       );
