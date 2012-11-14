@@ -1080,7 +1080,6 @@ let packages_building ~name ~stamp ~core_only ~rebuild
                 A"--slicer-check"; A "low";
                 A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
-                A"--opx-dir"; P build_dir;
                 A"-I"; A prefixed_plugins_dir;
                 opaopt;
                 S all_files;
