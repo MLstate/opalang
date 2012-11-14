@@ -1764,7 +1764,7 @@ let setup compare transitive_closure ?package_name direct_deps =
   #<End>
 
 let launch f =
-  let pid = Unix.fork () in
+  let pid = try Unix.fork () with Invalid_argument "Unix.fork not implemented" -> -1 in
   if pid<0 then (f (); None)
   else if pid=0 then (f (); exit 0)
   else Some pid
