@@ -1,8 +1,6 @@
 # -*- conf -*- (for emacs)
 
-<mliconv.c> : c_wall, iconv
-
-<journal.{byte,native}>: thread, iconv
+<journal.{byte,native}>: thread
 <io.{ml,mli,byte,native}>: use_zip
 <indexer.{ml,byte,native}>: use_ulex, use_ulex_pp
 <jsonLex.ml> : use_ulex, use_ulex_pp
