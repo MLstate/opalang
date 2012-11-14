@@ -322,20 +322,23 @@ let rec remove_all_symlinks path =
     let path = Filename.concat dirname (Filename.basename path) in
     remove_symlinks path
 
-(** create all necessary directories to access path *)
-let check_create_path ?(rights=0o755) path =
-  let path =
-    if Filename.basename path = "." then path
-    else path ^ "/" in
-  let path = remove_all_symlinks path in
-  let rec aux1 = function
-      [] -> aux1 [Filename.dirname path]
-    | (hd :: tl) as l ->
-        let d = Filename.dirname hd in
-        if d <> hd then aux1 (d :: l)
-        else tl (* since hd = C:\ or / *) in
-  let mkdir d = try Unix.mkdir d rights; true with Unix.Unix_error _ -> false in
-  List.for_all (fun x -> Sys.file_exists x || mkdir x) (aux1 [])
+(** create all necessary directories to access a file path *)
+let rec check_create_path ?(rights=0o755) ?(nobackslash=true) ?(isdirectory=false) path =
+  let path = if isdirectory then Filename.concat path "test" else path in
+  let path = if nobackslash then Base.String.map (fun c -> if c='\\' then '/' else c) path else path in
+  let dirname = Filename.dirname path in
+  if dirname=path || dirname=".." || path="." || path="/" then (
+    true (*terminal case*)
+  ) else 
+    try
+      Sys.is_directory dirname || (
+        failwith ("Not a directory but exists: "^dirname)
+      )
+      (* terminal case *)
+    with Sys_error _ -> (
+      check_create_path ~rights dirname 
+      && (try Unix.mkdir dirname rights; true with Unix.Unix_error _ -> Printf.printf "mkdir error%s\n" dirname; false)
+    )
 
 (** hopefully, this is the ultimate and portable version of cp *)
 let copy ?(force=false) src tgt =
@@ -349,8 +352,7 @@ let copy ?(force=false) src tgt =
         if force && (Sys.file_exists tgt) then Sys.remove tgt;
         if Sys.file_exists tgt then 1
         else
-          let dir = Filename.dirname tgt in
-          if check_create_path dir then
+          if check_create_path tgt then
             let command = (if Base.is_windows then Format.sprintf  "copy \"%s\" \"%s\"" else Format.sprintf "cp \"%s\" \"%s\"") src tgt in
             Sys.command command
           else 1
@@ -368,8 +370,7 @@ let mv ?(force=false) src tgt =
         if force && (Sys.file_exists tgt) then Sys.remove tgt;
         if Sys.file_exists tgt then 1
         else
-          let dir = Filename.dirname tgt in
-          if check_create_path dir then
+          if check_create_path tgt then
             let command = (if Base.is_windows then Format.sprintf  "rename \"%s\" \"%s\"" else Format.sprintf "mv \"%s\" \"%s\"") src tgt in
             Sys.command command
           else 1
@@ -385,13 +386,13 @@ let mlstate_dir = lazy (
       | "Unix" ->
 	  (* begin match Config.os with *)
 	  (* | Config.Mac -> Filename.concat (Sys.getenv "HOME") "Library/Application Support/Opa/" *)
-	  (* | _ ->  *) Filename.concat (Sys.getenv "HOME") ".opa/"
+	  (* | _ ->  *) Filename.concat (Sys.getenv "HOME") ".opa"
 	  (* end *)
-      | "Cygwin" -> Filename.concat (Sys.getenv "HOME") ".opa/"
-      | "Win32" -> Filename.concat (Sys.getenv "USERPROFILE") "AppData\\Local\\MLstate\\"
+      | "Cygwin" -> Filename.concat (Sys.getenv "HOME") ".opa"
+      | "Win32" -> Filename.concat (Sys.getenv "USERPROFILE") "AppData\\Local\\MLstate"
       | s -> failwith (Printf.sprintf "Base.ml_state_dir : this platform (%s) is yet unsupported" s) in
     (* assert (check_create_path ~rights:0o700 path) ; *)
-    if check_create_path ~rights:0o700 path then path
+    if check_create_path ~rights:0o700 ~isdirectory:true path then path
     else ".opa/" (* raise NoMLstateDir *)
   with Not_found -> ".opa/"
 )
@@ -514,8 +515,7 @@ let copy_rec ?(force=false) src tgt =
         if force && (path_exists tgt) then remove_rec tgt;
         if path_exists tgt then 1
         else
-          let dir = Filename.dirname tgt in
-          if check_create_path dir then
+          if check_create_path tgt then
             let command = (if Base.is_windows then Format.sprintf  "copy \"%s\" \"%s\"" else Format.sprintf "cp -R \"%s\" \"%s\"") src tgt in
             Sys.command command
           else 1
@@ -560,7 +560,7 @@ let completion path =
 let backup_path name =
   let path = concat (Lazy.force mlstate_dir) (name ^ path_sep) in
   (* Journal.Interface.jlog (Printf.sprintf "backup_path = %s" path) ; *)
-  if check_create_path path then Some path
+  if check_create_path ~isdirectory:true path then Some path
   else (
     (* Journal.Interface.warning "backup path could not be created. NO automatic backups!" ; *)
     None

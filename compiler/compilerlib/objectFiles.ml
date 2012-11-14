@@ -917,9 +917,9 @@ struct
       #<If$minlevel 3>Printf.printf "Saving pass:%s\n%!" S.pass#<End>;
       assert(fst !current_package <> ""); (* asserting that the current package has been initialized *)
       let file = dirname_from_package !current_package in
-      if not (File.check_create_path file) then
-        OManager.error "An error occurred while trying to create the object file %s." file;
       let filename = filename_from_package !current_package S.pass in
+      if not (File.check_create_path filename) then
+        OManager.error "An error occurred while trying to create the object file %s." file;
       if not overwrite then assert (not (File.exists filename));
       (* this would break only if the compiler doesn't clean an existing
        * object file before compiling it or if someone tries to

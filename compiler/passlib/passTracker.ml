@@ -107,7 +107,7 @@ let handle_close_in ic =
       error "Input.start: cannot close_int in %s : %s" !directory s
 
 let handle_mkdir path =
-  if not (File.check_create_path path) then
+  if not (File.check_create_path ~isdirectory:true path) then
     error "Output.start: cannot create directory %s" path
 
 (* Conventions over name of files and directories. *)

@@ -175,7 +175,7 @@ let write t =
   let build_dir = t.build_dir in
   let json = Filename.concat build_dir package_json in
   let main = Filename.concat build_dir t.main in
-  if not (File.check_create_path build_dir) then
+  if not (File.check_create_path main) then
     OManager.error "Cannot create directory @{<bright>%s@}" build_dir;
   let output filename pp x =
     match File.pp_output filename pp x with

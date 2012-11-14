@@ -157,17 +157,15 @@ let output_prefix ?(mkdir=true) opt prefix filename =
   let directory = opp_dir opt in
   let directory = directory/dirname in
 
+  let filename = directory/filename in
   (*
     eventually, check or create the directory
   *)
   if mkdir then (
-    if not (File.check_create_path directory) then
+    if not (File.check_create_path filename) then
       OManager.error "cannot create directory %s" directory
-    else
-      OManager.printf "Ok, exists directory %s" directory
   );
 
-  let filename = directory/filename in
   filename
 
 let files_of_opt opt =

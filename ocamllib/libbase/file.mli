@@ -248,7 +248,7 @@ val pp_output : string -> 'a BaseFormat.pprinter -> 'a -> string option
 val oc_output : string -> (out_channel -> 'a -> unit) -> 'a -> string option
 
 val mkdtemp : string -> string
-val check_create_path : ?rights:Unix.file_perm -> string -> bool
+val check_create_path : ?rights:Unix.file_perm -> ?nobackslash:bool -> ?isdirectory:bool -> string -> bool
 val mlstate_dir : string Lazy.t
 val mlstatelibs : string Lazy.t
 val is_regular : string -> bool

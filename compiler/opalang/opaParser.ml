@@ -75,21 +75,22 @@ struct
     Filename.concat (Lazy.force File.mlstate_dir) "opa/cache/parser"
   )
   let check_directory () =
-    if Sys.file_exists (Lazy.force caching_directory) then ()
+    let caching_directory = Lazy.force caching_directory in
+    if Sys.file_exists caching_directory then ()
     else (
       #<If:TESTING>
         ()
         #<Else>
-        OManager.verbose "opa-parser: creating @{<bright>%s@} to store opa compiler caches" (Lazy.force caching_directory)
+        OManager.verbose "opa-parser: creating @{<bright>%s@} to store opa compiler caches" caching_directory
         #<End>;
-      if not (File.check_create_path (Lazy.force caching_directory))
+      if not (File.check_create_path ~isdirectory:true caching_directory)
       then
         OManager.error (
           "cannot create cache directory @{<bright>%s@}^@\n"^^
           "@{<bright>Hint@}:@\n"^^
           "You can try to create manually the directory, with permissions 755"
         )
-          (Lazy.force caching_directory)
+        caching_directory
     )
 
   (* cache file naming option *)
