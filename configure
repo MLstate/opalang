@@ -302,6 +302,9 @@ else
     false
 fi
 
+CAMLP4O=$(cygpath -m $CAMLP4O || echo $CAMLP4O)
+CAMLP4ORF=$(cygpath -m $CAMLP4ORF || echo $CAMLP4ORF)
+
 # check tools:
 # (*) stuff marked with * could maybe be optional and restrict the build correspondingly
 
