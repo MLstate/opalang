@@ -22,7 +22,13 @@ let no_tools =
 
 let prefix_me s = opalang_prefix ^ s
 
+let clear_backslashes s =
+  let s = String.copy s in
+  String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s;
+  s
+
 let build_dir =
+  clear_backslashes (  
   if (Pathname.is_relative !Options.build_dir)
   && not (Pathname.is_prefix Pathname.pwd !Options.build_dir)
   (*is_relative does not work on cygwin/windows*)
@@ -30,6 +36,7 @@ let build_dir =
     Pathname.pwd / !Options.build_dir
   else
     !Options.build_dir
+  )
 
 (**
    {6 Portability utility functions }
