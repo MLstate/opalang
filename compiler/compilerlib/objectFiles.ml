@@ -551,10 +551,11 @@ let find_js_file_no_memo (js_file:basename) =
   File.get_one_location
     ~missing_file:(fun _dirs _fname ->
                      error (
-                       "Cannot find the file @{<bright>%s@}.@\n" ^^
-                         "@[<2>@{<bright>Hint@}:@\nPerhaps some included directories are missing (option -I)@]"
+                       "Cannot find the js file @{<bright>%s@}.@\n" ^^
+                         "@[<2>@{<bright>Hint@}:@\nPerhaps some included directories are missing (option -I)@\n%a@]"
                      )
                        js_file
+                       (Format.pp_list "@ " Format.pp_print_string) !extrapaths
                   )
     ~many_files:(fun _dirs _fname l ->
                    let choice = List.hd l in
