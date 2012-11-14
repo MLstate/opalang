@@ -63,14 +63,6 @@ let c_wall,c_werror =
 let winocamldir   = Pathname.pwd /  "ms_windows"
 
 let wingate s     = winocamldir / "windows_gate" ^ " " ^ s
-let windows_opa   = winocamldir / "windows_opa"
-let winocamlc     = winocamldir / "windows_ocamlc"
-let winocamlfind  = winocamldir / "windows_ocamlfind"
-let winocamlmklib = winocamldir / "windows_ocamlmklib"
-let winocamlmktop = winocamldir / "windows_ocamlmktop"
-let winocamldoc   = winocamldir / "windows_ocamldoc"
-
-let as_wintools = [ ("trx", "") ; ("bslregister", "") ; ("opa.exe", windows_opa) ]
 
 let _ = if is_win32 then Printf.printf "MYOCAMLBUILD WINDOWS MODE\n" else ()
 
@@ -78,12 +70,6 @@ let _ =
   Options.ext_lib := Config.ext_lib;
   Options.ext_obj := Config.ext_obj;
   Options.ext_dll := Config.ext_shared
-
-let _ = if is_win32 then (
-  Options.ocamlmklib := P winocamlmklib;
-  Options.ocamlmktop := P winocamlmktop;
-  Options.ocamldoc := P winocamldoc
-) else ()
 
 let run_and_read s =
   let output = run_and_read s in
@@ -145,12 +131,7 @@ let get_tool ?local:(local=false) name =
     (match Hashtbl.find tools_table name with
       | Internal f ->
         let f = if local then f else build_dir / f in
-        let wintools_b, winf = try
-          let c = List.assoc name as_wintools in
-          true, (if c <> "" then c else (wingate f))
-          with Not_found -> false, ""
-        in
-        if is_win32 && wintools_b then (Sh winf) else (P f)
+        P f
       | External f -> P f)
   with Not_found -> failwith ("Build tool not found: "^name)
 
