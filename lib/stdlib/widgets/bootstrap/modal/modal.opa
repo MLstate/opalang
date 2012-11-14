@@ -7,6 +7,31 @@ type Modal.options = {
   show: bool
 }
 
+/**
+ * Example:
+ *
+ * import stdlib.themes.bootstrap
+ * import stdlib.widgets.bootstrap.modal
+ *
+ * function page() {
+ *
+ *   Modal.make("md1",
+ *     <>Modal header</>,
+ *     <p>One fine body…</p>,
+ *     <a href="#" class="btn">Close</a>
+ *     <a href="#" class="btn btn-primary">Save changes</a>,
+ *     Modal.default_options) <+>
+ *   <a href="#md1" role="button" class="btn" data-toggle="modal">Launch demo modal</a>
+ *
+ *   <div onclick={function (_) Modal.show(#md1)}>Show</div>
+ *   <div onclick={function (_) Modal.hide(#md1)}>Hide</div>
+ *   <div onclick={function (_) Modal.toggle(#md1)}>Toggle</div>
+ *
+ * }
+ *
+ * Server.start(Server.http, { title: "Modal", ~page })
+ *
+ */
 @client
 Modal = {{
 

@@ -11,6 +11,26 @@ type Tooltip.options = {
   trigger: Tooltip.trigger
 }
 
+/**
+ * Example:
+ *
+ * import stdlib.themes.bootstrap
+ * import stdlib.widgets.bootstrap.tooltip
+ *
+ * function page() {
+ *
+ *   <ul onready={function (_) Tooltip.init(Dom.select_raw_unsafe("*[rel=tooltip]"), Tooltip.default_options)}>
+ *     <li><a href="#" rel="tooltip" data-placement="top" title="Tooltip on top">Tooltip on top</a></li>
+ *     <li><a href="#" rel="tooltip" data-placement="right" title="Tooltip on right">Tooltip on right</a></li>
+ *     <li><a href="#" rel="tooltip" data-placement="bottom" title="Tooltip on bottom">Tooltip on bottom</a></li>
+ *     <li><a href="#" rel="tooltip" data-placement="left" title="Tooltip on left">Tooltip on left</a></li>
+ *   </ul>
+ *
+ * }
+ *
+ * Server.start(Server.http, { title: "Tooltip", ~page })
+ *
+ */
 @client
 Tooltip = {{
 

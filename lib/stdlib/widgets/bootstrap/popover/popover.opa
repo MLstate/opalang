@@ -2,6 +2,26 @@ import-plugin bootstrap-popover
 
 import stdlib.widgets.bootstrap.tooltip
 
+/**
+ * Example:
+ *
+ * import stdlib.themes.bootstrap
+ * import stdlib.widgets.bootstrap.popover
+ *
+ * function page() {
+ *
+ *   <ul onready={function (_) Popover.init(Dom.select_raw_unsafe("*[rel=popover]"), Popover.default_options)}>
+ *     <li><a class="btn" rel="popover" data-placement="top" data-content="Vivamus sagittis lacus vel augue laoreet rutrum faucibus." data-original-title="Popover on top">Popover on top</a></li>
+ *     <li><a class="btn" rel="popover" data-placement="right" data-content="Vivamus sagittis lacus vel augue laoreet rutrum faucibus." data-original-title="Popover on right">Popover on right</a></li>
+ *     <li><a class="btn" rel="popover" data-placement="bottom" data-content="Vivamus sagittis lacus vel augue laoreet rutrum faucibus." data-original-title="Popover on bottom">Popover on bottom</a></li>
+ *     <li><a class="btn" rel="popover" data-placement="left" data-content="Vivamus sagittis lacus vel augue laoreet rutrum faucibus." data-original-title="Popover on left">Popover on left</a></li>
+ *   </ul>
+ *
+ * }
+ *
+ * Server.start(Server.http, { title: "Popover", ~page })
+ *
+ */
 @client
 Popover = {{
 
