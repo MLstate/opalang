@@ -606,11 +606,12 @@ rule "opa js run-time libraries"
      let mllibs_local =
        List.map (fun f -> P (build_dir / f -.- !Options.ext_lib)) mllibs in
      let copylibs = List.map copy_lib_to_runtime mllibs in
+     let may_link_cmd l p = if l = [] then Cmd(A"true") else Cmd(S(link_cmd :: l @ p)) in
      Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P (build_dir / opa_libs_dir)]);
        Cmd(S[Sh"mkdir"; A"-p"; P (build_dir / opa_share_dir)]);
        Cmd(S(link_cmd :: js_deps @ [ P (build_dir / opa_libs_dir) ]));
-       Cmd(S(link_cmd :: mllibs_local @ [ P (build_dir / opa_libs_dir) ]));
+       may_link_cmd mllibs_local [P (build_dir / opa_libs_dir)];
        Cmd(S(link_cmd ::
              P (build_dir / libbase_dir / "mimetype_database.xml") ::
              [ P (build_dir / opa_share_dir / "mimetype_database.xml") ]));
