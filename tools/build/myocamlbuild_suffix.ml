@@ -16,27 +16,14 @@
       (* pp_script *)
 
       let mlstate_debug, mlstate_nodebug, pa_ulex =
-        if is_win32 then
-          let pp_script s=
-            let win_exists s = try ignore(Unix.stat s);true with _ -> false in (* under cygwin, Unix.*link* does not work *)
-            let location = (Sys.getenv "LIBQML")^"/preprocessing/" in
-            location ^ s ^ ".bat"
-          in
-          (* pre-defined wrapper scripts to workaround the "no space in ppdebug string" bug on windows *)
-          (* (they do the same as the commands below) *)
-          P (pp_script "mlstate_debug"),
-          P (pp_script "mlstate_nodebug"),
-          P (pp_script "pa_ulex")
-        else
-          P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"),
-          S [ P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
+          S [ P "perl.exe"; P (".."/"tools"/"utils"/"ppdebug.pl")],
+          S [ P "perl.exe"; P (".."/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
           S [ P Config.camlp4o;
               (match Config.Libdir.ulex with
                | Some dir -> S [A "-I"; P dir]
                | None -> N);
               P "pa_ulex.cma"; P "pr_o.cmo" ]
       in
-
       flag ["ocaml"; "pp"; "with_mlstate_debug"]
         (if List.mem "release" !Options.tags then mlstate_nodebug else mlstate_debug);
 
