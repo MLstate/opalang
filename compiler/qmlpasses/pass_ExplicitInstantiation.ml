@@ -148,6 +148,8 @@ module TypeIdent = QmlAst.TypeIdent
 module TypeIdentTable = QmlAst.TypeIdentTable
 module TypeIdentSet = QmlAst.TypeIdentSet
 module TypeVarMap = QmlTypeVars.TypeVarMap
+module RowVarMap = QmlTypeVars.RowVarMap
+module ColVarMap = QmlTypeVars.ColVarMap
 
 (* shorthands *)
 module Q = QmlAst
@@ -360,7 +362,7 @@ end
  * (plus that solution would make it harder to guarantee that variables in quantifiers
  * are in increasing order)
  *)
-let normalize_ty_for_sharing ~propagated_vars ty =
+let normalize_ty_for_sharing ?subst ~propagated_vars ty =
   let module Var = MakeNormalizer(QmlTypeVars.TypeVarMap)(QmlTypeVars.CanonicalVar) in
   let module Row = MakeNormalizer(QmlTypeVars.RowVarMap)(QmlTypeVars.CanonicalRow) in
   let module Col = MakeNormalizer(QmlTypeVars.ColVarMap)(QmlTypeVars.CanonicalCol) in
@@ -374,7 +376,11 @@ let normalize_ty_for_sharing ~propagated_vars ty =
               #<If:EXPL_INST_NORMALIZE$maxlevel 1>
                 ty
               #<Else>
-                if QmlTypeVars.FreeVars.mem_typevar v propagated_vars then ty
+                let has_subst = match subst with
+                  | Some (tv_subst, _, _) -> TypeVarMap.mem v tv_subst
+                  | None -> false
+                in
+                if has_subst || QmlTypeVars.FreeVars.mem_typevar v propagated_vars then ty
                 else Q.TypeVar Var.dummy
                     (* this variable is used to normalize unbound variables *)
               #<End>
@@ -389,7 +395,11 @@ let normalize_ty_for_sharing ~propagated_vars ty =
                    #<If:EXPL_INST_NORMALIZE$maxlevel 1>
                      o
                    #<Else>
-                     if QmlTypeVars.FreeVars.mem_rowvar v propagated_vars then o
+                     let has_subst = match subst with
+                       | Some (_, rv_subst, _) -> RowVarMap.mem v rv_subst
+                       | None -> false
+                     in
+                     if has_subst || QmlTypeVars.FreeVars.mem_rowvar v propagated_vars then o
                      else Some Row.dummy
                    #<End>
                ) in
@@ -405,7 +415,11 @@ let normalize_ty_for_sharing ~propagated_vars ty =
                    #<If:EXPL_INST_NORMALIZE$maxlevel 1>
                      o
                    #<Else>
-                     if QmlTypeVars.FreeVars.mem_colvar v propagated_vars then o
+                     let has_subst = match subst with
+                       | Some (_, _, cv_subst) -> ColVarMap.mem v cv_subst
+                       | None -> false
+                     in
+                     if has_subst || QmlTypeVars.FreeVars.mem_colvar v propagated_vars then o
                      else Some Col.dummy
                    #<End>
                ) in
@@ -420,23 +434,23 @@ let normalize_ty_for_sharing ~propagated_vars ty =
        | ty -> tra ty) ty
   #<End>
 
-let normalize_tyrow_for_sharing ~propagated_vars tyrow =
-  match normalize_ty_for_sharing ~propagated_vars (Q.TypeRecord tyrow) with
+let normalize_tyrow_for_sharing ?subst ~propagated_vars tyrow =
+  match normalize_ty_for_sharing ?subst ~propagated_vars (Q.TypeRecord tyrow) with
   | Q.TypeRecord r -> r
   | _ -> assert false
 
-let normalize_tycol_for_sharing ~propagated_vars tycol =
-  match normalize_ty_for_sharing ~propagated_vars (Q.TypeSum tycol) with
+let normalize_tycol_for_sharing ?subst ~propagated_vars tycol =
+  match normalize_ty_for_sharing ?subst ~propagated_vars (Q.TypeSum tycol) with
   | Q.TypeSum r -> r
   | _ -> assert false
 
-let normalize_tsc_for_sharing ~propagated_vars tsc =
+let normalize_tsc_for_sharing ?subst ~propagated_vars tsc =
   #<If:EXPL_INST_NORMALIZE$maxlevel 0>
     tsc
   #<Else>
   (* FIXME: CLEAN IT *)
   let tv,rv,cv,ty =
-    match normalize_ty_for_sharing ~propagated_vars (QmlTypes.Scheme.explicit_forall tsc) with
+    match normalize_ty_for_sharing ?subst ~propagated_vars (QmlTypes.Scheme.explicit_forall tsc) with
     | Q.TypeForall (tv,rv,cv,ty) -> tv,rv,cv,ty
     | ty -> [],[],[],ty in
   QmlGenericScheme.import (QmlTypeVars.FreeVars.import_from_sets
@@ -535,13 +549,17 @@ type env = {
   gamma : QmlTypes.gamma;
   propagated_vars : QmlTypeVars.FreeVars.t;
   val_ : ?side:[`client|`server] -> string -> Ident.t;
+  subst : (Ident.t TypeVarMap.t
+           * Ident.t RowVarMap.t
+           * Ident.t ColVarMap.t) option
 }
 
-let make_env ~side ~gamma ~propagated_vars ~val_ = {
+let make_env ?subst ~side ~gamma ~propagated_vars ~val_ () = {
   side = (side :> [ `server | `client ]);
   gamma;
   propagated_vars;
   val_;
+  subst;
 }
 
 (*
@@ -639,15 +657,22 @@ object (self)
       let annotmap, e = QmlAstCons.TypedExpr.ident annotmap (id_of_var var) opaty in
       annotmap, false, e
     else (
-      #<If:EXPL_INST_DEBUG>
-        prerr_endline
-        (Printf.sprintf
-           "Warning: raw type variable: %s"
-           (QmlTypeVars.TypeVar.to_string var))
-      #<End>;
-      let annotmap, string_expr = self#quantified_var annotmap var in
-      let annotmap, e = TypedExpr.record annotmap ["TyVar", string_expr] in
-      annotmap, true, e
+      match env.subst with
+      | Some (tv_subst, _, _) when TypeVarMap.mem var tv_subst ->
+          let ident = TypeVarMap.find var tv_subst in
+          let opaty = opaty env.gamma in
+          let annotmap, e = QmlAstCons.TypedExpr.ident annotmap ident opaty in
+          annotmap, false, e
+      | _ ->
+
+            prerr_endline
+            (Printf.sprintf
+               "Warning: raw type variable: %s"
+               (QmlTypeVars.TypeVar.to_string var));
+
+          let annotmap, string_expr = self#quantified_var annotmap var in
+          let annotmap, e = TypedExpr.record annotmap ["TyVar", string_expr] in
+          annotmap, true, e
     )
 
   method rowvar annotmap rowvar =
@@ -968,7 +993,7 @@ end
 let ty_to_opaty_for_opadoc ~val_ ~gamma ~annotmap =
   let propagated_vars = QmlTypeVars.FreeVars.empty in
   let side = `server in
-  let env = make_env ~side ~propagated_vars ~gamma ~val_ in
+  let env = make_env ~side ~propagated_vars ~gamma ~val_ () in
   let dynamic_repr = new dynamic_repr_for_opadoc env in
   let ty tyvar rowvar colvar ty =
     dynamic_repr#set_scopes tyvar rowvar colvar ;
@@ -983,8 +1008,8 @@ let rep_of_vars ~memoize ~env annotmap quant =
   else
     (new dynamic_repr env)#quantified_vars annotmap quant
 
-let rep_of_type_gen call_method ~val_ ~side ~memoize ~propagated_vars ~annotmap ~gamma ty =
-  let env = make_env ~side ~propagated_vars ~gamma ~val_ in
+let rep_of_type_gen call_method ~val_ ?subst ~side ~memoize ~propagated_vars ~annotmap ~gamma ty =
+  let env = make_env ?subst ~side ~propagated_vars ~gamma ~val_  () in
   let annotmap, _, e =
     if memoize then
       call_method (new dynamic_repr_memoization env) annotmap ty
@@ -1000,11 +1025,11 @@ let rep_of_type_col =
   rep_of_type_gen (fun obj -> obj#type_col)*)
 
 let default_memoize = #<If:EXPL_INST_NO_MEMO>false#<Else>true#<End>
-let internal_ty_to_opaty_gen normalizer call_method ~side ?(normalize=true) ?(memoize=default_memoize) ~propagated_vars ~annotmap ~gamma ty =
+let internal_ty_to_opaty_gen normalizer call_method ~side ?(normalize=true) ?(memoize=default_memoize) ?subst ~propagated_vars ~annotmap ~gamma ty =
   let ty =
-    if normalize then normalizer ~propagated_vars ty
+    if normalize then normalizer ?subst ~propagated_vars ty
     else ty in
-  rep_of_type_gen call_method ~side ~memoize ~propagated_vars ~annotmap ~gamma ty
+  rep_of_type_gen call_method ?subst ~side ~memoize ~propagated_vars ~annotmap ~gamma ty
 let internal_ty_to_opaty =
   internal_ty_to_opaty_gen normalize_ty_for_sharing (fun obj -> obj#type_)
 let internal_tyrow_to_opaty =
@@ -1031,19 +1056,19 @@ let opatsc_type =
 
 let tsc_to_opatsc ~side ~val_ ?(memoize=default_memoize) (annotmap, gamma) (tsc : QmlTypes.typescheme) =
   let propagated_vars = QmlTypeVars.FreeVars.empty in
-  let env = make_env ~side ~propagated_vars ~gamma ~val_ in
+  let env = make_env ~side ~propagated_vars ~gamma ~val_ () in
   let tsc = normalize_tsc_for_sharing ~propagated_vars tsc in
   if memoize then
     (new dynamic_repr_memoization env)#tsc annotmap tsc
   else
     (new dynamic_repr env)#tsc annotmap tsc
 
-let arg_of_type ~val_ side set gamma annotmap t =
-  internal_ty_to_opaty ~val_ ~side ~propagated_vars:set ~annotmap ~gamma t
-let arg_of_type_row ~val_ side set gamma annotmap t =
-  internal_tyrow_to_opaty ~val_ ~side ~propagated_vars:set ~annotmap ~gamma t
-let arg_of_type_col ~val_ side set gamma annotmap t =
-  internal_tycol_to_opaty ~val_ ~side ~propagated_vars:set ~annotmap ~gamma t
+let arg_of_type ~val_ ?subst side set gamma annotmap t =
+  internal_ty_to_opaty ~val_ ?subst ~side ~propagated_vars:set ~annotmap ~gamma t
+let arg_of_type_row ~val_ ?subst side set gamma annotmap t =
+  internal_tyrow_to_opaty ~val_ ?subst ~side ~propagated_vars:set ~annotmap ~gamma t
+let arg_of_type_col ~val_ ?subst side set gamma annotmap t =
+  internal_tycol_to_opaty ~val_ ?subst ~side ~propagated_vars:set ~annotmap ~gamma t
 
 (** Inserting directives for Explicit Instantiation *)
 (* Directives just rewrite type*)
@@ -1225,6 +1250,13 @@ let debug fmt = console_debug "have_typeof" fmt
 let have_typeof ~set gamma annotmap qmlAst =
   let walk (tainted:QmlTypeVars.FreeVars.t) e =
     let tainted =
+      let tainted_from_ty t =
+        let vars = QmlTypes.freevars_of_ty t in
+        #<If:EXPL_INST_DEBUG>
+          debug "the instantiation used for @@typeof is %s" (QmlTypeVars.FreeVars.to_string vars)
+        #<End>;
+        QmlTypeVars.FreeVars.union tainted vars
+      in
       match e with
       | Q.Directive (_, #call, [_], _) -> (
           match QmlAnnotMap.find_tsc_inst_opt (Q.QAnnot.expr e) annotmap with
@@ -1234,13 +1266,16 @@ let have_typeof ~set gamma annotmap qmlAst =
               QmlTypeVars.FreeVars.union tainted quantif
         )
       | Q.Directive (_, `typeof, [de], _) ->
-          let t = QmlAnnotMap.find_ty (Q.QAnnot.expr de) annotmap in
-          let vars = QmlTypes.freevars_of_ty t in
           #<If:EXPL_INST_DEBUG>
-            debug "Have typeof for typeof:  %a" pp#expr de ;
-            debug "the instantiation used for @@typeof is %s" (QmlTypeVars.FreeVars.to_string vars)
+          debug "Have typeof for typeof:  %a" pp#expr de ;
           #<End>;
-          QmlTypeVars.FreeVars.union tainted vars
+          let t = QmlAnnotMap.find_ty (Q.QAnnot.expr de) annotmap in
+          tainted_from_ty t
+      | Q.Directive (_, `typeval _, _, [t]) ->
+          #<If:EXPL_INST_DEBUG>
+          debug "Have typeof for typeval:  %a" pp#ty t ;
+          #<End>;
+          tainted_from_ty t
       | _ -> tainted in
     match QmlAnnotMap.find_tsc_inst_opt (Q.QAnnot.expr e) annotmap with
     | None -> tainted
@@ -1677,7 +1712,9 @@ let walk_undirective ~val_ side gamma toplevel_lambdas annotmap e =
            let ty = QmlAnnotMap.find_ty (Q.QAnnot.expr de) annotmap in
            let annotmap, e = arg_of_type ~val_ side abstracted_set gamma annotmap ty in
            tra (abstracted_set,false) annotmap e
-
+       | Q.Directive (_, `typeval subst, [], [ty]) ->
+           let annotmap, e = arg_of_type ?subst ~val_ side abstracted_set gamma annotmap ty in
+           tra (abstracted_set,false) annotmap e
        | _ ->
            tra (abstracted_set,false) annotmap e
 
