@@ -1,4 +1,6 @@
 
+type style = {js_like} or {classic}
+
 type verb = {GET} or {POST}
 
 function string_of_verb(verb verb) {
@@ -33,19 +35,6 @@ function dflt_typ_of_typ(typ typ, bool opt) {
     case {float}: option("float");
     case {~tyname}: @fail("dflt_typ_of_typ: {tyname}")
     case {~list}: @fail("dflt_typ_of_typ: list {list}")
-  }
-}
-
-function dflt_of_typ(typ typ, string dflt, bool opt) {
-  function option(v) { if (opt) { if (dflt == "") { "\{none}" } else "\{some:{dflt}}" } else if (dflt == "") v else dflt }
-  match (typ) {
-    case {unknown}: @fail("dflt_of_typ: unknown")
-    case {int}:    option("0");
-    case {string}: option("\"\"");
-    case {bool}:   option("false");
-    case {float}:  option("0.0");
-    case {~tyname}: @fail("dflt_of_typ: {tyname}")
-    case {~list}: @fail("dflt_of_typ: list {list}")
   }
 }
 

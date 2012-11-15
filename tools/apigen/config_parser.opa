@@ -33,6 +33,12 @@ function to_eol(name) {
   }
 }
 
+function to_eol_nows(name) {
+  parser {
+    case name val=Rule.full_line: val;
+  }
+}
+
 verb = parser {
   case "GET": {GET}
   case "POST": {POST}
@@ -157,7 +163,7 @@ function line_parser(config config) {
     case /*dbg("COMMENT")       */ comment=to_eol(commstart) Rule.ws: {~comment}
     case /*dbg("PARAMETER")     */ kw_parameter Rule.ws parameter=id Rule.ws value=Rule.full_line Rule.ws: ~{parameter, value}
     case /*dbg("DOC")           */ doc=to_eol(docstart) Rule.ws: {~doc}
-    case /*dbg("COPYRIGHT")     */ copyright=to_eol(kw_copyright) Rule.ws: {~copyright}
+    case /*dbg("COPYRIGHT")     */ copyright=to_eol_nows(kw_copyright) Rule.ws: {~copyright}
     case /*dbg("APINAME")       */ apiname=to_eol(kw_apiname) Rule.ws: {~apiname}
     case /*dbg("TYPE")          */ kw_type Rule.ws typename=id Rule.ws: {~typename}
     case /*dbg("MESSAGE")       */ ~message_line: message_line
@@ -269,8 +275,7 @@ function config parseConfig(string str) {
   List.fold(get_line,lines,({start},null_config)).f2
 }
 
-function read_config() {
-  config_file = config_file.get()
+function read_config(config_file) {
   match (File.read_opt(config_file)) {
   case {some:bin}:
     config = parseConfig(string_of_binary(bin))
