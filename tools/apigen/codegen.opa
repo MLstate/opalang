@@ -1,6 +1,4 @@
 
-type style = {js_like} or {classic}
-
 style = Mutable.make(style {classic})
 
 function styled(js, cl) { match (style.get()) { case {js_like}: js; case {classic}: cl; } }

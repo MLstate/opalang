@@ -1,3 +1,7 @@
+/* This file creates binary protocol handler code, it generates pack/unpack
+ * functions and send/receive functions which use them.
+ * Currently uses the old codegen, will be updated to use the new one in the future.
+ */
 
 function field_size_number(field_size fs) {
   match (fs) {
@@ -413,7 +417,7 @@ function output_sndrcv(config config) {
         name = mcname(snd)
         if (params == "") {
           print("  {prvt()} packed_{name} =\n")
-          print(mtch(false,"    ","Pack.Encode.pack(Pg.pack_{name}())",[
+          println(mtch(false,"    ","Pack.Encode.pack(Pg.pack_{name}())",[
             (record([("success","binary")]),"binary"),
             (record([("failure","~")]),"@fail(\"Failed to pre-pack message {name} \{failure}\")")
           ]))
