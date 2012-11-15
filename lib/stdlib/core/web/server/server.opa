@@ -379,7 +379,7 @@ Server = {{
     *
     * {[
     * server = Server.make_dispatch(Server.Filter.path(["root", "application"]),
-    *          | {~path ...} -> Resource.html("Test", <>Welcome to {List.to_string(path)}</>)
+    *          | {~path ...} -> Resource.html("Test", <>Welcome to {List.to_string(path)}</>))
     * }
     *
     * This server will only respond to paths starting with "/root/application".
