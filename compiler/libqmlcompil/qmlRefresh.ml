@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -49,7 +49,7 @@ let map_on_type_from_expr f expr =
        | _ -> pat)
     expr
 
-module MakeFind(Tbl:Hashtbl.S)(Map:BaseMapSig.S with type key = Tbl.key)(Var:Fresh.FRESH with type t = Tbl.key) =
+module MakeFind(Tbl:Hashtbl.S with type key = Fresh.t_fresh)(Map:BaseMapSig.S with type key = Fresh.t_fresh)(Var:Fresh.FRESH) =
 struct
   let h = PackageTbl.create 10
   let clear () = PackageTbl.clear h

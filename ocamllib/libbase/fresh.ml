@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -105,7 +105,7 @@ let default_fresh_named_factory () =
 
 module type FRESH =
 sig
-  type t
+  type t = t_fresh
   val next : ?name:string -> ?descr:string -> unit -> t
   val prev : ?name:string -> ?descr:string -> unit -> t
 

@@ -139,6 +139,8 @@ sig
 
   val compare : t -> t -> int
 
+  val size : t -> int
+
   val mem_typevar : QmlAst.typevar -> t -> bool
   val mem_rowvar : QmlAst.rowvar -> t -> bool
   val mem_colvar : QmlAst.colvar -> t -> bool

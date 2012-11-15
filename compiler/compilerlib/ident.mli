@@ -103,3 +103,5 @@ val get_package_name : t -> string
 val safe_get_package_name : t -> string option
 
 val renaming_should_warn_when : t -> [`used | `unused | `never]
+
+val from_fresh : Fresh.t_fresh -> t

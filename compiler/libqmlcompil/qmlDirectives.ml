@@ -241,7 +241,7 @@ let ty directive exprs tys =
   (* === *)
   (* Magic *)
   | `typeof -> Ty.typeof ()
-  | `typeval -> Ty.typeval()
+  | `typeval _ -> Ty.typeval()
   | `specialize _ ->
       let n = List.length exprs in
       assert (n >= 1);
@@ -456,7 +456,8 @@ let to_string d =
   | `extendwith -> "extendwith"
   | `assert_ -> "assert"
   | `typeof -> "typeof"
-  | `typeval -> "typeval"
+  | `typeval None -> "typeval"
+  | `typeval Some _subst -> "typeval[]"
   | `atomic -> "atomic"
   | `immovable -> "immovable"
   | `thread_context -> "thread_context"

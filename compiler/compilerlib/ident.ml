@@ -222,3 +222,5 @@ let light_ident = function
       Printf.sprintf "__%s" id
     else
       Printf.sprintf "_v%d_%s" n id
+
+let from_fresh f = Internal f

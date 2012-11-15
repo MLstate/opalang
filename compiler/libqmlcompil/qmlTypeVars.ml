@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -29,7 +29,7 @@
 
 module type GEN_VAR = Fresh.FRESH
 
-module MakeVar ( FB : Fresh.BRAND ) : GEN_VAR =
+module MakeVar ( FB : Fresh.BRAND ) : Fresh.FRESH =
   Fresh.FreshGen ( FB )
 
 let var_printer s =
@@ -146,6 +146,11 @@ struct
       rowvar = RowVarSet.map f_rv f.rowvar;
       colvar = ColVarSet.map f_cv f.colvar
     }
+
+  let size a =
+    TypeVarSet.size a.typevar +
+    RowVarSet.size a.rowvar +
+    ColVarSet.size a.colvar
 
   let mem_typevar v f = TypeVarSet.mem v f.typevar
   let mem_rowvar rv f = RowVarSet.mem rv f.rowvar

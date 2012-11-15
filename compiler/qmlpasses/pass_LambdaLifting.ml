@@ -263,6 +263,21 @@ let fn_of_expr e =
     (* the expression to analyse *)
     e
 
+let ftv_of_expr annotmap e =
+  let ty_e = get_ty annotmap (Q.QAnnot.expr e) in
+  let fv_e = QmlTypes.freevars_of_ty ty_e in
+  QmlAstWalk.Expr.fold
+    (fun fv_t e ->
+       match e with
+       | Q.Directive (_, `typeval subst, [], [ty]) ->
+           assert (subst = None);
+           let fv_ty =
+             QmlTypes.FreeVars.diff (QmlTypes.freevars_of_ty ty) fv_e in
+           QmlTypes.FreeVars.union fv_t fv_ty
+       | _ -> fv_t)
+    QmlTypes.FreeVars.empty
+    e
+
 (* depending on e,
    build the node
    let bnds in body, or
@@ -365,7 +380,8 @@ let get_arity_of_lambda e =
 let is_lambda e = get_arity_of_lambda e <> None
 
 type env = {
-  funcs: (Ident.t list * int) IdentMap.t; (* maps lifted ident to their environment * original arity *)
+  funcs: (QmlTypes.FreeVars.t * Ident.t list * int) IdentMap.t;
+  (* maps lifted ident to their typevars environment * environment * original arity *)
   (* maps from identifiers that will be lifted to their free variables *)
   gamma: QmlTypes.gamma (* the gamma this is given back by the pass
                          * starts empty and grows with each definition toplevel def
@@ -391,9 +407,9 @@ type binding = Ident.t * Q.expr
    of the funcs declarations
    its set of free functions symbols and its set of free variables
    ie
-      function ident -> (free functions, free variables)
+      function ident -> (free functions, free variables, free typeval)
 *)
-let get_vars env (funcs : binding list) =
+let get_vars annotmap env (funcs : binding list) =
   let fun_names =
     List.fold_left
       (fun s (x,_e) -> IdentSet.add x s)
@@ -401,36 +417,43 @@ let get_vars env (funcs : binding list) =
   List.fold_left
     (fun map (x,e) ->
        let fn = fn_of_expr e in
-       let ff_x,fv_x =
+       let ftv_x = ftv_of_expr annotmap e in
+       let ftv_x,ff_x,fv_x =
          IdentSet.fold
-           (fun n (ff_x,fv_x) ->
+           (fun n (ftv_x, ff_x,fv_x) ->
               try
-                let (env,_) = IdentMap.find n env.funcs in
-                (ff_x,(* when you call a local function, then you need its environment
-                       * because you will replace 'f' in your body by f(env1,...,envn) *)
+                let (tv_env, env,_) = IdentMap.find n env.funcs in
+                let ftv_x = QmlTypes.FreeVars.union tv_env ftv_x in
+                (ftv_x, ff_x,
+                 (* when you call a local function, then you need its environment
+                  * because you will replace 'f' in your body by f(env1,...,envn) *)
                  List.fold_left
                    (fun env fv -> IdentSet.add fv env)
                    fv_x
                    env)
               with Not_found ->
                 if IdentSet.mem n fun_names then
-                  (IdentSet.add n ff_x,fv_x)
-                else (ff_x,IdentSet.add n fv_x))
+                  (ftv_x,IdentSet.add n ff_x,fv_x)
+                else (ftv_x,ff_x,IdentSet.add n fv_x))
            fn
-           (IdentSet.empty,IdentSet.empty)
+           (ftv_x,IdentSet.empty,IdentSet.empty)
        in
        let fv_x = (* removing the names from the computed gamma
                    * (because they are at the toplevel) *)
          IdentSet.filter
            (fun x -> not (QmlTypes.Env.Ident.mem x env.gamma)) fv_x
        in
-       IdentMap.add x (ff_x,fv_x) map)
+       IdentMap.add x (ff_x,fv_x, ftv_x) map)
     IdentMap.empty
     funcs
 
 module M1 =
 struct
-  type t = {ident : Ident.t; mutable set : IdentSet.t}
+  type t = {
+    ident : Ident.t;
+    mutable set : IdentSet.t;
+    mutable vars : QmlTypes.FreeVars.t
+  }
   let compare {ident=ident1} {ident=ident2} = Ident.compare ident1 ident2
   let hash {ident=ident} = Ident.hash ident
   let equal {ident=ident1} {ident=ident2} = Ident.equal ident1 ident2
@@ -447,24 +470,24 @@ module SCC1 = GraphUtils.Components.Make(G1)
    each sublist will be turned in a definition of mutually recursive
    functions
 *)
-let compute_solution env funcs =
+let compute_solution annotmap env funcs =
   match funcs with
   | [] -> [] (* no function in the let bindings *)
   | [(i,_)] ->
       (* no mutual recursion -> no need to compute sccs *)
-      let (_,fv_i) = IdentMap.find i (get_vars env funcs) in
-      [([i],IdentSet.elements fv_i)]
+      let (_,fv_i,ftv) = IdentMap.find i (get_vars annotmap env funcs) in
+      [([i],IdentSet.elements fv_i,ftv)]
   | _ ->
       let size = 2 in
-      let names = get_vars env funcs in
+      let names = get_vars annotmap env funcs in
       (* create the call graph *)
       let g = G1.create ~size () in
     (* first the vertices
         one vertex per function identifier *)
       let vertices =
         IdentMap.mapi
-          (fun x (_,fv_x) ->
-             let v_x = G1.V.create {M1.ident=x; M1.set=fv_x} in
+          (fun x (_,fv_x,ftv_x) ->
+             let v_x = G1.V.create {M1.ident=x; M1.set=fv_x; M1.vars=ftv_x} in
              G1.add_vertex g v_x;
              v_x)
           names in
@@ -472,7 +495,7 @@ let compute_solution env funcs =
          if f calls g then add an edge from f to g
       *)
       IdentMap.iter
-        (fun x (ff_x,_) ->
+        (fun x (ff_x,_,_) ->
            let v_x = IdentMap.find x vertices in
            IdentSet.iter
              (fun y ->
@@ -485,22 +508,33 @@ let compute_solution env funcs =
          walk through the scc in reverse topological order *)
       List.map
         (fun p ->
-           let v =
+           let v, tv =
              List.fold_left
-               (fun v ({M1.set=vf_x_ref} as v_x) ->
-                  let env_x = G1.fold_succ
-                    (fun {M1.set=vf_y_ref} vf ->
-                       IdentSet.union vf vf_y_ref)
-                    g v_x vf_x_ref in
-                  IdentSet.union v env_x)
-               IdentSet.empty
+               (fun (v, tv) ({M1.set=vf_x_ref; vars=tvf_x_ref} as v_x) ->
+                  let (v_x, tv_x) = G1.fold_succ
+                    (fun {M1.set=vf_y_ref; vars=tvf_y_ref} (vf, tvf) ->
+                       IdentSet.union vf vf_y_ref,
+                       QmlTypes.FreeVars.union tvf tvf_y_ref
+                    )
+                    g v_x (vf_x_ref, tvf_x_ref) in
+                  IdentSet.union v v_x,
+                  QmlTypes.FreeVars.union tv tv_x
+               )
+               (IdentSet.empty, QmlTypes.FreeVars.empty)
                p in
-           List.iter (fun v_x -> v_x.M1.set <- v) p;
+           List.iter (fun v_x -> v_x.M1.set <- v; v_x.M1.vars <- tv) p;
            (* order the elements *)
            let elt_v = IdentSet.elements v in
            let f_idents = List.map (fun v_x -> v_x.M1.ident) p in
-           f_idents,elt_v)
+           f_idents,elt_v,tv)
         scc
+
+let opatype gamma x =
+  let ty = match x with
+  | `ty  -> Opacapi.Types.OpaType.ty
+  | `row -> Opacapi.Types.OpaType.row
+  | `col -> Opacapi.Types.OpaType.col
+  in fst (QmlTypes.type_of_type gamma (Q.TypeName ([], QmlAst.TypeIdent.of_string ty)))
 
 (* get fresh identifiers for abstracting the functions *)
 let get_fresh_identifiers env gamma =
@@ -514,11 +548,20 @@ let get_fresh_identifiers env gamma =
 let get_fresh_identifiers_untyped env =
   List.map (Ident.refresh ~descr:"extra") env
 
+let get_identifiers_from_ftv gamma ftv =
+  let aux x = List.map (fun tv -> Ident.from_fresh tv, opatype gamma x) in
+  let tvs, rvs, cvs = QmlTypes.FreeVars.export_as_lists ftv in
+  let tvs, rvs, cvs = aux `ty tvs, aux `row rvs, aux `col cvs in
+  tvs @ rvs @ cvs
+
 
 (* add lambda on top of an expression *)
-let absify ~toplevel env gamma_with_lambda_bindings annotmap e xs =
-  match xs with
-  | [] when toplevel -> annotmap, e
+let absify ~toplevel env gamma_with_lambda_bindings annotmap e txs xs =
+  match txs, xs with
+  | [], [] when toplevel -> annotmap, e
+  | _, [] when toplevel ->
+      OManager.i_error
+        "A lifted lambda has a type variables in it's environment but without a standard environment"
   | _ ->
       QmlAstWalk.Expr.traverse_foldmap
         (fun tra annotmap -> function
@@ -528,14 +571,18 @@ let absify ~toplevel env gamma_with_lambda_bindings annotmap e xs =
                            let tsc = QmlTypes.Env.Ident.find i gamma_with_lambda_bindings in
                            let ty = QmlTypes.Scheme.explicit_forall tsc in
                            (i, ty)) il in
-             let annotmap, e = QmlAstCons.TypedExpr.lambda annotmap (xs @ orig_xs) e in
-             QmlAstCons.TypedExpr.directive_id annotmap (`lifted_lambda (List.length xs, List.tl env.hierarchy)) e
+             let annotmap, e = QmlAstCons.TypedExpr.lambda annotmap (txs @ xs @ orig_xs) e in
+             QmlAstCons.TypedExpr.directive_id annotmap
+               (`lifted_lambda (List.length txs + List.length xs, List.tl env.hierarchy)) e
          | Q.Coerce _
          | Q.Directive (_, #ignored_directive, _, _) as e ->
              tra annotmap e
+         | Q.Directive _ -> assert false
          | _ ->
              (* you don't add parameters to something that is not a function *)
-             assert false) annotmap e
+             assert false
+        )
+        annotmap e
 
 
 
@@ -569,7 +616,7 @@ let absify_fun_action e xs =
 
 
 (* substitution on expressions *)
-let subst e sigma =
+let subst e sigma ftv =
   QmlAstWalk.Expr.map_up
     (fun e ->
        match e with
@@ -580,6 +627,18 @@ let subst e sigma =
                Q.Ident (label, y)
              with Not_found -> e
            end
+       | Q.Directive (l, `typeval subst, [], [ty]) ->
+           assert (subst = None);
+           if QmlTypes.FreeVars.is_empty ftv then e
+           else
+             let tvs, rvs, cvs = QmlTypes.FreeVars.export_as_lists ftv in
+             let aux add = List.fold_left
+               (fun map tv -> add tv (Ident.from_fresh tv) map)
+             in
+             let tvs = aux QmlTypeVars.TypeVarMap.add QmlTypeVars.TypeVarMap.empty tvs in
+             let rvs = aux QmlTypeVars.RowVarMap.add QmlTypeVars.RowVarMap.empty rvs in
+             let cvs = aux QmlTypeVars.ColVarMap.add QmlTypeVars.ColVarMap.empty cvs in
+             Q.Directive (l, `typeval (Some (tvs, rvs, cvs)), [], [ty])
        | _ -> e
     ) e
 
@@ -706,15 +765,15 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
           (* if ident is a function symbol *)
           (* the args have not yet been refreshed
              (need to be substituted afterwards) *)
-          let (args,original_arity) = IdentMap.find x env.funcs in
-          match args, options.mode with
-          | [], `typed ->
+          let (ftv,args,original_arity) = IdentMap.find x env.funcs in
+          match QmlTypes.FreeVars.is_empty ftv, args, options.mode with
+          | true, [], `typed ->
               let tsc = QmlTypes.Env.Ident.find x env.gamma in
               let annotmap =
                 if QmlGenericScheme.is_empty tsc then annotmap
                 else QmlAnnotMap.add_tsc_inst_label label tsc annotmap in
               (gamma,annotmap,env), e
-          | [], `untyped ->
+          | true, [], `untyped ->
               (* we need to reinsert the @fun_action directive even if the lambda had no
                * environment *)
               full_env, e
@@ -734,7 +793,7 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                      * or else we would end up with [f(env,args)(args)]
                      * instead of [f(env,args)] *)
                     context.used <- true;
-                    e, el, `full_apply (List.length args), tsc_gen_opt in
+                    e, el, `full_apply (List.length args + QmlTypes.FreeVars.size ftv), tsc_gen_opt in
               (match options.mode with
                | `typed ->
                    let args =
@@ -742,6 +801,7 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                        (fun x ->
                           let ty = get_explicit_tsc gamma x in x,ty)
                        args in
+                   let args = get_identifiers_from_ftv env.gamma ftv @ args in
                    let ty =
                      let ty = get_ty annotmap (Q.QAnnot.expr e) in
                      match partial with
@@ -766,6 +826,7 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                    let annotmap = QmlAnnotMap.add_tsc_opt (Q.QAnnot.expr e) orig_tsc_gen_opt annotmap in
                    (gamma,annotmap,env),e
                | `untyped ->
+                   assert (QmlTypes.FreeVars.is_empty ftv);
                    let e =
                      let args =
                        List.map
@@ -871,12 +932,12 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
     else
       gamma
   in
-  let funcs_sols = compute_solution env funcs in
+  let funcs_sols = compute_solution annotmap env funcs in
   let env =
     let solution =
       (* update the solution *)
       List.fold_left
-        (fun solution (f_idents,env) ->
+        (fun solution (f_idents,env,tv_env) ->
            List.fold_left
              (fun solution f_ident ->
                 let body = IdentAssoc.find f_ident funcs in
@@ -886,7 +947,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
                   | None ->
                       assert (match options.mode with `fun_action _ -> true | _ -> false);
                       -1 in
-                IdentMap.safe_add f_ident (env,original_arity) solution)
+                IdentMap.safe_add f_ident (tv_env,env,original_arity) solution)
              solution
              f_idents)
         env.funcs
@@ -899,8 +960,9 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
     | `typed ->
         let env_gamma =
           List.fold_left
-            (fun env_gamma (f_idents,extra) ->
+            (fun env_gamma (f_idents,extra,f_tv) ->
                let tys = List.map (get_explicit_tsc gamma) extra in
+               let tys = List.map snd (get_identifiers_from_ftv gamma f_tv) @ tys in
                List.fold_left
                  (fun env_gamma f_ident ->
                     let body = IdentAssoc.find f_ident funcs in
@@ -918,7 +980,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
   let (annotmap,env),funcs =
     (* rewrite the body of each function *)
     List.fold_left_map
-      (fun (annotmap,env) (f_idents,extra) ->
+      (fun (annotmap,env) (f_idents,extra,f_tv) ->
          List.fold_left_map
            (fun (annotmap,env) f_ident ->
               let body =
@@ -935,8 +997,9 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
                 | `typed ->
                     (* get fresh identifiers (that will be abstracted) *)
                     let fresh_extra = get_fresh_identifiers extra gamma in
+                    let tv_extra = get_identifiers_from_ftv gamma f_tv in
                     (* abstract the new variables *)
-                    let annotmap,body = absify ~toplevel env gamma_with_lambda_bindings annotmap body fresh_extra in
+                    let annotmap,body = absify ~toplevel env gamma_with_lambda_bindings annotmap body tv_extra fresh_extra in
                     (* compute the substitution
                        free variable -> fresh identifier *)
                     let sigma =
@@ -947,6 +1010,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
                         (List.combine extra fresh_extra) in
                     annotmap,body,sigma
                 | `fun_action _ | `untyped as mode ->
+                    assert (QmlTypes.FreeVars.is_empty f_tv);
                     (* Warning: the types are not the same as the code above *)
                     let fresh_extra = get_fresh_identifiers_untyped extra in
                     let body =
@@ -957,7 +1021,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
                     annotmap,body,sigma in
               (* replace each free variables by the corresponding
                  fresh identifier *)
-              let body = subst body sigma in
+              let body = subst body sigma f_tv in
               (annotmap,env),(f_ident,body))
            (annotmap,env)
            f_idents)
@@ -990,7 +1054,52 @@ and parameterLiftLambda ~options ((gamma,annotmap,env) as full_env) e =
               List.fold_left2
                 (fun gamma x ty -> QmlTypes.Env.Ident.add x (QmlTypes.Scheme.id ty) gamma)
                 gamma params ty_params in
-            QmlAstWalk.Expr.foldmap_nonrec (parameterLiftLambda ~options) (gamma,annotmap,env) e
+            let (gamma, annotmap, env), e =
+              QmlAstWalk.Expr.foldmap_nonrec (parameterLiftLambda ~options) (gamma,annotmap,env) e
+            in
+            (try
+              let annotmap, e =
+                let fv_e = QmlTypes.freevars_of_ty ty in
+                let fv_t = IdentMap.fold
+                  (fun _ (fv, _, _) acc ->
+                     QmlTypes.FreeVars.union fv acc
+                  ) env.funcs QmlTypes.FreeVars.empty
+                in
+                let fv_et = QmlTypes.FreeVars.inter fv_e fv_t in
+                let tvs, rvs, cvs = QmlTypes.FreeVars.export_as_lists fv_et in
+                let annotmap, tvs = List.fold_left_map
+                  (fun annotmap tv ->
+                     let annotmap, e =
+                       QmlAstCons.TypedExpr.directive annotmap (`typeval None) []
+                         [QmlAstCons.Type.typevar tv] in
+                     annotmap, (Ident.from_fresh tv, e)
+                  ) annotmap tvs
+                in
+                let annotmap, rvs = List.fold_left_map
+                  (fun annotmap rv ->
+                     let ty = QmlAst.TypeRecord (Q.TyRow ([], Some rv)) in
+                     let annotmap, e =
+                       QmlAstCons.TypedExpr.directive annotmap (`typeval None) [] [ty] in
+                     annotmap, (Ident.from_fresh rv, e)
+                  ) annotmap rvs
+                in
+                let annotmap, cvs = List.fold_left_map
+                  (fun annotmap cv ->
+                     let ty = QmlAst.TypeSum (Q.TyCol ([], Some cv)) in
+                     let annotmap, e =
+                       QmlAstCons.TypedExpr.directive annotmap (`typeval None) [] [ty] in
+                     annotmap, (Ident.from_fresh cv, e)
+                  ) annotmap cvs
+                in
+                match e with
+                | Q.Lambda (l, p, b)  ->
+                    let annotmap, b =QmlAstCons.TypedExpr.letin annotmap (cvs @ rvs @ tvs) b in
+                    annotmap, Q.Lambda (l, p, b)
+                | _ -> assert false
+              in
+              (gamma, annotmap, env), e
+             with Not_found -> (gamma, annotmap, env), e
+            )
         | _ -> (* could happen with overloads, the clean way to solve this
                 * would be to have annotations on lambda and let bound bindings *)
             let context = QmlError.Context.annoted_expr annotmap e in
@@ -1131,8 +1240,8 @@ let check_lambda_lifting _original_gamma env code =
            List.fold_left
              (fun map (i,e) ->
                 let v =
-                  try
-                    let (idents,_) = IdentMap.find i funcs in
+                  try (** !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! **)
+                    let (_,idents,_) = IdentMap.find i funcs in
                     let n = List.length idents in
                     (* checking that parameters introduced by the lambda lifting
                      * are used at least once *)

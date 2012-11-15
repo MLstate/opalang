@@ -1156,7 +1156,10 @@ type qml_directive = [
   | `assert_  (**As [assert]. : if --no-assert is enabled, all this directive without exception are ignored ('assert false' too) *)
   | `fail (**As [assert false], with a message. : always fails, no matter if --no-assert is enabled or not. type : 'a *)
   | `typeof     (** -> WIP, don't use (yet) *)
-  | `typeval
+  | `typeval of
+      (Ident.t QTV.TypeVarMap.t
+       * Ident.t QTV.RowVarMap.t
+       * Ident.t QTV.ColVarMap.t) option
 
   | `expand  of Big_int.big_int option     (**Marker for macro (function) that are macro-expanded, the integer represents the number of unrolling the compiler is authorised to do, it must do at least one *)
   | `restricted_bypass of string

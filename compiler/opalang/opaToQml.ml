@@ -567,7 +567,7 @@ struct
   and directive opa_annot ((c, e, t) as d) : QA.expr =
     match c, e, t with
     | (
-        `typeof | `typeval | `opensums | `openrecord | `extendwith | `unsafe_cast
+        `typeof | `opensums | `openrecord | `extendwith | `unsafe_cast
       | `nonexpansive | `doctype _ | `module_ | `module_field_lifting
       | `spawn | `wait | `atomic | `callcc | `js_ident | `expand _
       | `create_lazy_record | `assert_  | `fail
@@ -595,6 +595,11 @@ struct
         let e = expr e in
         QA.Coerce ((make_label_from_opa_annot opa_annot), e, t)
     | `coerce, _, _ -> assert false
+
+    | `typeval, e, t ->
+        let e =  List.map expr e in
+        let t = List.map ty t in
+        QA.Directive ((make_label_from_opa_annot opa_annot), `typeval None, e, t)
 
     | `warncoerce, _, _ ->
         (*
