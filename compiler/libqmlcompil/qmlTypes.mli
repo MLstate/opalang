@@ -114,6 +114,8 @@ sig
     gamma : gamma ->
     QmlAst.expr ->
     (gamma * gamma) * QmlAst.annotmap * QmlAst.ty
+
+  val type_of_type : gamma : gamma -> QmlAst.ty -> QmlAst.ty
 end
 
 

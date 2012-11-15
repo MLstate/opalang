@@ -1403,6 +1403,16 @@ and infer_rec_let_definition_type ~lifted_module_field ~bypass_typer typing_env
 (* ************************************************************************** *)
 and infer_directive_type ~bypass_typer typing_env original_expr core_directive dir_exprs dir_tys =
   let loc = QmlAst.Label.expr original_expr in
+  let () =
+    List.iter
+      (fun ty ->
+         let ty, _ =
+           QmlTypes.type_of_type typing_env.W_TypingEnv.ty_env_qml_global ty in
+         let _wty =
+           W_TypingEnv.qml_type_to_simple_type ~save_mapping:true
+             typing_env ty ~is_type_annotation: true
+         in ()) dir_tys
+  in
   match (core_directive, dir_exprs) with
   | (`module_field_lifting,
      [ (QmlAst.LetIn (_, def_bindings, in_expr)
@@ -1661,30 +1671,30 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
         ("Opensums@ directive@ expected@ to@ be@ applied@ to@ onl@y one@ " ^^
          "expression.")
   | (`extendwith, [expr]) -> (
-      match expr with 
+      match expr with
         | QmlAst.ExtendRecord _ -> (
-          let rec collect_fields ack e = 
+          let rec collect_fields ack e =
             match e with
              | QmlAst.ExtendRecord (_, field_name, field_expr, record_expr) ->
                 collect_fields ((field_name, field_expr, e)::ack) record_expr
              | e -> (ack, e) in
           let fields_es, record_expr = collect_fields [] expr in
           (* First, typecheck the record expression. *)
-          let (record_ty, record_annotmap) = 
+          let (record_ty, record_annotmap) =
             infer_expr_type ~bypass_typer typing_env record_expr in
           #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
           OManager.printf "@[Extendwith record type: %a@]@."
             W_PrintTypes.pp_simple_type record_ty ;
           #<End> ; (* <---------- END DEBUG *)
-          (* Since record is extended it can not have an open Column, 
+          (* Since record is extended it can not have an open Column,
             if it does close it.*)
           (match record_ty.W_Algebra.sty_desc with
           | W_Algebra.SType_sum_of_records column_type ->
-              column_type.W_Algebra.ct_value <- 
+              column_type.W_Algebra.ct_value <-
                 (fst column_type.W_Algebra.ct_value, W_Algebra.Closed_column)
           | _ -> () );
           (*find fields types*)
-          let find_field_type (init_annotmap, record_ty) 
+          let find_field_type (init_annotmap, record_ty)
                 (field_name, field_expr, extend_exp) =
             let (field_ty, annotmap) =
              infer_expr_type ~bypass_typer typing_env field_expr in
@@ -1693,25 +1703,25 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
             W_PrintTypes.pp_simple_type field_ty ;
             #<End> ; (* <---------- END DEBUG *)
             let extended_ty =
-              W_ExtendWithDirective.extend_record_simple_type 
+              W_ExtendWithDirective.extend_record_simple_type
               typing_env record_ty field_name field_ty in
             W_TypeInfo.add_loc_object
               extended_ty.W_Algebra.sty_desc loc ;
-            let (extended_ty', annotmap') = perform_infer_expr_type_postlude 
+            let (extended_ty', annotmap') = perform_infer_expr_type_postlude
               extend_exp annotmap extended_ty in
             ( QmlAnnotMap.merge ~no_conflict_if_equal:true init_annotmap annotmap',
               extended_ty' ) in
           try(
             let field_annotmap, extended_ty =
               List.fold_left find_field_type (record_annotmap, record_ty) fields_es in
-            let final_annotmap = 
+            let final_annotmap =
               QmlAnnotMap.merge ~no_conflict_if_equal:true record_annotmap field_annotmap in
               #<If:TYPER $minlevel 9> (* <---------- DEBUG *)
               OManager.printf
                 "@[Extendwith extended_ty: %a@]@."
                 W_PrintTypes.pp_simple_type extended_ty ;
               #<End> ; (* <---------- END DEBUG *)
-            let (_, final_annotmap') = perform_infer_expr_type_postlude 
+            let (_, final_annotmap') = perform_infer_expr_type_postlude
               expr final_annotmap extended_ty in
             perform_infer_expr_type_postlude
               original_expr final_annotmap' extended_ty)
@@ -1734,14 +1744,14 @@ and infer_directive_type ~bypass_typer typing_env original_expr core_directive d
             let err_ctxt = QmlError.Context.expr original_expr in
             QmlError.error err_ctxt err_msg
         )
-        | _ -> 
+        | _ ->
        let err_ctxt = QmlError.Context.expr original_expr in
       QmlError.error
         err_ctxt
         ("@@extendwith@ directive@ expects@ to@ be@ applied@ to@ only@ " ^^
          "an@ with@ expression expression.")
   )
-  | (`extendwith, _) ->  
+  | (`extendwith, _) ->
       let err_ctxt = QmlError.Context.expr original_expr in
       QmlError.error
         err_ctxt

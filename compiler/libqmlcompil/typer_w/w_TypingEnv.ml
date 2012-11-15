@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -126,7 +126,11 @@ type variables_mapping = {
     (QmlTypeVars.ColVar.t * W_Algebra.column_variable) list
 }
 
-
+let empty_variables_mapping () = {
+  vm_type_variables = [] ;
+  vm_row_variables = [] ;
+  vm_column_variables = []
+}
 
 (* ************************************************************************** *)
 (** {b Descr}: This list stacks the variables mappings currently opened. At
@@ -148,7 +152,7 @@ type variables_mapping = {
 (* ************************************************************************** *)
 let variables_mapping_stack = ref ([] : variables_mapping list)
 
-
+let variables_mapping_saved = empty_variables_mapping ()
 
 (* ************************************************************************** *)
 (** {b Descr}: Creates a new and empty variables mapping, put it in head of the
@@ -157,14 +161,15 @@ let variables_mapping_stack = ref ([] : variables_mapping list)
     {b Visibility} Exported outside this module.                              *)
 (* ************************************************************************** *)
 let new_empty_variables_mapping () =
-  let m = {
-    vm_type_variables = [] ;
-    vm_row_variables = [] ;
-    vm_column_variables = []
+  variables_mapping_stack := empty_variables_mapping () :: !variables_mapping_stack
+
+let new_variables_mapping (vm_type_variables, vm_row_variables, vm_column_variables) =
+  let vm = {
+    vm_type_variables;
+    vm_row_variables;
+    vm_column_variables;
   } in
-  variables_mapping_stack := m :: !variables_mapping_stack
-
-
+  variables_mapping_stack := vm :: !variables_mapping_stack
 
 (* ************************************************************************** *)
 (** {b Descr}: Creates a new variables mapping that copies the currently active
@@ -228,6 +233,17 @@ let get_current_variables_mapping () =
   | [] -> assert false
   | m :: _ -> m
 
+let get_saved_mapping () =
+  (variables_mapping_saved.vm_type_variables,
+   variables_mapping_saved.vm_row_variables,
+   variables_mapping_saved.vm_column_variables)
+
+let clean_saved_mapping () =
+  variables_mapping_saved.vm_type_variables <- [];
+  variables_mapping_saved.vm_row_variables <- [];
+  variables_mapping_saved.vm_column_variables <- [];
+  ()
+
 
 
 (** Highly not exported !!!! [TODO] Doc to do !! *)
@@ -288,7 +304,9 @@ let find_type_nb_args_and_abbrev_height id_name typing_env =
     @raise Importing_qml_abstract_ty
     {b Visibility}: Not exported outside this module.                         *)
 (* ************************************************************************** *)
-let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
+let qml_type_to_simple_type
+    ?(save_mapping=false)
+    qml_tydef_env initial_qml_ty ~is_type_annotation =
 
   (* Get the currently active variables mapping. *)
   let variables_mapping = get_current_variables_mapping () in
@@ -333,6 +351,10 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
           OManager.printf "@[<1>Found among known vars and mapped to: %a@]@."
             W_PrintTypes.pp_simple_type tmp ;
           #<End> ; (* <---------- END DEBUG *)
+          if save_mapping then (
+            variables_mapping_saved.vm_type_variables <-
+              (qml_var, tmp) :: variables_mapping_saved.vm_type_variables ;
+          );
           tmp
         with Not_found ->
           (* Otherwise, we create a fresh type variable and record it in the
@@ -349,6 +371,10 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
             "@[<1>NOT Found among known vars so mapped to: %a@]@."
             W_PrintTypes.pp_simple_type var ;
           #<End> ; (* <---------- END DEBUG *)
+          if save_mapping then (
+            variables_mapping_saved.vm_type_variables <-
+              (qml_var, var) :: variables_mapping_saved.vm_type_variables ;
+          );
           variables_mapping.vm_type_variables <-
             (qml_var, var) :: variables_mapping.vm_type_variables ;
           (* Since if variable must be generalized, then it is in the mapping,
@@ -512,10 +538,16 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
               sharing between its apparitions, we simply return the variable we
               already created. *)
            try
-             W_Algebra.Var_row
-               (Base.List.assoc_custom_equality
-                  ~eq: QmlTypeVars.RowVar.equal qml_row_var
-                  variables_mapping.vm_row_variables)
+             let var =
+               Base.List.assoc_custom_equality
+                 ~eq: QmlTypeVars.RowVar.equal qml_row_var
+                 variables_mapping.vm_row_variables
+             in
+             if save_mapping then (
+               variables_mapping_saved.vm_row_variables <-
+                 (qml_row_var, var) :: variables_mapping.vm_row_variables ;
+             );
+             W_Algebra.Var_row var
            with Not_found ->
              (* Otherwise, we create a fresh row variable and record it in the
                 variables mapping.
@@ -527,6 +559,10 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
                    qml_row_var
                else
                  W_CoreTypes.__row_variable_with_public_identity qml_row_var in
+             if save_mapping then (
+               variables_mapping_saved.vm_row_variables <-
+                 (qml_row_var, var) :: variables_mapping.vm_row_variables ;
+             );
              variables_mapping.vm_row_variables <-
                (qml_row_var, var) :: variables_mapping.vm_row_variables ;
              W_Algebra.Var_row var)) in
@@ -571,10 +607,16 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
               preserve sharing between its apparitions, we simply return the
               variable we already created. *)
            try
-             W_Algebra.Var_column
-               (Base.List.assoc_custom_equality
-                  ~eq: QmlTypeVars.ColVar.equal qml_column_var
-                  variables_mapping.vm_column_variables)
+             let var =
+               Base.List.assoc_custom_equality
+                 ~eq: QmlTypeVars.ColVar.equal qml_column_var
+                 variables_mapping.vm_column_variables
+             in
+             if save_mapping then (
+               variables_mapping_saved.vm_column_variables <-
+                 (qml_column_var, var) :: variables_mapping.vm_column_variables ;
+             );
+             W_Algebra.Var_column var
            with Not_found ->
              (* Otherwise, we create a fresh column variable and record it in
                 the variables mapping.
@@ -587,6 +629,10 @@ let qml_type_to_simple_type qml_tydef_env initial_qml_ty ~is_type_annotation =
                else
                  W_CoreTypes.__column_variable_with_public_identity
                    qml_column_var in
+             if save_mapping then (
+               variables_mapping_saved.vm_column_variables <-
+                 (qml_column_var, var) :: variables_mapping.vm_column_variables ;
+             );
              variables_mapping.vm_column_variables <-
                (qml_column_var, var) :: variables_mapping.vm_column_variables ;
              W_Algebra.Var_column var)) in

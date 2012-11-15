@@ -108,6 +108,7 @@ sig
 
   (** *)
   val type_newtype_for_separation : more_gamma:QT.gamma -> env -> Q.code_elt -> Q.typedef list -> gamma * env
+  val postprocess_code : env -> Q.code -> Q.code
 end
 
 module Make ( LLTyper  : QT.QML_LOW_LEVEL_TYPER ) : HIGH_LEVEL_TYPER =
@@ -531,4 +532,13 @@ struct
   let fold = List.fold_left fold_elt
 
   let fold_map = Base.List.fold_left_map fold_map_elt
+
+  let postprocess_code env code =
+    let postprocess_directives = function
+      | Q.Directive (label, variant, exprs, tys) ->
+          let tys = List.map (LLTyper.type_of_type ~gamma:env.QT.gamma) tys in
+          Q.Directive (label, variant, exprs, tys)
+      | e -> e
+    in
+    QmlAstWalk.CodeExpr.map (QmlAstWalk.Expr.map postprocess_directives) code
 end

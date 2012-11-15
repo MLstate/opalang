@@ -96,7 +96,7 @@ sig
     gamma: gamma ->
     Q.expr ->
     (gamma * gamma) * Q.annotmap * Q.ty
-
+  val type_of_type : gamma : gamma -> QmlAst.ty -> QmlAst.ty
   (* Voir mli *)
 end
 (** empty *)

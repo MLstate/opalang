@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -64,6 +64,10 @@ val from_qml_typing_env: QmlTypes.Env.t -> t
 
 val new_empty_variables_mapping: unit -> unit
 val new_inheriting_variables_mapping: unit -> unit
+val new_variables_mapping:
+  (QmlTypeVars.TypeVar.t * W_Algebra.simple_type) list
+  * (QmlTypeVars.RowVar.t * W_Algebra.row_variable) list
+  * (QmlTypeVars.ColVar.t * W_Algebra.column_variable) list -> unit
 val release_variables_mapping: unit -> unit
 val reset_empty_variables_mapping_on_error: unit -> unit
 
@@ -73,7 +77,15 @@ val automatically_add_type_construtor_arguments_if_omitted:
 exception Importing_qml_abstract_ty
 
 val qml_type_to_simple_type:
+?save_mapping: bool ->
   t -> QmlAst.ty -> is_type_annotation: bool -> W_Algebra.simple_type
+
+val get_saved_mapping : unit ->
+  (QmlTypeVars.TypeVar.t * W_Algebra.simple_type) list
+  * (QmlTypeVars.RowVar.t * W_Algebra.row_variable) list
+  * (QmlTypeVars.ColVar.t * W_Algebra.column_variable) list
+
+val clean_saved_mapping : unit -> unit
 
 val get_ident_type_and_annotmap_scheme:
   QmlAst.ident -> t ->

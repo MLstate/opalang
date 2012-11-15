@@ -285,6 +285,13 @@ let type_of_expr ?options:_ ?annotmap ~bypass_typer ~gamma expr =
       | other_exn -> raise other_exn
     )
 
+let type_of_type ~gamma ty =
+  W_TypingEnv.new_variables_mapping (W_TypingEnv.get_saved_mapping ()) ;
+  let env = W_TypingEnv.from_qml_typing_env gamma in
+  let wty = W_TypingEnv.qml_type_to_simple_type env ty
+    ~is_type_annotation:false in
+  W_TypingEnv.release_variables_mapping ();
+  W_PublicExport.simple_type_to_qml_type wty
 
 
 (* ************************************************************************** *)
@@ -300,6 +307,10 @@ struct
            bypass_typer: QmlTypes.bypass_typer ->
              gamma: QmlTypes.gamma ->
                QmlAst.expr -> ((QmlTypes.gamma * QmlTypes.gamma) * QmlAst.annotmap * QmlAst.ty))
+
+  let type_of_type = type_of_type
 end
 
 let clean_info _ = W_TypeInfo.clean_type_info ()
+
+let clean_mapped_variables = W_TypingEnv.clean_saved_mapping

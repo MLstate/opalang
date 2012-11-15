@@ -62,6 +62,9 @@ module NoTyperLowLevel = struct
     let fp = f_gen QmlAst.QAnnot.pat in
     let annotmap = QmlAstWalk.ExprPatt.fold fe fp annotmap expr in
     ((gamma, QmlTypes.Env.empty), annotmap, QmlAst.typeNull)
+  let type_of_type ~gamma ty =
+    ignore gamma;
+    ty
 end
 module NoTyper = QmlMakeTyper.Make ( NoTyperLowLevel )
 
@@ -145,6 +148,12 @@ struct
           (* Select the W-based typechecker, i.e. not constraints-based
              inference engine. *)
           Typer_w.type_of_expr ~options ~annotmap ~bypass_typer
+
+    let type_of_type ~gamma code =
+      match !_current_typer with
+      | `off -> code
+      | `w_based ->
+          Typer_w.type_of_type ~gamma code
   end
 
   module HighTyper = QmlMakeTyper.Make ( LowLevelDynamicTyper )

@@ -64,6 +64,7 @@ let process_code ?(save = true) env =
   Typer_w.reset_toplevel_tydefs_schemes_env_memo () ;
   Typer_w.reset_toplevel_valdefs_schemes_env_memo () ;
   Typer_w.clean_info () ;
+  Typer_w.clean_mapped_variables () ;
   (* Also reset the type of exceptions, to drop cases coming from usages of
      other packages we don't depend on. *)
   Typer_w.reset_type_exception () ;
@@ -129,6 +130,7 @@ let process_code ?(save = true) env =
     else stdlib_map in
   let stdlib_gamma =
     QmlTypes.Env.Ident.from_map stdlib_map env.P.stdlib_gamma in
+  let code = QmlTyper.OfficialTyper.postprocess_code typerEnv code in
   let diff_gamma = QmlTypes.Env.Ident.from_map diff_map final_gamma in
   let typerEnv = { typerEnv with QmlTypes.gamma = diff_gamma } in
   { env with
