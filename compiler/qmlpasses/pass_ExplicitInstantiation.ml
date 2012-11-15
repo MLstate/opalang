@@ -681,8 +681,15 @@ object (self)
       let annotmap, e = QmlAstCons.TypedExpr.ident annotmap (id_of_rowvar rowvar) oparow in
       annotmap, false, e
     else
-      let annotmap, string_expr = self#quantified_rowvar annotmap rowvar in
-      annotmap, true, string_expr
+      match env.subst with
+      | Some (_, rv_subst, _) when RowVarMap.mem rowvar rv_subst ->
+          let ident = RowVarMap.find rowvar rv_subst in
+          let oparow = oparow env.gamma in
+          let annotmap, e = QmlAstCons.TypedExpr.ident annotmap ident oparow in
+          annotmap, false, e
+      | _ ->
+          let annotmap, string_expr = self#quantified_rowvar annotmap rowvar in
+          annotmap, true, string_expr
 
   method colvar annotmap colvar =
     if QmlTypeVars.FreeVars.mem_colvar colvar env.propagated_vars then
@@ -690,8 +697,15 @@ object (self)
       let annotmap, e = QmlAstCons.TypedExpr.ident annotmap (id_of_colvar colvar) opacol in
       annotmap, false, e
     else
-      let annotmap, string_expr = self#quantified_colvar annotmap colvar in
-      annotmap, true, string_expr
+      match env.subst with
+      | Some (_, _, cv_subst) when ColVarMap.mem colvar cv_subst ->
+          let ident = ColVarMap.find colvar cv_subst in
+          let opacol = opacol env.gamma in
+          let annotmap, e = QmlAstCons.TypedExpr.ident annotmap ident opacol in
+          annotmap, false, e
+      | _ ->
+          let annotmap, string_expr = self#quantified_colvar annotmap colvar in
+          annotmap, true, string_expr
 
   method type_list annotmap tyl =
     let annotmap, forall, tyl = fold_left_forall_map self#type_ annotmap tyl in
