@@ -409,7 +409,7 @@ type binding = Ident.t * Q.expr
    ie
       function ident -> (free functions, free variables, free typeval)
 *)
-let get_vars annotmap env (funcs : binding list) =
+let get_vars ~options annotmap env (funcs : binding list) =
   let fun_names =
     List.fold_left
       (fun s (x,_e) -> IdentSet.add x s)
@@ -417,7 +417,11 @@ let get_vars annotmap env (funcs : binding list) =
   List.fold_left
     (fun map (x,e) ->
        let fn = fn_of_expr e in
-       let ftv_x = ftv_of_expr annotmap e in
+       let ftv_x =
+         match options.mode with
+         | `typed -> ftv_of_expr annotmap e
+         | _ -> QmlTypes.FreeVars.empty
+       in
        let ftv_x,ff_x,fv_x =
          IdentSet.fold
            (fun n (ftv_x, ff_x,fv_x) ->
@@ -470,16 +474,16 @@ module SCC1 = GraphUtils.Components.Make(G1)
    each sublist will be turned in a definition of mutually recursive
    functions
 *)
-let compute_solution annotmap env funcs =
+let compute_solution ~options annotmap env funcs =
   match funcs with
   | [] -> [] (* no function in the let bindings *)
   | [(i,_)] ->
       (* no mutual recursion -> no need to compute sccs *)
-      let (_,fv_i,ftv) = IdentMap.find i (get_vars annotmap env funcs) in
+      let (_,fv_i,ftv) = IdentMap.find i (get_vars ~options annotmap env funcs) in
       [([i],IdentSet.elements fv_i,ftv)]
   | _ ->
       let size = 2 in
-      let names = get_vars annotmap env funcs in
+      let names = get_vars ~options annotmap env funcs in
       (* create the call graph *)
       let g = G1.create ~size () in
     (* first the vertices
@@ -932,7 +936,7 @@ and parameterLiftBnds ~options ~toplevel (gamma,annotmap,env) bnds =
     else
       gamma
   in
-  let funcs_sols = compute_solution annotmap env funcs in
+  let funcs_sols = compute_solution ~options annotmap env funcs in
   let env =
     let solution =
       (* update the solution *)
