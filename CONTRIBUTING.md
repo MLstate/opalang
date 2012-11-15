@@ -366,8 +366,8 @@ function ( iterator, structure, [more-arguments]) : 'result
  * {L left} [{L
  *   left
  * }]
- * {R center} [{C
- *   center
+ * {R right} [{R
+ *   right
  * }]
  *
  * {4 Code}
