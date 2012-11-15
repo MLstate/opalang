@@ -808,14 +808,6 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                    let args = get_identifiers_from_ftv env.gamma ftv @ args in
                    let ty =
                      let ty = get_ty annotmap (Q.QAnnot.expr e) in
-                     match partial with
-                     | `partial_apply _ ->
-                       (* if we create [f(env)], we say that
-                        * that [f] has type [env -> args -> return] *)
-                       Q.TypeArrow (List.map snd args, ty)
-                     | `full_apply _ ->
-                       (* if we create [f(env,args)], we say that
-                        * [f] has type [env, args -> return] *)
                        let params, ty = get_params_and_return_of_arrow_type env.gamma ty in
                        Q.TypeArrow (List.map snd args @ params, ty) in
                    let annotmap,e = QmlAstCons.TypedExpr.ident annotmap x ty in
