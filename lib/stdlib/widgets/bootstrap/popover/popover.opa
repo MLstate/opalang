@@ -3,7 +3,9 @@ import-plugin bootstrap-popover
 import stdlib.widgets.bootstrap.tooltip
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.popover
@@ -20,6 +22,8 @@ import stdlib.widgets.bootstrap.tooltip
  * }
  *
  * Server.start(Server.http, { title: "Popover", ~page })
+ *
+ * }
  *
  */
 @client

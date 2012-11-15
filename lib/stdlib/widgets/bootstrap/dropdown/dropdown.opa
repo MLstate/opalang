@@ -1,7 +1,9 @@
 import-plugin bootstrap-dropdown
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.dropdown
@@ -29,6 +31,8 @@ import-plugin bootstrap-dropdown
  * }
  *
  * Server.start(Server.http, { title: "Dropdown", ~page })
+ *
+ * }
  *
  */
 @client

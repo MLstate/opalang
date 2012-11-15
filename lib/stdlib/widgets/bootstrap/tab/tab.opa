@@ -1,7 +1,9 @@
 import-plugin bootstrap-tab
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.tab
@@ -24,6 +26,8 @@ import-plugin bootstrap-tab
  * }
  *
  * Server.start(Server.http, { title: "Tab", ~page })
+ *
+ * }
  *
  */
 @client

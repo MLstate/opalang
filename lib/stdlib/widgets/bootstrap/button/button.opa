@@ -1,7 +1,9 @@
 import-plugin bootstrap-button
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.button
@@ -20,7 +22,7 @@ import-plugin bootstrap-button
  *     <button type="button" class="btn">Middle</button>
  *     <button type="button" class="btn">Right</button>
  *   </div>
- *   <button id=#bt3 type="button" class="btn" data-complete-text="finished!" >...</button>
+ *   <button id=#bt3 type="button" class="btn" data-complete-text="finished!">...</button>
  *
  *   <div onclick={function (_) Button.toggle(#bt2)}>Toggle</div>
  *   <div onclick={function (_) Button.loading(#bt1)}>Loading</div>
@@ -30,6 +32,8 @@ import-plugin bootstrap-button
  * }
  *
  * Server.start(Server.http, { title: "Button", ~page })
+ *
+ * }
  *
  */
 @client

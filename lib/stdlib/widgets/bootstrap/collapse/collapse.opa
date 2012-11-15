@@ -3,7 +3,9 @@ import-plugin bootstrap-collapse
 import stdlib.widgets.bootstrap.transition
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.collapse
@@ -48,6 +50,8 @@ import stdlib.widgets.bootstrap.transition
  * }
  *
  * Server.start(Server.http, { title: "Collapse", ~page })
+ *
+ * }
  *
  */
 @client

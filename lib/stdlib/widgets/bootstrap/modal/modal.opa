@@ -8,7 +8,9 @@ type Modal.options = {
 }
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.modal
@@ -30,6 +32,8 @@ type Modal.options = {
  * }
  *
  * Server.start(Server.http, { title: "Modal", ~page })
+ *
+ * }
  *
  */
 @client

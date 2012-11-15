@@ -12,7 +12,9 @@ type Tooltip.options = {
 }
 
 /**
- * Example:
+ * {2 Example:}
+ *
+ * {[
  *
  * import stdlib.themes.bootstrap
  * import stdlib.widgets.bootstrap.tooltip
@@ -29,6 +31,8 @@ type Tooltip.options = {
  * }
  *
  * Server.start(Server.http, { title: "Tooltip", ~page })
+ *
+ * }
  *
  */
 @client
