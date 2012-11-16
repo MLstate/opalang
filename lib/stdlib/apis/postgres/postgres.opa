@@ -164,6 +164,7 @@ type Postgres.rows = (list(Postgres.rowdesc),list(Postgres.row))
  */
 type Postgres.connection = {
   name          : string /** A name for the connection */
+  secure        : option(SSL.secure_type) /** Optional SSL security information */
   conn          : ApigenLib.connection /** The underlying ApigenLib connection object */
   major_version : int /** The major version for the protocol */
   minor_version : int /** The minor version for the protocol */
@@ -226,16 +227,18 @@ Postgres = {{
    * The finalisation continuation is provided at the point of call.
    *
    * @param name The name of the connection, this is only relevant if you have connections to multiple PostgreSQL servers.
+   * @param secure Optional SSL security type.
    * @param dbase The name of the PostgreSQL database to connect to.
    * @param rowcc The row continuation.
    * @param errcc The error continuation.
    * @returns An outcome of either a connection object or an [Apigen.failure] value.
    */
-  connect(name:string, dbase:string, rowcc, errcc, endcc:continuation(outcome(Postgres.connection,Apigen.failure))) =
-    match Pg.connect(name) with
+  connect(name:string, secure:option(SSL.secure_type),
+          dbase:string, rowcc, errcc, endcc:continuation(outcome(Postgres.connection,Apigen.failure))) =
+    match Pg.connect(name,secure) with
     | {success=conn} ->
       Continuation.return(endcc,
-                          {success={ ~name ~conn ~dbase
+                          {success={ ~name ~secure ~conn ~dbase
                                      major_version=default_major_version minor_version=default_minor_version
                                      params=StringMap.empty processid=-1 secret_key=-1
                                      query="" status="" suspended=false error=none
@@ -597,7 +600,7 @@ Postgres = {{
     if conn.processid == -1 || conn.secret_key == -1
     then Continuation.return(conn.errcc,(conn,{no_key}))
     else
-      match @callcc(k -> connect(conn.name, conn.dbase, conn.rowcc, conn.errcc, k)) with
+      match @callcc(k -> connect(conn.name, conn.secure, conn.dbase, conn.rowcc, conn.errcc, k)) with
       | {success=conn2} ->
          match Pg.cancel({success=conn2.conn},(conn.processid,conn.secret_key)) with
          | {success={}} ->

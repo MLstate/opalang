@@ -532,12 +532,13 @@ module ApilibConnection(Socket.host default_host) {
    * Initialize a generalized connection.
    * @param name The name of the connection to open.
    * @param conf The configuration of the connection to open.
+   * @param secure Optional SSL secure_type value.
    * @return A connection object (not connected).
    */
-  function ApigenLib.connection init(family_name, name) {
+  function ApigenLib.connection init(family_name, name, secure) {
     conf = Conf.get_default(family_name, name)
     ~{ name, conf, conn:{none},
-       pool:SocketPool.make(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose}),
+       pool:SocketPool.make_secure(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose},secure),
        read_packet:read_packet_prefixed(default_length)
      }
   }

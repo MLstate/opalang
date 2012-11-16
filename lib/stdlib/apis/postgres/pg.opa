@@ -866,8 +866,8 @@ Pg = {{
   Conn = ApilibConnection(default_host)
 
   /** Open connection object (doesn't connect until read/write received) */
-  connect(name:string) : Apigen.outcome(ApigenLib.connection) =
-    conn = Conn.init("postgres",name)
+  connect(name:string,secure:option(SSL.secure_type)) : Apigen.outcome(ApigenLib.connection) =
+    conn = Conn.init("postgres",name,secure)
     conn = Conn.custom_read_packet(conn, Conn.read_packet_prefixed({Conn.default_length with
       offset=1; 
       le=false; 
