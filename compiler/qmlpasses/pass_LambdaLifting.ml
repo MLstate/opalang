@@ -810,14 +810,14 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                       but we need to have [ty_for_apply] just to construct the
                       typed apply. Then we MUST replace the type annotation by
                       the good one. *)
-                   let ty =
-                     let ty = get_ty annotmap (Q.QAnnot.expr e) in
-                     let params, ty = get_params_and_return_of_arrow_type env.gamma ty in
-                     Q.TypeArrow (List.map snd args @ params, ty) in
-                   let ty_for_apply =
+                   let origty = get_ty annotmap (Q.QAnnot.expr e) in
+                   let ty, ty_for_apply =
+                     let params, tyres = get_params_and_return_of_arrow_type env.gamma origty in
+                     let fullty = Q.TypeArrow (List.map snd args @ params, tyres) in
+                     fullty,
                      match partial with
-                     | `partial_apply _ -> Q.TypeArrow (List.map snd args, ty)
-                     | `full_apply _ -> ty
+                     | `partial_apply _ -> Q.TypeArrow (List.map snd args, origty)
+                     | `full_apply _ -> fullty
                    in
                    let annotmap,e = QmlAstCons.TypedExpr.ident annotmap x ty_for_apply in
                    let annot = Q.QAnnot.expr e in
