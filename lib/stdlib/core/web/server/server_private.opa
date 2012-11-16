@@ -403,7 +403,7 @@ Server_private = {{
     if debug then
       // Note: these bypasses are defined locally to avoid unsafe abuse of the library
       file_content   = %% BslFile.content %% : string -> binary
-      file_of_string = %% BslFile.write %% : string, binary -> void
+      file_of_string(s, b) = Scheduler.push(->%% BslFile.write %%(s, b))
       file_exists    = %% BslFile.exists %% : string -> bool
       // TODO: put back when option will be here
       //dir   = match opt.get(dir_opt) with
