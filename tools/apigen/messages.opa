@@ -360,8 +360,9 @@ function output_connection(config config) {
   print("  /** Build the connection module */\n")
   print("  Conn = ApilibConnection(default_host)\n\n")
   print("  /** Open connection object (doesn't connect until read/write received) */\n")
-  print(func_start("  ","connect",typed("string","name"),"Apigen.outcome(ApigenLib.connection)"))
-  print("    conn = Conn.init(\"{get_parameter(config,"connection_name","default")}\",name)\n")
+  print(func_start("  ","connect","{typed("string","name")},{typed("option(SSL.secure_type)","secure")}",
+                  "Apigen.outcome(ApigenLib.connection)"))
+  print("    conn = Conn.init(\"{get_parameter(config,"connection_name","default")}\",name,secure)\n")
   length =
     List.flatten([if (get_parameter(config,"length.offset","") != "")
                     [recel("offset","{get_int_parameter(config,"length.offset",-1)}")] else [],

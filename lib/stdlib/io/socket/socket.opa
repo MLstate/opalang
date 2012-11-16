@@ -172,6 +172,9 @@ Socket = {{
     secure_connect_with_err_cont: string, int, SSL.secure_type -> outcome(Socket.connection,string) =
       %%BslSocket.secure_connect_with_err_cont%%
 
+    binary_secure_connect_with_err_cont: string, int, SSL.secure_type -> outcome(Socket.connection,string) =
+      %%BslSocket.binary_secure_connect_with_err_cont%%
+
     /** Close the connection. */
     close: Socket.connection -> void = %%BslSocket.close%%
 

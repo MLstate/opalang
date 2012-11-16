@@ -34,6 +34,7 @@ type SocketPool.conf = {
 
 @private type SocketPool.state = {
   host : Socket.host;
+  secure_type : option(SSL.secure_type);
   conf : SocketPool.conf
   sockets: list(Socket.t);
   allocated: list(Socket.t);
@@ -134,7 +135,12 @@ SocketPool = {{
             do Log.debug(state, "handler", "queue caller")
             {set={state with queue=Queue.add(k, state.queue)}}
           else
-            (match Socket.binary_connect_with_err_cont(state.host.f1,state.host.f2) with
+            (match
+               match state.secure_type with
+               | {some=secure_type} -> Socket.binary_secure_connect_with_err_cont(state.host.f1,state.host.f2,secure_type)
+               | {none} -> Socket.binary_connect_with_err_cont(state.host.f1,state.host.f2)
+               end
+             with
              | {success=conn} ->
                 connection = {~conn; mbox=Mailbox.create(state.conf.hint)}
                 state = {state with open_connections=IntSet.add(Socket.conn_id(connection.conn),state.open_connections)}
@@ -173,8 +179,8 @@ SocketPool = {{
        {stop}
 
   @private
-  initial_state(host, conf) = {
-    ~host; ~conf;
+  initial_state(host, conf, secure_type) = {
+    ~host; ~conf; ~secure_type;
      cnt=0;
      sockets=[];
      allocated=[];
@@ -183,13 +189,25 @@ SocketPool = {{
   }
 
   /**
-   * Create a pool of sockets which will returns socket connected to the [host].
+   * Create a pool of sockets which will return sockets connected to the [host].
    * @param host The host to connect
    * @param conf The initial configuration of the socket pool
    * @return A pool of sockets
    */
   make(host:Socket.host, conf:SocketPool.conf): SocketPool.t =
-    state = initial_state(host, conf)
+    state = initial_state(host, conf, none)
+    do Log.debug(state, "make","{host}")
+    Session.make(state, pool_handler)
+
+  /**
+   * Create a pool of sockets which will return sockets securely connected to the [host].
+   * @param host The host to connect
+   * @param conf The initial configuration of the socket pool
+   * @param secure_type The optional SSL security information, none is the same as an insecure connection
+   * @return A pool of sockets
+   */
+  make_secure(host:Socket.host, conf:SocketPool.conf, secure_type:option(SSL.secure_type)): SocketPool.t =
+    state = initial_state(host, conf, secure_type)
     do Log.debug(state, "make","{host}")
     Session.make(state, pool_handler)
 
