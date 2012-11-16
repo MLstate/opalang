@@ -664,12 +664,12 @@ object (self)
           let annotmap, e = QmlAstCons.TypedExpr.ident annotmap ident opaty in
           annotmap, false, e
       | _ ->
-
+          #<If:EXPL_INST_DEBUG>
             prerr_endline
             (Printf.sprintf
                "Warning: raw type variable: %s"
-               (QmlTypeVars.TypeVar.to_string var));
-
+               (QmlTypeVars.TypeVar.to_string var))
+          #<End>;
           let annotmap, string_expr = self#quantified_var annotmap var in
           let annotmap, e = TypedExpr.record annotmap ["TyVar", string_expr] in
           annotmap, true, e
