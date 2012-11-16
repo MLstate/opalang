@@ -1631,7 +1631,26 @@ let walk_undirective ~val_ side gamma toplevel_lambdas annotmap e =
        | Q.Directive (label, (`partial_apply _ | `full_apply _ as v), (Q.Apply (_, Q.Directive (_, `apply_ty_arg (lt,lrow,lcol), [de], _),args) :: other_args), _) -> (
            assert (match try_get_ident de with `ident x -> IdentSet.mem x toplevel_lambdas | `call -> true | `none -> false);
            let annotmap, args' = aux_lambda abstracted_set annotmap de lt lrow lcol in
-           let annotmap, e = QmlAstCons.TypedExpr.apply_partial gamma annotmap de (args' @ args) in
+           let annotmap, e =
+             match v with
+             | `partial_apply (Some missing, _) ->
+                 let annot = Q.QAnnot.expr de in
+                 let ty = QmlAnnotMap.find_ty annot annotmap in
+                 begin match QmlTypesUtils.Inspect.follow_alias_noopt gamma ty with
+                 | Q.TypeArrow (typarams,Q.TypeArrow(params, tyres)) ->
+                     let params,_ = List.split_at (List.length params - missing) params in
+                     let ty_for_apply = Q.TypeArrow (typarams, Q.TypeArrow (params, tyres)) in
+                     let annotmap = QmlAnnotMap.add_ty annot ty_for_apply annotmap in
+                     let annotmap, e =
+                       QmlAstCons.TypedExpr.apply_partial gamma annotmap de (args' @ args)
+                     in
+                     let annotmap = QmlAnnotMap.add_ty annot ty annotmap in
+                     annotmap, e
+                 | _ -> assert false
+                 end
+             | _ ->
+                 QmlAstCons.TypedExpr.apply_partial gamma annotmap de (args' @ args)
+           in
            let v, other_args, annotmap =
              match v with
              | `partial_apply ((_, false) as missing) ->

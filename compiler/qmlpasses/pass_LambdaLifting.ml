@@ -806,18 +806,33 @@ let rec parameterLiftExp ~options ?outer_apply ((gamma,annotmap,env) as full_env
                           let ty = get_explicit_tsc gamma x in x,ty)
                        args in
                    let args = get_identifiers_from_ftv env.gamma ftv @ args in
+                   (* We have [ty] which are the real type of the lifted lambda,
+                      but we need to have [ty_for_apply] just to construct the
+                      typed apply. Then we MUST replace the type annotation by
+                      the good one. *)
                    let ty =
                      let ty = get_ty annotmap (Q.QAnnot.expr e) in
-                       let params, ty = get_params_and_return_of_arrow_type env.gamma ty in
-                       Q.TypeArrow (List.map snd args @ params, ty) in
-                   let annotmap,e = QmlAstCons.TypedExpr.ident annotmap x ty in
+                     let params, ty = get_params_and_return_of_arrow_type env.gamma ty in
+                     Q.TypeArrow (List.map snd args @ params, ty) in
+                   let ty_for_apply =
+                     match partial with
+                     | `partial_apply _ -> Q.TypeArrow (List.map snd args, ty)
+                     | `full_apply _ -> ty
+                   in
+                   let annotmap,e = QmlAstCons.TypedExpr.ident annotmap x ty_for_apply in
+                   let annot = Q.QAnnot.expr e in
+                   let tsc = QmlTypes.Env.Ident.find x env.gamma in
                    let annotmap =
-                     let tsc = QmlTypes.Env.Ident.find x env.gamma in
                      if QmlGenericScheme.is_empty tsc then annotmap
-                     else QmlAnnotMap.add_tsc_inst (Q.QAnnot.expr e) tsc annotmap in
+                     else QmlAnnotMap.add_tsc_inst annot tsc annotmap
+                   in
                    let annotmap,e =
                      let annotmap, e = mk_apply gamma annotmap e args old_args in
                      wrap_partial_apply ~partial annotmap e in
+                   let annotmap =
+                     match partial with
+                     | `full_apply _ -> annotmap
+                     | `partial_apply _ -> QmlAnnotMap.add_ty annot ty annotmap in
                    (* propagating the tsc_gen that was (maybe) on the ident or apply *)
                    let annotmap = QmlAnnotMap.add_tsc_opt (Q.QAnnot.expr e) orig_tsc_gen_opt annotmap in
                    (gamma,annotmap,env),e
