@@ -106,7 +106,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
   hmac_sha1_sign(secret, uri, params, auth_params) =
     base_string = build_base_string(uri, params, auth_params)
     do API_libs_private.apijlog("Base string: {base_string}")
-    key = "{p.consumer_secret}&{secret}"
+    key = Binary.of_string("{p.consumer_secret}&{secret}")
     res = Crypto.Base64.encode(Crypto.HMAC.sha1(key, Binary.of_string(base_string)))
     res = API_libs_private.url_encoder(res)
     do API_libs_private.apijlog("Signature: {res}")
