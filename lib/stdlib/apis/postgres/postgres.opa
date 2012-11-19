@@ -31,11 +31,13 @@ import stdlib.crypto
  * routine is provided to handle incoming messages.  Note that some of the messages sent
  * do not expect a reply whereas others do.
  *
- * The connection object includes data gathered during the send and receive operations
- * but mostly the driver operates by calling callbacks, of which there are three: a row
- * callback which is called when a data row is received from the server, a finalize callback
- * which is called when an operation terminates and an error callback which is called
- * if an error was received from PostgreSQL.
+ * The connection object includes some status information gathered during the send and receive operations
+ * but mostly the driver operates by calling the listener callback.  This performs three functions:
+ * it is passed row and row description data as it is returned from the server, it is passed
+ * error and notice messages retrned from the server (note that an SQL operation can generate
+ * more than one of these) and a final message called once all data has been received and the
+ * server is ready for more queries.  The final message will receive either a success outcome
+ * of an updated connection object or a copy of the *last* failure message.
  *
  * {1 Where should I start?}
  *
@@ -83,18 +85,18 @@ type Postgres.reply =
  / { ErrorResponse: Postgres.msg }
  / { NoticeResponse: Postgres.msg }
  / { DataRow: list(binary) }
- / { RowDescription: list(tuple_7(string, int, int, int, int, int, int)) }
+ / { RowDescription: list((string, int, int, int, int, int, int)) }
  / { EmptyQueryResponse }
- / { BackendKeyData: tuple_2(int, int) }
- / { ParameterStatus: tuple_2(string, string) }
+ / { BackendKeyData: (int, int) }
+ / { ParameterStatus: (string, string) }
  / { Authentication: Postgres.auth_reply }
  / { PortalSuspended }
  / { ParameterDescription: list(int) }
- / { NotificationResponse: tuple_3(int, string, string) }
+ / { NotificationResponse: (int, string, string) }
  / { NoData }
  / { FunctionCallResponse: binary }
- / { CopyBothResponse: tuple_2(int, list(int)) }
- / { CopyOutResponse: tuple_2(int, list(int)) }
+ / { CopyBothResponse: (int, list(int)) }
+ / { CopyOutResponse: (int, list(int)) }
  / { CopyDoneB }
  / { CopyDataB: binary }
  / { CloseComplete }
@@ -113,6 +115,18 @@ type Postgres.failure =
  / { bad_format : int }
  / { no_key }
  / { not_found }
+
+/** The type of a value passed to the listener callback.
+ */
+type Postgres.listener_arg =
+   { final: Postgres.result }
+ / { rowdescs: Postgres.rowdescs }
+ / { DataRow: list(binary) }
+ / { ErrorResponse: Postgres.msg }
+ / { NoticeResponse: Postgres.msg }
+
+/** The type of a Postgres listener */
+type Postgres.listener = (Postgres.connection, Postgres.listener_arg -> void)
 
 /** Failure return for some Postgres module function (it includes the connection itself).
  */
@@ -178,11 +192,8 @@ type Postgres.connection = {
   error         : option(Postgres.failure) /** The last received error value (driver internal) */
   empty         : bool /** Whether the last query returned an empty reply */
   completed     : list(string) /** List of [CommandComplete] messages received */
-  rowdescs      : Postgres.rowdescs /** A note of the most recent row descriptions */
   rows          : int /** A list of the rows received from the last query */
   paramdescs    : list(int) /** List of the last-received parameter descriptions */
-  rowcc         : continuation(Postgres.full_row) /** The row continuation */
-  errcc         : continuation(Postgres.unsuccessful) /** The error continuation */
 }
 
 /** Defines whether an operation is for a prepared statement or a portal */
@@ -222,30 +233,20 @@ Postgres = {{
    * to manage the connection but doesn't actually open a connection to the server
    * until an operation is performed on the connection.
    *
-   * We keep the continuations for rows and errors in the connection to make the
-   * interface simpler, these probably won't change during the lifetime of the connection.
-   * The finalisation continuation is provided at the point of call.
-   *
    * @param name The name of the connection, this is only relevant if you have connections to multiple PostgreSQL servers.
    * @param secure Optional SSL security type.
    * @param dbase The name of the PostgreSQL database to connect to.
-   * @param rowcc The row continuation.
-   * @param errcc The error continuation.
    * @returns An outcome of either a connection object or an [Apigen.failure] value.
    */
-  connect(name:string, secure:option(SSL.secure_type),
-          dbase:string, rowcc, errcc, endcc:continuation(outcome(Postgres.connection,Apigen.failure))) =
+  connect(name:string, secure:option(SSL.secure_type), dbase:string) =
     match Pg.connect(name,secure) with
     | {success=conn} ->
-      Continuation.return(endcc,
-                          {success={ ~name ~secure ~conn ~dbase
-                                     major_version=default_major_version minor_version=default_minor_version
-                                     params=StringMap.empty processid=-1 secret_key=-1
-                                     query="" status="" suspended=false error=none
-                                     empty=true completed=[] rowdescs=[] rows=0 paramdescs=[]
-                                     ~rowcc ~errcc }})
-    | {~failure} ->
-      Continuation.return(endcc,{~failure})
+      {success={ ~name ~secure ~conn ~dbase
+                 major_version=default_major_version minor_version=default_minor_version
+                 params=StringMap.empty processid=-1 secret_key=-1
+                 query="" status="" suspended=false error=none
+                 empty=true completed=[] rows=0 paramdescs=[] }}
+    | {~failure} -> {~failure}
 
   /** Close a connection object.
    *
@@ -255,14 +256,14 @@ Postgres = {{
    * @param terminate If true, a [Terminate] message will be sent to the server before closing the connection.
    * @returns An outcome of the updated connection or an [Apigen.failure] value.
    */
-  close(conn:Postgres.connection, terminate:bool, endcc:continuation(outcome(Postgres.connection,Apigen.failure))) =
+  close(conn:Postgres.connection, terminate:bool) =
     _ =
       if terminate
       then Pg.terminate({success=conn.conn})
       else {success={}}
     match Pg.close({success=conn.conn}) with
-    | {success=c} -> Continuation.return(endcc,{success={conn with conn=c processid=-1 secret_key=-1}})
-    | {~failure} -> Continuation.return(endcc,{~failure})
+    | {success=c} -> {success={conn with conn=c processid=-1 secret_key=-1}}
+    | {~failure} -> {~failure}
 
   /** Search for PostgreSQL parameter.
    *
@@ -304,22 +305,6 @@ Postgres = {{
   status(conn:Postgres.connection) : option(string) =
     if conn.status == "" then {none} else {some=conn.status}
 
-  /** Set the row continuation.
-   *
-   * @param conn The connection object.
-   * @param rowcc A continuation which takes a [Postgres.full_row] object.
-   * @returns An updated connection object.
-   */
-  set_rowcc(conn:Postgres.connection, rowcc:continuation(Postgres.full_row)) : Postgres.connection = {conn with ~rowcc}
-
-  /** Set the error continuation.
-   *
-   * @param conn The connection object.
-   * @param errcc A connection which takes a [Postgres.unsuccessful] object.
-   * @returns An updated connection object.
-   */
-  set_errcc(conn:Postgres.connection, errcc:continuation(Postgres.unsuccessful)) : Postgres.connection = {conn with ~errcc}
-
   /** Set the protocol major version number.
    *
    * This is used in startup messages and should reflect the version of the protocol implemented by the driver.
@@ -339,15 +324,29 @@ Postgres = {{
    */
   set_minor_version(conn:Postgres.connection, minor_version:int) : Postgres.connection = {conn with ~minor_version}
 
+  @private again(conn:Postgres.connection, result:Postgres.listener_arg, k:Postgres.listener) : Postgres.connection =
+    do k(conn, result)
+    loop(conn, k)
+
+  @private final(conn:Postgres.connection, result:Postgres.listener_arg, k:Postgres.listener) : Postgres.connection =
+    do k(conn, result)
+    conn
+
+  @private error(conn:Postgres.connection, failure:Postgres.failure, k:Postgres.listener) : Postgres.connection =
+    do k(conn, {final={failure=(conn, failure)}})
+    conn
+
   /* Implementation note, the PostgreSQL docs recomment using a single input
    * point for all incoming messages from PostgreSQL.  This is how we implement
    * this driver.  Only the authentication, query, sync and flush commands call this routine.
    */
-  @private loop(conn:Postgres.connection, k:continuation(Postgres.result)) : void =
-    get_result(conn,status) =
-      match conn.error with
-      | {some=failure} -> {failure=(conn,failure)}
-      | {none} -> {success={conn with ~status}}
+  @private loop(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
+    get_result(conn,status) : Postgres.listener_arg =
+      conn = {conn with ~status}
+      {final=
+        match conn.error with
+        | {some=failure} -> {failure=(conn,failure)}
+        | {none} -> {success=conn}}
     match Pg.reply({success=conn.conn}) with
     | {success={Authentication={Ok}}} -> loop(conn,k)
     | {success={Authentication={CleartextPassword}}} ->
@@ -366,30 +365,24 @@ Postgres = {{
     | {success={ParameterStatus=(n,v)}} -> loop({conn with params=StringMap.add(n,v,conn.params)},k)
     | {success={BackendKeyData=(processid,secret_key)}} -> loop({conn with ~processid ~secret_key},k)
     | {success={~CommandComplete}} -> loop({conn with completed=[CommandComplete|conn.completed]},k)
-    | {success={PortalSuspended}} -> Continuation.return(k,get_result({conn with suspended=true},""))
+    | {success={PortalSuspended}} -> final(conn, get_result({conn with suspended=true},""),k)
     | {success={EmptyQueryResponse}} -> loop({conn with empty=true},k)
-    | {success={~RowDescription}} -> loop({conn with rowdescs=List.map(to_rowdesc,RowDescription)},k)
-    | {success={~DataRow}} ->
-       do Continuation.return(conn.rowcc,(conn.rows,conn.rowdescs,DataRow))
-       loop({conn with rows=conn.rows+1},k)
+    | {success={~RowDescription}} -> again(conn,{rowdescs=List.map(to_rowdesc,RowDescription)},k)
+    | {success={~DataRow}} -> again({conn with rows=conn.rows+1},~{DataRow},k)
     | {success={~ParameterDescription}} -> loop({conn with paramdescs=ParameterDescription},k)
     | {success={NoData}} -> loop({conn with paramdescs=[]},k)
     | {success={ParseComplete}} -> loop(conn,k)
     | {success={BindComplete}} -> loop(conn,k)
     | {success={CloseComplete}} -> loop(conn,k)
-    | {success={~NoticeResponse}} ->
-       do Continuation.return(conn.errcc,(conn,{postgres={notice=NoticeResponse}}))
-       loop(conn,k)
-    | {success={~ErrorResponse}} ->
-       do Continuation.return(conn.errcc,(conn,{postgres={error=ErrorResponse}}))
-       loop({conn with error={some={postgres={error=ErrorResponse}}}},k)
-    | {success={ReadyForQuery=status}} -> Continuation.return(k,get_result(conn,status))
-    | {success=reply} -> Continuation.return(k,{failure=(conn,{bad_reply=reply})})
-    | ~{failure} -> Continuation.return(k,{failure=(conn,{api_failure=failure})})
+    | {success={~NoticeResponse}} -> again(conn,~{NoticeResponse},k)
+    | {success={~ErrorResponse}} -> again({conn with error={some={postgres={error=ErrorResponse}}}}, ~{ErrorResponse},k)
+    | {success={ReadyForQuery=status}} -> final(conn, get_result(conn,status),k)
+    | {success=reply} -> error(conn, {bad_reply=reply},k)
+    | ~{failure} -> error(conn, {api_failure=failure},k)
     end
 
   @private init(conn:Postgres.connection, query) : Postgres.connection =
-    {conn with error=none; empty=false; suspended=false; completed=[]; rowdescs=[]; rows=0; paramdescs=[]; ~query}
+    {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; paramdescs=[]; ~query}
 
   /** Authenticate with the PostgreSQL server.
    *
@@ -400,35 +393,35 @@ Postgres = {{
    * and the connection id ([processid] and [secret_key]).
    *
    * @param conn The connection object.
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns An updated connection with connection data installed.
    */
-  authenticate(conn:Postgres.connection, endcc:continuation(Postgres.result)) =
+  authenticate(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "authentication")
     version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
     match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
-    | {success={}} -> loop(conn,endcc)
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> loop(conn,k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
 
   /** Issue simple query command and read back responses.
    *
    * The simple query protocol is a simple command to which the server will reply
    * with the results of the query.  It is similar to doing [Parse]/[Bind]/[Describe]/[Execute]/[Sync].
-   * If any row data are returned, the row continuation will be called, likewise for errors.
+   * If any row data are returned, the listener will be called, likewise for errors and notices.
    *
    * Note that this routine also returns an updated connection object upon failure since the effects
    * of previously successful messages received from the server may be retained.
    *
    * @param conn The connection object.
    * @param query The query string (can contain multiple queries).
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns An outcome of an updated connection object or a failure plus a connection object.
    */
-  query(conn:Postgres.connection, query, endcc:continuation(Postgres.result)) =
+  query(conn:Postgres.connection, query, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, query)
     match Pg.query({success=conn.conn},query) with
-    | {success={}} -> loop(conn,endcc)
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> loop(conn,k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Extract the raw data for a named column from a [Postgres.full_row] object.
@@ -468,14 +461,14 @@ Postgres = {{
    * @param name The name of the prepared statement (empty means the unnamed prepared statement).
    * @param query The query string (may contain placeholders for later data, eg. "$1" etc.).
    * @param oids The object ids for the types of the parameters (may be zero to keep the type unspecified).
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns An updated connection object or failure.
    */
-  parse(conn:Postgres.connection, name, query, oids, endcc:continuation(Postgres.result)) =
+  parse(conn:Postgres.connection, name, query, oids, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Parse({query},{name})")
     match Pg.parse({success=conn.conn},(name,query,oids)) with
-    | {success={}} -> Continuation.return(endcc, {success=conn})
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> final(conn,{final={success=conn}},k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Bind parameters to a prepared statement and a portal.
@@ -486,14 +479,14 @@ Postgres = {{
    * @param codes The parameter format codes (0=text, 1=binary).
    * @param params The list of parameters.
    * @param result_codes A list of the result column return codes (0=text, 1=binary).
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  bind(conn:Postgres.connection, portal, name, codes, params, result_codes, endcc:continuation(Postgres.result)) =
+  bind(conn:Postgres.connection, portal, name, codes, params, result_codes, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Bind({name},{portal})")
     match Pg.bind({success=conn.conn},(portal,name,codes,params,result_codes)) with
-    | {success={}} -> Continuation.return(endcc, {success=conn})
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> final(conn,{final={success=conn}},k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Execute named portal.
@@ -501,14 +494,14 @@ Postgres = {{
    * @param conn The connection object.
    * @param portal The name of the portal to execute (empty means the unnamed portal).
    * @param rows_to_return The number of rows to return (zero means unlimited).
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  execute(conn:Postgres.connection, portal, rows_to_return, endcc:continuation(Postgres.result)) =
+  execute(conn:Postgres.connection, portal, rows_to_return, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Execute({portal})")
     match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
-    | {success={}} -> Continuation.return(endcc, {success=conn})
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> final(conn,{final={success=conn}},k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Describe portal or statement.
@@ -519,14 +512,14 @@ Postgres = {{
    * @param conn The connection object.
    * @param sp Statement or portal flag
    * @param name The name of the prepared statement or portal.
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  describe(conn:Postgres.connection, sp:Postgres.sp, name, endcc:continuation(Postgres.result)) =
+  describe(conn:Postgres.connection, sp:Postgres.sp, name, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Describe({string_of_sp(sp)},{name})")
     match Pg.describe({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success={}} -> Continuation.return(endcc, {success=conn})
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> final(conn,{final={success=conn}},k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Close a prepared statement or portal.
@@ -539,14 +532,14 @@ Postgres = {{
    * @param conn The connection object.
    * @param sp Statement or portal flag
    * @param name The name of the prepared statement or portal.
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  closePS(conn:Postgres.connection, sp:Postgres.sp, name, endcc:continuation(Postgres.result)) =
+  closePS(conn:Postgres.connection, sp:Postgres.sp, name, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Close({string_of_sp(sp)},{name})")
     match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success={}} -> Continuation.return(endcc, {success=conn})
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> final(conn,{final={success=conn}},k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Send [Sync] command and read back response data.
@@ -556,14 +549,14 @@ Postgres = {{
    * and end with a [ReadyForQuery] message.
    *
    * @param conn The connection object.
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns An updated connection object or failure.
    */
-  sync(conn:Postgres.connection, endcc:continuation(Postgres.result)) =
+  sync(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Sync")
     match Pg.sync({success=conn.conn}) with
-    | {success={}} -> loop(conn,endcc)
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> loop(conn,k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Send a [Flush] command and read back response data.
@@ -571,14 +564,14 @@ Postgres = {{
    * This requests the server to flush any pending messages.
    *
    * @param conn The connection object.
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns An updated connection object or failure.
    */
-  flush(conn:Postgres.connection, endcc:continuation(Postgres.result)) =
+  flush(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Flush")
     match Pg.flush({success=conn.conn}) with
-    | {success={}} -> loop(conn,endcc)
-    | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+    | {success={}} -> loop(conn,k)
+    | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
   /** Send cancel request message on secondary channel.
@@ -593,22 +586,22 @@ Postgres = {{
    * way of knowing if the cancel succeeded is to monitor the original connection.
    *
    * @param conn The connection object.
-   * @param endcc The finalization continuation.
+   * @param listener A Postgres listener callback.
    * @returns An outcome of a void or an [Apigen.failure] object.
    */
-  cancel(conn:Postgres.connection, endcc:continuation(Postgres.result)) =
+  cancel(conn:Postgres.connection) : Postgres.result =
     if conn.processid == -1 || conn.secret_key == -1
-    then Continuation.return(conn.errcc,(conn,{no_key}))
+    then {failure=(conn,{no_key})}
     else
-      match @callcc(k -> connect(conn.name, conn.secure, conn.dbase, conn.rowcc, conn.errcc, k)) with
+      match connect(conn.name, conn.secure, conn.dbase) with
       | {success=conn2} ->
          match Pg.cancel({success=conn2.conn},(conn.processid,conn.secret_key)) with
          | {success={}} ->
-            _ = @callcc(k -> close(conn2,false,k))
-            Continuation.return(endcc, {success=conn})
-         | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+            _ = close(conn2,false)
+            {success=conn}
+         | ~{failure} -> {failure=(conn,{api_failure=failure})}
          end
-      | ~{failure} -> Continuation.return(conn.errcc, (conn,{api_failure=failure}))
+      | ~{failure} -> {failure=(conn,{api_failure=failure})}
 
 }}
 
