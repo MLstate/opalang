@@ -1428,6 +1428,24 @@ struct
     QmlTypes.Env.Ident.from_map map QmlTypes.Env.empty
 end
 
+(* TODO: clarify what directives we go through exactly
+ * i think it should be the same as the one ignored by lambda lifting
+ * plus @abstract_ty and @apply_ty, but i am not sure
+ * (@server, @client, etc. can be ignored since they have been removed by the slicer) *)
+let rec get_lambda ?env = function
+  | Q.Coerce (_,e,_)
+  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _ | `async | `comet_call | `ajax_call _), [e], _) -> get_lambda ?env e
+  | Q.Directive (_, `lifted_lambda lenv, [e], _) -> (
+      match e with
+      | Q.Lambda (_,params,e) ->
+          assert (env = None);
+          `lambda (lenv,params,e)
+      | _ -> get_lambda ~env:lenv e
+    )
+  | Q.Ident (_,x) -> `ident x
+  | Q.Lambda (_,params,e) -> `lambda (Option.default (0,[]) env,params,e)
+  | _ -> `none
+
 let have_typeof gamma annotmap qmlAst =
   let loaded_set = R.load () in
   let full_set = have_typeof ~set:loaded_set gamma annotmap qmlAst in
@@ -1475,17 +1493,46 @@ let process_code (have_typeof:QmlTypeVars.FreeVars.t) gamma annotmap _published 
               let (annotmap, id_e) =
                 QmlAstCons.TypedExpr.ident annotmap id ty
               in
-              let (annotmap, appl) =
-                if QmlTypeVars.FreeVars.is_empty used_vars then
-                  (* no variables used *)
-                  (annotmap, id_e)
-                else
+              let number_of_lambdas, (annotmap, appl) =
+                let apply_ty_arg annotmap expr =
                   let lt,lrow,lcol = QmlTypeVars.FreeVars.export_as_lists used_vars in
                   let lt = List.map (fun v -> QmlAst.TypeVar v) lt in
                   let lrow = List.map (fun v -> QmlAst.TyRow ([], Some v)) lrow in
                   let lcol = List.map (fun v -> QmlAst.TyCol ([], Some v)) lcol in
-                  let pos = QmlAst.Pos.expr id_e in
-                  QmlAstCons.TypedExpr.directive_ty ~pos annotmap (`apply_ty_arg (lt,lrow,lcol)) [id_e] [] ty_orig
+                  let pos = QmlAst.Pos.expr expr in
+                  QmlAstCons.TypedExpr.directive_ty ~pos annotmap
+                    (`apply_ty_arg (lt,lrow,lcol)) [expr] [] ty_orig
+                in
+                if QmlTypeVars.FreeVars.is_empty used_vars then
+                  `two_lambdas, (annotmap, id_e)
+                else
+                match get_lambda e with
+                | `lambda ((env, idento), params, _) ->
+                    let annotmap, id_e = apply_ty_arg annotmap id_e in
+                    (* FIXME - Remove next_var *)
+                    let par = List.map (fun p -> (p,QmlAstCons.Type.next_var ())) params in
+                    let args, annotmap = List.fold_right_map
+                      (fun p annotmap ->
+                         let annotmap, arg =
+                           QmlAstCons.TypedExpr.ident annotmap p (QmlAstCons.Type.next_var ())
+                         in arg, annotmap
+                      ) params annotmap
+                    in
+                    let env_args, std_args = List.split_at env args in
+                    let id_e = QmlAstCons.UntypedExpr.apply id_e env_args in
+                    let annotmap = QmlAnnotMap.add_ty (Q.QAnnot.expr id_e)
+                      (QmlAstCons.Type.next_var()) annotmap in
+                    let annotmap, id_e =
+                      let missing = List.length std_args in
+                      QmlAstCons.TypedExpr.directive annotmap
+                      (`partial_apply (Some missing, false)) [id_e] []
+                    in
+                    let annotmap, id_e = QmlAstCons.TypedExpr.apply gamma annotmap id_e std_args in
+                    let annotmap, lambda = QmlAstCons.TypedExpr.lambda annotmap par id_e in
+                    `one_lambda env,
+                    QmlAstCons.TypedExpr.directive annotmap (`lifted_lambda (env, idento)) [lambda] []
+                | _ ->
+                    `two_lambdas, apply_ty_arg annotmap id_e
               in
               let annotmap =
                 QmlAnnotMap.add_tsc (Q.QAnnot.expr appl) tsc annotmap
@@ -1506,7 +1553,7 @@ let process_code (have_typeof:QmlTypeVars.FreeVars.t) gamma annotmap _published 
                   debug "Published map updated: %a maps to %a" pp#ident id pp#expr map_e ;
                   ()
                 #<End>;
-                published_ref := IdentMap.add id (Some (Q.Label.expr map_e, ajax_id, `two_lambdas)) !published_ref;
+                published_ref := IdentMap.add id (Some (Q.Label.expr map_e, ajax_id, number_of_lambdas)) !published_ref;
                 renaming_map := QmlRenamingMap.add !renaming_map (QmlRenamingMap.original_from_new !renaming_map id) ajax_id;
                 annotmap
               in
@@ -1579,24 +1626,6 @@ let eta_expansion lt lrow lcol lt' lrow' lcol' =
     true
   with Exit | Invalid_argument _ ->
     false
-
-(* TODO: clarify what directives we go through exactly
- * i think it should be the same as the one ignored by lambda lifting
- * plus @abstract_ty and @apply_ty, but i am not sure
- * (@server, @client, etc. can be ignored since they have been removed by the slicer) *)
-let rec get_lambda ?env = function
-  | Q.Coerce (_,e,_)
-  | Q.Directive (_, (#Q.type_directive | `abstract_ty_arg _ | `apply_ty_arg _ | `async | `comet_call | `ajax_call _), [e], _) -> get_lambda ?env e
-  | Q.Directive (_, `lifted_lambda lenv, [e], _) -> (
-      match e with
-      | Q.Lambda (_,params,e) ->
-          assert (env = None);
-          `lambda (lenv,params,e)
-      | _ -> get_lambda ~env:lenv e
-    )
-  | Q.Ident (_,x) -> `ident x
-  | Q.Lambda (_,params,e) -> `lambda (Option.default (0,[]) env,params,e)
-  | _ -> `none
 
 (* not sure if this test should be in sync with something else *)
 let rec try_get_ident = function
