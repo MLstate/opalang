@@ -1364,7 +1364,7 @@ let generate_parser peg =
     | `file _ | `decls _ -> inside, outside
   in
   let inside, outside = List.fold_left gen_user_code ([], []) peg.T.header in
-  let includes = [Ocaml.Open [Ident.source "Base"]] in
+  let includes = [] in
   let prelude =
     if !auto_ast then
       includes

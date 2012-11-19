@@ -39,6 +39,8 @@ read xml_parser.trx
    open SurfaceAst
    open Parser_utils
 
+   module List = Base.List
+
    module SA = SurfaceAst
 
    (* some types for IDEs; please maintain this in particular when you add/remove/change directives *)

@@ -102,8 +102,8 @@ decls:{{
      | VERBOSE -> "-VERBOSE"
 
    let string_of_command = function
-     | BslShell (key, optlist, arg) -> Printf.sprintf "%s [%s] <%s>" (string_of_key key) (String.concat_map "; "  string_of_toption optlist) arg
-     | Pipe (p, (key, optlist, arg)) -> Printf.sprintf "%s [%s] <%s> | unix:\"%s\"" (string_of_key key) (String.concat_map "; " string_of_toption optlist) arg  p
+     | BslShell (key, optlist, arg) -> Printf.sprintf "%s [%s] <%s>" (string_of_key key) (Base.String.concat_map "; "  string_of_toption optlist) arg
+     | Pipe (p, (key, optlist, arg)) -> Printf.sprintf "%s [%s] <%s> | unix:\"%s\"" (string_of_key key) (Base.String.concat_map "; " string_of_toption optlist) arg  p
 
    let clash_option o =
      let m = Printf.sprintf "option %s cannot be used in this context" (string_of_toption o) in

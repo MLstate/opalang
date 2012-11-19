@@ -19,6 +19,7 @@ include default.trx
 
 {{ 
 open Xml 
+module Char = Base.Char
 }}
 
 +file : {Xml.xml * bool} <- header? content spacing eof 

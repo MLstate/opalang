@@ -76,7 +76,7 @@ decls:{{
      in
      match typ with
      | B.Fun (_, params, ret) -> (
-         match List.combine_opt args params with
+         match Base.List.combine_opt args params with
          | Some typed_args -> D.Args (impl, typed_args, ret)
          | None -> fail ()
        )

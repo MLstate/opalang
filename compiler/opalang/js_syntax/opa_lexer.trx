@@ -33,6 +33,7 @@
 
 {{
    open Parser_utils
+   module Char = Base.Char
 }}
 
 #
