@@ -233,7 +233,7 @@ install_generic () {
     make all; r=$?
     make allopt || make opt || make all.opt || [ $r -eq 0 ]
     $SUDO make install
-    $SUDO make installopt || $SUDO make install-opt
+    $SUDO make installopt || $SUDO make install-opt || true
 }
 
 package_install (){
