@@ -16,18 +16,12 @@ opalang configure script. Options:
         -ocamlopt <path>	the ocaml compiler to use
         -ocamlfind <path>	use the given ocamlfind to locate libraries
         -no-ocamlfind		don't use ocamlfind
-        -camlidl		enable features based on camlidl
-        -dbm        		enable features based on dbm
         -help			shows this message
 EOF
 # --no-<lib> if available
 }
 
 cd "$OPA_SOURCE_DIR"
-
-NO_CAMLIDL=1
-NO_DBM=1
-NO_OPAPRO=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -64,18 +58,6 @@ while [ $# -gt 0 ]; do
             ;;
         -no-ocamlfind)
             NO_OCAMLFIND=1
-            ;;
-        -camlidl)
-            NO_CAMLIDL=0
-            ;;
-        -dbm)
-            NO_DBM=0
-            ;;
-        -no-camlidl)
-            NO_CAMLIDL=1
-            ;;
-        -no-dbm)
-            NO_DBM=1
             ;;
         -h|-help|--help)
             help
@@ -373,24 +355,6 @@ fi
 # # node-iconv doesn't work on Windows.
 # if [ ! "${IS_WINDOWS:-}" ]; then check-node-dependency "iconv"; fi
 
-# - checking camlidl *
-echo-check for camlidl
-if [ "X$NO_CAMLIDL" = "X1" ]; then
-    HAS_CAMLIDL=
-    CAMLIDL=
-    echo-ok Disabled
-elif
-    [ -e $OCAMLLIB/libcamlidl.a ] &&
-    CAMLIDL=${CAMLIDL:-$OCAMLOPT_DIR)/camlidl} && [ -x "$CAMLIDL" ] ||
-    CAMLIDL=$(which camlidl)
-then
-    HAS_CAMLIDL=1
-    echo-ok $CAMLIDL
-else
-    HAS_CAMLIDL=
-    echo-skip "Not found (but optional)"
-fi
-
 
 # check C libs:
 #   we depend on libssl, libzip and others, but through
@@ -454,37 +418,6 @@ check-c-lib () (
     echo "$LIBNAME $LD_DIR $INCLUDE_DIR"
 )
 
-HAS_LIBNATPMP=
-LIBNATPMP=("")
-HAS_MINIUPNPC=
-MINIUPNPC=("")
-if [ -n "$HAS_CAMLIDL" ]; then
-# - checking libnatpmp *
-    echo-check libnatpmp
-    if LIBNATPMP=($(check-c-lib -opt libnatpmp/natpmp netinet/in.h arpa/inet.h libnatpmp/getgateway.h libnatpmp/natpmp.h)); then
-        HAS_LIBNATPMP=1
-    else
-        LIBNATPMP=("")
-    fi
-
-# - checking miniupnpc *
-    echo-check miniupnpc
-    if MINIUPNPC=($(check-c-lib -opt miniupnpc/miniupnpc miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h)); then
-        HAS_MINIUPNPC=1
-    else
-        MINIUPNPC=("")
-    fi
-fi
-
-HAS_LIBICONV=
-LIBICONV=("")
-if [ -n "${IS_MAC:-}" ] &&
-    echo-check libiconv &&
-    LIBICONV=($(check-c-lib iconv iconv.h)); then
-    HAS_LIBICONV=1
-else
-    LIBICONV=("")
-fi
 
 # check ocaml libs:
 #   probably, first try with ocamlfind then fallback to
@@ -641,21 +574,9 @@ locate-and-check-cryptokit () {
     locate-ocaml-lib -crypto "Cryptokit" "cryptokit"
 }
 
-# - checking ocaml-ssl
-if [ $NO_OPAPRO -eq 1 ]; then
-    echo-check for ssl
-    echo-ok Disabled
-    CONFIG_LIB_OCAMLSSL="DISABLED_OCAMLSSL"
-else
-    if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
-    then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
-    fi
-fi
-
-
-# - checking cryptokit
-if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
-then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
+# - checking ulex
+if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
+then lib-not-found "ulex" "ocaml-ulex"
 fi
 
 # - checking camlzip
@@ -668,20 +589,9 @@ if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph" "graph")
 then lib-not-found "ocamlgraph" "libocamlgraph-ocaml-dev"
 fi
 
-# - checking ulex
-if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
-then lib-not-found "ulex" "ocaml-ulex"
-fi
-
-# - checking dbm
-: ${NO_DBM:=""}
-if [ "X$NO_DBM" = "X1" ]; then
-    HAS_DBM=
-else
-    HAS_DBM="1"
-    if ! CONFIG_LIB_DBM=$(locate-ocaml-lib -opt "Dbm" "dbm")
-        then HAS_DBM=
-    fi
+# - checking cryptokit
+if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
+then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
 fi
 
 # # - checking camlimages *
@@ -723,13 +633,6 @@ camlopt() {
     fi
 }
 
-ALL_TAGS_LIST="camlidl libnatpmp miniupnpc dbm libiconv"
-TAGS_LIST=""
-for tag in $ALL_TAGS_LIST; do
-    hasvar=HAS_$(tr '[:lower:]' '[:upper:]' <<<"$tag")
-    if [ -n "${!hasvar}" ]; then TAGS_LIST="$TAGS_LIST\"$tag\"; "; fi
-done
-
 # See config.mli for the documentation and spec of these variables
 cat > $CONFIG_PATH/config.ml <<EOF
 let prefix = "$PREFIX"
@@ -740,15 +643,6 @@ let ocamlbuild = "$OCAMLBUILD"
 let ocamlbuild_flags = "$OCAMLBUILD_FLAGS"
 let camlp4o = "$CAMLP4O"
 let camlp4orf = "$CAMLP4ORF"
-
-let camlidl = $(camlopt "$HAS_CAMLIDL" '"'"$CAMLIDL"'"')
-let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
-let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
-let has_dbm = $(camlbool "$HAS_DBM")
-let libiconv = $(camlopt "$HAS_LIBICONV" "$(camlstrtuple "${LIBICONV[@]}")")
-
-let available = [ $TAGS_LIST]
-let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
 
 let is_release = $(camlbool "$IS_RELEASE")
 type os = Linux | Mac | Win32 | Cygwin | FreeBSD
@@ -766,7 +660,6 @@ let makebinary =
    fi)
 
 module Libdir = struct
-  let ssl = $(dir_opt "$CONFIG_LIB_OCAMLSSL")
   let cryptokit = $(dir_opt "$CONFIG_LIB_CRYPTOKIT")
   let camlzip_name = "$(basename "$CONFIG_LIB_CAMLZIP")"
   let camlzip = $(dir_opt "$CONFIG_LIB_CAMLZIP")
@@ -778,6 +671,8 @@ let ext_lib = "$EXT_LIB"
 let ext_obj = "$EXT_OBJ"
 let ext_shared = "$EXT_SHARED"
 let ext_exe = "$EXT_EXE"
+
+let more_server_include_dir = []
 
 EOF
 
@@ -793,15 +688,6 @@ CAMLP4ORF="$CAMLP4ORF"
 OCAML_WORD_SIZE="$OCAML_WORD_SIZE"
 OCAML_VERSION_MAJOR="$OCAML_VERSION_MAJOR"
 
-HAS_CAMLIDL="$HAS_CAMLIDL"
-CAMLIDL="$CAMLIDL"
-HAS_LIBNATPMP="$HAS_LIBNATPMP"
-LIBNATPMP=(${LIBNATPMP[@]})
-HAS_MINIUPNPC="$HAS_MINIUPNPC"
-MINIUPNPC=(${MINIUPNPC[@]})
-HAS_DBM="$HAS_DBM"
-HAS_LIBICONV="$HAS_LIBICONV"
-LIBICONV=(${LIBICONV[@]})
 IS_RELEASE="$IS_RELEASE"
 IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"
@@ -814,7 +700,6 @@ OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
      else echo "Error: OS inconsistency" >&2; exit 2
      fi)
 
-LIB_OCAMLSSL_DIR="$(dirname "$CONFIG_LIB_OCAMLSSL")"
 LIB_CRYPTOKIT_DIR="$(dirname "$CONFIG_LIB_CRYPTOKIT")"
 LIB_CAMLZIP_NAME="$(basename "$CONFIG_LIB_CAMLZIP")"
 LIB_CAMLZIP_DIR="$(dirname "$CONFIG_LIB_CAMLZIP")"

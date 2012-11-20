@@ -59,8 +59,6 @@ let extralib_opt = function
       flag ["compile"; "c"; "use_"^lib] (S [A"-I"; P idir])
   | None -> ()
 in
-extralib_opt Config.libnatpmp;
-extralib_opt Config.miniupnpc;
 
 (* Pre-installed system libs *)
 let linux_system_libs = ["iconv"]
@@ -80,28 +78,6 @@ let is_system_libs lib = List.mem lib system_libs in
 let filter_system_libs l =
   List.filter (fun x -> not (is_system_libs x)) l
 in
-
-begin match Config.camlidl with
-| None -> ()
-| Some camlidl ->
-    flag ["link"; "use_camlidl"] (S [A "-cclib"; P "-lcamlidl" ]);
-
-    rule "camlidl processing: .idl -> .ml .mli _stubs.c lib_stubs.clib"
-      ~deps:[ "%(dir)stubs%(name).idl" ]
-      ~prods:[ "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>).mli";
-               "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>).ml" ;
-               "%(dir:<**/>)stubs%(name:<*> and not <*.*> and not <>)_stubs.c" ]
-      ~insert:`top
-      (fun env _build ->
-         let dir = env "%(dir)" in
-         let name = env "%(name)" in
-
-         def_stubs ~dir (name ^ "_idl");
-
-         Cmd(S[Sh"cd"; P dir; Sh"&&";
-               P camlidl; A"-prepro"; P"/usr/bin/cpp"; A"-no-include"; P ("stubs" ^ name -.- "idl") ])
-      )
-end;
 
 (* -- Ocamldoc plugin -- *)
 

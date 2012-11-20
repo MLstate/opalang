@@ -34,24 +34,6 @@ val ocamlbuild_flags : string
 val camlp4o : string
 val camlp4orf : string
 
-(** path to the camlidl tool, if present and enabled *)
-val camlidl : string option
-
-(** Flag for Dbm present *)
-val has_dbm : bool
-
-(** library directories, if the libs are enabled *)
-val libnatpmp : (string*string*string) option (** name of the lib, lib dir, include dir *)
-
-val miniupnpc : (string*string*string) option (** name of the lib, lib dir, include dir *)
-
-(** list all of the optional tags that have been detected available (eg
-    "camlidl", "libnatpmp", "miniupnpc", ...) *)
-val available : string list
-
-(** lists all the valid optional tags ([available] is a subset of those) *)
-val all_tags : string list
-
 (** are we compiling in release or debug mode ? In release mode,
     assertions and debug variables are disabled *)
 val is_release : bool
@@ -66,7 +48,6 @@ val makebinary : string
 (** the installation directory of external libraries, as in the ocamlopt '-I'
     command-line option ; None if no extra include directory is needed *)
 module Libdir : sig
-  val ssl : string option
   val cryptokit : string option
   val camlzip_name : string (** Sometimes "zip", sometimes "camlzip" *)
   val camlzip : string option
@@ -78,3 +59,6 @@ end
 val ext_lib : string
 val ext_obj : string
 val ext_shared : string
+
+(** More nclude directories to give to the server *)
+val more_server_include_dir : string list

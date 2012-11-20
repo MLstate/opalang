@@ -327,12 +327,9 @@ let _ = dispatch begin function
       (* OCaml libs *)
       ocaml_lib ~extern:true ?dir:Config.Libdir.camlzip ~tag_name:"use_zip" Config.Libdir.camlzip_name;
       ocaml_lib ~extern:true ?dir:Config.Libdir.graph "graph";
-      ocaml_lib ~extern:true ?dir:Config.Libdir.ssl "ssl";
       ocaml_lib ~extern:true ?dir:Config.Libdir.cryptokit "cryptokit";
       ocaml_lib ~extern:true ?dir:Config.Libdir.ulex ~tag_name:"use_ulex" "ulexing";
       ocaml_lib ~extern:true ~dir:"+mascot" "mascot";
-      if Config.has_dbm then
-        ocaml_lib ~extern:true ~dir:"+dbm" ~tag_name:"opt_use_dbm" "dbm";
 
       (* MLstate libs *)
       let mlstate_lib, internal_lib, mlstate_lib_deps, mlstate_lib_dir =
@@ -372,24 +369,6 @@ let _ = dispatch begin function
       (* ------------------------------------------------------------ *)
       (* Additional rules                                             *)
       (* ------------------------------------------------------------ *)
-
-      (* Preprocessed .mllib *)
-      rule "Preprocessed mllib: mllibp -> mllib"
-        ~dep:"%.mllibp"
-        ~prod:"%.mllib"
-        (fun env _build ->
-           let tags = String.uppercase (String.concat "|" Config.available) in
-           let sedexpr =
-             Printf.sprintf "s/^\\?HAS_(%s)://; /HAS_.*:/d" tags
-           in
-           (* FreeBSD 8.x and above have added -r that does exactly same as -E
-              for increased compatibility with GNU sed. Since FreeBSD still
-              supports 7.x that does not has -r, so use -E instead. The -r
-              does not exist in MacOS X sed either. *)
-           if is_fbsd || is_mac then
-             Cmd(S[sed; A"-E"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")])
-           else
-             Cmd(S[sed; A"-r"; A sedexpr; P(env "%.mllibp"); Sh">"; P(env "%.mllib")]));
 
       (* Windows specific : redefinition of an existing rule in Ocaml_specific.ml,
          Louis please have a look to avoid the two copies at the end
