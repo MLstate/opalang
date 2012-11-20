@@ -11,8 +11,9 @@ SCRIPTNAME=$(basename $0)
 
 # OS independent various variables
 # Warning: only put in DEFAULT_PACKAGES what should be included in our binary package
-DEFAULT_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex ocaml-ssl)
-ALL_PACKAGES=(ocaml findlib cryptokit camlzip ocamlgraph ulex openssl ocaml-ssl syslog jpeg libpng giflib camlimages mascot camlidl libnatpmp miniupnpc cairo-ocaml node)
+DEFAULT_PACKAGES=(ocaml findlib ulex camlzip ocamlgraph cryptokit)
+PRO_PACKAGES=($DEFAULT_PACKAGES ocaml-ssl)
+ALL_PACKAGES=(ocaml findlib ulex camlzip ocamlgraph cryptokit openssl ocaml-ssl syslog jpeg libpng giflib camlimages mascot camlidl libnatpmp miniupnpc cairo-ocaml node)
 
 BUILD_DIR=$SCRIPTDIR/packages
 
@@ -183,15 +184,15 @@ mkdir -p $BUILD_DIR
 sources () {
     case $1 in
         openssl) echo "http://www.openssl.org/source/openssl-1.0.0a.tar.gz";;
-        ocaml) echo "http://caml.inria.fr/pub/distrib/ocaml-3.12/ocaml-3.12.0.tar.gz" ;;
+        ocaml) echo "http://caml.inria.fr/pub/distrib/ocaml-4.00/ocaml-4.00.1.tar.gz" ;;
         # Sources obtained thanks to "apt-get --print-uris source <package>"
-        findlib) echo "http://download.camlcity.org/download/findlib-1.2.5.tar.gz";;
+        findlib) echo "http://download.camlcity.org/download/findlib-1.3.3.tar.gz";;
         ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.5/ocaml-ssl-0.4.5.tar.gz";;
-        cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/639/cryptokit-1.5.tar.gz";;
-        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.5.tar.gz";;
-        camlzip) echo "http://forge.ocamlcore.org/frs/download.php/328/camlzip-1.04.tar.gz";;
+        cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/891/cryptokit-1.6.tar.gz";;
+        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.2.tar.gz";;
+        camlzip) echo "http://forge.ocamlcore.org/frs/download.php/1037/camlzip-1.05.tar.gz";;
         camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
-        ulex) echo "http://ftp.de.debian.org/debian/pool/main/u/ulex/ulex_1.1.orig.tar.gz";;
+        ulex) echo "http://www.cduce.org/download/ulex-1.1.tar.gz";;
         syslog) echo "http://homepage.mac.com/letaris/syslog-1.4.tar.gz";;
         jpeg) echo "http://www.ijg.org/files/jpegsrc.v8b.tar.gz";;
         libpng) echo "http://sourceforge.net/projects/libpng/files/libpng14/older-releases/1.4.3/libpng-1.4.3.tar.gz";;
@@ -231,7 +232,8 @@ install_generic () {
     if [ -x configure ]; then ./configure "$@"; fi
     make all; r=$?
     make allopt || make opt || make all.opt || [ $r -eq 0 ]
-    $SUDO make install-opt || $SUDO make install
+    $SUDO make install
+    $SUDO make installopt || $SUDO make install-opt
 }
 
 package_install (){
@@ -357,16 +359,18 @@ package_install (){
             ocaml)
                 [ $IS_WINDOWS ] && CYGOPT="-tk-no-x11 -no-tk"
                 ./configure -prefix $PREFIX ${CYGOPT:-}
-                make world # clean world
-                make bootstrap
                 if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
-                    make opt && make opt.opt
+		    make world.opt opt.opt bootstrap
+		else
+                    make world bootstrap
                 fi
                 PREFIX=$INSTALLDIR $SUDO make install -e
+		make clean
                 ;;
             camlzip)
-                make all allopt
-                $SUDO make install installopt
+		install_generic
+                # make all allopt
+                # $SUDO make install installopt
                 $SUDO install -m 0644 -v zlib.cm* $($OCAMLC -where)/zip
                 ;;
             ocaml-ssl)
