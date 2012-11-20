@@ -187,7 +187,7 @@ sources () {
         ocaml) echo "http://caml.inria.fr/pub/distrib/ocaml-4.00/ocaml-4.00.1.tar.gz" ;;
         # Sources obtained thanks to "apt-get --print-uris source <package>"
         findlib) echo "http://download.camlcity.org/download/findlib-1.3.3.tar.gz";;
-        ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.5/ocaml-ssl-0.4.5.tar.gz";;
+        ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.6/ocaml-ssl-0.4.6.tar.gz";;
         cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/891/cryptokit-1.6.tar.gz";;
         ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.2.tar.gz";;
         camlzip) echo "http://forge.ocamlcore.org/frs/download.php/1037/camlzip-1.05.tar.gz";;
