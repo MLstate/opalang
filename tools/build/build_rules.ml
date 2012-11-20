@@ -608,12 +608,12 @@ let opacomp build src dst_ext opt =
   let dst = Pathname.update_extension dst_ext src in
   set_mlstatelibs ();
   Seq [
-  Cmd(S[
-        get_tool "opa-bin"; opt;
-        opaopt;
-        A"-o"; P dst; P src
-      ]);
-  unset_mlstatelibs
+    Cmd(S[
+          get_tool "opa-bin"; opt;
+          opaopt;
+          A"-o"; P dst; P src
+	]);
+    unset_mlstatelibs
   ]
 in
 
@@ -1117,13 +1117,13 @@ rule name
     set_mlstatelibs ();
     Seq [
       Cmd(S([
-        get_tool "opa-bin";
-        A"-o"; P opa_create_dst; P opa_create_src;
-        A"--opx-dir"; A app_opx_dir;
-        A"--no-server";
-        A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
-        A"-I"; A prefixed_plugins_dir
-      ] @ more_app_opts));
+	      get_tool "opa-bin";
+              A"-o"; P opa_create_dst; P opa_create_src;
+              A"--opx-dir"; A app_opx_dir;
+              A"--no-server";
+              A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
+              A"-I"; A prefixed_plugins_dir
+	    ] @ more_app_opts));
       unset_mlstatelibs
     ]
     )
