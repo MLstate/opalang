@@ -360,7 +360,7 @@ package_install (){
                 [ $IS_WINDOWS ] && CYGOPT="-tk-no-x11 -no-tk"
                 ./configure -prefix $PREFIX ${CYGOPT:-}
                 if [ $IS_LINUX ] || [ $IS_MAC ] || [ $IS_FREEBSD ]; then
-		    make world.opt opt.opt bootstrap
+		    make world.opt bootstrap opt.opt
 		else
                     make world bootstrap
                 fi
