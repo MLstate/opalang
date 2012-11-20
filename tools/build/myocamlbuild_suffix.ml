@@ -16,13 +16,21 @@
       (* pp_script *)
 
       let mlstate_debug, mlstate_nodebug, pa_ulex =
+	let x = S [ P Config.camlp4o;
+		    (match Config.Libdir.ulex with
+		     | Some dir -> S [A "-I"; P dir]
+		     | None -> N);
+		    P "pa_ulex.cma"; P "pr_o.cmo" ]
+	in
+	if is_win then (
           S [ P "perl.exe"; P (".."/"tools"/"utils"/"ppdebug.pl")],
           S [ P "perl.exe"; P (".."/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
-          S [ P Config.camlp4o;
-              (match Config.Libdir.ulex with
-               | Some dir -> S [A "-I"; P dir]
-               | None -> N);
-              P "pa_ulex.cma"; P "pr_o.cmo" ]
+	  x
+	) else (
+          P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"),
+          S [ P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
+	  x
+	)
       in
       flag ["ocaml"; "pp"; "with_mlstate_debug"]
         (if List.mem "release" !Options.tags then mlstate_nodebug else mlstate_debug);

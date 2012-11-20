@@ -34,8 +34,6 @@ in
 
 
 (* -- Directory contexts -- *)
-let set_mlstatelibs () = Unix.putenv "MLSTATELIBS" (String.map (function '/' -> '\\' | c -> c) build_dir) in
-let unset_mlstatelibs = Cmd(S[A "unset";A"MLSTATELIBS"]) in
 
 shared_namespace_dir (prefix_me "compiler/libqmlcompil");
 shared_namespace_dir (prefix_me "compiler/opa");

@@ -24,11 +24,18 @@ let prefix_me s = opalang_prefix ^ s
 
 let clear_backslashes s =
   let s = String.copy s in
-  String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s;
-  s
+  (* TODO: replace by String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s; when we switch to OCaml 4 *)
+  let len = String.length s in
+  let rec aux i =
+    if i >= len then s
+    else (
+      if s.[i] = '\\' then s.[i] <- '/';
+      aux (i+1)
+    )
+  in aux 0
 
 let build_dir =
-  clear_backslashes (  
+  clear_backslashes (
   if (Pathname.is_relative !Options.build_dir)
   && not (Pathname.is_prefix Pathname.pwd !Options.build_dir)
   (*is_relative does not work on cygwin/windows*)
@@ -114,8 +121,23 @@ let proto_deps dep prod env build =
 let build_list build targets =
   List.iter Outcome.ignore_good (build (List.map (fun f -> [f]) targets))
 
-let mlstatelibs = try Sys.getenv "MLSTATELIBS" with
-    Not_found -> build_dir
+let mlstatelibs = try Sys.getenv "MLSTATELIBS" with Not_found -> build_dir
+let set_mlstatelibs () =
+  let mlstatelibs =
+    if is_win then
+      (* TODO: replace by String.map (function '/' -> '\\' | c -> c) build_dir when we switch to OCaml 4 *)
+      let s = String.copy build_dir in
+      let len = String.length s in
+      let rec aux i =
+	if i >= len then s
+	else (
+	  if s.[i] = '/' then s.[i] <- '\\';
+	  aux (i+1)
+	)
+      in aux 0
+    else mlstatelibs
+  in Unix.putenv "MLSTATELIBS" mlstatelibs
+let unset_mlstatelibs = Cmd(S[A "unset";A"MLSTATELIBS"])
 
 type tool_type = Internal of Pathname.t | External of Pathname.t
 let tools_table = (Hashtbl.create 17: (string, tool_type) Hashtbl.t)
