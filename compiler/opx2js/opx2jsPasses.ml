@@ -65,9 +65,15 @@ let pass_LoadEnvironment k =
        let module RawTypeDefinition = ObjectFiles.MakeRaw(Pass_TypeDefinition.S) in
        let module RawUndot = ObjectFiles.MakeRaw(Pass_Undot.S) in
        let module RawEi = ObjectFiles.MakeRaw(Pass_ExplicitInstantiation.S) in
+       let packages =
+         List.map (fun package_name ->
+                     let package = package_name, FilePos.nopos "commandLine" in
+                     ObjectFiles.expand_glob ~mode:`package [] package
+                  ) options.O.packages
+       in
+       let packages = List.flatten packages in
        let _ = List.fold_left
-           (fun _acc package_name ->
-              let package = package_name, FilePos.nopos "commandLine" in
+           (fun _acc package ->
 
               let renaming = RawRenaming.load1 package in
               let gamma = RawTypeDefinition.load1 package in
@@ -116,7 +122,7 @@ let pass_LoadEnvironment k =
               in
               k (PassHandler.make_env options
                    {renaming; gamma; undot; skipped; package; code=[]; is_ei})
-           ) 0 options.O.packages
+           ) 0 packages
        in
        PassHandler.make_env options 0
     )
