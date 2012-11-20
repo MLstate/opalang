@@ -12,3 +12,4 @@
 <unix>: traverse
 
 <bootstrap-*>: traverse
+<meteor-*>: traverse
