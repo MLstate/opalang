@@ -12,6 +12,7 @@ client module Spark {
     isolate         = %% Spark.isolate %%
     labelBranch     = %% Spark.labelBranch %%
     list            = %% Spark.list %%
+
     function replace_f(position, item_f){
         Dom.to_selection(
             %% Spark.replace_f %%(Dom.of_selection(position), { function() item_f() } )

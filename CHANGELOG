@@ -1,3 +1,7 @@
+New features:
+
+    - Reactive UI based on Meteor Spark (wip)
+
 - Removed native backend.
 
   * Bootstrap:
