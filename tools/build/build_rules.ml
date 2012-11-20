@@ -1052,7 +1052,7 @@ let packages_building ~name ~stamp ~core_only ~rebuild
                 (* A"--verbose-build"; *)
                 A"--conf";P "conf";
                 A"--slicer-check"; A "low";
-                A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
+                A"--project-root"; P (Pathname.pwd/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"-I"; A prefixed_plugins_dir;
                 opaopt;
@@ -1121,7 +1121,7 @@ rule name
               A"-o"; P opa_create_dst; P opa_create_src;
               A"--opx-dir"; A app_opx_dir;
               A"--no-server";
-              A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
+              A"--project-root"; P (Pathname.pwd/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
               A"-I"; A prefixed_plugins_dir
 	    ] @ more_app_opts));
       unset_mlstatelibs

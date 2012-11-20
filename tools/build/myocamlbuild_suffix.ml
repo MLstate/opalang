@@ -16,8 +16,8 @@
       (* pp_script *)
 
       let mlstate_debug, mlstate_nodebug, pa_ulex =
-        S [ P "perl"; P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl")],
-        S [ P "perl"; P (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"); A "-r" ],
+        S [ P "perl"; P (Pathname.pwd/(prefix_me "tools"/"utils"/"ppdebug.pl"))],
+        S [ P "perl"; P (Pathname.pwd/(prefix_me "tools"/"utils"/"ppdebug.pl")); A "-r" ],
 	S [ P Config.camlp4o;
 	    (match Config.Libdir.ulex with
 	     | Some dir -> S [A "-I"; P dir]
