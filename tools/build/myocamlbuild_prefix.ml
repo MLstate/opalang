@@ -24,15 +24,8 @@ let prefix_me s = opalang_prefix ^ s
 
 let clear_backslashes s =
   let s = String.copy s in
-  (* TODO: replace by String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s; when we switch to OCaml 4 *)
-  let len = String.length s in
-  let rec aux i =
-    if i >= len then s
-    else (
-      if s.[i] = '\\' then s.[i] <- '/';
-      aux (i+1)
-    )
-  in aux 0
+  String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s;
+  s
 
 let build_dir =
   clear_backslashes (
@@ -124,19 +117,9 @@ let build_list build targets =
 let mlstatelibs = try Sys.getenv "MLSTATELIBS" with Not_found -> build_dir
 let set_mlstatelibs () =
   let mlstatelibs =
-    if is_win then
-      (* TODO: replace by String.map (function '/' -> '\\' | c -> c) build_dir when we switch to OCaml 4 *)
-      let s = String.copy build_dir in
-      let len = String.length s in
-      let rec aux i =
-	if i >= len then s
-	else (
-	  if s.[i] = '/' then s.[i] <- '\\';
-	  aux (i+1)
-	)
-      in aux 0
-    else mlstatelibs
-  in Unix.putenv "MLSTATELIBS" mlstatelibs
+    if is_win then String.map (function '/' -> '\\' | c -> c) build_dir
+    else build_dir in
+  Unix.putenv "MLSTATELIBS" mlstatelibs
 let unset_mlstatelibs = Cmd(S[A "unset";A"MLSTATELIBS"])
 
 type tool_type = Internal of Pathname.t | External of Pathname.t
