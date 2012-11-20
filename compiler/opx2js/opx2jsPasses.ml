@@ -39,7 +39,7 @@ let pass_CheckOptions =
     (fun e ->
        if List.is_empty e.PH.options.O.packages
        then (
-         OManager.printf "@{<bright>No packages is specify@}@.";
+         OManager.printf "@{<bright>No packages are specified@}@.";
          O.print_help ();
          OManager.printf "@[<2>@{<bright>Hint@}:@\nprecise some packages@]@.";
          exit 1;

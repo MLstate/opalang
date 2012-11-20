@@ -46,19 +46,22 @@ let set_build_dir build_dir = r := {!r with build_dir}
 
 let options = [
   "--build-dir", Arg.String set_build_dir,
-  "Set the build directory";
+  " Set the build directory";
 
   "-I", Arg.String add_extra_path,
-  "Add the given directory to the list of directories searched";
+  " Add the given directory to the list of directories searched";
 
 ] @ OManager.Arg.options
-  @ ObjectFiles.Arg.public_options
+
+let options = Arg.sort ( Arg.align options )
 
 let anon_fun arg = add_packages arg
 
+let usage = "Usage: opa export [options] opa.packages.to.export...\n\nWhere options are:"
+
 let get_options () =
   if not !parsed then (
-    Arg.parse options anon_fun "";
+    Arg.parse options anon_fun usage;
     parsed := true;
     ObjectFiles.set_relative_stdlib "stdlib.qmljs";
     ObjectFiles.set_extrapaths ~no_stdlib:false !r.extra_path;
@@ -66,4 +69,4 @@ let get_options () =
   !r
 
 let print_help () =
-  Arg.usage options ""
+  Arg.usage options usage
