@@ -1,4 +1,3 @@
-open Base
 let _grammar_rules = [ ("Tokenizer_tokens", None) ; ("Tokenizer_rest", None) ; ("Tokenizer_id", None) ]
 let parse_with f_noerr f_err _text _start = let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
@@ -15,7 +14,7 @@ let memo_Tokenizer_rest_err = ((Hashtbl.create) (128))
 let memo_Tokenizer_tokens = ((Hashtbl.create) (128))
 let memo_Tokenizer_tokens_err = ((Hashtbl.create) (128))
 let prepare_cache () = ((Hashtbl.clear) (memo_Tokenizer_id)) ; ((Hashtbl.clear) (memo_Tokenizer_id_err)) ; ((Hashtbl.clear) (memo_Tokenizer_rest)) ; ((Hashtbl.clear) (memo_Tokenizer_rest_err)) ; ((Hashtbl.clear) (memo_Tokenizer_tokens)) ; ((Hashtbl.clear) (memo_Tokenizer_tokens_err))
-let rec try_Tokenizer_id_noerr = 
+let try_Tokenizer_id_noerr = 
 #12 "tokenizer.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
@@ -34,7 +33,7 @@ if ( (((||)) ((((&&)) ((((>=)) (c) ('a'))) ((((<=)) (c) ('z'))))) ((((||)) ((((&
 ( Tgrammar.string_of_chars (__1::__2)  ))))) in
 (Hashtbl.add (memo_Tokenizer_id) (input) (res)) ; res)
 )
-let rec try_Tokenizer_rest_noerr = 
+let try_Tokenizer_rest_noerr = 
 #14 "tokenizer.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
@@ -54,7 +53,7 @@ Some((((succ) (input_7)), c)) ) else ( None )
 ( Tgrammar.string_of_chars __1  )))) in
 (Hashtbl.add (memo_Tokenizer_rest) (input) (res)) ; res)
 )
-let rec try_Tokenizer_tokens_noerr = 
+let try_Tokenizer_tokens_noerr = 
 #16 "tokenizer.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
@@ -77,7 +76,7 @@ Not_found -> let res = (match (try_Tokenizer_rest_noerr (_filename) (_text) (inp
 ( __1::List.concat __2  ))))) in
 (Hashtbl.add (memo_Tokenizer_tokens) (input) (res)) ; res)
 )
-let rec try_Tokenizer_id = 
+let try_Tokenizer_id = 
 #12 "tokenizer.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
@@ -96,7 +95,7 @@ if ( (((||)) ((((&&)) ((((>=)) (c) ('a'))) ((((<=)) (c) ('z'))))) ((((||)) ((((&
 ( Tgrammar.string_of_chars (__1::__2)  )), ((Trx_runtime.emptyError) (input_22)))))))))) in
 (Hashtbl.add (memo_Tokenizer_id_err) (input) (res)) ; res)
 )
-let rec try_Tokenizer_rest = 
+let try_Tokenizer_rest = 
 #14 "tokenizer.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
@@ -119,7 +118,7 @@ Trx_runtime.Fail((err))))) (input)) with
 ( Tgrammar.string_of_chars __1  )), ((Trx_runtime.emptyError) (input_17))))))) in
 (Hashtbl.add (memo_Tokenizer_rest_err) (input) (res)) ; res)
 )
-let rec try_Tokenizer_tokens = 
+let try_Tokenizer_tokens = 
 #16 "tokenizer.trx"
 (fun _filename _text input -> let _len = ((String.length) (_text))
 and _get_char = ((String.unsafe_get) (_text))
