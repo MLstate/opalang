@@ -629,6 +629,8 @@ let ext_obj = "$EXT_OBJ"
 let ext_shared = "$EXT_SHARED"
 let ext_exe = "$EXT_EXE"
 
+let available = []
+
 let more_server_include_dir = []
 
 let more_ocamllibs _ = ()
