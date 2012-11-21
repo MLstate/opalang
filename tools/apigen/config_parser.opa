@@ -1,3 +1,6 @@
+/**
+ * A simple line-based parser for API config files.
+ */
 
 function dbg(where) {
   parser {

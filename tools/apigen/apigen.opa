@@ -3,6 +3,7 @@ import stdlib.io.file
 default_config_file = "config"
 
 config_file = Mutable.make(default_config_file)
+args_style = Mutable.make(option(style) none)
 
 args =
   { init: void,
@@ -19,13 +20,29 @@ args =
             {no_params: state}
           }
         }
+      },
+      { CommandLine.default_parser with
+        names: ["--style"],
+        param_doc: "js-like/classic",
+        description: "Overrides the style in the config file (default: classic)",
+        function on_param(state) {
+          parser {
+          case style=(.*):
+            match (Text.to_string(style)) {
+            case "js-like": args_style.set({some:{js_like}});
+            case "classic": args_style.set({some:{classic}});
+            default: @fail("Unknown style: {style}");
+            }
+            {no_params: state}
+          }
+        }
       }
     ],
     anonymous: [],
     title: "API generator"
   }
 
-function gen_header(config config) {
+function gen_header(config config, context context) {
   copyright =
     match (get_int_parameter(config,"since",0)) {
     case 0: dcmnts(config.copyright);
@@ -44,7 +61,7 @@ function gen_header(config config) {
     match (get_parameter(config, "endpoint", "")) { case "": []; case endpoint: [dcmnt("Endpoint: {endpoint}")]; },
     [dcmnt("Endianness: {string_of_le(get_le(config))}")],
     if (get_parameter(config, "oauth", "") != "") [dcmnt("OAuth: {get_oauth(config)}")] else [],
-    [dcmnt("Style: {styled("JS-like","Classic")}")],
+    [dcmnt("Style: {styled(context,"JS-like","Classic")}")],
     if (config.docs != []) [ddocs(config.docs)] else [],
     match (get_parameter(config,"package","")) { case "": []; case pkg: [dvb("package {pkg}")]; },
     [dvb("import stdlib.core"),
@@ -57,17 +74,6 @@ function gen_header(config config) {
   ])
 }
 
-function space(defs) {
-  recursive function aux(defs) {
-    match (defs) {
-    case []: [];
-    case [def]: [def,dblnk];
-    case [def|defs]: [def,dblnk|aux(defs)];
-    }
-  }
-  aux(defs)
-}
-
 function gen_type(config config, name, params) {
   typdef("{config.name}.{name}",
          ctyp([List.map(function (param param) {
@@ -77,8 +83,8 @@ function gen_type(config config, name, params) {
 }
 
 function gen_types(config config) {
-  space(List.append(List.map(function (ty) { gen_type(config, ty.name, ty.params) }, config.types),
-                    List.map(function (def) { gen_type(config, "{def.name}_options", def.params) },config.defs)))
+  dspace(List.append(List.map(function (ty) { gen_type(config, ty.name, ty.params) }, config.types),
+                     List.map(function (def) { gen_type(config, "{def.name}_options", def.params) },config.defs)))
 }
 
 function gen_external_code(config config) {
@@ -93,36 +99,29 @@ function run() {
   CommandLine.filter(args)
   //jlog("config_file={config_file.get()}")
   config = read_config(config_file.get())
-  _x = match (get_parameter(config,"style","classic")) {
-  case "classic"|"cl": style.set({classic});
-  case "jslike"|"js-like"|"js": style.set({js_like});
-  case style: @fail("Bad style: {style}");
-  }
+  style =
+    match (args_style.get()) {
+    case {some:style}: style;
+    case {none}:
+      match (get_parameter(config,"style","classic")) {
+      case "classic"|"cl": {classic};
+      case "jslike"|"js-like"|"js": {js_like};
+      case style: @fail("Bad style: {style}");
+      }
+    }
   //jlog("config:{config}")
-  if (config.defs != []) {
-    hdr = gen_header(config)
-    typs = gen_types(config)
-    api = gen_api(config)
-    mod = dmod(config.name,
-               if (get_bool_parameter(config,"oauth",false)) [atid("params",tyname("OAuth.parameters"))] else [],
-               List.flatten([api]))
-    ext = gen_external_code(config)
-    opa = List.flatten([hdr, typs, [mod], ext])
-    println(Text.to_string(opatt({style:style.get(),indent:sps(0)},opa)))
-  }
-  if (config.messages != []) {
-    hdr = gen_header(config)
-    typs = gen_types(config)
-    ext = gen_external_code(config)
-    opa = List.flatten([hdr, typs, ext])
-    println(Text.to_string(opatt({style:style.get(),indent:sps(0)},opa)))
-    mp = if (get_bool_parameter(config,"oauth",false)) { typed("OAuth.parameters","params") } else ""
-    print(mod_start("",config.name,mp))
-    output_messages(config)
-    print(mod_end(""))
-    println("// End of {config.name}\n")
-  }
-  void
+  context = init_context(style)
+  opa hdr = gen_header(config,context)
+  opa typs = gen_types(config)
+  block api = gen_api(config)
+  block messages = gen_messages(config)
+  opa mod = [dmod(config.name,
+              if (get_bool_parameter(config,"oauth",false)) [ptid("params",tyname("OAuth.parameters"))] else [],
+              List.flatten([api,messages]))]
+  opa ext = gen_external_code(config)
+  opa last = [dcmnt("End of {config.name}")]
+  opa = List.flatten([hdr, typs, mod, ext, last])
+  println(Text.to_string(opatt(context,opa)))
 }
 
 Scheduler.push(run)

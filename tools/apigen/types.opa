@@ -1,3 +1,6 @@
+/**
+ * Type used to store API descriptions.
+ */
 
 type style = {js_like} or {classic}
 
