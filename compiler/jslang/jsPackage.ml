@@ -127,7 +127,7 @@ let get_code t =
 let merge t1 t2 =
   { t2 with
       dependencies = StringMap.merge (fun x _ -> x) t1.dependencies t2.dependencies;
-      code = t1.code @ t2.code
+      code = t2.code @ t1.code
   }
 
 let auto_dependencies ?(miss=fun _ -> ()) t =
