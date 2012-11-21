@@ -23,7 +23,7 @@ open Requestdef
 
 let version = string_of_int BuildInfos.git_version_counter
 let crlf = "\r\n"
-let double_crlf = crlf ^ crlf
+(*let double_crlf = crlf ^ crlf*)
 
 (** {6 Request} *)
 
@@ -105,6 +105,7 @@ let string_of_response ?(body_limit=1024) r =
 (*     crlf *)
 (*     (r.response_message_body) *)
 
+(*
 let parse_response response =
   let str = FBuffer.contents response in
   try
@@ -113,6 +114,7 @@ let parse_response response =
   with
   | Trx_runtime.SyntaxError (loc, err) ->
       failwith (Printf.sprintf "Failed to parse http response: %s --> %s" str (Trx_runtime.show_error str loc err))
+*)
 
 let print_response_header resp =
   ResponseHeader.iter (

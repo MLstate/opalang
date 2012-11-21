@@ -118,7 +118,7 @@ let do_it lst =
   let funs = B.Hashtbl.create <| L.length lst in
   let () = init_table funs lst in
   let deps_list = get_dep_list funs lst in
-  let ccl = reorder deps_list in
+  let ccl = [List.flatten(reorder deps_list)] in
     (* Tag functions as normal or [mutually-]recursive *)
     try
       L.map (flag_as_rec funs) ccl

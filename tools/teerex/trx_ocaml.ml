@@ -573,7 +573,7 @@ let match_literal ctx literal case offset success failure =
           if case then
             OcamlG.equal input_char literal_char
           else
-            call_fun [vars ["Char"; "equal_insensitive"]; input_char; literal_char]
+            call_fun [vars ["Base.Char"; "equal_insensitive"]; input_char; literal_char]
         in
         OcamlG.band cmp_this_char (aux (i + 1))
     in

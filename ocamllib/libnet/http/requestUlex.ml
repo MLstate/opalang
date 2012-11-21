@@ -17,7 +17,7 @@
 *)
 (* The lexer definition *)
 open RequestParse
-open Printf
+(*open Printf*)
 
 type lexical_error = Illegal_character
 

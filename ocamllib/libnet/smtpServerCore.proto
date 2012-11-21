@@ -51,6 +51,7 @@
 }
 
 {{
+let _ = ec2ecsa
 let rec msglst = function
 | [] -> []
 | [(c,s)] -> [Ns (c,s)]

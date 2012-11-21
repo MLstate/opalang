@@ -20,9 +20,9 @@
 module String = BaseString
 module List = BaseList
 
-open Printf
+(*open Printf*)
 open UserCompatType
-open Rp_brow
+(*open Rp_brow*)
 
 module UCT = UserCompatType
 module HSCp = HttpServerCore_parse

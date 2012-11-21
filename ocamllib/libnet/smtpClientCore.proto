@@ -67,6 +67,7 @@
 
 {{
 let encode_plain user pass = String.base64encode(sprintf "\000%s\000%s" user pass)
+let _ = (compare_msg,get_msg_name,ec2ecsa)
 }}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

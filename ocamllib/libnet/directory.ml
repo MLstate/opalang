@@ -23,7 +23,7 @@ module Hashtbl = Base.Hashtbl
 
 (* ********************************************************)
 (* DEFINE TYPE FOR HLNET PROTOCOL *************************)
-type kind = Dir | Loc
+(*type kind = Dir | Loc*)
 
 type who = Me | Other of Unix.inet_addr
 
@@ -124,7 +124,7 @@ module ExtendHash = struct
     | x -> x
 end
 
-let rec make ?(err_cont=fun _ ->
+let make ?(err_cont=fun _ ->
                  #<If> Logger.warning "[DIRECTORY] Make : Uncaught exn"
                  #<Else> ()
                  #<End>)

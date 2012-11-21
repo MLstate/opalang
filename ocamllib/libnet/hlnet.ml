@@ -38,10 +38,10 @@ let protocol_version = 1
 
 let gc_finalise _sched = Scheduler.finalise _sched
 
-let apply_fun_option opt =
+(*let apply_fun_option opt =
   match opt with
   | Some f -> f
-  | None -> fun _ -> ()
+  | None -> fun _ -> ()*)
 
 
 (* ------------------------------------------------------------ *)
@@ -268,15 +268,15 @@ let hexprint ?(chars_per_line=32) s =
   String.blit sfx 0 buf (String.length buf - sfxlen) sfxlen;
   buf
 
-let int64_to_debug_string ld =
+(*let int64_to_debug_string ld =
   let color = 31 + Int64.to_int (Int64.rem ld (Int64.of_int 6)) in
-  Printf.sprintf "[%dm%016Lx[39m" color ld
+  Printf.sprintf "[%dm%016Lx[39m" color ld*)
 
 let int_to_debug_string i =
   let color = 31 + i mod 6 in
   Printf.sprintf "[%dm%016x[39m" color i
 
-let print_marshalled str beg =
+(*let print_marshalled str beg =
   let s = ref "[35m" in
   for i = beg to String.length str -1 do
     let topr =
@@ -286,13 +286,13 @@ let print_marshalled str beg =
       else Char.escaped str.[i] in
     s := !s ^ "-" ^ topr
   done;
-  !s^"[0m"
+  !s^"[0m"*)
 
-let string_of_htable keystr valstr ht =
+(*let string_of_htable keystr valstr ht =
   Format.fprintf Format.str_formatter "(%d) - %a"
     (H.length ht)
     (fun f -> H.iter (fun k v -> Format.fprintf f "{ %s+%s }|" (keystr k) (valstr v))) ht;
-  Format.flush_str_formatter ()
+  Format.flush_str_formatter ()*)
 
 (* -- Type specific -- *)
 
@@ -421,19 +421,19 @@ let is_channel_listening ch =
 (* Serialisation / deserialisation                              *)
 (* ------------------------------------------------------------ *)
 
-let write_int64 buf offset i =
+(*let write_int64 buf offset i =
   let (>>) = Int64.shift_right_logical in
   for byte = 0 to 7 do
     buf.[offset + byte] <- Char.chr (Int64.to_int (i >> (8* (7 - byte))) land 0xFF)
-  done
+  done*)
 
-let read_int64 buf offset =
+(*let read_int64 buf offset =
   let (<<) = Int64.shift_left in
   let rec aux offset value byte =
     if byte >= 8 then value else
       aux offset (Int64.logor value (Int64.of_int (Char.code buf.[offset+byte]) << (8 * (7 - byte)))) (byte+1)
   in
-  aux offset Int64.zero 0
+  aux offset Int64.zero 0*)
 
 let write_int buf offset i =
   for byte = 0 to 7 do
@@ -595,7 +595,7 @@ struct
       - a string using the serialisation functions provided by the user in the channel_spec
   *)
 
-  let message_shebang = 'M'
+  (*let message_shebang = 'M'*)
   let shebang_length = 1
   let message_header_length = shebang_length + 8 + 8
 
@@ -731,7 +731,7 @@ module Connection : sig
 
   (** Same as [get], but does not attempt to connect, just return the connection
       if existing *)
-  val find: endpoint -> connection option
+  (*val find: endpoint -> connection option*)
 
   (** Registers an already open low-level connection (e.g. returned by
       [accept]). Warning, the connection will be closed if you let the returned
@@ -766,7 +766,7 @@ module Connection : sig
 
   val dump: unit -> string
 
-  val live_channels: unit -> int
+  (*val live_channels: unit -> int*)
 end = struct
 
   let table = Wconnections.create 11
@@ -895,7 +895,7 @@ end = struct
             gc_finalise sched disconnect connection;
             connection
 
-  let find = Wconnections.get_opt table
+  (*let find = Wconnections.get_opt table*)
 
   let register_channel channel =
     let channel = channel_to_black channel in
@@ -931,10 +931,10 @@ end = struct
       (fun c acc -> Printf.sprintf "%s%s\n" acc (connection_to_string c))
       table ""
 
-  let live_channels () =
+  (*let live_channels () =
     Wconnections.fold
       (fun c acc -> acc + Wchannels.count c.channels)
-      table 0
+      table 0*)
 end
 
 
@@ -973,7 +973,7 @@ module PolyHash (V :
   sig
     type key
     type ('out', 'in') value
-    val key2str: key -> string
+    (*val key2str: key -> string*)
   end) :
 sig
   (* This module provides semi-heterogeneous hashtables, needed to handle channels
@@ -989,9 +989,9 @@ sig
   val find   : t -> V.key -> ('out','in') V.value option
   val mem    : t -> V.key -> bool
   val remove : t -> V.key -> unit
-  val update : t -> V.key -> (('out','in') V.value -> ('out','in') V.value) -> unit
-  val fold   : t -> (V.key -> ('out','in') V.value -> 'acc -> 'acc) -> 'acc -> 'acc
-  val to_string : t -> string
+  (*val update : t -> V.key -> (('out','in') V.value -> ('out','in') V.value) -> unit*)
+  (*val fold   : t -> (V.key -> ('out','in') V.value -> 'acc -> 'acc) -> 'acc -> 'acc*)
+  (*val to_string : t -> string*)
 end = struct
   type t = (V.key, Obj.t) H.t
 
@@ -1006,21 +1006,21 @@ end = struct
 
   let mem = H.mem
 
-  let to_string tbl =
-    BaseList.print V.key2str (H.fold (fun k _v acc -> k::acc) tbl [])
+  (*let to_string tbl =
+    BaseList.print V.key2str (H.fold (fun k _v acc -> k::acc) tbl [])*)
 
   let remove tbl k =
     H.remove tbl k
 
-  let update tbl k f =
+  (*let update tbl k f =
     try
       let v = H.find tbl k in
       let new_v = Obj.repr (f ((Obj.obj v) : ('out','in') V.value)) in
       H.replace tbl k new_v
-    with Not_found -> ()
+    with Not_found -> ()*)
 
-  let fold (tbl : t) f acc =
-    H.fold (fun k v acc -> f (k:V.key) ((Obj.obj v) : ('out','in') V.value) acc) tbl acc
+  (*let fold (tbl : t) f acc =
+    H.fold (fun k v acc -> f (k:V.key) ((Obj.obj v) : ('out','in') V.value) acc) tbl acc*)
 end
 
 
@@ -1029,15 +1029,15 @@ end
 module EP : sig
   val add: endpoint -> ('out', 'in') connection_handler -> unit
   val find: endpoint -> ('out', 'in') connection_handler option
-  val update: endpoint -> (('out', 'in') connection_handler -> ('out', 'in') connection_handler) -> unit
+  (*val update: endpoint -> (('out', 'in') connection_handler -> ('out', 'in') connection_handler) -> unit*)
   val remove: endpoint -> unit
-  val to_string: unit -> string
+  (*val to_string: unit -> string*)
 end = struct
 
   module E = struct
     type key = endpoint
     type ('out','in') value = ('out', 'in') connection_handler
-    let key2str = endpoint_to_string
+    (*let key2str = endpoint_to_string*)
   end
 
   module EPH = PolyHash(E) (** Hash from (local) endpoints to their connection handler *)
@@ -1056,10 +1056,10 @@ end = struct
   let remove ep =
     EPH.remove table ep
 
-  let update ep f =
-    EPH.update table ep f
+  (*let update ep f =
+    EPH.update table ep f*)
 
-  let to_string () = EPH.to_string table
+  (*let to_string () = EPH.to_string table*)
 end
 
 
@@ -1068,13 +1068,13 @@ end
 module ChanH : sig
   val add : ('out','in') channel -> unit
   val find: channel_id -> black_channel option
-  val mem: channel_id -> bool
+  (*val mem: channel_id -> bool*)
 
   val remove: channel_id -> unit
     (** If [propagate] (the default), inform the other end of the deletion *)
 
   val to_string: unit -> string
-  val count: unit -> int
+  (*val count: unit -> int*)
 end = struct
 
   let table = H.create 89
@@ -1084,7 +1084,7 @@ end = struct
     H.replace table chan.id (channel_to_black chan)
     (* Strong ref, CH is for channels with pending operations, we hold it in memory *)
 
-  let mem id = H.mem table id
+  (*let mem id = H.mem table id*)
 
   let find id = Base.Hashtbl.find_opt table id
 
@@ -1101,7 +1101,7 @@ end = struct
       (fun id _chan acc -> Printf.sprintf "%s, %s" acc (channel_id_to_debug_string id))
       table ""
 
-  let count () = H.length table
+  (*let count () = H.length table*)
 end
 
 (* Channels have two special closing treatments:
