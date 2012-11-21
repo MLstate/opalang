@@ -160,13 +160,7 @@ INSTALLDIR_LIBOPA=$INSTALLDIR/lib/opa
 
 # Install (our) ocaml
 if [ -n "$IS_WINDOWS" ]; then
-    msg Local copy of ocaml HACK TEMPORAIRE for debug
-    WINOCAML=/cygdrive/c/ocamlms
-    mkdir -p $INSTALLDIR/lib/ocaml
-    mkdir -p $INSTALLDIR/bin
-    mkdir -p $INSTALLDIR/bin/ocaml
-    cp -ur $WINOCAML/lib/* $INSTALLDIR/lib/ocaml/
-    cp -ur $WINOCAML/bin/* $INSTALLDIR/bin/
+    msg Nothing to do for ocaml installation
 else
     msg Installing ocaml and other dependencies
     if [ "$KEEP_INSTALL_SYS" = "false" ] ; then
