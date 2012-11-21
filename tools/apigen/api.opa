@@ -11,7 +11,7 @@ function exp opt_of_typ(param param) {
   }
   match (param.typ) {
     case {unknown}:
-      erec([eex("\{j{opt}",etup([evb("\"{param.name}\""),efn([aid("j")],[svb("j")]),evb("options.{param.name}")]))]);
+      erec([eex("\{j{opt}",etup([evb("\"{param.name}\""),efn([pid("j")],[svb("j")]),evb("options.{param.name}")]))]);
     case {int}: simple("i");
     case {string}: simple("s");
     case {bool}: simple("b");
@@ -25,7 +25,7 @@ function exp opt_of_typ(param param) {
 
 function gen_param_gen(config config) {
   List.map(function (def) {
-    sfn("{def.name}_options",[atid("options",tyname("{config.name}.{def.name}_options"))],empty_t,
+    sfn("{def.name}_options",[ptid("options",tyname("{config.name}.{def.name}_options"))],empty_t,
         [sexp(efa(eid("ApigenLib.params"),[elst(List.map(opt_of_typ,def.params))]))])
   },config.defs)
 }
@@ -52,7 +52,7 @@ function gen_param_default(config config) {
 
 function exp getname(typ typ) {
   match (typ) {
-  case {unknown}: efn([aid("j")],[svb("j")]);
+  case {unknown}: efn([pid("j")],[svb("j")]);
   case {int}: evb("ApigenLib.get_json_int");
   case {string}: evb("ApigenLib.get_json_string");
   case {bool}: evb("ApigenLib.get_json_bool");
@@ -79,7 +79,7 @@ function gen_get_types(config config) {
     match (ty.params) {
     case []: sempty;
     case params:
-      sfn("get_{ty.name}",[aid("json")],empty_t,
+      sfn("get_{ty.name}",[pid("json")],empty_t,
           [svb("map = JsonOpa.record_fields(json) ? Map.empty"),
            sexp(esuccess(typedexp(erec(List.map(function (param) { eex("{param.name}",get_get(param)) },params)),
                                   tyname("{config.name}.{ty.name}")))
@@ -96,7 +96,7 @@ function gen_builds(config config) {
     case {some:{parse:~{return_type:{BOOL}, tyname:_}}}: sempty;
     case {some:{parse:~{return_type:{INT}, tyname:_}}}: sempty;
     case {some:{parse:~{return_type:{OBJECT}, tyname:tn}}}:
-      sfn("build_{tn}",[atid("res",tyname("WebClient.success"))],empty_t,
+      sfn("build_{tn}",[ptid("res",tyname("WebClient.success"))],empty_t,
           if (def.error_field != "") {
             [sexp(efa(eid("ApigenLib.check_errors"),
                       [eid("res.content"),evb("\"{def.error_field}\""),erecsimple("OBJECT"),eid("get_{tn}")]))]
@@ -105,7 +105,7 @@ function gen_builds(config config) {
              sexp(efa(eid("get_{tn}"),[eid("json")]))]
           });
     case {some:{parse:~{return_type:{LIST}, tyname:tn}}}:
-      sfn("build_{tn}",[atid("res",tyname("WebClient.success"))],empty_t,
+      sfn("build_{tn}",[ptid("res",tyname("WebClient.success"))],empty_t,
           if (def.error_field != "") {
             [sexp(efa(eid("ApigenLib.check_errors"),
                       [eid("res.content"),evb("\"{def.error_field}\""),erecsimple("LIST"),
@@ -124,9 +124,9 @@ function gen_calls(config config) {
     case {none}: sempty;
     case {some:{~parse}}:
       verb = string_of_verb(def.verb)
-      args = [atid("options",tyname("{config.name}.{def.name}_options"))]
-      args = if (get_oauth(config)) List.append(args,[aid("credentials")]) else args
-      args = if (def.verb == {POST}) List.append(args,[aid("content")]) else args
+      args = [ptid("options",tyname("{config.name}.{def.name}_options"))]
+      args = if (get_oauth(config)) List.append(args,[pid("credentials")]) else args
+      args = if (def.verb == {POST}) List.append(args,[pid("content")]) else args
       get =
         match (parse.return_type) {
         case {BOOL}: efa(eid("ApigenLib.build_bool"),[ewild,evb("\"{def.error_field}\"")]);
