@@ -116,6 +116,7 @@
 -val null_payload : payload
 
 {{
+let _ = ec2ecsa
 let allowed_hosts = ref []
 let http_version_number = "1.1"
 let http_version = "HTTP/"^http_version_number
@@ -177,8 +178,8 @@ let http_server_callback runtime (buf,pos_ref) =
   match runtime.rt_tmp.rt_callback with
   | Some cb -> cb runtime.rt_proto.rt_payload !pos_ref buf
   | None -> true
-let split_cookie str =
-  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.slice ';' str)
+(*let split_cookie str =
+  List.map (fun x -> let a, b = String.split_char '=' x in ((String.trim a), b)) (String.slice ';' str)*)
 }}
 
 % FIXME: parse this...

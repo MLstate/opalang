@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011 MLstate
 
     This file is part of Opa.
 
@@ -1273,7 +1273,7 @@ let generate_try_parse_functions dep_g prod_funs_part =
   in
   let let_ rec_ l = if rec_ then Ocaml.Letrec l else Ocaml.Let l in
   List.map (fun part ->
-    let_ (is_rec part) (List.map (fun (_pn, fn, body) ->
+    let_ (is_rec part) (List.map (fun (_pn, fn, body) -> 
       Ocaml.pf fn, body
     ) part)
   ) prod_funs_part

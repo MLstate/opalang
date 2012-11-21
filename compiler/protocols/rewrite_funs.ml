@@ -114,13 +114,13 @@ and receive rfn success errors timeout =
     let clauses = match timeout with
       | None -> clauses
       | Some (G.Timeout ( _, what_to_do)) ->
-          let clause = G.Case ((G.Constr ("Timeout", []), None), what_to_do) in
+          let clause = G.Case ((G.Constr ("Scheduler.Timeout", []), None), what_to_do) in
             clause :: clauses
       | _ -> assert false in
     let clauses =
       match L.map rewrite_clause clauses with
       | [] -> [O.PatAny, None, O.Const O.Unit]
-      | [((O.PatConstructor ([timeout], _) as patconst), g, re)] when Ident.stident timeout = "Timeout" ->
+      | [((O.PatConstructor ([timeout], _) as patconst), g, re)] when Ident.stident timeout = "Scheduler.Timeout" ->
           (patconst, g, re) :: [O.PatAny, None, O.Const O.Unit]
       | otherwise -> otherwise
     in O.Var (

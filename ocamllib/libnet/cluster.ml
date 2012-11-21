@@ -74,7 +74,7 @@ let get_id dc addr =
   | -1 -> failwith (Printf.sprintf "[Cluster] Unknown clunser ode... %s" (sockaddr_to_string addr))
   | i -> i
 
-let node_id_to_debug_string = string_of_int
+(*let node_id_to_debug_string = string_of_int*)
 
 let node_id_to_string dc node_id =
   let addr = get_addr dc node_id in
@@ -131,9 +131,9 @@ let random_server_id ?including_myself dc =
 let servers_no ?including_myself dc =
   List.length (all_server_ids ?including_myself dc)
 
-let all_server_endpoints ?including_myself dc =
+(*let all_server_endpoints ?including_myself dc =
   let ss = all_server_ids ?including_myself dc in
-  List.map (get_addr dc) ss
+  List.map (get_addr dc) ss*)
 
 let node_id_to_int node_id = node_id
 

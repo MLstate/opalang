@@ -20,7 +20,7 @@
 %{
   open Requestdef
   open RequestType
-  open Printf
+  (*open Printf*)
 %}
 
 /*(* Tokens *)*/

@@ -18,7 +18,7 @@
 (* Accept: see the interface file for docs. *)
 open Printf
 open HttpTools
-open HttpServerTypes
+(*open HttpServerTypes*)
 
 (* depends *)
 module List = BaseList

@@ -70,6 +70,7 @@
 -include "ftpMessages.proto"
 
 {{
+let _ = (compare_msg,get_msg_name,ec2ecsa)
 let dlog sep code _msg = Logger.debug "<<< %d%s%s" code sep _msg
 let eilog = dlog "-"
 let ilog = dlog " "

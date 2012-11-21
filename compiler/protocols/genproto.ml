@@ -286,7 +286,7 @@ let gen_functor ~protocol parserprefix parsername arg lst types startfun =
     @ [O.Verbatim launch]
   in
     O.Open [Ident.source "Base"]
-    :: O.Open [Ident.source "Scheduler"]
+    (*:: O.Open [Ident.source "Scheduler"]*)
     :: O.Open [Ident.source (String.capitalize parsername)]
     (*:: List.map (function MOpen s -> O.Open [Ident.source s] | _ -> assert false) opens*)
     :: List.map (function G.Debugvar s -> O.Verbatim ("#<Debugvar:"^s^">") | _ -> assert false) dbgvars
