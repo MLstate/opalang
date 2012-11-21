@@ -80,8 +80,5 @@ This package also includes pieces of the following software:
 
 - Font Awesome, http://fortawesome.github.com/Font-Awesome
 
-- node.js, http://nodejs.org/
-    © Joyent, Inc. and other Node contributors
-
 Detailed copyright information of all these included packages lie in
 file <other_licenses>.
