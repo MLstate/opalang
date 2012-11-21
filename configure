@@ -164,7 +164,7 @@ if [ -n "${IS_MAC:-}" ]; then
         fi
         exit 1
     fi >&2
-    . ./tools/platform_helper.sh
+    . ${OPALANG_DIR:-"."}/tools/platform_helper.sh
 fi
 
 if [ -n "${IS_FREEBSD:-}" ]; then
@@ -321,7 +321,7 @@ else
 fi
 
 # - checking for nodejs version
-echo-check nodejs version
+echo-check for nodejs version
 NODE_VERSION=$(node --version)
 NODE_MIN_VERSION="v0.6"
 if [[ $NODE_VERSION > $NODE_MIN_VERSION ]]; then
@@ -331,30 +331,6 @@ else
     echo "Node $NODE_MIN_VERSION or newer is required"
     exit 1
 fi
-
-# # - checking for nodejs package dependency
-# check-node-dependency() (
-#     echo-check for "nodejs dependency: $1"
-#     # local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
-#     # trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
-#     # echo "var $1 = require(\"$1\");" >test.nodejs
-#     # node test.nodejs
-#     if npm list | grep -q "$1" || npm list -g | grep -q "$1"; then
-# 	echo-ok found
-#     else
-# 	echo-err Not found
-#         exit 1
-#     fi
-# )
-
-# check-node-dependency "nodemailer"
-# check-node-dependency "simplesmtp"
-# check-node-dependency "imap"
-# check-node-dependency "mongodb"
-# check-node-dependency "formidable"
-# # node-iconv doesn't work on Windows.
-# if [ ! "${IS_WINDOWS:-}" ]; then check-node-dependency "iconv"; fi
-
 
 # check C libs:
 #   we depend on libssl, libzip and others, but through
@@ -673,6 +649,8 @@ let ext_shared = "$EXT_SHARED"
 let ext_exe = "$EXT_EXE"
 
 let more_server_include_dir = []
+
+let more_ocamllibs _ = ()
 
 EOF
 

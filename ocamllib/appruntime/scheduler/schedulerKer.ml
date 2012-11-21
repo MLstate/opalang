@@ -529,7 +529,7 @@ struct
 
   let push t f = Queue.push f t
 
-  let rec process t =
+  let process t =
     let rec aux i =
       if i = 0 then ()
       else (
@@ -549,7 +549,7 @@ struct
 
   let push_seq l t = List.iter (push t) l
 
-  let rec rev_transfer ~(src:t) ~(dest:t) =
+  let rev_transfer ~(src:t) ~(dest:t) =
     let l = rev_append_list src [] in
     push_seq l dest
 

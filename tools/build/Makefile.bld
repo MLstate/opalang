@@ -47,15 +47,15 @@ DESTDIR ?=
 INSTALL_DIR = $(DESTDIR)$(PREFIX)
 LIB_INSTALL_DIR = $(INSTALL_DIR)/lib/opa/static
 
-CONFIG_PATH = $(OPALANG_DIR)/tools/build
+CONFIG_DIR ?= $(BLDDIR)
 
 .PHONY: clean
 clean::
 	rm -rf _build/*
 
 .PHONY: distclean
-distclean: clean
-	rm -f $(CONFIG_PATH)/config.{sh,ml,make,log}
+distclean:: clean
+	rm -f $(CONFIG_DIR)/config.{sh,ml,make,log}
 
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
@@ -65,13 +65,13 @@ BUILD_LIBS := $(BLDDIR)/build_libs $(BUILD_LIBS)
 BUILD_TOOLS := $(BLDDIR)/build_tools $(BUILD_TOOLS)
 
 MYOCAMLBUILD_SOURCES = \
+	$(CONFIG_DIR)/config.ml \
 	$(BLDDIR)/gen_myocamlbuild.sh \
-	$(BLDDIR)/config.ml \
 	$(BLDDIR)/myocamlbuild_prefix.ml \
 	$(BLDDIR)/myocamlbuild_suffix.ml \
 	$(BUILD_RULES) $(BUILD_LIBS) $(BUILD_TOOLS)
 
-$(BLDDIR)/config.ml: configure
+$(CONFIG_DIR)/config.ml: configure
 	@echo "configure file has changed. Please (re)run ./configure"
 	@exit 1
 

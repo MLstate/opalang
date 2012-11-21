@@ -314,6 +314,8 @@ let _ = dispatch begin function
       ocaml_lib ~extern:true ?dir:Config.Libdir.ulex ~tag_name:"use_ulex" "ulexing";
       ocaml_lib ~extern:true ~dir:"+mascot" "mascot";
 
+      Config.more_ocamllibs ocaml_lib;
+
       (* MLstate libs *)
       let mlstate_lib, internal_lib, mlstate_lib_deps, mlstate_lib_dir =
         let mlstate_libs_table = Hashtbl.create 17 in
