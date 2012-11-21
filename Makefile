@@ -11,10 +11,11 @@
 all: node
 
 OPALANG_DIR ?= .
+CONFIG_DIR ?= $(OPALANG_DIR)/tools/build
 
-BUILD_PATH = $(OPALANG_DIR)/tools/build
+BUILD_TOOLS_DIR = $(OPALANG_DIR)/tools/build
 
--include $(BUILD_PATH)/config.make
+-include $(CONFIG_DIR)/config.make
 
 MAKE ?= $_
 OCAMLBUILD_OPT ?= -j 6
@@ -29,7 +30,7 @@ endif
 
 export
 
-include $(BUILD_PATH)/Makefile.bld
+include $(BUILD_TOOLS_DIR)/Makefile.bld
 
 MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
 
@@ -229,7 +230,7 @@ install-bld:
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
 	@echo "_build/myocamlbuild -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
-	@$(INSTALL) $(BUILD_PATH)/gen_myocamlbuild.sh $(BUILD_PATH)/myocamlbuild_*fix.ml $(CONFIG_PATH)/config.sh $(CONFIG_PATH)/config.mli $(CONFIG_PATH)/config.ml\
+	@$(INSTALL) $(BUILD_TOOLS_DIR)/gen_myocamlbuild.sh $(BUILD_TOOLS_DIR)/myocamlbuild_*fix.ml $(CONFIG_DIR)/config.sh $(CONFIG_DIR)/config.mli $(CONFIG_DIR)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
 maxmem: $(OPALANG_DIR)/tools/maxmem.c

@@ -11,16 +11,15 @@ set -e
 # $ <build_dir>/myocamlbuild -no-plugin -j 6 <targets>
 
 OPALANG_DIR=${OPALANG_DIR:-"."}
-TOOLS_PATH=$OPALANG_DIR/tools
-CONFIG_PATH=$TOOLS_PATH/build
+TOOLS_DIR=$OPALANG_DIR/tools
 BUILD_TOOLS=${BUILD_TOOLS:-"tools/build/build_tools"}
 BUILD_LIBS=${BUILD_LIBS:-"tools/build/build_libs"}
 BUILD_RULES=${BUILD_RULES:-"tools/build/build_rules"}
 
-CONFIG_SH=$CONFIG_PATH/config.sh
+CONFIG_SH=$CONFIG_DIR/config.sh
 if [ ! -e $CONFIG_SH ]; then
-    if [ -e $CONFIG_PATH/config.sh ]; then
-        CONFIG_SH=$CONFIG_PATH/config.sh
+    if [ -e $CONFIG_DIR/config.sh ]; then
+        CONFIG_SH=$CONFIG_DIR/config.sh
     else
         echo "Error: config.sh not found. Please run ./configure"
         exit 1
@@ -29,11 +28,11 @@ fi
 
 . $CONFIG_SH
 
-. $TOOLS_PATH/platform_helper.sh
+. $TOOLS_DIR/platform_helper.sh
 
-: ${BLDDIR:=$TOOLS_PATH/build}
+: ${BLDDIR:=$TOOLS_DIR/build}
 
-CONFIG_ML=$CONFIG_PATH/config.ml
+CONFIG_ML=$CONFIG_DIR/config.ml
 if [ ! -e $CONFIG_ML ]; then
     echo $BLDDIR/config.ml >&2
     if [ -e $BLDDIR/config.ml ]; then
@@ -70,7 +69,7 @@ done
 MYOCAMLBUILD=$BUILD_DIR/myocamlbuild.ml
 
 mkdir -p $BUILD_DIR
-mkdir -p $BUILD_DIR/$CONFIG_PATH
+mkdir -p $BUILD_DIR/$CONFIG_DIR
 
 # Generate the myocamlbuild.ml
 {
@@ -139,15 +138,16 @@ mkdir -p $BUILD_DIR/$CONFIG_PATH
 OCAMLBUILD_LIB=$($OCAMLBUILD -where)
 OCAMLBUILD_LIB="$(echo $OCAMLBUILD_LIB | sed -e "s/\\\\/\//g")"
 
-cp $CONFIG_ML ${CONFIG_ML}i $BUILD_DIR/$CONFIG_PATH/
+mkdir -p $BUILD_DIR/$OPALANG_DIR/$CONFIG_DIR
+cp $CONFIG_ML ${CONFIG_ML}i $BUILD_DIR/$OPALANG_DIR/$CONFIG_DIR/
 cd $BUILD_DIR
 if [ "${BYTECODE:-}" ]; then
     OCAMLC=${OCAMLOPT/ocamlopt/ocamlc}
-    $OCAMLC -I $CONFIG_PATH -c $CONFIG_PATH/config.mli
-    $OCAMLC -I $CONFIG_PATH -c $CONFIG_PATH/config.ml
-    $OCAMLC -w y -I "$OCAMLBUILD_LIB" -I $CONFIG_PATH unix.cma ocamlbuildlib.cma $CONFIG_PATH/config.ml myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmo -o myocamlbuild
+    $OCAMLC -I $OPALANG_DIR/$CONFIG_DIR -c $OPALANG_DIR/$CONFIG_DIR/config.mli
+    $OCAMLC -I $OPALANG_DIR/$CONFIG_DIR -c $OPALANG_DIR/$CONFIG_DIR/config.ml
+    $OCAMLC -w y -I "$OCAMLBUILD_LIB" -I $OPALANG_DIR/$CONFIG_DIR unix.cma ocamlbuildlib.cma $OPALANG_DIR/$CONFIG_DIR/config.ml myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmo -o myocamlbuild
 else
-    $OCAMLOPT -I $CONFIG_PATH -c $CONFIG_PATH/config.mli
-    $OCAMLOPT -I $CONFIG_PATH -c $CONFIG_PATH/config.ml
-    $OCAMLOPT -w y -I "$OCAMLBUILD_LIB" -I $CONFIG_PATH unix.cmxa ocamlbuildlib.cmxa $CONFIG_PATH/config.cmx myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmx -o myocamlbuild$EXT_EXE
+    $OCAMLOPT -I $OPALANG_DIR/$CONFIG_DIR -c $OPALANG_DIR/$CONFIG_DIR/config.mli
+    $OCAMLOPT -I $OPALANG_DIR/$CONFIG_DIR -c $OPALANG_DIR/$CONFIG_DIR/config.ml
+    $OCAMLOPT -w y -I "$OCAMLBUILD_LIB" -I $OPALANG_DIR/$CONFIG_DIR unix.cmxa ocamlbuildlib.cmxa $OPALANG_DIR/$CONFIG_DIR/config.cmx myocamlbuild.ml "$OCAMLBUILD_LIB"/ocamlbuild.cmx -o myocamlbuild$EXT_EXE
 fi
