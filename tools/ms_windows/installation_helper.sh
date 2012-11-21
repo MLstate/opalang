@@ -1,6 +1,12 @@
 set -e -x
 
-# check wget
+# check wget, upx, makensis.exe
+nsys(){
+	local T=/tmp/nsis-setup.exe
+	wget -O $T -nc http://downloads.sourceforge.net/project/nsis/NSIS%202/2.46/nsis-2.46-setup.exe?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnsis%2F&ts=1353428882&use_mirror=heanet
+	chmod +x $T
+	$T
+}
 
 # Adding links to adapt the cygwin default installation
 add_links(){
@@ -113,6 +119,7 @@ packages="nodejs cryptokit ocamlssl camlzip ocamlgraph ulex all"
 #camlzip
 #ocamlgraph
 #ulex
+#nsys
 
 echo 'open a root command line'
 echo 'assoc .pl=PerlScript'
