@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -30,9 +30,9 @@ type prot_stats =
   ; size : int
   }
 
-type protocol = string
+(* type protocol = string *)
 
-let make_protocol prot = prot
+(* let make_protocol prot = prot *)
 
 module CommMap = StringMap
 

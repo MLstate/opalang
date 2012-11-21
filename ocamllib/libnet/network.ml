@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -57,9 +57,9 @@ let addr_of_ipv4 (ip1, ip2, ip3, ip4) =
 let string_of_ipv4 (ip1, ip2, ip3, ip4) =
   Printf.sprintf "%d.%d.%d.%d" ip1 ip2 ip3 ip4
 
-let name_of_addr addr =
-  try (Unix.gethostbyaddr addr).Unix.h_name
-  with Not_found -> Unix.string_of_inet_addr addr
+(* let name_of_addr addr = *)
+(*   try (Unix.gethostbyaddr addr).Unix.h_name *)
+(*   with Not_found -> Unix.string_of_inet_addr addr *)
 
 let make_port_spec ?(socket_type = TCP) ~protocol addr port =
   let stype =
@@ -85,7 +85,7 @@ let get_socket_type p =
 
 (* == LISTEN == *)
 
-let listen_port port_spec = Connection.listen ~socket_type:port_spec.stype (Unix.ADDR_INET (port_spec.addr, port_spec.port))
+(* let listen_port port_spec = Connection.listen ~socket_type:port_spec.stype (Unix.ADDR_INET (port_spec.addr, port_spec.port)) *)
 
   (* Only used by a normal connection (listen_normal),
      but listen_ssl uses listen_normal *)

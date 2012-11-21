@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -93,19 +93,19 @@ let event_mask_to_list event_mask =
   end
 
 
-let event_list_to_mask event_list =
-  List.fold_left
-    (fun e_mask ee ->
-       let ie =
-         match ee with
-         | In -> event_in
-         | Out -> event_out
-         | Err -> event_err
-         | Hup -> event_hup
-         | Unsupported e -> e
-       in
-       ie lor e_mask
-    ) 0 event_list
+(* let event_list_to_mask event_list = *)
+(*   List.fold_left *)
+(*     (fun e_mask ee -> *)
+(*        let ie = *)
+(*          match ee with *)
+(*          | In -> event_in *)
+(*          | Out -> event_out *)
+(*          | Err -> event_err *)
+(*          | Hup -> event_hup *)
+(*          | Unsupported e -> e *)
+(*        in *)
+(*        ie lor e_mask *)
+(*     ) 0 event_list *)
 
 (* requests *)
 
@@ -131,8 +131,8 @@ external ep_wait : epoll_descriptor -> maxevents : int -> timeout : int -> (Unix
    In this case, Epoll ignore these file descriptors.
 *)
 external int_of_filedesc : Unix.file_descr -> int = "%identity"
-external filedesc_of_int : int -> Unix.file_descr = "%identity"
-external int_of_epoll_descriptor : epoll_descriptor -> int = "%identity"
+(* external filedesc_of_int : int -> Unix.file_descr = "%identity" *)
+(* external int_of_epoll_descriptor : epoll_descriptor -> int = "%identity" *)
 external epoll_descriptor_of : int -> epoll_descriptor = "%identity"
 
 let combine =

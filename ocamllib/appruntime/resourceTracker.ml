@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -34,9 +34,9 @@ type ('args,'res) sync =
   | Sync of ('args -> 'res)
   | ASync of ('args -> ('res -> unit) -> unit)
 
-let proj_sync f1 f2 = function
-  | Sync f -> Sync (fun x -> (f2 (f (f1 x))))
-  | ASync f -> ASync (fun x k -> f (f1 x) (fun r -> k(f2 r)))
+(* let proj_sync f1 f2 = function *)
+(*   | Sync f -> Sync (fun x -> (f2 (f (f1 x)))) *)
+(*   | ASync f -> ASync (fun x k -> f (f1 x) (fun r -> k(f2 r))) *)
 
 type cbs =
   | CbNormal of (key ref * (b * signal ,unit) sync)
@@ -87,7 +87,7 @@ module Manager : sig
 
   type m
 
-  val make : unit -> m
+  (* val make : unit -> m *)
 
   val default : m
 
@@ -251,19 +251,19 @@ let make sched manager =
               c2:=!c1;
               c1)
 
-          let register r c =
-            (!c).mem <- r.id::(!c).mem;
-            (!c).size <- (!c).size +1
+          (* let register r c = *)
+          (*   (!c).mem <- r.id::(!c).mem; *)
+          (*   (!c).size <- (!c).size +1 *)
 
 
-          let iter f g =
-            let k id =
-              if !id >= 0
-              then match Manager.get manager !id with
-              | Some r -> f r
-              | None -> ()
+          (* let iter f g = *)
+          (*   let k id = *)
+          (*     if !id >= 0 *)
+          (*     then match Manager.get manager !id with *)
+          (*     | Some r -> f r *)
+          (*     | None -> () *)
 
-            in List.iter k (!g).mem
+          (*   in List.iter k (!g).mem *)
 
         end
 

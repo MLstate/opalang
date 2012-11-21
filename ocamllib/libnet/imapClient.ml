@@ -32,7 +32,7 @@ let mail_recv_aux ?client_certificate ?verify_params ?(secure=false) sched
                fetched=[]; list=[]; expunged=[]; statused=[];
                results=[];
                from=""; dests=[]; data="" } in
-  let rec try_mx mail cont =
+  let try_mx mail cont =
     let tools = {
       ICC.k = (function res -> cont res);
     } in

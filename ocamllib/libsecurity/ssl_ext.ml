@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -54,19 +54,19 @@ external do_handshake : socket -> unit = "ocaml_ssl_ext_do_handshake"
 
 external set_verify : socket -> verify_mode list -> verify_callback option -> unit = "ocaml_ssl_ext_set_verify"
 
-external set_verify_depth : socket -> int -> unit = "ocaml_ssl_ext_set_verify_depth"
+(* external set_verify_depth : socket -> int -> unit = "ocaml_ssl_ext_set_verify_depth" *)
 
-external set_accept_state : socket -> unit = "ocaml_ssl_ext_set_accept_state"
+(* external set_accept_state : socket -> unit = "ocaml_ssl_ext_set_accept_state" *)
 
-external get_verify_mode : socket -> int = "ocaml_ssl_ext_get_verify_mode"
+(* external get_verify_mode : socket -> int = "ocaml_ssl_ext_get_verify_mode" *)
 
-external get_state : socket -> int = "ocaml_ssl_ext_get_state"
+(* external get_state : socket -> int = "ocaml_ssl_ext_get_state" *)
 
-external set_state : socket -> int -> unit = "ocaml_ssl_ext_set_state"
+(* external set_state : socket -> int -> unit = "ocaml_ssl_ext_set_state" *)
 
-external clear : socket -> int = "ocaml_ssl_ext_clear"
+(* external clear : socket -> int = "ocaml_ssl_ext_clear" *)
 
-external get_num_renegotiations : socket -> int = "ocaml_ssl_ext_num_renegotiations"
+(* external get_num_renegotiations : socket -> int = "ocaml_ssl_ext_num_renegotiations" *)
 
 external verify_chain : certificate -> string -> int = "ocaml_ssl_ext_verify_chain"
 

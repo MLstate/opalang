@@ -403,7 +403,7 @@ struct
   }
 
   exception Timeout
-  exception Busy_direction
+  (* exception Busy_direction *)
   exception Existent_key of key
 
   let make () =

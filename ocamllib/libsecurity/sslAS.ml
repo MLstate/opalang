@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -20,8 +20,8 @@
 module String = BaseString
 
 exception InvalidCertificate
-exception Want_read
-exception Want_write
+(* exception Want_read *)
+(* exception Want_write *)
 
 (* Certificate to provide *)
 type ssl_certificate =
@@ -50,7 +50,7 @@ type secure_response =
   | SecuredRes of is_valid_cert * (Ssl.certificate option * ssl_verify_params option)
 
 (* Digest name and size used for fingerprint *)
-let digest_name, digest_size = (* "SHA1", 40 *) "SHA256", 64 (* "SHA512", 128 *)
+(* let digest_name, digest_size = (\* "SHA1", 40 *\) "SHA256", 64 (\* "SHA512", 128 *\) *)
 
 (* ********** *)
 
@@ -110,8 +110,8 @@ let info fct ?cert ?param fmt =
 let warning fct fmt =
   log Logger.Warning `yellow "[SSL] [%s] %s" fct fmt
 
-let error fct fmt  =
-  log Logger.Error `red "[SSL] [%s] %s" fct fmt
+(* let error fct fmt  = *)
+(*   log Logger.Error `red "[SSL] [%s] %s" fct fmt *)
 
 (* ***************** *)
 
