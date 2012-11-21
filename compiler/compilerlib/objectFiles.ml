@@ -1457,6 +1457,13 @@ let reorder :
       let filename = "opadep__index.dot" in
       OManager.unquiet "opadep: outputting @{<bright>%s@}" filename ;
       Viz.to_file filename graph ;
+      let module T = Graph.Topological.Make(G) in
+      let filename = "opadep__sort.top" in
+      OManager.unquiet "opadep: outputting @{<bright>%s@}" filename ;
+      let f = open_out filename in
+      let fmt = Format.formatter_of_out_channel f in
+      T.iter (fun p -> Format.fprintf fmt "%s\n" p) graph;
+      close_out f;
       if not !opadep_all then exit 0
     )
   in
