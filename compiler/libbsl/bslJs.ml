@@ -749,15 +749,16 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename
               } in
     env, renaming, registering
 
-let rename renaming code =
+let rewrite ~side renaming code =
   let code = List.map JsUtils.globalize_native_ident code in
+
   let new_name ident =
     if JsIdent.is_native_global ident then
       StringMap.find_opt (JsIdent.to_string ident) renaming
     else
       None in
   List.map (fun stm ->
-    JsWalk.TStatement.map
+    JsWalk.TStatement.map_down
       (fun stm ->
         match stm with
         | J.Js_function (pos, ident, args, body) -> (
@@ -770,10 +771,27 @@ let rename renaming code =
           | Some ident' -> J.Js_var (pos, ident', def)
           | None -> stm
         )
+        | J.Js_if (pos, J.Je_ident (_, J.Native (_, (("IS_OPA_CLIENT" | "IS_OPA_SERVER") as v))),
+                   then_, else_) -> (
+            match v, side with
+            | "IS_OPA_SERVER", `server
+            | "IS_OPA_CLIENT", `client -> then_
+            | "IS_OPA_SERVER", `client
+            | "IS_OPA_CLIENT", `server -> Option.default (J.Js_empty pos) else_
+            | _ -> assert false
+          )
         | _ -> stm
       )
       (fun expr ->
         match expr with
+        | J.Je_ident (pos, J.Native (_, "IS_OPA_CLIENT")) when side = `client ->
+            J.Je_bool (pos, true)
+        | J.Je_ident (pos, J.Native (_, "IS_OPA_CLIENT")) when side = `server ->
+            J.Je_bool (pos, false)
+        | J.Je_ident (pos, J.Native (_, "IS_OPA_SERVER")) when side = `client ->
+            J.Je_bool (pos, false)
+        | J.Je_ident (pos, J.Native (_, "IS_OPA_SERVER")) when side = `server ->
+            J.Je_bool (pos, true)
         | J.Je_ident (pos, ident) -> (
           match new_name ident with
           | Some ident' -> J.Je_ident (pos, ident')
@@ -894,16 +912,15 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs d
   let env, renaming =
     List.fold_left (process_file ~transform ~dynloader_interface ~lang)
       (env, StringMap.empty) decorated_files in
-  let rename = function
-    | JsPackage.Code code -> JsPackage.Code (rename renaming code)
+  let rewrite ~side = function
+    | JsPackage.Code code -> JsPackage.Code (rewrite ~side renaming code)
     | e -> e
   in
   let env = {env with
-               client_package = JsPackage.map rename env.client_package;
-               server_package = JsPackage.map rename env.server_package;
+               client_package = JsPackage.map (rewrite ~side:`client) env.client_package;
+               server_package = JsPackage.map (rewrite ~side:`server) env.server_package;
             }
   in
-
   let javascript_env = SeparatedEnv.SideEffect.get_javascript_env () in
   let server_package =
   JsPackage.map (function
