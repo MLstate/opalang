@@ -192,7 +192,7 @@ sources () {
         ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.2.tar.gz";;
         camlzip) echo "http://forge.ocamlcore.org/frs/download.php/1037/camlzip-1.05.tar.gz";;
         camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
-        ulex) echo "http://www.cduce.org/download/ulex-1.1.tar.gz";;
+        ulex) echo "http://ftp.de.debian.org/debian/pool/main/u/ulex/ulex_1.1.orig.tar.gz";;
         syslog) echo "http://homepage.mac.com/letaris/syslog-1.4.tar.gz";;
         jpeg) echo "http://www.ijg.org/files/jpegsrc.v8b.tar.gz";;
         libpng) echo "http://sourceforge.net/projects/libpng/files/libpng14/older-releases/1.4.3/libpng-1.4.3.tar.gz";;
