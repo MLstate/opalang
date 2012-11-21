@@ -593,14 +593,14 @@ let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
    FIXME: env contains a renaming map already, maybe we should merge
    both.
 *)
-let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
-    (env, renaming) (pos, tags, directive) =
+let fold_source_elt_doc_like ~dynloader_interface ~filename
+    (env, renaming, registering) (pos, tags, directive) =
   match directive with
   | DJ.BslSide side ->
       begin match env.side with
       | Some (_, pos) ->
           !! pos "A side annotation was already seen at %a" FilePos.pp pos
-      | None -> {env with side=Some (side,pos)}, renaming
+      | None -> {env with side=Some (side,pos)}, renaming, registering
       end
   | DJ.OpaTypeDef (skey, params) ->
     if not tags.BslTags.opaname then
@@ -653,7 +653,7 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     BslPluginInterface.apply_register_type
       dynloader_interface.BslPluginInterface.register_type rt;
     let env = { env with ty_spec_map; } in
-    env, renaming
+    env, renaming, registering
 
   | DJ.ExternalTypeDef (skey, params) ->
     let rt_ks = env_rp_ks env skey in
@@ -694,13 +694,13 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     BslPluginInterface.apply_register_type
       dynloader_interface.BslPluginInterface.register_type rt;
     let env = { env with ty_spec_map; } in
-    env, renaming
+    env, renaming, registering
 
   | DJ.Module skey ->
-    env_add_module pos skey None env, renaming
+    env_add_module pos skey None env, renaming, registering
 
   | DJ.EndModule ->
-    env_add_endmodule pos env, renaming
+    env_add_endmodule pos env, renaming, registering
 
   | DJ.Register (skey, implementation, bslty) ->
     let rp_ks = env_rp_ks env skey in
@@ -731,20 +731,23 @@ let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
            contains an identifier which will be renamed. *)
         source, renaming
     in
-    let rp_ips = [ lang, filename, parsed_t, rp_ty, keyed_implementation ] in
-    let rp = { BslPluginInterface.
-               rp_ks  = rp_ks ;
-               rp_ty  = rp_ty ;
-               rp_ips = rp_ips ;
-               rp_obj = None ;
-             } in
-    SeparatedEnv.SideEffect.add_renaming key keyed_implementation;
+    let registering = fun lang ->
+      registering lang;
+      let rp_ips = [ lang, filename, parsed_t, rp_ty, keyed_implementation ] in
+      let rp = { BslPluginInterface.
+                   rp_ks  = rp_ks ;
+                 rp_ty  = rp_ty ;
+                 rp_ips = rp_ips ;
+                 rp_obj = None ;
+               } in
+      SeparatedEnv.SideEffect.add_renaming key keyed_implementation;
+      BslPluginInterface.apply_register_primitive
+        dynloader_interface.BslPluginInterface.register_primitive rp
+    in
     let env = { env with
-      renaming = StringMap.add key keyed_implementation env.renaming
-    } in
-    BslPluginInterface.apply_register_primitive
-      dynloader_interface.BslPluginInterface.register_primitive rp;
-    env, renaming
+                  renaming = StringMap.add key keyed_implementation env.renaming
+              } in
+    env, renaming, registering
 
 let rename renaming code =
   let code = List.map JsUtils.globalize_native_ident code in
@@ -794,20 +797,28 @@ let process_directives_doc_like
   let contents = transform decorated_file.filename decorated_file.contents in
   let env = {env with package = JsPackage.add_code env.package contents} in
   let env = env_add_module nopos implementation None env in
-  let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
-  let env, renaming = List.fold_left fold (env, renaming) directives in
+  let fold = fold_source_elt_doc_like ~dynloader_interface ~filename in
+  let registering _ = () in
+  let env, renaming, registering =
+    List.fold_left fold (env, renaming, registering) directives
+  in
   let env = env_add_endmodule nopos env in
   let env = match env.side with
     | None ->
+        registering lang;
         if BslLanguage.is_nodejs lang then
           {env with server_package = JsPackage.merge env.server_package env.package}
         else
           {env with client_package = JsPackage.merge env.client_package env.package}
     | Some (`server, _) ->
+        registering BslLanguage.nodejs;
         {env with server_package = JsPackage.merge env.server_package env.package}
     | Some (`client, _) ->
+        registering BslLanguage.js;
         {env with client_package = JsPackage.merge env.client_package env.package}
     | Some (`both, _) ->
+        registering BslLanguage.nodejs;
+        registering BslLanguage.js;
         {env with
            server_package = JsPackage.merge env.server_package env.package;
            client_package = JsPackage.merge env.client_package env.package}
