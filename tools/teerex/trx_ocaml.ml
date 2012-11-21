@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -573,7 +573,7 @@ let match_literal ctx literal case offset success failure =
           if case then
             OcamlG.equal input_char literal_char
           else
-            call_fun [vars ["Char"; "equal_insensitive"]; input_char; literal_char]
+            call_fun [vars ["Base"; "Char"; "equal_insensitive"]; input_char; literal_char]
         in
         OcamlG.band cmp_this_char (aux (i + 1))
     in
@@ -1273,7 +1273,7 @@ let generate_try_parse_functions dep_g prod_funs_part =
   in
   let let_ rec_ l = if rec_ then Ocaml.Letrec l else Ocaml.Let l in
   List.map (fun part ->
-    let_ (is_rec part) (List.map (fun (_pn, fn, body) -> 
+    let_ (is_rec part) (List.map (fun (_pn, fn, body) ->
       Ocaml.pf fn, body
     ) part)
   ) prod_funs_part
