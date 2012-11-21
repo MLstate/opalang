@@ -484,10 +484,10 @@ check-cmxa () {
 locate-ocaml-lib () {
     local OPTIONAL=""
     if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
-    if [ "$1" = "-crypto" ]; then
-	CHECK=check-cryptokit; shift
+    if [ "$1" = "-custom-check" ]; then
+       CHECK=$2; shift; shift;
     else
-	CHECK=check-ocaml-lib
+       CHECK=check-ocaml-lib
     fi
     local MODULE=$1; shift # one module that the lib contains, to check
     [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
@@ -540,16 +540,6 @@ lib-not-found () {
     LIBS_NOT_FOUND[${#LIBS_NOT_FOUND[@]}]="$lib (might be found in package $package)"
 }
 
-check-cryptokit () {
-    if !(check-ocaml-lib $1 $2 $3 "let _ = Cryptokit.MAC.hmac_sha256 \"Opa\""); then
-	echo-err "You need cryptokit >= 1.4"
-    fi
-}
-
-locate-and-check-cryptokit () {
-    locate-ocaml-lib -crypto "Cryptokit" "cryptokit"
-}
-
 # - checking ulex
 if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
 then lib-not-found "ulex" "ocaml-ulex"
@@ -564,14 +554,6 @@ fi
 if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph" "graph")
 then lib-not-found "ocamlgraph" "libocamlgraph-ocaml-dev"
 fi
-
-# - checking cryptokit
-if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
-then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
-fi
-
-# # - checking camlimages *
-# CONFIG_LIB_CAMLIMAGES=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_graphics" locate-ocaml-lib "Jpeg" "camlimages") || true
 
 if [ ${#LIBS_NOT_FOUND[@]} -ne 0 ]; then
     echo
@@ -636,7 +618,6 @@ let makebinary =
    fi)
 
 module Libdir = struct
-  let cryptokit = $(dir_opt "$CONFIG_LIB_CRYPTOKIT")
   let camlzip_name = "$(basename "$CONFIG_LIB_CAMLZIP")"
   let camlzip = $(dir_opt "$CONFIG_LIB_CAMLZIP")
   let graph = $(dir_opt "$CONFIG_LIB_OCAMLGRAPH")
@@ -678,7 +659,6 @@ OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
      else echo "Error: OS inconsistency" >&2; exit 2
      fi)
 
-LIB_CRYPTOKIT_DIR="$(dirname "$CONFIG_LIB_CRYPTOKIT")"
 LIB_CAMLZIP_NAME="$(basename "$CONFIG_LIB_CAMLZIP")"
 LIB_CAMLZIP_DIR="$(dirname "$CONFIG_LIB_CAMLZIP")"
 LIB_OCAMLGRAPH_DIR="$(dirname "$CONFIG_LIB_OCAMLGRAPH")"

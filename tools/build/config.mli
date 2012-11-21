@@ -48,7 +48,6 @@ val makebinary : string
 (** the installation directory of external libraries, as in the ocamlopt '-I'
     command-line option ; None if no extra include directory is needed *)
 module Libdir : sig
-  val cryptokit : string option
   val camlzip_name : string (** Sometimes "zip", sometimes "camlzip" *)
   val camlzip : string option
   val graph : string option

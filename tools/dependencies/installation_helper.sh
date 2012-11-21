@@ -11,8 +11,8 @@ SCRIPTNAME=$(basename $0)
 
 # OS independent various variables
 # Warning: only put in DEFAULT_PACKAGES what should be included in our binary package
-DEFAULT_PACKAGES=(ocaml findlib ulex camlzip ocamlgraph cryptokit)
-PRO_PACKAGES=($DEFAULT_PACKAGES ocaml-ssl)
+DEFAULT_PACKAGES=(ocaml findlib ulex camlzip ocamlgraph)
+PRO_PACKAGES=($DEFAULT_PACKAGES cryptokit ocaml-ssl)
 ALL_PACKAGES=(ocaml findlib ulex camlzip ocamlgraph cryptokit openssl ocaml-ssl syslog jpeg libpng giflib camlimages mascot camlidl libnatpmp miniupnpc cairo-ocaml node)
 
 BUILD_DIR=$SCRIPTDIR/packages

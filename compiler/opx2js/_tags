@@ -2,7 +2,7 @@
 
 <**/*.{ml,mli}>: use_buildinfos, use_libbase, use_compilerlib, use_passlib
 
-<**/*.native>: thread, use_dynlink, use_graph, use_str, use_cryptokit, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmlflatcompiler, use_qmloptions, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi, use_libopa
+<**/*.native>: thread, use_dynlink, use_graph, use_str, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmlflatcompiler, use_qmloptions, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi, use_libopa
 
 <**/opx2jsPasses.{ml,mli}>: use_jslang, use_opalib, use_opalang, use_opapasses, use_libopa, use_libqmlcompil, use_qmlpasses, use_qmlcpsrewriter, use_qmlslicer
 

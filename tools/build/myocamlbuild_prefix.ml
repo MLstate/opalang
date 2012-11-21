@@ -310,7 +310,6 @@ let _ = dispatch begin function
       (* OCaml libs *)
       ocaml_lib ~extern:true ?dir:Config.Libdir.camlzip ~tag_name:"use_zip" Config.Libdir.camlzip_name;
       ocaml_lib ~extern:true ?dir:Config.Libdir.graph "graph";
-      ocaml_lib ~extern:true ?dir:Config.Libdir.cryptokit "cryptokit";
       ocaml_lib ~extern:true ?dir:Config.Libdir.ulex ~tag_name:"use_ulex" "ulexing";
       ocaml_lib ~extern:true ~dir:"+mascot" "mascot";
 
