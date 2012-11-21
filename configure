@@ -183,7 +183,7 @@ if OCAMLOPT=${OCAMLOPT:-$(which ocamlopt.opt)} || OCAMLOPT=${OCAMLOPT:-$(which o
 then echo-ok $OCAMLOPT
 else
     echo-err Not found
-    echo "Ocaml 3.12 or newer is required. It's usually found in package 'ocaml'."
+    echo "Ocaml 4.00 or newer is required. It's usually found in package 'ocaml'."
     false
 fi
 OCAMLOPT_DIR=$(dirname $OCAMLOPT)
@@ -216,11 +216,11 @@ OCAML_VERSION=$($OCAMLOPT -version)
 OCAML_VERSION_MAJOR=${OCAML_VERSION%%.*}
 OCAML_VERSION_MIDDLE=${OCAML_VERSION%.*}
 OCAML_VERSION_MIDDLE=${OCAML_VERSION_MIDDLE#*.}
-if [ $OCAML_VERSION_MAJOR -eq 3 ] && [ $OCAML_VERSION_MIDDLE -ge 12 ] || [ $OCAML_VERSION_MAJOR -gt 3 ]; then
+if [ $OCAML_VERSION_MAJOR -ge 4 ]; then
     echo-ok $OCAML_VERSION
 else
     echo-err $OCAML_VERSION
-    echo "Ocaml 3.12 or newer is required"
+    echo "Ocaml 4.00 or newer is required"
     false
 fi
 
