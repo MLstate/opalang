@@ -280,27 +280,66 @@ fi
 ################################
 # MsWindows package generation #
 ################################
+clear_bat() {
+    cat $1 | grep -v "REM" | grep -v "^$"
+}
 if [ "$WINPKG" = "true" ]; then
-   PKG_NAME="Opa $VERSION_MAJOR Build $BUILDNUM"
-   rm -rf pkg_ms_windows
-   mkdir -p pkg_ms_windows
-   # Copy
-   # -everyting
-   cp -a $INSTALLDIR/* pkg_ms_windows/
-   # -nsis script
-   cp $OPALANG/ms_windows/opa_pkg/install.nsi pkg_ms_windows
-   # -opa.bat install
-   cat $OPALANG/ms_windows/opa_pkg/opa.bat | grep -v "^REM" | grep -v "^$" > pkg_ms_windows/bin/opa.bat
-   # Some tidying
-   mkdir -p pkg_ms_windows/bin/ocaml
-   mkdir -p pkg_ms_windows/bin/uninstall
-   mv pkg_ms_windows/share/opa/examples pkg_ms_windows/examples
-   mv pkg_ms_windows/bin/opa-bin  pkg_ms_windows/bin/runopa.exe
-   # hidding ocaml executable to be oustide of PATH
-   mv pkg_ms_windows/bin/ocamlopt.opt.exe  pkg_ms_windows/bin/ocaml/ocamlopt.opt.exe
-   cp $OPALANG/ms_windows/opa_pkg/opa_logo*.ico pkg_ms_windows/bin/uninstall
-   /cygdrive/c/Program\ Files/NSIS/makensis.exe pkg_ms_windows/install.nsi
-   echo The package is in pkg_ms_windows/installer.exe
+  echo WINDOWS PACKAGE
+  PKG_NAME="Opa $VERSION_MAJOR Build $BUILDNUM"
+  PATH=/cygdrive/c/OPACOMPILE/NSIS:"/cygdrive/c/Program Files/NSIS":$PATH
+  MAKENSIS=makensis
+  if ! which $MAKENSIS &>/dev/null; then
+    echo Cannot find makensis, correct you PATH variable.
+  fi
+ # import from OPALANG
+  # -nsis script
+  cp $OPALANG/tools/ms_windows/opa_pkg/install.nsi $INSTALLDIR
+
+  mkdir -p $INSTALLDIR/bin
+  # -opa.bat install
+  clear_bat $OPALANG/tools/ms_windows/opa_pkg/opa.bat > $INSTALLDIR/bin/opa.bat
+
+  cp -u $OPALANG/tools/ms_windows/opa_pkg/README.txt $INSTALLDIR/share/opa/READMEWIN.txt
+  # -setup local commodities (editor mode ...)
+  clear_bat $OPALANG/tools/ms_windows/opa_pkg/post_install.cmd > $INSTALLDIR/share/opa/post_install.cmd
+  cp $OPALANG/utils/Opa.sublime-package $INSTALLDIR/share/opa/Opa.sublime-package || true
+   
+  # Some tidying, adding exe extension
+  rm $INSTALLDIR/bin/{filepos,genproto,jsstat,mlidl,mlstate_platform,ocamlbase,ocamlbase.top,odep,odeplink,ofile,passdesign,qmljs,trx,trx_interpreter,wsdl2ml,opadoc,opa-translate,opa2opa} || true
+
+  mv -u $INSTALLDIR/lib/opa/bin/opa-bin  $INSTALLDIR/lib/opa/bin/opa-bin.exe                               || true
+  mv -u $INSTALLDIR/lib/opa/bin/opa-plugin-browser-bin  $INSTALLDIR/lib/opa/bin/opa-plugin-browser-bin.exe || true
+  mv -u $INSTALLDIR/lib/opa/bin/opa-plugin-builder-bin  $INSTALLDIR/lib/opa/bin/opa-plugin-builder-bin.exe || true
+  mv -u $INSTALLDIR/bin/opa-create  $INSTALLDIR/bin/opa-create.exe || true
+  mv -u $INSTALLDIR/opatop $INSTALLDIR/lib/opa/bin/opatop.exe || true
+  mv -u $INSTALLDIR/opa-db-server $INSTALLDIR/lib/opa/bin/opa-db-server.exe || true
+  mv -u $INSTALLDIR/opa-db-tool $INSTALLDIR/lib/opa/bin/opa-db-tool.exe || true
+  mv -u $INSTALLDIR/lib/bash_nt/bash $INSTALLDIR/lib/bash_nt/bash.exe || true
+
+  rm $INSTALLDIR/bin/opa || true # has a bat equiv
+  rm $INSTALLDIR/bin/opa-plugin-builder || true # should be bat file
+  rm $INSTALLDIR/bin/opa-plugin-browser || true # should be bat file
+  mv -u $INSTALLDIR/lib/opa/bin/opa-cloud $INSTALLDIR/lib/opa/bin/opa-cloud.sh || true # should have a bat wrapper
+
+  #opapro
+    # clear_bat $OPALANG/tools/ms_windows/opa_pkg/opa_node.bat > $INSTALLDIR/bin/opa_node.bat
+    # -bash.bat install #dummy bash interpreter for mingw using a true bash interpretor, only set the env
+    #cp $OPALANG/tools/ms_windows/opa_pkg/bash.bat $INSTALLDIR/bin/bash.bat
+    #cp $OPALANG/tools/ms_windows/opa_pkg/path.sh $INSTALLDIR/bin/path.sh
+    #
+    #shorten-path
+    #mv -u $INSTALLDIR/lib/opa/ocaml $INSTALLDIR/lib/ocaml || true
+
+  #uninstall   
+  mkdir -p $INSTALLDIR/bin/uninstall
+  cp $OPALANG/tools/ms_windows/opa_pkg/opa_logo*.ico $INSTALLDIR/bin/uninstall
+   
+  #mv pkg_tools/ms_windows/share/opa/examples pkg_tools/ms_windows/examples
+  PACKAGE=opa_${VERSION_STRING}.x86.exe
+  rm -f $INSTALLDIR/installer.exe $PACKAGE || true
+  $MAKENSIS $(cygpath -d $INSTALLDIR/install.nsi)
+  mv $INSTALLDIR/installer.exe $PACKAGE
+  echo The package is in $PACKAGE
 fi
 
 
