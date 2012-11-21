@@ -1423,15 +1423,6 @@ struct
         then error (List [MultiImpl (lang, key); FileFun (file, impl_fun)])
         else
           begin
-            let ext = File.extension file in
-            (
-              match BslLanguage.of_string ext with
-              | None -> error (List [UnknownExt ext; FileFun (file, impl_fun)])
-              | Some ext ->
-                  if BslLanguage.compare lang ext <> 0
-                  then error (List [ExtensionLangClash (ext, lang); FileFun (file, impl_fun)])
-                  else ()
-            );
             let module_name = String.capitalize (Filename.chop_extension file) in
             (** the auto transtype is done @ building time of the bymap *)
             let new_imp = Compiled
