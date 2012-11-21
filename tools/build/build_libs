@@ -11,7 +11,14 @@
 # if omitted, [directory] is the same as lib_name.
 
 internal libbase	  	      ocamllib/libbase
-internal libjsminify		      ocamllib/libjsminify
+# move to opapro
+#internal appruntime	     	      ocamllib/appruntime
+#internal libnattraversal  	      ocamllib/libnet/nattraversal
+#internal libnet			      ocamllib/libnet
+#internal libruntime	  	      ocamllib/libruntime
+#internal libsecurity	  	      ocamllib/libsecurity
+#internal oparuntime	  	      ocamllib/oparuntime
+internal libjsminify				ocamllib/libjsminify
 
 internal js_passes	  	      compiler/js_passes
 internal buildinfos		      compiler/buildinfos
@@ -31,6 +38,8 @@ internal protocols	  	      compiler/protocols
 internal qml2js		      	      compiler/qml2js
 internal qmloptions	  	      compiler/qmloptions
 internal qmlcpsrewriter	      	      compiler/qmlcps
+# move to opapro
+#internal qmlcpsserver	  	      compiler/qmlcps
 internal qmljsimp	  	      compiler/qmljsimp
 internal qmlpasses	  	      compiler/qmlpasses
 internal qmlslicer	  	      compiler/qmlslicer
