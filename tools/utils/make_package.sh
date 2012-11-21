@@ -83,6 +83,7 @@ while [ $# -gt 0 ]; do
                 echo "Error: you need to define \$OPALANG to build a windows package"
                 exit 1
             fi
+            MAKE_PACKAGE_NON_ROOT="true"
             WINPKG=true;;
         # -prefix)
         #     if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
@@ -109,7 +110,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [ $(id -u) -ne 0 ] && [[ -z "$IS_MAC" ]] || [ -n "${MAKE_PACKAGE_NON_ROOT:-""}" ]; then
+if [ $(id -u) -ne 0 ] && [ -z "$IS_MAC" ] && [ -z "${MAKE_PACKAGE_NON_ROOT:-""}" ]; then
     msg "Error: running as user."
     msg "This would generate wrong packages, please run within fakeroot."
     exit 3
