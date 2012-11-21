@@ -246,6 +246,18 @@ let extract_module =
     | None -> `wrong_format (pos, "Expected identifier in module declaration")
   )
 
+let extract_side =
+  try_read_args "side" (fun pos args ->
+    match String.trim(args) with
+    | "{client}" -> `found (BD.BslSide `client)
+    | "{server}" -> `found (BD.BslSide `server)
+    | "{both}" -> `found (BD.BslSide `both)
+    | s ->
+        `wrong_format (pos,
+                       Printf.sprintf "@side%s declaration is invalid.\nside annotations takes only one of these value : [client,server,both]" s)
+  )
+
+
 let extract_end_module =
   try_read_args "endModule" (fun pos args ->
     if args = "" then
@@ -318,6 +330,7 @@ let extract_register implementation =
   )
 
 let readers implementation = [
+  extract_side;
   extract_extern_type_def;
   extract_opa_type_def;
   extract_module;

@@ -81,4 +81,4 @@ val preprocess :
   lang:BslLanguage.t ->
   js_confs:BslJsConf.t ->
   decorated_file list ->
-  BslPluginInterface.javascript_env * JsPackage.t
+  BslPluginInterface.javascript_env * JsPackage.t * JsPackage.t

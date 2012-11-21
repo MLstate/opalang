@@ -62,6 +62,10 @@ val add_code : t -> JsAst.code -> t
     each dependencies which not already present. *)
 val auto_dependencies : ?miss:(string -> unit) -> t -> t
 
+(** Change the content of a package by mapping its elements. The package
+    elements are through in order of insertions. *)
+val map : (elt -> elt) -> t -> t
+
 (** Fold on the package elements. The package elements are through in order of
     insertions. *)
 val fold : ('acc -> elt -> 'acc) -> 'acc -> t ->  'acc

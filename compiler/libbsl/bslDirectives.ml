@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -244,6 +244,7 @@ module Js = struct
   | Inline of string
 
   type t =
+  | BslSide of [`client | `server | `both]
   | ExternalTypeDef of skey * BslTypes.typevar list
   | OpaTypeDef of skey * BslTypes.typevar list
   | Module of skey

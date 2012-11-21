@@ -66,12 +66,16 @@ type ty_spec_map = (opaname * module_name list) BslKeyMap.t
 type renaming = string StringMap.t
 
 type env = {
+  side                : ([`client | `server | `both] * FilePos.pos) option;
   (* this is just for error messages *)
   last_module         : FilePos.pos ;
   last_endmodule      : FilePos.pos ;
 
   (* accumulating files in a fold *)
   package : JsPackage.t;
+
+  client_package      : JsPackage.t;
+  server_package      : JsPackage.t;
 
   rev_path            : (skey * module_name * pos) list ;
 
@@ -184,10 +188,13 @@ let nopos = FilePos.nopos "BslJs"
 
 let empty ~name =
   let empty = {
+    side                 = None ;
     last_module          = nopos ;
     last_endmodule       = nopos ;
 
-    package    = JsPackage.default ~name ;
+    package              = JsPackage.default ~name ;
+    client_package       = JsPackage.default ~name ;
+    server_package       = JsPackage.default ~name ;
 
     rev_path             = [] ;
     ty_spec_map          = BslKeyMap.empty ;
@@ -589,6 +596,12 @@ let fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file =
 let fold_source_elt_doc_like ~dynloader_interface ~filename ~lang
     (env, renaming) (pos, tags, directive) =
   match directive with
+  | DJ.BslSide side ->
+      begin match env.side with
+      | Some (_, pos) ->
+          !! pos "A side annotation was already seen at %a" FilePos.pp pos
+      | None -> {env with side=Some (side,pos)}, renaming
+      end
   | DJ.OpaTypeDef (skey, params) ->
     if not tags.BslTags.opaname then
       !! pos "an opa-type cannot be @{<brigth>normalized@}";
@@ -769,16 +782,36 @@ let rename renaming code =
 
 (** Process directives in a decorated file, updating the renaming map *)
 let process_directives_doc_like
-    ~dynloader_interface ~lang (env, renaming) decorated_file =
+    ~transform ~dynloader_interface
+    ~lang (env, renaming) decorated_file =
   let filename = decorated_file.filename in
   let directives = decorated_file.directives in
   let implementation = js_module_of_filename filename in
 
   (* we add a module for each file *)
+  let env = {env with package = JsPackage.default ~name:"process_directives_doc_like";
+               side = None} in
+  let contents = transform decorated_file.filename decorated_file.contents in
+  let env = {env with package = JsPackage.add_code env.package contents} in
   let env = env_add_module nopos implementation None env in
   let fold = fold_source_elt_doc_like ~dynloader_interface ~filename ~lang in
   let env, renaming = List.fold_left fold (env, renaming) directives in
   let env = env_add_endmodule nopos env in
+  let env = match env.side with
+    | None ->
+        if BslLanguage.is_nodejs lang then
+          {env with server_package = JsPackage.merge env.server_package env.package}
+        else
+          {env with client_package = JsPackage.merge env.client_package env.package}
+    | Some (`server, _) ->
+        {env with server_package = JsPackage.merge env.server_package env.package}
+    | Some (`client, _) ->
+        {env with client_package = JsPackage.merge env.client_package env.package}
+    | Some (`both, _) ->
+        {env with
+           server_package = JsPackage.merge env.server_package env.package;
+           client_package = JsPackage.merge env.client_package env.package}
+  in
   let _ =
     match env.rev_path with
     | [] -> ()
@@ -795,34 +828,21 @@ let process_directives_doc_like
   in
   env, renaming
 
-(** Use the renaming map built in the previous stage to rename
-    bypasses in all files, and serialize the resulting ASTs, updating
-    the environment *)
-let build_file_doc_like ~transform renaming env decorated_file =
-  (* For each file, we create a FBuffer, updated in a fold on decorated lines *)
-  let filename = decorated_file.filename in
-  let contents = rename renaming decorated_file.contents in
-  let package = JsPackage.add_verbatim env.package (file_line ~filename) in
-  let package = JsPackage.add_code package (transform filename contents) in
-  let env = { env with package } in
-  env
-
-let process_file ~dynloader_interface ~lang (env, renaming) decorated_file =
+let process_file ~transform ~dynloader_interface ~lang (env, renaming) decorated_file =
   match decorated_file with
   | Classic decorated_file ->
-    fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file,
-    renaming
+      let env =
+        fold_decorated_file_classic ~dynloader_interface ~lang env decorated_file in
+      let env =
+        if BslLanguage.is_nodejs lang then
+          {env with server_package = env.package}
+        else
+          {env with client_package = env.package}
+      in
+    env, renaming
   | DocLike decorated_file ->
-    process_directives_doc_like ~dynloader_interface
+    process_directives_doc_like ~transform ~dynloader_interface
       ~lang (env, renaming) decorated_file
-
-let build_file ~transform renaming env file =
-  match file with
-  | Classic _ ->
-    (* In classic syntax, renaming is already done *)
-    env
-  | DocLike decorated_file ->
-    build_file_doc_like ~transform renaming env decorated_file
 
 let apply_conf conf code =
   let code =
@@ -843,12 +863,9 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs d
   ignore depends;
   let confs = BslJsConf.export js_confs in
   let transform filename code =
-    let code = match StringMap.find_opt filename confs with
-      | Some (BslJsConf.Optimized conf) -> apply_conf conf code
-      | _ -> code
-    in
-    if BslLanguage.is_nodejs lang then JsUtils.export_to_global_namespace code
-    else code
+    match StringMap.find_opt filename confs with
+    | Some (BslJsConf.Optimized conf) -> apply_conf conf code
+    | _ -> code
   in
   let env = empty ~name:(Printf.sprintf "%s.%s"
                            (Option.default "builtin" options.BI.basename)
@@ -864,9 +881,25 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs d
   } in
 
   let env, renaming =
-    List.fold_left (process_file ~dynloader_interface ~lang)
+    List.fold_left (process_file ~transform ~dynloader_interface ~lang)
       (env, StringMap.empty) decorated_files in
-  let env = List.fold_left (build_file ~transform renaming) env decorated_files in
+  let rename = function
+    | JsPackage.Code code -> JsPackage.Code (rename renaming code)
+    | e -> e
+  in
+  let env = {env with
+               client_package = JsPackage.map rename env.client_package;
+               server_package = JsPackage.map rename env.server_package;
+            }
+  in
 
   let javascript_env = SeparatedEnv.SideEffect.get_javascript_env () in
-  javascript_env, env.package
+  let server_package =
+  JsPackage.map (function
+                 | JsPackage.Code code ->
+                     JsPackage.Code (JsUtils.export_to_global_namespace code)
+                 | e -> e)
+    env.server_package
+  in
+  javascript_env, env.client_package, server_package
+

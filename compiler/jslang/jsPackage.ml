@@ -109,6 +109,8 @@ let add_verbatim t verbatim = {t with code = Verbatim verbatim :: t.code }
 
 let add_code t code = {t with code = Code code :: t.code }
 
+let map f t = {t with code = List.map f t.code}
+
 let foldr f acc t = List.fold_left f acc t.code
 
 let fold f acc t = List.fold_left f acc (List.rev t.code)

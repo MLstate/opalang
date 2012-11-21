@@ -1021,12 +1021,12 @@ let finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session se
     make_imperative_dynloader_interface session
   in
 
-  let javascript_env, package =
+  let javascript_env, client_package, server_package =
     BslJs.preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs
       js_decorated_files
   in
 
-  javascript_env, update_session !session_ref package
+  javascript_env, update_session !session_ref client_package server_package
 
 let finalizing_js_keys ~final_bymap =
   let fold key bypass buf =
@@ -1064,7 +1064,9 @@ let finalize s =
     let js_decorated_files = List.rev s.s_rev_js_parsed_files in
     let js_confs = s.s_js_confs in
     let lang = BslLanguage.js in
-    let update_session session js_pack = { session with s_js_pack = js_pack } in
+    let update_session session js_pack nodejs_pack =
+      { session with s_js_pack = js_pack; s_nodejs_pack = nodejs_pack }
+    in
     finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
   in
 
@@ -1073,7 +1075,10 @@ let finalize s =
     let js_decorated_files = List.rev s.s_rev_nodejs_parsed_files in
     let js_confs = s.s_nodejs_conf in
     let lang = BslLanguage.nodejs in
-    let update_session session js_pack = { session with s_nodejs_pack = js_pack } in
+    let update_session session js_pack nodejs_pack =
+      assert (JsPackage.is_empty js_pack);
+      { session with s_nodejs_pack = JsPackage.merge session.s_nodejs_pack nodejs_pack }
+    in
     finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
   in
 
