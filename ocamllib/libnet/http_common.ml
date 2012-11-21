@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -23,7 +23,7 @@ open Requestdef
 
 let version = string_of_int BuildInfos.git_version_counter
 let crlf = "\r\n"
-let double_crlf = crlf ^ crlf
+(* let double_crlf = crlf ^ crlf *)
 
 (** {6 Request} *)
 
@@ -105,14 +105,14 @@ let string_of_response ?(body_limit=1024) r =
 (*     crlf *)
 (*     (r.response_message_body) *)
 
-let parse_response response =
-  let str = FBuffer.contents response in
-  try
-    let pos, req = Request.parse_request_response str in
-    req, FBuffer.sub response pos (FBuffer.length response - pos)
-  with
-  | Trx_runtime.SyntaxError (loc, err) ->
-      failwith (Printf.sprintf "Failed to parse http response: %s --> %s" str (Trx_runtime.show_error str loc err))
+(* let parse_response response = *)
+(*   let str = FBuffer.contents response in *)
+(*   try *)
+(*     let pos, req = Request.parse_request_response str in *)
+(*     req, FBuffer.sub response pos (FBuffer.length response - pos) *)
+(*   with *)
+(*   | Trx_runtime.SyntaxError (loc, err) -> *)
+(*       failwith (Printf.sprintf "Failed to parse http response: %s --> %s" str (Trx_runtime.show_error str loc err)) *)
 
 let print_response_header resp =
   ResponseHeader.iter (
