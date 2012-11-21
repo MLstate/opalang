@@ -328,10 +328,8 @@ upxf(){
     echo "    -- UPX-ing $1"
     if [ -n "$IS_WINDOWS" ];
     then
-	FILETOMOD="$(cygpath -w $1)"
-	editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # bigger stacksize because ocamlopt.opt needs it
-	/windows_libs/utils/upx "$FILETOMOD"
-	editbin /NOLOGO /STACK:10000000,10000000 "$FILETOMOD" # in case upx malfunctions
+    #assuming 32-bits ocaml
+    upx $1 || true
     elif [ -n "$IS_MAC" ];
     then
 	echo "No UPX on Mac for the moment, might bug..."
@@ -346,7 +344,7 @@ stripf(){
     echo "    -- Striping $1"
     if [ -n "$IS_WINDOWS" ];
     then
-	echo No strip on windows
+    /usr/bin/i686-w64-mingw32-strip.exe $1 || true
     elif [ -n "$IS_MAC" ];
     then
 	strip $1 || true
