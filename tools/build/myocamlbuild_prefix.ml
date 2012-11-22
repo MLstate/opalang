@@ -27,6 +27,8 @@ let clear_backslashes s =
   String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s;
   s
 
+let source_dir = clear_backslashes Pathname.pwd
+
 let build_dir =
   clear_backslashes (
   if (Pathname.is_relative !Options.build_dir)
@@ -209,7 +211,7 @@ let trx_build_aux ~just_binary src dst ext ops = fun env build ->
          | _ -> assert false)
         @ (if trx_cache_tag
            then [Cmd(S[Sh"cp ";P(env dst);P(env dst -.- "cache")]);
-                 Cmd(S[Sh"cp ";P(env dst);P(Pathname.pwd / env dst -.- "cache")])]
+                 Cmd(S[Sh"cp ";P(env dst);P(source_dir / env dst -.- "cache")])]
            else []))
   in
   let get_tool_trx_file () =
@@ -220,7 +222,7 @@ let trx_build_aux ~just_binary src dst ext ops = fun env build ->
   match Outcome.wrap build [tool_deps trx_tool] with
     | Outcome.Good _ -> do_build ()
     | Outcome.Bad _ ->
-        let cache = Pathname.pwd / env dst -.- "cache" in
+        let cache = source_dir / env dst -.- "cache" in
         if Sys.file_exists (get_tool_trx_file ()) then (
 	  do_build ()
 	) else if trx_cache_tag && Sys.file_exists cache then (
@@ -238,7 +240,7 @@ let trx_build ?(just_binary = false) pattern cmd =
     List.fold_left combine Nop exts
 
 let dirlist dir =
-  let searchdir = if Pathname.is_relative dir then Pathname.pwd / dir else dir in
+  let searchdir = if Pathname.is_relative dir then source_dir / dir else dir in
   List.map (fun d -> dir/d) (Array.to_list (Pathname.readdir searchdir))
 
 let dir_ext_files ext dir =

@@ -217,7 +217,7 @@ rule "buildinfos: compiler/buildinfos/* -> compiler/buildinfos/buildInfos.ml"
      let post_prod = env post_buildinfos in
      Seq[
        Cmd(S[Sh "cat" ; P pre_prod ; Sh ">" ; P prod]);
-       Cmd(S([P "bash"; A "-e"; P generate_buildinfos; P Pathname.pwd;
+       Cmd(S([P "bash"; A "-e"; P generate_buildinfos; P source_dir;
              if Config.is_release then A "--release" else N;
              A "--version" ; P version ] @ (
 	     try
@@ -280,8 +280,8 @@ rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launc
   (fun env build ->
      Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P dependencies_path]);
-       cp (Pathname.pwd/launch_helper_script) (build_dir/launch_helper_script);
-       cp (Pathname.pwd/launch_helper_js) (build_dir/launch_helper_js);
+       cp (source_dir/launch_helper_script) (build_dir/launch_helper_script);
+       cp (source_dir/launch_helper_js) (build_dir/launch_helper_js);
        Cmd(S[Sh"mkdir"; A"-p"; P qml2js_path]);
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
        Cmd(S([Sh"cat"; P launch_helper_script]
@@ -474,7 +474,7 @@ rule "Client lib JS validation"
   Needs to access lots of files. Cf jsdocdir/README.txt
 *)
 let jsdocdir =
-  Pathname.pwd/"tools"/"jsdoc-toolkit"
+  source_dir/"tools"/"jsdoc-toolkit"
 in
 
 let jsdoc_target = "doc.jsbsl" in
@@ -748,7 +748,7 @@ let plugin_building
             match Tags.mem "with_mlstate_debug" (tags_of_pathname mlfile) with
             | true ->
                 A"--pp-file"
-                :: P (Printf.sprintf "%s:%s" mlfile (Pathname.pwd/opalang_prefix/"tools"/"utils"/"ppdebug.pl"))
+                :: P (Printf.sprintf "%s:%s" mlfile (source_dir/(prefix_me "tools"/"utils"/"ppdebug.pl")))
                 :: options
             | false -> options
        ) options (List.rev mlfiles)
@@ -865,8 +865,8 @@ let node_plugins =
   Command.execute ~quiet:true ~pretend:false
     (Cmd (S[
 	    Sh"mkdir"; A"-p"; P (build_dir / stdlib_packages_dir); Sh"&&";
-	    P (Pathname.pwd/stdlib_packages_dir/"all_plugins.sh");
-	    P (Pathname.pwd/stdlib_packages_dir);
+	    P (source_dir/stdlib_packages_dir/"all_plugins.sh");
+	    P (source_dir/stdlib_packages_dir);
 	    Sh">"; P all_plugins_file;
 	  ])) ;
   string_list_of_file all_plugins_file
@@ -915,12 +915,12 @@ in
 let module RuleFailure = struct exception E end in
 let files_of_package pkg =
   let aux_files pkdir =
-    let opack = dir_ext_files "opack" (Pathname.pwd / pkdir) in
-    let files = dir_ext_files "opa" (Pathname.pwd / pkdir) in
+    let opack = dir_ext_files "opack" (source_dir / pkdir) in
+    let files = dir_ext_files "opa" (source_dir / pkdir) in
     let files = files @ opack in
     (* return relative filenames *)
     let files =
-      let len = String.length Pathname.pwd + 1 in (* the additional '/' *)
+      let len = String.length source_dir + 1 in (* the additional '/' *)
       let relative_part s = String.sub s len (String.length s - len) in
       List.map relative_part files
     in
@@ -930,9 +930,9 @@ let files_of_package pkg =
     List.sort String.compare files
   in
   let pkdir = prefix_me ("lib" / package_to_dir pkg) in
-  if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
+  if not (Pathname.is_directory (source_dir / pkdir)) then
     let pkdir = "lib" / package_to_dir pkg in
-    if not (Pathname.is_directory (Pathname.pwd / pkdir)) then
+    if not (Pathname.is_directory (source_dir / pkdir)) then
       let () = Printf.eprintf "Error: can not find sources for package %s (directory %s does not exist)\n" pkg pkdir in
       raise RuleFailure.E
     else aux_files pkdir
@@ -952,9 +952,9 @@ let all_packages_building =
     ~prod
     (fun env build ->
          Cmd(S[
-               P (Pathname.pwd/stdlib_packages_dir/"all_packages.sh");
-	       P (Pathname.pwd/stdlib_packages_dir/packages_exclude_node);
-	       P (Pathname.pwd/stdlib_packages_dir);
+               P (source_dir/stdlib_packages_dir/"all_packages.sh");
+	       P (source_dir/stdlib_packages_dir/packages_exclude_node);
+	       P (source_dir/stdlib_packages_dir);
 	       Sh">"; P (build_dir/prod);
              ])
     )
@@ -1052,7 +1052,7 @@ let packages_building ~name ~stamp ~core_only ~rebuild
                 (* A"--verbose-build"; *)
                 A"--conf";P "conf";
                 A"--slicer-check"; A "low";
-                A"--project-root"; P (Pathname.pwd/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
+                A"--project-root"; P (source_dir/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
                 A"--no-stdlib";
                 A"-I"; A prefixed_plugins_dir;
                 opaopt;
@@ -1121,7 +1121,7 @@ rule name
               A"-o"; P opa_create_dst; P opa_create_src;
               A"--opx-dir"; A app_opx_dir;
               A"--no-server";
-              A"--project-root"; P (Pathname.pwd/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
+              A"--project-root"; P (source_dir/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
               A"-I"; A prefixed_plugins_dir
 	    ] @ more_app_opts));
       unset_mlstatelibs
