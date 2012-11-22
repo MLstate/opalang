@@ -125,7 +125,7 @@ let get_code t =
     ) [] t
 
 let merge t1 t2 =
-  { t2 with
+  { t1 with
       dependencies = StringMap.merge (fun x _ -> x) t1.dependencies t2.dependencies;
       code = t2.code @ t1.code
   }
