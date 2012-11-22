@@ -1090,48 +1090,6 @@ opa_create "opa node application creator" "qmljs.opa.create" ["opabsl.qmljs.stam
 
 (* -- end opa-create -- *)
 
-
-(* -- begin apigen -- *)
-
-let apigen_prefix = prefix_me "tools/apigen/" in
-(*let apigen_src = apigen_prefix ^ ".opa" in*)
-let apigen_srcs = List.map (fun f -> P (apigen_prefix^f)) 
-                           [ "api.opa"; "config_parser.opa"; "apigen.opa"; "codegen.opa"; "messages.opa"; "types.opa" ] in
-let apigen_dst = apigen_prefix ^ "apigen.exe" in
-
-let dir_all_files dir =
-  List.filter (fun p -> (not (Pathname.is_directory p))) (dirlist dir)
-in
-
-let dir_rec_all_files dir =
-  let dirs =  rec_subdirs [ dir ] in
-  List.fold_right (fun dir acc -> dir_all_files dir @ acc) dirs []
-in
-
-let apigen name stamp deps ?(more_app_opts=[]) app_opx_dir =
-rule name
-  ~deps:(deps @ tool_deps "opa-bin" @ dir_rec_all_files (prefix_me "tools/apigen"))
-  ~stamp
-  ~prods: [apigen_dst]
-  (fun env build ->
-     if no_tools then Nop
-     else begin
-      Cmd(S([
-	(Sh ("MLSTATELIBS=\""^ build_dir ^"\""));
-        get_tool "opa-bin";
-        A"-o"; P apigen_dst; (*P apigen_src;*)
-        A"--opx-dir"; A app_opx_dir;
-        A"--no-server";
-        A"--project-root"; P (Pathname.pwd ^ "/" ^ opalang_prefix); (* because the @static_resource in the stdlib expect this *)
-        A"-I"; A prefixed_plugins_dir
-      ] @ apigen_srcs @ more_app_opts)) end );
-in
-
-let _ = apigen "opa api generator" "qmljs.apigen" ["opabsl.qmljs.stamp"; "plugins.qmljs.stamp"] "stdlib.qmljs" in
-
-(* -- end apigen -- *)
-
-
 (* -- begin misc -- *)
 
 rule "opa bash_completion: opa-bin -> bash_completion"

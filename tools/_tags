@@ -22,7 +22,6 @@
 # jschecker
 <jschecker>: traverse
 <opa-create/**>: traverse
-<apigen/**>: traverse
 
 <teerex/**>: traverse
 <dissemination>: traverse
