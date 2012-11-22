@@ -6,6 +6,13 @@ jsbsl/md5.js
 jsbsl/base64.js
 jsbsl/jquery-1.7.2.min.js
 
+# Server specific bypass
+jsbsl/bslNativeLib.js
+jsbsl/bslBinary.js
+jsbsl/bslTimeServer.js
+jsbsl/bslPervasivesServer.js
+jsbsl/bslLogger.js
+
 # internal
 jsbsl/jsExtends.js
 jsbsl/bslSyslog.js
@@ -28,28 +35,6 @@ jsbsl/bslDom.js
 jsbsl/bslDomSupport.js
 jsbsl/hashtable.js
 jsbsl/bslHashtbl.js
-
-nodejsbsl/bslNativeLib.nodejs
-nodejsbsl/bslSyslog.nodejs
-nodejsbsl/bslPervasives.nodejs
-nodejsbsl/bslNumber.nodejs
-nodejsbsl/bslBinary.nodejs
-nodejsbsl/bslString.nodejs
-nodejsbsl/bslCactutf.nodejs
-nodejsbsl/bslTime.nodejs
-nodejsbsl/bslReference.nodejs
-nodejsbsl/bslBuffer.nodejs
-nodejsbsl/bslClosure.nodejs
-nodejsbsl/bslCps.nodejs
-nodejsbsl/lowLevelArray.nodejs
-nodejsbsl/hashtable.nodejs
-nodejsbsl/bslHashtbl.nodejs
-nodejsbsl/bslValue.nodejs
-nodejsbsl/bslLogger.nodejs
-
-# Server specific bypass
-nodejsbsl/bslTimeServer.nodejs
-nodejsbsl/bslPervasivesServer.nodejs
 
 # opasyntax (transitionnal)
 mlstatebsl/preprocess_formats.opa

@@ -78,11 +78,6 @@ jlog_with_stack(mess: string)=
 @deprecated({use="Continuation.get_trace"}) get_stack = %% Bslpervasives.get_stack %%
 
 /**
- * Flush all outputs.
- */
-flush_all = %% BslPervasivesServer.flush_all %%
-
-/**
  * Deprecated
 **/
 @deprecated({use="do @assert(cond) instead of assert(cond, fun)"})
