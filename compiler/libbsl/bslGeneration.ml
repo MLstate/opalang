@@ -497,9 +497,7 @@ let files_generation (opt : options) (fs : files) (fin : BR.finalized_t) =
   BR.out_opa_code             iterator_opa_code               fin;
   BR.out_opa_interface        iterator_opa_interface          fin;
 
-  if not (List.is_empty fs.nodejs_files) then (
-    BR.write_nodejs_pack fs.nodejspackage                     fin;
-  );
+  BR.write_nodejs_pack        fs.nodejspackage                fin;
 
   output fs.jskeys            BR.out_js_keys                  fin;
 
