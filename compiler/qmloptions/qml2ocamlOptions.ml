@@ -105,6 +105,7 @@ struct
     "database" ;
     "oparuntime";
     "libsession" ;
+    "libjsminify" ;
   ]
 
   let qml_server_libraries = [
