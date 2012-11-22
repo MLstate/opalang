@@ -41,7 +41,7 @@ include_subdirs (prefix_me "compiler/opalib");
 
 (* -- Stubs -- *)
 
-def_stubs ~dir:"ocamllib/libbase" "stubs";
+def_stubs ~dir:(prefix_me "ocamllib/libbase") "stubs";
 
 (* PATHS *)
 

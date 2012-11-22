@@ -572,7 +572,6 @@ let _ = dispatch begin function
 
       let def_stubs ~dir name =
         let tag = "use_"^name in
-	let dir = prefix_me dir in
         let file = dir / "lib" ^ name -.- !Options.ext_lib in
         dep ["ocaml"; tag] [file];
         (* flag ["ocaml"; "byte"; "link"; tag] (S[A"-ccopt";A("-L"^dir);A"-cclib";A("-l"^name);A"-custom"]); *)
