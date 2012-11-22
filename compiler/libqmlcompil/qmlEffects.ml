@@ -30,7 +30,7 @@ module type S =
 sig
   type effect
   val join_effect : effect -> effect -> effect
-  val effect_of : [`bypass of BslKey.t] -> effect
+  val effect_of : (BslKey.t -> QmlAst.ty * effect) -> [`bypass of BslKey.t] -> effect
   val no_effect : effect
   val all_effects : effect
   val to_string : effect -> string
@@ -45,7 +45,7 @@ sig
   val flatten_effect : effects -> effect
 
   type env = (effects IdentMap.t * typ IdentMap.t)
-  val infer_code : ?initial_env:env -> (BslKey.t -> Q.ty) -> Q.code -> env
+  val infer_code : ?initial_env:env -> (BslKey.t -> QmlAst.ty * effect) -> Q.code -> env
 end
 
 module EffectAnalysis(S:S) : E with type effect = S.effect =
@@ -349,8 +349,8 @@ struct
         Dontcare
     | Q.Bypass (_, b) ->
         (* call a bypass typer, and add side effect to the arrow *)
-        let qty = bp b in
-        let its_effect = S.effect_of (`bypass b) in
+        let qty = fst (bp b) in
+        let its_effect = S.effect_of bp (`bypass b) in
         (*Format.printf "%s has type %a and effect %s@."
           (BslKey.to_string b) QmlPrint.pp#ty qty (S.to_string its_effect);*)
         rewrite_arrow level its_effect qty
@@ -427,14 +427,15 @@ struct
       code
 end
 
-let effect_of' = function
+let effect_of' bm = function
   | `bypass s ->
-    (* FIXME: this reminds me the dark days when we have no bsl
-       and huge list of bypass floating around
-       it should be replaced by a bypass property
-       it affects the way bypass interacts slicer
-       two bypass with the exactly the same definition have different behaviour
-       which is totally misleading *)
+      (* FIXME: this reminds me the dark days when we have no bsl
+         and huge list of bypass floating around
+         it should be replaced by a bypass property
+         it affects the way bypass interacts slicer
+         two bypass with the exactly the same definition have different behaviour
+         which is totally misleading
+      *)
       match BslKey.to_string s with
       | "bslpervasives_int_neg"
       | "bslpervasives_int_add"
@@ -533,7 +534,7 @@ let effect_of' = function
       | "bslpervasives_error" -> (* accepting to clean errors *)
           `error
 
-      | _ -> `impure
+      | _ -> if snd (bm s) then `pure else `impure
 
 module SideEffectS =
 struct
@@ -541,8 +542,8 @@ struct
   let join_effect = (||)
   let no_effect = false
   let all_effects = true
-  let effect_of x =
-      match effect_of' x with
+  let effect_of bm x =
+      match effect_of' bm x with
     | `pure | `alloc | `read | `error -> false
     | `impure | `write -> true
   let to_string = function
@@ -553,8 +554,8 @@ end
 module SlicerEffectS =
   struct
     include SideEffectS
-    let effect_of x =
-      match effect_of' x with
+    let effect_of bm x =
+      match effect_of' bm x with
       | `pure | `write | `error -> false
       | `impure | `alloc | `read -> true
   end

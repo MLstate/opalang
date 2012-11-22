@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -24,7 +24,7 @@ sig
   val flatten_effect : effects -> effect
 
   type env = (effects IdentMap.t * typ IdentMap.t)
-  val infer_code : ?initial_env:env -> (BslKey.t -> QmlAst.ty) -> QmlAst.code -> env
+  val infer_code : ?initial_env:env -> (BslKey.t -> QmlAst.ty * effect) -> QmlAst.code -> env
 end
 
 module SideEffect : E with type effect = bool

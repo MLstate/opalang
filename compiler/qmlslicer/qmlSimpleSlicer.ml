@@ -710,7 +710,15 @@ end
 let analyse_side_effects env code =
   let bypass_typer =
     let typer = BslLib.BSL.ByPassMap.bypass_typer env.bymap in
-    fun s -> Option.get (typer s) in
+    let ispure = fun s ->
+      match BslLib.BSL.ByPassMap.find_opt env.bymap s with
+      | None -> false
+      | Some bypass ->
+          List.exists
+            (fun i -> (BslLib.BSL.Implementation.bsltags i).BslTags.pure)
+            (BslLib.BSL.ByPass.all_implementations bypass)
+    in
+    fun s -> Option.get (typer s), ispure s in
   let initial_env = R_eff.load () in
   let (effect_env,_) as final_env = QmlEffects.SlicerEffect.infer_code ~initial_env bypass_typer code in
   R_eff.save initial_env final_env;
