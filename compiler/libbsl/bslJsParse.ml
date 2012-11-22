@@ -148,8 +148,7 @@ let collect_bsl_tags tags =
 
 type global_read_result = [ `no_occurrences
                           | `wrong_format of pos * message
-                          | `multiple_occurrences of tag
-                          | `found of pos * tag * BD.t ]
+                          | `found of (pos * tag * BD.t) list ]
 
 type local_read_result = [ `wrong_format of pos * message
                          | `found of BD.t ]
@@ -161,20 +160,18 @@ let try_read_args tag
   let rec aux acc tags =
     match tags with
     | [] ->
-      Option.default_map `no_occurrences
-        (fun (pos, dir) -> `found (pos, tag, dir))
-        acc
+        begin match acc with
+        | [] -> `no_occurrences
+        | _ -> `found acc
+        end
     | (pos, tag', args) :: rest ->
-      if tag <> tag' then
-        aux acc rest
-      else if Option.is_some acc then
-        `multiple_occurrences tag
-      else
-        match arg_reader pos args with
+        if tag <> tag' then aux acc rest
+        else match arg_reader pos args with
         | `wrong_format _ as s -> s
-        | `found directive -> aux (Some (pos, directive)) rest
+        | `found directive ->
+            aux ((pos, tag, directive) :: acc) rest
   in
-  aux None tags
+  aux [] tags
 
 let identifier_regexp =
   Str.regexp "^[ \t]*\\([a-zA-Z_][a-zA-Z0-9_]*\\)[ \t]*$"
@@ -341,7 +338,7 @@ let readers implementation = [
 type extract_result =
 | NoOccurrences
 | Error of string
-| Found of pos * BslTags.t * BD.t
+| Found of (pos * BslTags.t * BD.t) list
 
 (** Try to extract a bsl directive from a list of tags *)
 let maybe_extract_directive implementation tags : extract_result =
@@ -352,35 +349,26 @@ let maybe_extract_directive implementation tags : extract_result =
     match extracted_directives with
     | [] -> (
       match acc with
-      | None -> NoOccurrences
-      | Some (pos, _, d) ->  (
-        match collect_bsl_tags tags with
-        | Some bsl_tags -> Found (pos, bsl_tags, d)
-        | None -> Error "Badly formatted BSL tags"
+      | [] -> NoOccurrences
+      | _ -> Found acc
       )
-    )
     | extracted :: rest -> (
       match extracted with
       | `no_occurrences -> aux acc rest
-      | `found (pos, name, directive) -> (
-        match acc with
-        | None -> aux (Some (pos, name, directive)) rest
-        | Some (_pos', name', _directive') ->
-          Error (
-            Printf.sprintf
-              "Multiple directives have been found: @%s and @%s"
-              name name'
-          )
+      | `found truc -> (
+          match collect_bsl_tags tags with
+          | Some bsl_tags ->
+              let acc =
+                (List.map (fun (p, _, d) -> (p, bsl_tags, d)) truc) @ acc
+              in
+              aux acc rest
+          | None -> Error "Badly formatted BSL tags"
       )
       | `wrong_format (pos, message) ->
-        Error (Format.sprintf "%a%s" FilePos.pp_citation pos message)
-      | `multiple_occurrences name ->
-        Error (
-          Printf.sprintf "Multiple occurrences of tag @%s" name
-        )
-    )
+          Error (Format.sprintf "%a%s" FilePos.pp_citation pos message)
+      )
   in
-  aux None extracted_directives
+  aux [] extracted_directives
 
 let filter_lines lines = List.filter_map (fun line ->
   match line with
@@ -402,16 +390,17 @@ let rec analyze_comments directives code =
     match maybe_extract_directive implementation tags with
     | NoOccurrences -> analyze_comments directives rest
     | Error e -> `error e
-    | Found (pos, bsl_tags, d) ->
-      analyze_comments ((pos, bsl_tags, d) :: directives) rest
-  )
+    | Found found ->
+        analyze_comments (found @ directives) rest
+    )
   | _ :: rest -> analyze_comments directives rest
   | [] -> `success (List.rev directives)
 
 let process code =
   match analyze_comments [] code with
   | `error e -> `error e
-  | `success directives -> `success {directives; code}
+  | `success directives ->
+      `success {directives; code}
 
 let parse_file filename =
   try
