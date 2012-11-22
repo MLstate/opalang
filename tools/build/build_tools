@@ -25,8 +25,6 @@ internal opa-plugin-builder-bin compiler/libbsl/bslregister.native		lib/opa/bin
 internal opa-plugin-browser-bin compiler/libbsl/bslbrowser.native 		lib/opa/bin
 internal bslbrowser           	compiler/libbsl/bslbrowser
 internal passdesign           	compiler/passlib/passdesign.native
-#internal ocamlbase.top        	ocamllib/ocamlbase.top
-#internal ocamlbase            	ocamllib/libbase/ocamlbase
 internal opatrack             	compiler/passlib/opatrack.sh
 internal opadep               	compiler/compilerlib/opadep.sh
 internal filepos              	ocamllib/libbase/testfilepos.native
