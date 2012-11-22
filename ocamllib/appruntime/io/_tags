@@ -1,4 +1,0 @@
-# -*- conf -*- (for emacs)
-
-
-<*.c> : c_wall, use_ssl, use_libbase

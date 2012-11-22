@@ -1,1 +1,3 @@
-<mail.opa_plugin>: use_libbase, use_qmlcpsserver, use_libsecurity, use_libnet, use_appruntime
+# -*- conf -*- (for emacs)
+
+<mail.opa_plugin>: use_libbase, use_qmlcpsserver

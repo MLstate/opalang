@@ -10,8 +10,7 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
 
-let pp = Format.fprintf
-in
+let pp = Format.fprintf in
 
 let fmt_sprintf fmt =
   Format.kfprintf (fun _ -> Format.flush_str_formatter ()) Format.str_formatter fmt
@@ -39,14 +38,10 @@ shared_namespace_dir (prefix_me "compiler/libqmlcompil");
 shared_namespace_dir (prefix_me "compiler/opa");
 shared_namespace_dir (prefix_me "compiler/opalang");
 include_subdirs (prefix_me "compiler/opalib");
-shared_namespace_dir (prefix_me "ocamllib/appruntime");
-shared_namespace_dir (prefix_me "ocamllib/libnet");
 
 (* -- Stubs -- *)
 
 def_stubs ~dir:"ocamllib/libbase" "stubs";
-def_stubs ~dir:"ocamllib/libsecurity" "ssl_ext";
-def_stubs ~dir:"ocamllib/appruntime" "io";
 
 (* PATHS *)
 
@@ -310,52 +305,6 @@ rule "ofile"
      let dir = Pathname.dirname (env "%.of") in
      build_list build (string_list_of_file (env "%.of"));
      Cmd(S[get_tool "ofile"; A"-path"; P(build_dir); P(env "%.of")]));
-
-(* -- Proto rules -- *)
-
-rule "proto_deps: proto -> proto.depends"
-  ~dep: "%.proto"
-  ~prod: "%.proto.depends"
-  (proto_deps "%.proto" "%.proto.depends");
-
-rule "proto: proto & proto_depends -> ml & mli & trx_parse"
-  ~deps:("%.proto" :: "%.proto.depends" :: tool_deps "genproto")
-  ~prods: [ "%.ml" ; "%.mli" ; "%_parse.trx" ]
-  (fun env build ->
-     let dir = Pathname.dirname (env "%.proto") in
-     let prefix = if dir = "." then "" else dir^"/" in
-     let proto_deps = string_list_of_file (env "%.proto.depends") in
-     let proto_deps = List.map ((^) prefix) proto_deps in
-     if proto_deps <> [] then build_list build proto_deps;
-     Cmd(S[get_tool "genproto"
-          ; P (env "%.proto")
-          ; P dir
-          ; P ((Pathname.basename (env "%")))
-          ; P ((Pathname.basename (env "%") ^ "_parse"))
-          ]));
-
-(* -- Wsdl2ml rules -- *)
-
-rule "wsdl2ml: wsdl -> types.ml"
-  ~deps:("%.wsdl" :: tool_deps "wsdl2ml")
-  ~prods: [ "%types.ml" ]
-  (fun env build ->
-    let dir = Pathname.dirname (env "%.wsdl") in
-    Cmd(S[get_tool "wsdl2ml"
-         ; P (env "%.wsdl")
-         ]));
-
-(* -- Mlidl rules -- *)
-
-rule "mlidl: mlidl -> types.ml & types.mli"
-  ~deps:("%.mlidl" :: tool_deps "mlidl")
-  ~prods: [ "%types.ml"; "%types.mli" ]
-  (fun env build ->
-    let dir = Pathname.dirname (env "%.mlidl") in
-    Cmd(S[get_tool "mlidl"
-         ; P (env "%.mlidl")
-         ]));
-
 
 (* -- begin js validation -- *)
 (*

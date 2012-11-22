@@ -3,12 +3,6 @@
 # OCAMLLIB TAGS
 #
 
-<{appruntime,libbase,libnet,libruntime,libsecurity,oparuntime,libjsminify}>: traverse
+<{libbase,libjsminify}>: traverse
 
-<{libbase.{cma,cmxa},ocamlbase.top}>: use_stubs
-<ocamlbase.top>: thread, use_unix, use_str, use_zip, use_ulex, iconv
-
-<libsecurity.*a>: use_ssl_ext
-<appruntime.*a>: use_io
-
-<libnattraversal.*a>: use_miniupnpc_idl, use_natpmp_idl
+<libbase.{cma,cmxa}>: use_stubs

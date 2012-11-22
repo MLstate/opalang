@@ -3,7 +3,7 @@
 # COMPILER TAGS
 #
 
-<{js_passes,buildinfos,compilerlib,jslang,libbsl,libqmlcompil,libtrx,ocamllang,opa,opacapi,opalang,opalib,opx2js,passes,passlib,pplib,protocols,qml2js,qmloptions,qmlcompilers,qmlcps,qmljsimp,qmlpasses,qmlslicer}>: traverse
+<{js_passes,buildinfos,compilerlib,jslang,libbsl,libqmlcompil,libtrx,ocamllang,opa,opacapi,opalang,opalib,opx2js,passes,passlib,pplib,qml2js,qmloptions,qmlcompilers,qmlcps,qmljsimp,qmlpasses,qmlslicer}>: traverse
 
 <main.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_passlib, use_libbsl, use_qmloptions, use_qml2js, use_js_passes, use_opa
 

@@ -1,6 +1,7 @@
+# -*- conf -*- (for emacs)
+
 <*.{ml,byte,native}>: use_graph
 
-<upgrade_db.{ml,byte,native}>: use_libnet, use_appruntime, use_libsecurity, use_database
 <dbGenHelpers.ml>: use_opacapi
 <dbGenByPass.ml>: use_opacapi
 <dbGen_common.ml>: use_opacapi

@@ -1,1 +1,3 @@
-<unix.opa_plugin>: use_libbase, use_qmlcpsserver, use_libruntime, use_appruntime
+# -*- conf -*- (for emacs)
+
+<unix.opa_plugin>: use_libbase, use_qmlcpsserver

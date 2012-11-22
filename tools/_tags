@@ -26,5 +26,3 @@
 <teerex/**>: traverse
 <dissemination>: traverse
 <utils>: traverse
-
-<ocamlall.top>: thread, use_io, use_nums, use_dynlink, use_unix, use_str, use_ulex, use_ssl, use_graph, use_zip, iconv, use_stubs

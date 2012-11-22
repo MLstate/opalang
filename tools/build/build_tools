@@ -28,9 +28,6 @@ internal passdesign           	compiler/passlib/passdesign.native
 internal opatrack             	compiler/passlib/opatrack.sh
 internal opadep               	compiler/compilerlib/opadep.sh
 internal filepos              	ocamllib/libbase/testfilepos.native
-internal genproto             	compiler/protocols/genproto.native
-internal mlidl                	compiler/protocols/mlidl.native
-internal wsdl2ml              	compiler/protocols/wsdl2ml.native
 internal jsstat               	compiler/jslang/jsstat.native
 internal globalizer             compiler/jslang/globalizer.native
 
@@ -69,11 +66,6 @@ internal jschecker_clientlib.js 	compiler/qml2js/clientLib.externs.js 		share/op
 internal jschecker_clientliblib.js 	compiler/qml2js/clientLibLib.externs.js 	share/opa/jschecker
 internal jschecker_externals.js 	tools/jschecker/externs.js 			share/opa/jschecker
 internal jschecker_jquery.js 		lib/plugins/opabsl/jsbsl/jquery.externs.js 	share/opa/jschecker
-
-# for the linking of servers
-internal runtimeMain.cmx	ocamllib/libnet/runtimeMain.cmx			lib/opa/static
-internal runtimeMain.cmo 	ocamllib/libnet/runtimeMain.cmo 		lib/opa/static
-internal runtimeMain.o 		ocamllib/libnet/runtimeMain.o 			lib/opa/static
 
 # mimetype database
 internal mimetype_database.xml	ocamllib/libbase/mimetype_database.xml		share/opa
