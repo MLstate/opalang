@@ -1,8 +1,7 @@
 # -*- conf -*- (for emacs)
 
 # serverlib
-<qmlCpsServerLib.{ml,mli,byte,native}>: use_libbase
-<qmlCpsServerLib.{ml,mli}>: with_mlstate_debug
+<qmlCpsServerLib.{ml,mli,byte,native}>: use_libbase, use_appruntime, use_oparuntime
 
 <qmlCpsIL.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_compilerlib
 <qmlCpsRewriter.{ml,mli,byte,native}>: use_libbase, use_libqmlcompil, use_libbsl, use_compilerlib, use_opacapi
@@ -10,3 +9,4 @@
 # pp debug
 <qmlCpsRewriter.ml> : with_mlstate_debug
 <qmlCpsIL.ml>: with_mlstate_debug
+<qmlCpsServerLib.{ml,mli}>: with_mlstate_debug
