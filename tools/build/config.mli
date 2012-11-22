@@ -59,10 +59,6 @@ val ext_lib : string
 val ext_obj : string
 val ext_shared : string
 
-(** list all of the optional tags that have been detected available (eg
-    "camlidl", "libnatpmp", "miniupnpc", ...) *)
-val available : string list
-
 (** More nclude directories to give to the server *)
 val more_server_include_dir : string list
 
