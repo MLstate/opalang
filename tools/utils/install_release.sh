@@ -204,7 +204,7 @@ SRCDIR=$OPALANG
 OPABOOK=$OPALANG/doc/book # the tutorial and book
 
 # This is absolutely correct that the 2 variables are inversed, we should fix the value inside
-./configure -prefix $INSTALLDIR -libdir $PREFIX -release -no-dbm
+./configure -prefix $INSTALLDIR -libdir $PREFIX -release
 
 
 TARGETS="distrib"
