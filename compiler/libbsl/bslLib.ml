@@ -478,7 +478,9 @@ struct
     let fold fct t = BslKeyMap.fold fct t.map
     let pp fmt t =
       BslKeyMap.pp "@\n"
-        (fun f k _t -> Format.fprintf f "key : %a" BslKey.pp k)
+        (fun f k t -> Format.fprintf f "key : %a {%a}" BslKey.pp k
+           (Format.pp_list "," BslLanguage.pp)
+           (ByPass.langs t))
         fmt
         t.map
     let get_map t = t.map
