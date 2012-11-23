@@ -528,10 +528,6 @@ let _ = dispatch begin function
       flag ["extension:c"; "compile"; "c_wall"] (S[A"-ccopt";A c_wall;A"-ccopt";A c_werror]);
 
 
-      if is_mac then (
-	flag ["ocaml"; "link"; "iconv"] (S[A"-cclib";A"-liconv"]);
-      );
-
       (* for C #includes *)
       flag ["extension:c"] (S[A"-I";P (build_dir)]);
 
@@ -564,12 +560,8 @@ let _ = dispatch begin function
 
       if is_fbsd then (
         (* In the memory.c in FreeBSD part that uses kvm_getprocs() required
-           link with -lkvm. The stubs needs to be compiled with -liconv too. *)
-        flag ["use_stubs"; "link"] (S[A "-cclib";A "-lkvm";A"-ccopt";A "-L/usr/local/lib";A "-cclib";A "-liconv"]);
-        (* Build with converters/libiconv port, which it installs in the
-           /usr/local by default *)
-        flag ["iconv"; "compile"] (S[A"-I";A "/usr/local/include"]);
-        flag ["iconv"; "link"] (S[A"-ccopt";A "-L/usr/local/lib";A "-cclib";A "-liconv"]);
+           link with -lkvm. *)
+        flag ["use_stubs"; "link"] (S[A "-cclib";A "-lkvm"]);
       );
 
 (* -- Don't forget that the rest of the "mlstate build stdlib" is in --
