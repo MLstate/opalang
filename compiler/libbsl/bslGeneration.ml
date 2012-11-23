@@ -30,7 +30,9 @@ module BI = BslInterface
 module BR = BslRegisterLib
 module List = BaseList
 
-let ( / ) a b = a ^ "/" ^ b (* linux or cygwin compliant, ok for build see for user's space use *)
+let ( / ) a b =
+  if a = "" then b
+  else a ^ "/" ^ b (* linux or cygwin compliant, ok for build see for user's space use *)
 
 let files_generated = ref 0
 
