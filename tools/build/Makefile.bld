@@ -56,6 +56,7 @@ clean::
 .PHONY: distclean
 distclean:: clean
 	rm -f $(CONFIG_DIR)/config.{sh,ml,make,log}
+	rm -f *.native
 
 -include $(BUILD_DIR)/build_libs.make
 -include $(BUILD_DIR)/build_tools.make
