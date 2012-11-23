@@ -523,6 +523,8 @@ let _ = dispatch begin function
       flag ["ocaml"; "pack"; "rectypes"] (A"-rectypes");
       flag ["ocaml"; "doc"; "rectypes"] (A"-rectypes");
       flag ["ocaml"; "compile"; "noassert"] (A"-noassert");
+      if Config.is_release then
+	flag ["ocaml"; "compile"] (S[A"-w";A"-32"]);
       flag ["extension:c"; "compile"; "c_wall"] (S[A"-ccopt";A c_wall;A"-ccopt";A c_werror]);
 
 
