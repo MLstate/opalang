@@ -61,9 +61,3 @@ val ext_shared : string
 
 (** More nclude directories to give to the server *)
 val more_server_include_dir : string list
-
-(** More ocamllib to use *)
-val more_ocamllibs:
-  (?extern:bool ->
-   ?dir:string ->
-   ?tag_name:string -> string -> unit) -> unit

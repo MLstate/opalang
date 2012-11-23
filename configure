@@ -631,8 +631,6 @@ let ext_exe = "$EXT_EXE"
 
 let more_server_include_dir = []
 
-let more_ocamllibs _ = ()
-
 EOF
 
 cat > $CONFIG_PATH/config.sh <<EOF
