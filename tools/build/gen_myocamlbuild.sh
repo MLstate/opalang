@@ -16,7 +16,7 @@ BUILD_TOOLS=${BUILD_TOOLS:-"tools/build/build_tools"}
 BUILD_LIBS=${BUILD_LIBS:-"tools/build/build_libs"}
 BUILD_RULES=${BUILD_RULES:-"tools/build/build_rules"}
 
-CONFIG_DIR=${CONFIG_DIR:-"tools/build"}
+CONFIG_DIR=${CONFIG_DIR:-"$TOOLS_DIR/build"}
 
 CONFIG_SH=$CONFIG_DIR/config.sh
 if [ ! -e $CONFIG_SH ]; then
