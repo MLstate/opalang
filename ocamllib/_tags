@@ -5,4 +5,4 @@
 
 <{libbase,libjsminify}>: traverse
 
-<libbase.{cma,cmxa}>: use_stubs
+<libbase.{*a}>: use_stubs
