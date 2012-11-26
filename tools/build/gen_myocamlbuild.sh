@@ -30,7 +30,9 @@ fi
 
 . $CONFIG_SH
 
-. $TOOLS_DIR/platform_helper.sh
+if [ -e $TOOLS_DIR/platform_helper.sh ]; then
+    . $TOOLS_DIR/platform_helper.sh
+fi
 
 : ${BLDDIR:=$TOOLS_DIR/build}
 
