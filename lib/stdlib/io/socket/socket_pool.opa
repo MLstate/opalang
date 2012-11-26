@@ -19,6 +19,11 @@ import stdlib.core.queue
 type SocketPool.result = outcome(Socket.t, string)
 
 /**
+ * Some protocols have a preamble to trigger SSL authentication (see Postgres).
+ */
+type SocketPool.preamble = Socket.t -> SocketPool.result
+
+/**
  * Configuration of socket pool.
  */
 type SocketPool.conf = {
@@ -35,7 +40,8 @@ type SocketPool.conf = {
 @private type SocketPool.state = {
   host : Socket.host;
   secure_type : option(SSL.secure_type);
-  conf : SocketPool.conf
+  preamble : option(SocketPool.preamble);
+  conf : SocketPool.conf;
   sockets: list(Socket.t);
   allocated: list(Socket.t);
   cnt: int;
@@ -137,7 +143,21 @@ SocketPool = {{
           else
             (match
                match state.secure_type with
-               | {some=secure_type} -> Socket.binary_secure_connect_with_err_cont(state.host.f1,state.host.f2,secure_type)
+               | {some=secure_type} ->
+                  match state.preamble with
+                  | {some=preamble} ->
+                     //match Socket.binary_secure_connect_with_err_cont(state.host.f1,state.host.f2,false,secure_type) with
+                     match Socket.binary_connect_with_err_cont(state.host.f1,state.host.f2) with
+                     | {success=conn} ->
+                        match preamble({~conn; mbox=Mailbox.create(state.conf.hint)}) with
+                        | {success=conn} ->
+                           Socket.binary_secure_reconnect_with_err_cont(conn.conn,state.host.f1,state.host.f2,secure_type)
+                        | ~{failure} -> ~{failure}
+                        end
+                     | ~{failure} -> ~{failure}
+                     end
+                  | {none} -> Socket.binary_secure_connect_with_err_cont(state.host.f1,state.host.f2,true,secure_type)
+                  end
                | {none} -> Socket.binary_connect_with_err_cont(state.host.f1,state.host.f2)
                end
              with
@@ -179,8 +199,8 @@ SocketPool = {{
        {stop}
 
   @private
-  initial_state(host, conf, secure_type) = {
-    ~host; ~conf; ~secure_type;
+  initial_state(host, conf, secure_type, preamble) = {
+    ~host; ~conf; ~secure_type; ~preamble;
      cnt=0;
      sockets=[];
      allocated=[];
@@ -195,7 +215,7 @@ SocketPool = {{
    * @return A pool of sockets
    */
   make(host:Socket.host, conf:SocketPool.conf): SocketPool.t =
-    state = initial_state(host, conf, none)
+    state = initial_state(host, conf, none, none)
     do Log.debug(state, "make","{host}")
     Session.make(state, pool_handler)
 
@@ -204,10 +224,12 @@ SocketPool = {{
    * @param host The host to connect
    * @param conf The initial configuration of the socket pool
    * @param secure_type The optional SSL security information, none is the same as an insecure connection
+   * @param preamble An optional function to call upon an insecure socket before SSL handshake
    * @return A pool of sockets
    */
-  make_secure(host:Socket.host, conf:SocketPool.conf, secure_type:option(SSL.secure_type)): SocketPool.t =
-    state = initial_state(host, conf, secure_type)
+  make_secure(host:Socket.host, conf:SocketPool.conf,
+              secure_type:option(SSL.secure_type), preamble:option(SocketPool.preamble)): SocketPool.t =
+    state = initial_state(host, conf, secure_type, preamble)
     do Log.debug(state, "make","{host}")
     Session.make(state, pool_handler)
 

@@ -32,6 +32,7 @@
  * 
  */
 import stdlib.core
+import stdlib.io.socket
 import stdlib.apis.apigenlib
 @private
 U = Pack.Unser
@@ -804,8 +805,8 @@ Pg = {{
   
   /** Open connection object (doesn't connect until read/write received) */
   
-  connect(name:string,secure:option(SSL.secure_type)) : Apigen.outcome(ApigenLib.connection) = 
-    conn = Conn.init("postgres",name,secure)
+  connect(name:string,secure:option(SSL.secure_type),preamble:option(SocketPool.preamble)) : Apigen.outcome(ApigenLib.connection) = 
+    conn = Conn.init("postgres",name,secure,preamble)
     conn = Conn.custom_read_packet(conn,Conn.read_packet_prefixed(~{Conn.default_length with
           offset=1; le=false; signed=false; size={L}}))
     Conn.connect(conn,default_host)
@@ -817,6 +818,14 @@ Pg = {{
     | {success=c} -> {success=Conn.close(c)}
     | {~failure} -> {~failure}
     end
+  
+  /** Send SSL request message */
+  packed_SSLRequest = match Pack.Encode.pack(Pg.pack_SSLRequest()) with
+    | {success=binary} -> binary
+    | {~failure} -> @fail("Failed to pre-pack message SSLRequest {failure}")
+    end
+  sslreq(conn:Apigen.outcome(ApigenLib.connection)) = 
+    Pg.Conn.snd(conn,packed_SSLRequest)
   
   /** Send startup message */
   start(conn:Apigen.outcome(ApigenLib.connection),params) = 
@@ -875,7 +884,6 @@ Pg = {{
     end
   
   /** Sync to given operations (processes messages until server ready) */
-  @private
   packed_Sync = match Pack.Encode.pack(Pg.pack_Sync()) with
     | {success=binary} -> binary
     | {~failure} -> @fail("Failed to pre-pack message Sync {failure}")
@@ -884,7 +892,6 @@ Pg = {{
     Pg.Conn.snd(conn,packed_Sync)
   
   /** Flush current operations (processes messages until server ready) */
-  @private
   packed_Flush = match Pack.Encode.pack(Pg.pack_Flush()) with
     | {success=binary} -> binary
     | {~failure} -> @fail("Failed to pre-pack message Flush {failure}")
@@ -893,7 +900,6 @@ Pg = {{
     Pg.Conn.snd(conn,packed_Flush)
   
   /** Send terminate message */
-  @private
   packed_Terminate = match Pack.Encode.pack(Pg.pack_Terminate()) with
     | {success=binary} -> binary
     | {~failure} -> @fail("Failed to pre-pack message Terminate {failure}")

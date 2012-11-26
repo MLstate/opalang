@@ -500,6 +500,7 @@ type ApigenLib.connection = {
 private
 type ApigenLib.sr =
      {(ApigenLib.connection) recv} // Expect reply
+  or {(ApigenLib.connection,int) recvraw} // Expect raw reply
   or {(ApigenLib.connection,binary) send} // Send and forget
   or {(ApigenLib.connection,binary) sendrecv} // Send and expect reply
   or {stop} // Stop the cell
@@ -509,6 +510,7 @@ type ApigenLib.srr =
      {Apigen.outcome(void) sendresult}
   or {Apigen.outcome(binary) sndrcvresult}
   or {Apigen.outcome(binary) rcvresult}
+  or {Apigen.outcome(binary) rcvrawresult}
   or {stopresult}
   or {Apigen.failure failure}
 
@@ -533,12 +535,13 @@ module ApilibConnection(Socket.host default_host) {
    * @param name The name of the connection to open.
    * @param conf The configuration of the connection to open.
    * @param secure Optional SSL secure_type value.
+   * @param preamble Optional function called on socket before SSL handshake.
    * @return A connection object (not connected).
    */
-  function ApigenLib.connection init(family_name, name, secure) {
+  function ApigenLib.connection init(family_name, name, secure, preamble) {
     conf = Conf.get_default(family_name, name)
     ~{ name, conf, conn:{none},
-       pool:SocketPool.make_secure(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose},secure),
+       pool:SocketPool.make_secure(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose},secure,preamble),
        read_packet:read_packet_prefixed(default_length)
      }
   }
@@ -649,6 +652,24 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
+  private function (option(Mailbox.t),Apigen.outcome(binary)) get_raw(ApigenLib.connection c, int no_bytes) {
+    match (c.conn) {
+    case {some:conn}:
+    match (read_raw(conn.conn, c.conf.timeout, conn.mbox, no_bytes)) {
+    case {success:(mailbox,reply)}:
+      Log.debug(c, "receive", "\n{bindump(reply)}")
+      ({some:mailbox},{success:reply})
+    case {~failure}:
+      Log.info(c, "receive","failure={failure}")
+      _ = Mailbox.reset(conn.mbox)
+      ({none},{failure:{socket:failure}})
+    }
+    case {none}:
+      Log.error(c, "receive","No socket")
+      ({none},{failure:{socket:"No socket"}})
+    }
+  }
+
   private function sr_snr(ApigenLib.connection c, binary msg) {
     sr = send_no_reply(c,msg)
     ({none},{sendresult:sr})
@@ -664,6 +685,11 @@ module ApilibConnection(Socket.host default_host) {
     (mbox,{rcvresult:gr})
   }
 
+  private function sr_graw(ApigenLib.connection c, int no_bytes) {
+    (mbox,gr) = get_raw(c, no_bytes)
+    (mbox,{rcvrawresult:gr})
+  }
+
   private function ApigenLib.srr srpool(ApigenLib.connection c, ApigenLib.sr msg) {
     match (SocketPool.get(c.pool)) {
     case {success:connection}:
@@ -671,6 +697,7 @@ module ApilibConnection(Socket.host default_host) {
       (mbox,result) =
         match (msg) {
         case {recv:c}: sr_gr({c with ~conn})
+        case {recvraw:(c,no_bytes)}: sr_graw({c with ~conn},no_bytes)
         case {send:(c,msg)}: sr_snr({c with ~conn},msg)
         case {sendrecv:(c,msg)}: sr_swr({c with ~conn},msg)
         case {stop}: Log.debug(c, "srpool","stop"); @fail
@@ -754,6 +781,28 @@ module ApilibConnection(Socket.host default_host) {
   }
 
   /**
+   * Wait for a raw reply from a connection.
+   *
+   * Note that we accept an outcome as a parameter so that we can chain these
+   * function calls together, the first failure in the chain will terminate.
+   *
+   * @param conn The connection object outcome.
+   * @param no_bytes The number of bytes to read.
+   * @returns Success of a reply message or a failure code.
+   */
+  function Apigen.outcome(binary) rcvraw(Apigen.outcome(ApigenLib.connection) conn, int no_bytes) {
+    match (conn) {
+    case {success:c}:
+      match (srpool(c,{recvraw:(c,no_bytes)})) {
+      case {~rcvrawresult}: rcvrawresult;
+      case {~failure}: {~failure};
+      default: @fail;
+      }
+    case {~failure}: {~failure};
+    }
+  }
+
+  /**
    * Read in a packet to a mailbox.
    *
    * This is a generic routine to ensure that there is a complete packet
@@ -789,6 +838,14 @@ module ApilibConnection(Socket.host default_host) {
       case {~failure}: {~failure}
       }
     case {~failure}: {~failure}
+    }
+  }
+
+  function outcome((Mailbox.t,binary),string) read_raw(Socket.connection conn, int timeout, Mailbox.t mailbox, int no_bytes) {
+    jlog("read_raw: no_bytes={no_bytes}")
+    match (Socket.read_fixed(conn, timeout, no_bytes, mailbox)) {
+    case {success:mailbox}: Mailbox.sub(mailbox, no_bytes);
+    case {~failure}: {~failure};
     }
   }
 

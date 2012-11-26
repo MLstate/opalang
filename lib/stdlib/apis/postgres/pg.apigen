@@ -510,6 +510,7 @@ code ReadyForQuery "Z" /** Terminates SQL command sequence, call final continuat
 code RowDescription "T" /** Description of requested (or implied by simple query) row
 END
 
+SND sslreq SSLRequest /** Send SSL request message
 SND start StartupMessage /** Send startup message
 SND password PasswordMessage /** Return requested password (MD5-encoded, if requested)
 SND query Query /** Send simple Query command

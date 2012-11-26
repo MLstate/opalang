@@ -20,6 +20,7 @@
  * @stability Work in progress
  */
 
+import stdlib.io.socket
 import stdlib.apis.apigenlib
 import stdlib.crypto
 
@@ -113,6 +114,7 @@ type Postgres.failure =
  / { bad_reply : Postgres.reply }
  / { bad_row : (list(Postgres.rowdesc),list(binary)) }
  / { bad_format : int }
+ / { bad_ssl_response : string }
  / { no_key }
  / { not_found }
 
@@ -179,6 +181,7 @@ type Postgres.rows = (list(Postgres.rowdesc),list(Postgres.row))
 type Postgres.connection = {
   name          : string /** A name for the connection */
   secure        : option(SSL.secure_type) /** Optional SSL security information */
+  ssl_accepted  : bool /** The server has accepted an SSL connection */
   conn          : ApigenLib.connection /** The underlying ApigenLib connection object */
   major_version : int /** The major version for the protocol */
   minor_version : int /** The minor version for the protocol */
@@ -239,9 +242,10 @@ Postgres = {{
    * @returns An outcome of either a connection object or an [Apigen.failure] value.
    */
   connect(name:string, secure:option(SSL.secure_type), dbase:string) =
-    match Pg.connect(name,secure) with
+    preamble = if Option.is_some(secure) then {some=request_ssl} else none
+    match Pg.connect(name,secure,preamble) with
     | {success=conn} ->
-      {success={ ~name ~secure ~conn ~dbase
+      {success={ ~name ~secure ~conn ~dbase ssl_accepted=false
                  major_version=default_major_version minor_version=default_minor_version
                  params=StringMap.empty processid=-1 secret_key=-1
                  query="" status="" suspended=false error=none
@@ -383,6 +387,42 @@ Postgres = {{
 
   @private init(conn:Postgres.connection, query) : Postgres.connection =
     {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; paramdescs=[]; ~query}
+
+  /* Failed attempt to get SSL connection.  We do everything the docs say,
+   * we send the SSLRequest message, we get back "S" and then we call
+   * tls.connect with the old socket value.  But it just hangs... (EINPROGRESS).
+   *
+   * This function is a preamble function which SocketPool inserts between
+   * an open insecure socket and a secure reconnect with the SSL options.
+   */
+  @private request_ssl(conn:Socket.t) : SocketPool.result =
+    do jlog("request_ssl")
+    timeout = 60*60*1000
+    match Socket.binary_write_with_err_cont(conn.conn, timeout, Pg.packed_SSLRequest) with
+    | {success=cnt} ->
+      if cnt == Binary.length(Pg.packed_SSLRequest)
+      then
+        do jlog("sent ssl request")
+        match Socket.read_fixed(conn.conn, timeout, 1, conn.mbox) with
+        | {success=mbox} ->
+          match Mailbox.sub(mbox, 1) with
+          | {success=(mbox,binary)} ->
+             if Binary.length(binary) == 1
+             then
+               match Binary.get_string(binary,0,1) with
+               | "S" -> do jlog("SSL accepted") {success={conn with ~mbox}}
+               | "N" -> do jlog("SSL rejected") {failure="request_ssl: Server does not accept SSL connections"}
+               | code -> {failure="request_ssl: Unknown code, expected 'S' or 'N', got '{code}'"}
+               end
+             else
+               {failure="request_ssl: Wrong length, expected 1 byte got {Binary.length(binary)}"}
+          | {~failure} -> {~failure}
+          end
+        | {~failure} -> {~failure}
+        end
+      else {failure="request_ssl: Socket write failure (didn't send whole data)"}
+    | ~{failure} -> ~{failure}
+    end
 
   /** Authenticate with the PostgreSQL server.
    *
