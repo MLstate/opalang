@@ -228,7 +228,7 @@ install-bld:
 	@echo "set -u" >> $(INSTALL_DIR)/bin/bld
 	@chmod 755 $(INSTALL_DIR)/bin/bld
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
-	@echo "_build/myocamlbuild -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
+	@echo "_build/myocamlbuild$(EXT_EXE) -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
 	@$(INSTALL) $(BUILD_TOOLS_DIR)/gen_myocamlbuild.sh $(BUILD_TOOLS_DIR)/myocamlbuild_*fix.ml $(CONFIG_DIR)/config.sh $(CONFIG_DIR)/config.mli $(CONFIG_DIR)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
