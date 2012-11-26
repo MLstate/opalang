@@ -20,8 +20,8 @@ CONFIG_DIR=${CONFIG_DIR:-"$TOOLS_DIR/build"}
 
 CONFIG_SH=$CONFIG_DIR/config.sh
 if [ ! -e $CONFIG_SH ]; then
-    if [ -e $CONFIG_DIR/config.sh ]; then
-        CONFIG_SH=$CONFIG_DIR/config.sh
+    if [ -e $(dirname "$0")/config.sh ]; then
+        CONFIG_SH=$(dirname "$0")/config.sh
     else
         echo "Error: config.sh not found. Please run ./configure"
         exit 1
