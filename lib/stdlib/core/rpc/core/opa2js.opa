@@ -119,8 +119,11 @@ import stdlib.core.{web.core, js}
 
       /* Encapsulated types ***********************/
       | {TyName_args = args; TyName_ident = ident} ->
-        implem = OpaType.type_of_name(ident,args)
-        aux(value, implem): RPC.Json.js_code
+        if ((%%BslValue.MagicContainer.serializer_get%%(ident)) == none) then
+          implem = OpaType.type_of_name(ident,args)
+          aux(value, implem): RPC.Json.js_code
+        else
+          aux_default(value, ty)
       | {TyForall_quant = _; TyForall_body = body} ->
         aux(value, body): RPC.Json.js_code
 
