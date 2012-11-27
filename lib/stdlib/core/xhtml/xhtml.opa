@@ -636,8 +636,7 @@ XmlConvert = {{
   /**
    * Return the xml representation of any value
    */
-  of_alpha(value) =
-    original_ty = @typeof(value)
+  of_alpha_with_ty(original_ty, value) =
     rec aux(value, ty : OpaType.ty) =
       match ty with
       | {TyName_ident = "xml"; ...} | {TyName_ident = "xhtml"; ...} ->
@@ -663,6 +662,8 @@ XmlConvert = {{
         else {text = "Can't make an xml with {ty}"}
     aux(value, original_ty)
   : xml
+
+  of_alpha(value) = of_alpha_with_ty(@typeof(value), value)
 
   /**
    * Return the xml representation of a string
