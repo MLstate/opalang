@@ -60,7 +60,7 @@ path_kind <- querytype:qt path:p select:s {{ p, qt, s }}
 ; /** database update path **/
 path_update <-
   / '@'? slash_nosp path:pa select:s spacing
-    (Opa_lexer.larrow update:u {{u}} / update_simple:u {{u, QmlAst.Db.default_update_options}}):u
+    (update_simple:u {{u, QmlAst.Db.default_update_options}} / Opa_lexer.larrow update:u {{u}}):u
     {{
        let u, o = u in
        DBPath (pa, QmlAst.Db.Update (u, o), s)
