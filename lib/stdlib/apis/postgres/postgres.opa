@@ -115,6 +115,7 @@ type Postgres.failure =
  / { bad_row : (list(Postgres.rowdesc),list(binary)) }
  / { bad_format : int }
  / { bad_ssl_response : string }
+ / { bad_type : string }
  / { no_key }
  / { not_found }
 
@@ -148,7 +149,7 @@ type Postgres.rowdesc = {
   name : string
   table_id : int
   table_attribute_number : int
-  type_id : int
+  type_id : Postgres.type_id
   data_type_size : int
   type_modifier : int
   format_code : int
@@ -195,12 +196,23 @@ type Postgres.connection = {
   error         : option(Postgres.failure) /** The last received error value (driver internal) */
   empty         : bool /** Whether the last query returned an empty reply */
   completed     : list(string) /** List of [CommandComplete] messages received */
-  rows          : int /** A list of the rows received from the last query */
+  rows          : int /** The number of rows received during a query */
+  rowdescs      : Postgres.rowdescs /** Stored value of the last row description received */
   paramdescs    : list(int) /** List of the last-received parameter descriptions */
+  handlers      : intmap((OpaType.ty,Postgres.abstract_handler)) /** Handlers for unknown data types */
 }
 
 /** Defines whether an operation is for a prepared statement or a portal */
 type Postgres.sp = {statement} / {portal}
+
+type Postgres.listener_def = {
+  on_success  : option(Postgres.connection -> void)
+  on_failure  : option(Postgres.connection, Postgres.failure -> void)
+  on_rowdescs : option(Postgres.connection, Postgres.rowdescs -> void)
+  on_row      : option(Postgres.connection, Postgres.row -> void)
+  on_error    : option(Postgres.connection, Postgres.msg -> void)
+  on_notice   : option(Postgres.connection, Postgres.msg -> void)
+}
 
 /**
  * {1 Interface}
@@ -249,7 +261,8 @@ Postgres = {{
                  major_version=default_major_version minor_version=default_minor_version
                  params=StringMap.empty processid=-1 secret_key=-1
                  query="" status="" suspended=false error=none
-                 empty=true completed=[] rows=0 paramdescs=[] }}
+                 empty=true completed=[] paramdescs=[] rows=0 rowdescs=[]
+                 handlers=IntMap.empty }}
     | {~failure} -> {~failure}
 
   /** Close a connection object.
@@ -320,6 +333,9 @@ Postgres = {{
    */
   set_major_version(conn:Postgres.connection, major_version:int) : Postgres.connection = {conn with ~major_version}
 
+  install_handler(conn:Postgres.connection, type_id:Postgres.type_id, handler:Postgres.handler('a)) : Postgres.connection =
+    {conn with handlers=IntMap.add(type_id,(PostgresTypes.name_type(@typeval('a)),@unsafe_cast(handler)),conn.handlers)}
+
   /** Set the protocol minor version number.
    *
    * @param conn The connection object.
@@ -371,7 +387,7 @@ Postgres = {{
     | {success={~CommandComplete}} -> loop({conn with completed=[CommandComplete|conn.completed]},k)
     | {success={PortalSuspended}} -> final(conn, get_result({conn with suspended=true},""),k)
     | {success={EmptyQueryResponse}} -> loop({conn with empty=true},k)
-    | {success={~RowDescription}} -> again(conn,{rowdescs=List.map(to_rowdesc,RowDescription)},k)
+    | {success={~RowDescription}} -> rowdescs = List.map(to_rowdesc,RowDescription) again({conn with ~rowdescs},{~rowdescs},k)
     | {success={~DataRow}} -> again({conn with rows=conn.rows+1},~{DataRow},k)
     | {success={~ParameterDescription}} -> loop({conn with paramdescs=ParameterDescription},k)
     | {success={NoData}} -> loop({conn with paramdescs=[]},k)
@@ -386,7 +402,7 @@ Postgres = {{
     end
 
   @private init(conn:Postgres.connection, query) : Postgres.connection =
-    {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; paramdescs=[]; ~query}
+    {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; rowdescs=[]; paramdescs=[]; ~query}
 
   /* Failed attempt to get SSL connection.  We do everything the docs say,
    * we send the SSLRequest message, we get back "S" and then we call
@@ -626,7 +642,6 @@ Postgres = {{
    * way of knowing if the cancel succeeded is to monitor the original connection.
    *
    * @param conn The connection object.
-   * @param listener A Postgres listener callback.
    * @returns An outcome of a void or an [Apigen.failure] object.
    */
   cancel(conn:Postgres.connection) : Postgres.result =
@@ -642,6 +657,127 @@ Postgres = {{
          | ~{failure} -> {failure=(conn,{api_failure=failure})}
          end
       | ~{failure} -> {failure=(conn,{api_failure=failure})}
+
+  // Some support code
+
+  /* Turn a Postgres message into a string */
+  string_of_msg(msg:Postgres.msg) : string = String.concat("\n  ",List.map(((c, m) -> "{c}: {m}"),msg))
+
+  /**
+   * A simple listener, does nothing except count rows and print out
+   * error and notice messages.
+   */
+  default_listener_def : Postgres.listener_def =
+    { on_success=none; on_failure=none; on_rowdescs=none; on_row=none; on_error=none; on_notice=none }
+
+  /**
+   * Make a listener from a listener definition.
+   * @param def A [Postgres.listener_def] value with handler functions for specific actions.
+   * @returns A valid listener function.
+   */
+  make_listener(def:Postgres.listener_def) : Postgres.listener =
+    (conn:Postgres.connection, arg:Postgres.listener_arg ->
+      match arg with
+      | {~final} ->
+        match final with
+        | {success=conn} ->
+          match def.on_success with
+          | {some=on_success} -> on_success(conn)
+          | {none} -> void
+          end
+        | {failure=(conn,failure)} ->
+          match def.on_failure with
+          | {some=on_failure} -> on_failure(conn,failure)
+          | {none} -> Log.error("Postgres.listener({conn.query})","{failure}")
+          end
+        end
+      | {~rowdescs} ->
+        match def.on_rowdescs with
+        | {some=on_rowdescs} -> on_rowdescs(conn,rowdescs)
+        | {none} -> void
+        end
+      | {~DataRow} ->
+        match def.on_row with
+        | {some=on_row} -> on_row(conn,DataRow)
+        | {none} -> void
+        end
+      | {~ErrorResponse} ->
+          match def.on_error with
+          | {some=on_error} -> on_error(conn,ErrorResponse)
+          | {none} -> Log.error("Postgres.listener({conn.query})","\n  {string_of_msg(ErrorResponse)}")
+          end
+      | {~NoticeResponse} ->
+          match def.on_notice with
+          | {some=on_notice} -> on_notice(conn,NoticeResponse)
+          | {none} -> Log.notice("Postgres.listener({conn.query})","\n  {string_of_msg(NoticeResponse)}")
+          end
+      end)
+
+  default_listener : Postgres.listener = make_listener(default_listener_def)
+
+  get_type_id(conn:Postgres.connection, name:string) : (Postgres.connection,int) =
+    type_id = ServerReference.create(-1)
+    conn = query(conn,"SELECT oid from pg_type WHERE typname='{name}'",
+                 make_listener({default_listener_def with
+                                 on_row={some=(conn, row ->
+                                                match StringMap.get("oid",PostgresTypes.getRow(conn.rowdescs,row)) with
+                                                | {some={Int=tid}} -> ServerReference.set(type_id,tid)
+                                                | _ -> void)}}))
+    (conn,ServerReference.get(type_id))
+
+  create_enum(conn:Postgres.connection, _:option('a)) : Postgres.result =
+    raw_ty = @typeval('a)
+    match raw_ty with
+    | {TyName_args=[]; TyName_ident=name} ->
+      ty = PostgresTypes.name_type(raw_ty)
+      match ty with
+      | {TySum_col=col ...} ->
+        (names,err) = List.fold((row, (names,err) -> 
+                                  match err with
+                                  | {some=_} -> (names,err)
+                                  | {none} ->
+                                    match row with
+                                    | [~{label; ty}] ->
+                                       if OpaType.is_void(ty)
+                                       then ([label|names],err)
+                                       else (names,{some="create_enum: Label {label} is not void ({ty})"})
+                                    | _ -> (names,{some="create_enum: Bad type for enum {row}"})
+                                    end),col,([],none))
+        match err with
+        | {none} ->
+           match
+             match get_type_id(conn, name) with
+             | (conn,-1) ->
+                qnames = String.concat(", ",List.map((name -> "'{name}'"),names))
+                conn = query(conn,"CREATE TYPE {name} AS ENUM ({qnames})",default_listener)
+                if Option.is_none(conn.error)
+                then get_type_id(conn, name)
+                else (conn,-1)
+             | (conn,type_id) -> (conn,type_id)
+             end
+           with
+           | (conn,-1) -> {failure=(conn,{bad_type="create_enum: can't create enum for type {ty}"})}
+           | (conn,type_id) ->
+              generic_handler(h_type_id:Postgres.type_id, h_ty:OpaType.ty, val:Postgres.data) : option(void) =
+                if type_id == h_type_id && ty == h_ty
+                then
+                  val = match val with ~{text} -> text | ~{binary} -> string_of_binary(binary)
+                  if List.mem(val,names)
+                  then
+                    match OpaValue.Record.field_of_name(val) with
+                    | {none} -> none
+                    | {some=field} -> {some=@unsafe_cast(OpaValue.Record.make_simple_record(field))}
+                    end
+                  else none
+                else none
+              do Log.notice("Postgres.create_enum","installing handler for type_id {type_id} type {OpaType.to_pretty(raw_ty)}")
+              {success={conn with handlers=IntMap.add(type_id,(ty,@unsafe_cast(generic_handler)),conn.handlers)}}
+           end
+        | {some=err} -> {failure=(conn,{bad_type=err})}
+        end
+      | _ -> {failure=(conn,{bad_type="create_enum: bad type {ty}"})}
+      end
+    | _ -> {failure=(conn,{bad_type="create_enum: bad type {raw_ty}"})}
 
 }}
 
