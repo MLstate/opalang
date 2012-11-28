@@ -43,6 +43,7 @@ MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
 node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(ALL_TOOLS))
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
 
 .PHONY: node-runtime-libs
 node-runtime-libs: $(MYOCAMLBUILD)
