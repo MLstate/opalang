@@ -97,6 +97,7 @@ let offset2string offset = FilePos.to_string (FilePos.make_pos !filename offset 
 let annot2loc annot =
   let start = FilePos.get_first_char annot.QmlLoc.pos in
   offset2linecol start
+let annot2string annot = FilePos.to_string annot.QmlLoc.pos
 
 exception Specific_parse_error of (FilePos.pos * string)
 
@@ -167,6 +168,8 @@ let error_conflicting_type_def_visibility (vis1, vis2, pos) =
        "Type definition can't be specified %s and %s at the same time."
        (string_of_visibility vis1) (string_of_visibility vis2))
      pos
+
+let error_twice_same_field field1 annot1 annot0 = error1 (sprintf "Field %s is given twice.\n  First time position: %s" field1 (annot2string annot0)) annot1
 
 (*
  * Hints
@@ -341,13 +344,26 @@ let encode_tuple l : (string * _) list =
     | []               -> List.rev acc
     | typ::t   -> aux (i + 1) ((sprintf "f%d" i, typ)::acc) t
   in aux 1 [] l
+
+let check_fields_unicity l =
+  let rec aux l set = match l with
+    | [] -> ()
+    | (f,(_,annot))::r ->
+      match StringMap.find_opt f set with
+      | None -> if r <> [] then aux r (StringMap.add f annot set)
+      | Some annot0 -> error_twice_same_field f annot annot0
+  in aux l StringMap.empty
+
 let encode_record l : (string * _) list = l
 
 let encode_tuple_pos args =
   assert (args <> []);
   (encode_tuple args, union_annot_list args)
+
+(* checks fields unicity when agregating all positions *)
 let encode_record_pos args : (string * _) list QmlLoc.label =
   assert (args <> []);
+  check_fields_unicity args;
   (encode_record args, union_annot_list_snd args)
 
 (* transform a list of arguments/parameters into its ast representation *)
