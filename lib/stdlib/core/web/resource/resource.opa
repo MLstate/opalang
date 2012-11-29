@@ -441,7 +441,7 @@ static_styled_page(title:string, styles:list(string), body: xmlns): resource =
         </head>
         <body>
           {body}
-        </body> 
+        </body>
     )
   string_content = Xmlns.serialize_to_string(xml_content)
   raw_response(string_content, "text/html", {success})
@@ -513,7 +513,8 @@ error_page(title: string, body: xhtml, status: web_response) =
  * page for nicer error reporting, for instance with [error_page].
  */
 default_error_page(status: web_response) =
-   error_page("Error", <p>Error: {WebCoreExport.web_err_description_of_web_response(status)}</p>, status) : resource
+  num = WebCoreExport.web_err_num_of_web_response(status)
+  error_page("Error {num}", <p>Error {num}: {WebCoreExport.web_err_description_of_web_response(status)}</p>, status) : resource
 
 /**
  * Build a redirection page.
