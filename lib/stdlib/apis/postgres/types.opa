@@ -27,7 +27,8 @@ type Postgres.money = {currency:option(string); amount:float}
 type Postgres.numeric = {pre:string; post:string} // TODO: arbitrary precision numbers in Opa
 
 type Postgres.opatype =
-   {Int:int}
+   {Null}
+ / {Int:int}
  / {Int64:int64}
  / {Bool:bool}
  / {String:string}
@@ -60,6 +61,8 @@ type Postgres.abstract_handler = Postgres.handler(void)
 
 PostgresTypes = {{
 
+  @private bindump = (%% BslPervasives.bindump %%: binary -> string)
+
   @private int_to_month(i:int) : Date.month =
     match i with
     | 1 -> {january}
@@ -75,7 +78,7 @@ PostgresTypes = {{
     | 11 -> {november}
     | 12 -> {december}
     | _ -> {january} //??
-  @private ms = parser "." ms=Rule.natural ->ms
+  @private ms = parser "." ms=Rule.natural -> ms
   @private tz = parser
     | "+" tz=Rule.fixed_length_natural(2) -> Duration.h(tz)
     | "-" tz=Rule.fixed_length_natural(2) -> Duration.h(-tz)
@@ -216,29 +219,35 @@ PostgresTypes = {{
 
   getElement(rowdesc:Postgres.rowdesc, data:binary, output:Postgres.oparow) : Postgres.oparow =
     add(v) = StringMap.add(rowdesc.name,v,output)
-    match rowdesc.format_code with
-    | 0 ->
-      text = string_of_binary(data)
-      match rowdesc.type_id with
-      | 16 -> add({Bool=(text=="t")})
-      | 17 -> add(getTextByteA(text))
-      | 20 -> add({Int64=Int64.of_string(text)})
-      | 21 | 23 | 26 -> add({Int=Int.of_string(text)})
-      | 790 -> add(getTextMoney(text))
-      | 700 | 701 -> add({Float=Float.of_string(text)})
-      | 1042 | 1043 -> add({String=text})
-      | 1082 | 1083 | 1114 | 1184 -> add(getTextDate(text))
-      | 1005 | 1007 | 1016 | 1231 -> add(getTextIntArray(text))
-      | 1015 -> add(getTextStringArray(text))
-      | 1021 | 1022 -> add(getTextFloatArray(text))
-      | 1186 -> add(getTextInterval(text))
-      | 1700 -> add(getTextNumeric(text))
-      | id -> add({TypeId=(id,~{text})})
-      end
-    | 1 ->
-      add({TypeId=(rowdesc.type_id,{binary=data})})
-    | code ->
-      add({BadCode=(code,data)})
+    //do jlog("rowdesc:{rowdesc}")
+    //do jlog("{rowdesc.name}: data({Binary.length(data)})=\n{bindump(data)}") 
+    if Binary.length(data) == 0
+    then add({Null})
+    else
+      match rowdesc.format_code with
+      | 0 ->
+        text = string_of_binary(data)
+        match rowdesc.type_id with
+        | 16 -> add({Bool=(text=="t")})
+        | 17 -> add(getTextByteA(text))
+        | 20 -> add({Int64=Int64.of_string(text)})
+        | 21 | 23 | 26 -> add({Int=Int.of_string(text)})
+        | 790 -> add(getTextMoney(text))
+        | 700 | 701 -> add({Float=Float.of_string(text)})
+        | 1042 | 1043 -> add({String=text})
+        | 1082 | 1083 | 1114 | 1184 -> add(getTextDate(text))
+        | 1005 | 1007 | 1016 | 1231 -> add(getTextIntArray(text))
+        | 1015 -> add(getTextStringArray(text))
+        | 1021 | 1022 -> add(getTextFloatArray(text))
+        | 1186 -> add(getTextInterval(text))
+        | 1700 -> add(getTextNumeric(text))
+        | id -> add({TypeId=(id,~{text})})
+        end
+      | 1 ->
+        // TODO: we also need codes for binary data
+        add({TypeId=(rowdesc.type_id,{binary=data})})
+      | code ->
+        add({BadCode=(code,data)})
 
   getRow(rowdescs:Postgres.rowdescs, row:Postgres.row) : Postgres.oparow =
     List.fold2(getElement,rowdescs,row,StringMap.empty)
@@ -250,7 +259,7 @@ PostgresTypes = {{
 
   @private StringMap_keys(sm) : list(string) = StringMap.fold((k, _, keys -> [k|keys]),sm,[])
 
-  intersect(l1, l2) =
+  @private intersect(l1, l2) =
     rec aux(l1,l2) =
       match ((l1,l2)) with
       | ([],_) -> ([],[])
@@ -273,7 +282,7 @@ PostgresTypes = {{
       | {TyName_args=[]; TyName_ident="Postgres.numeric"}
       | {TyName_args=[]; TyName_ident="Date.date"}
       | {TyName_args=[]; TyName_ident="binary"}
-      //| {TyName_args=[_]; TyName_ident="option"}
+      | {TyName_args=[_]; TyName_ident="option"}
       | {TyName_args=[]; TyName_ident="bool"}
       | {TyName_args=[]; TyName_ident="void"}
       | {TyName_args=[_]; TyName_ident="int64"}
@@ -307,10 +316,10 @@ PostgresTypes = {{
       do Log.error("Postgres.row_to_opa", str)
       @fail(str)
 
-    //make_option(vopt:option('a)): option('b) =
-    //  match vopt with
-    //  | {some=v} -> {some=@unsafe_cast({some=v})}
-    //  | {none} -> {some=@unsafe_cast({none})}
+    make_option(vopt:option('a)): option('b) =
+      match vopt with
+      | {some=v} -> {some=@unsafe_cast({some=v})}
+      | {none} -> {some=@unsafe_cast({none})}
 
     rec element_to_rec(row:Postgres.oparow, fields:OpaType.fields, dflt:option('a)): option('a) =
       match fields with
@@ -332,8 +341,8 @@ PostgresTypes = {{
             match dflt with
             | {none} ->
               match field.ty with
-              //| {TyName_args=[_]; TyName_ident="option"} ->
-              //  aux(elements,frest,[(backfield,@unsafe_cast({none}))|acc])
+              | {TyName_args=[_]; TyName_ident="option"} ->
+                aux(elements,frest,[(backfield,@unsafe_cast({none}))|acc])
               | _ -> error_no_retry("name mismatch \"{field.label}\" vs. \"{name}\"",(acc, true))
               end
             | {some=dflt} ->
@@ -390,20 +399,18 @@ PostgresTypes = {{
 
     and opatype_to_opa(opatype:Postgres.opatype, ty:OpaType.ty, dflt:option('a)): option('a) =
       match ty with
-      //| {TyName_args=[]; TyName_ident="void"} ->
-      //  (match opatype with
-      //   | {Null=_} -> {some=@unsafe_cast(void)}
-      //   | opatype -> error("expected void, got {opatype}"))
-      //| {TyName_args=[]; TyName_ident="int32"} ->
-      //  (match opatype with
-      //   | {Int=i} -> {some=@unsafe_cast(Int32.of_int(i))}
-      //   | opatype -> error("expected int32, got {opatype}"))
+      | {TyName_args=[]; TyName_ident="void"} ->
+        (match opatype with
+         | {Null} -> {some=@unsafe_cast(void)}
+         | opatype -> error("expected void, got {opatype}"))
       | {TyName_args=[]; TyName_ident="int64"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Int64=i} -> {some=@unsafe_cast(i)}
          | opatype -> error("expected int64, got {opatype}"))
       | {TyConst={TyInt={}}} ->
         (match opatype with
+         | {Null} -> dflt
          | {Bool=tf} -> {some=@unsafe_cast(if tf then 1 else 0)}
          | {Int=i} -> {some=@unsafe_cast(i)}
          | {Int64=i} -> {some=@unsafe_cast(Int64.to_int(i))}
@@ -412,6 +419,7 @@ PostgresTypes = {{
          | opatype -> error("expected int, got {opatype}"))
       | {TyConst={TyString={}}} ->
         (match opatype with
+         | {Null} -> {some=@unsafe_cast("")} // Empty strings are returned as Null
          | {Bool=tf} -> {some=@unsafe_cast(Bool.to_string(tf))}
          | {Int=i} -> {some=@unsafe_cast(Int.to_string(i))}
          | {Int64=i} -> {some=@unsafe_cast(Int64.to_string(i))}
@@ -420,6 +428,7 @@ PostgresTypes = {{
          | opatype -> error("expected string, got {opatype}"))
       | {TyConst={TyFloat={}}} ->
         (match opatype with
+         | {Null} -> dflt
          | {Bool=tf} -> {some=@unsafe_cast(if tf then 1.0 else 0.0)}
          | {Int=i} -> {some=@unsafe_cast(Float.of_int(i))}
          | {Int64=i} -> {some=@unsafe_cast(Float.of_int(Int64.to_int(i)))}
@@ -428,6 +437,7 @@ PostgresTypes = {{
          | opatype -> error("expected float, got {opatype}"))
       | {TyName_args=[]; TyName_ident="bool"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Bool=tf} -> {some=@unsafe_cast(tf)}
          | {Int=i} -> {some=@unsafe_cast(i != 0)}
          | {Int64=i} -> {some=@unsafe_cast(Int64.op_ne(i,Int64.zero))}
@@ -435,144 +445,86 @@ PostgresTypes = {{
          | {String="true"} | {String="t"} -> {some=@unsafe_cast(true)}
          | {String="false"} | {String="f"} -> {some=@unsafe_cast(false)}
          | opatype -> error("expected bool, got {opatype}"))
-      //| {TyName_args=[ty]; TyName_ident="option"} ->
-      //  (match opatype with
-      //   | "some" -> make_option(getel(opatype, ty, none))
-      //   | "none" -> {some=@unsafe_cast({none})}
-      //   | _ -> error("expected option, got {opatype}"))
+      | {TyName_args=[ty]; TyName_ident="option"} ->
+        (match opatype with
+         | {Null} -> {some=@unsafe_cast({none})}
+         | _ -> make_option(opatype_to_opa(opatype, ty, none)))
       | {TyName_args=[{TyConst={TyInt={}}}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {IntArray1=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(int), got {opatype}"))
       | {TyName_args=[{TyName_args=[{TyConst={TyInt={}}}]; TyName_ident="list"}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {IntArray2=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(list(int)), got {opatype}"))
       | {TyName_args=[{TyName_args=[{TyName_args=[{TyConst={TyInt={}}}]; TyName_ident="list"}]; TyName_ident="list"}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {IntArray3=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(list(list(int))), got {opatype}"))
       | {TyName_args=[{TyConst={TyString={}}}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {StringArray1=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(string), got {opatype}"))
       | {TyName_args=[{TyName_args=[{TyConst={TyString={}}}]; TyName_ident="list"}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {StringArray2=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(list(string)), got {opatype}"))
       | {TyName_args=[{TyName_args=[{TyName_args=[{TyConst={TyString={}}}]; TyName_ident="list"}]; TyName_ident="list"}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {StringArray3=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(list(list(string))), got {opatype}"))
       | {TyName_args=[{TyConst={TyFloat={}}}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {FloatArray1=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(float), got {opatype}"))
       | {TyName_args=[{TyName_args=[{TyConst={TyFloat={}}}]; TyName_ident="list"}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {FloatArray2=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(list(float)), got {opatype}"))
       | {TyName_args=[{TyName_args=[{TyName_args=[{TyConst={TyFloat={}}}]; TyName_ident="list"}]; TyName_ident="list"}]; TyName_ident="list"} ->
         (match opatype with
+         | {Null} -> dflt
          | {FloatArray3=ia} -> {some=@unsafe_cast(ia)}
          | opatype -> error("expected list(list(list(float))), got {opatype}"))
-      //| {TyName_args=[ty]; TyName_ident="list"} ->
-      //  (match opatype with
-      //   | {value={Array=row} ...} ->
-      //     lst =
-      //       (match row with
-      //        | [] -> []
-      //        | [e|_] ->
-      //           /* We now detect and sort non-consecutive arrays.
-      //            * Note that the performance of list arrays may get slow
-      //            * if the user calls lots of $push operations.
-      //            */
-      //           len = List.length(row)
-      //           row = if e.name == "0" then List.rev(row) else row
-      //           row = if e.name != "{len-1}" then List.sort_by((e -> len - Int.of_string(e.name)),row) else row
-      //           rec aux(last,opatypes,l) =
-      //             (match elements with
-      //              | [element|rest] ->
-      //                 enum = Int.of_string(element.name)
-      //                 if enum > last
-      //                 then
-      //                   // Nassty little hobbitses.  We have to go back and start again.
-      //                   row = List.sort_by((e -> len - Int.of_string(e.name)),row)
-      //                   aux(Int.of_string((List.head(row)).name),row,[])
-      //                 else
-      //                   (match getel(element, ty, none) with
-      //                    | {some=v} -> aux(enum,rest,[v|l])
-      //                    | {none} -> fatal("Failed for list element {element} type {OpaType.to_pretty(ty)}"))
-      //              | [] -> l)
-      //           aux(Int.of_string(e.name),row,[]))
-      //       {some=@unsafe_cast(lst)}
-      //   | element -> error("expected list, got {element}"))
-      //| {TyName_args=[kty, dty, _]; TyName_ident="ordered_map"}
-      //| {TyName_args=[kty, dty]; TyName_ident="map"} ->
-      //  fallback() =
-      //    do Log.warning("Postgres.row_to_opa", "fallback to the old representation (0.9.2)")
-      //    match (element.value, OpaType.implementation(ty)) with
-      //    | (~{Document}, {TySum_col=col ...}) -> column_to_rec(Document, col)
-      //    | _ ->
-      //      do Log.error("Postgres.row_to_opa", "Can't fallback to the old representation")
-      //      none
-      //  (match element with
-      //   | {value={Array=row} ...}
-      //   | {value={Document=row} ...} ->
-      //     @catch(_ -> fallback(),
-      //       Map = Map_make(Order.make_unsafe(OpaValue.compare_with_ty(_, _, kty)))
-      //       imap =
-      //         List.fold((element, im ->
-      //                      dflt = OpaValue.default_with_ty(dty)
-      //                      match getel(element, dty, dflt) with
-      //                      | {none} ->
-      //                        fatal("Failed for map element {element} type {OpaType.to_pretty(dty)}")
-      //                      | {some=v} ->
-      //                        elname = decode_field(element.name)
-      //                        match OpaSerialize.unserialize(elname, kty) with
-      //                        | {none} -> fatal("Failed for map key {element.name} type {kty}")
-      //                        | {some = k} -> Map.add(k, v, im))
-      //                     , row, Map.empty)
-      //       {some=@unsafe_cast(imap)}
-      //     )
-      //   | _ -> fallback()
-      //   )
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Date=dt} -> {some=@unsafe_cast(dt)}
          | opatype -> error("expected date, got {opatype}"))
       | {TyName_args=[]; TyName_ident="binary"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Binary=bin} -> {some=@unsafe_cast(bin)}
          | {String=str} -> {some=@unsafe_cast(binary_of_string(str))}
          | opatype -> error("expected binary, got {opatype}"))
       | {TyName_args=[]; TyName_ident="Duration.duration"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Duration=d} -> {some=@unsafe_cast(d)}
          | opatype -> error("expected duration, got {opatype}"))
       | {TyName_args=[]; TyName_ident="Postgres.money"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Money=m} -> {some=@unsafe_cast(m)}
          | opatype -> error("expected Postgres.money, got {opatype}"))
       | {TyName_args=[]; TyName_ident="Postgres.numeric"} ->
         (match opatype with
+         | {Null} -> dflt
          | {Numeric=m} -> {some=@unsafe_cast(m)}
          | opatype -> error("expected Postgres.numeric, got {opatype}"))
-      //| {TyRecord_row=row ...} ->
-      //  match element_to_rec([element]:Postgres.oparow, row, dflt) with
-      //  | {none} ->
-      //    match element.value with
-      //    | ~{Document} -> check_list( -> element_to_rec(Document:Postgres.oparow, row, dflt))
-      //    | _ -> @fail
-      //    end
-      //  | x -> x
-      //  end
-      //| {TySum_col=col ...} ->
-      //  check_list( -> column_to_rec([element], col))
       | {TyName_args=tys; TyName_ident=tyid} ->
         opatype_to_opa(opatype, OpaType.type_of_name(tyid, tys), dflt)
       | _ ->
         match opatype with
+        | {Null} -> dflt
         | {TypeId=(type_id,data)} ->
            match IntMap.get(type_id,conn.handlers) with
            | {some=(hty,handler)} ->
@@ -590,8 +542,8 @@ PostgresTypes = {{
     ty_name = name_type(ty)
     match (StringMap_keys(row),ty_name) with
     | (["value"],_) -> getel("value", row, ty_name, dflt)
-    //| ([],{TyName_args=[_]; TyName_ident="option"}) -> {some=@unsafe_cast({none})}
-    //| ([name],{TyName_args=[_]; TyName_ident="option"})
+    | ([],{TyName_args=[_]; TyName_ident="option"}) -> {some=@unsafe_cast({none})}
+    | ([name],{TyName_args=[_]; TyName_ident="option"})
     | ([name],{TyName_args=[]; TyName_ident="bool"})
     | ([name],{TyName_args=[_]; TyName_ident="list"}) -> getel(name, row, ty_name, dflt)
     | (_,{TyRecord_row=trow ...}) -> element_to_rec(row, trow, dflt)
