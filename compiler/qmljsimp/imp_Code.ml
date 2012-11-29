@@ -267,6 +267,11 @@ let simplify expr =
  |>  simplify_records
  |>  simplify_letin
 
+let srenaming env = fun ip ->
+  try
+    QmlRenamingMap.original_from_new env.E.srenaming ip
+  with Not_found -> ip
+
 let compile_ident _env private_env i =
   (try JsCons.Expr.ident (IdentMap.find i private_env.E.renaming)
    with Not_found -> JsCons.Expr.exprident i)
@@ -513,8 +518,17 @@ let compile_expr_to_expr env private_env expr =
         aux private_env expr
 
     | Q.Directive (_, `js_ident, [Q.Const (_, Q.String name)], _) ->
-        let jsident = Serializer.JsIdent.resolve (env.E.val_ name) in
-        let jsident = JsCons.Expr.hole (QmlCons.ident jsident) in
+        let ident = env.E.val_ name in
+        let ident = srenaming env ident in
+        let jsident = Serializer.JsIdent.resolve ident in
+        let hole =
+          let quote = env.E.val_ Opacapi.String.quote in
+          let quote = srenaming env quote in
+          let quote = QmlCons.ident quote in
+          let jsident = QmlCons.ident jsident in
+          QmlCons.apply quote [jsident]
+        in
+        let jsident = JsCons.Expr.hole hole in
         private_env, jsident
 
     | Q.Directive (_, `tagged_string (string, kind), _, _) ->

@@ -313,6 +313,7 @@ module String =
 struct
   let (!!) s = !! ("String_" ^ s)
   let flatten = !! "flatten"
+  let quote = !! "quote"
 end
 
 module StringMap =

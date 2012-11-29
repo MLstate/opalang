@@ -710,3 +710,5 @@ String =
 
 @opacapi
 String_flatten = String.flatten
+@opacapi
+String_quote(s) = "\"" ^ s ^ "\""
