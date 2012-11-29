@@ -283,7 +283,7 @@ make_response_with_headers(
                    -> caml_list(WebInfo.private.native_http_header) =
       %% BslNativeLib.opa_list_to_ocaml_list %%
     ll_headers = to_caml_list((x -> x), to_ll_headers(headers))
-    answer = web_err_num_of_web_response(status)
+    answer = web_err_status_of_web_response(status)
     respond(cache_control, request, answer, ll_headers, mime_type, content)
 )
 
@@ -299,24 +299,24 @@ default_make_response(
      make_response_expires_at = %% BslNet.Http_server.make_response_expires_at %%
      match cache_control with
         | {volatile}  ->     //Possibility 1: should never be cached
-             make_response_modified_since({none}, request, web_err_num_of_web_response(status), mime_type, content)
+             make_response_modified_since({none}, request, web_err_status_of_web_response(status), mime_type, content)
         | ~{modified_on}  -> //Possibility 2: should be retransmitted only if the client cache is out of date
-             make_response_modified_since({some = Date.ll_export(modified_on)}, request, web_err_num_of_web_response(status), mime_type, content)
+             make_response_modified_since({some = Date.ll_export(modified_on)}, request, web_err_status_of_web_response(status), mime_type, content)
         | {permanent} ->     //Possibility 3: should be cached forever
              startup = Option.map(Date.ll_export, startup_date)
-             make_response_expires_at({none}, startup, request, web_err_num_of_web_response(status), mime_type, content)
+             make_response_expires_at({none}, startup, request, web_err_status_of_web_response(status), mime_type, content)
         | {check_for_changes_after = duration }    ->     //Possibility 4: should be cached for a given time
              now = Date.now()
              expiry = Date.advance(now, duration)
              te = Date.ll_export(_)
-             make_response_expires_at({some = te(expiry)}, {some = te(now)}, request, web_err_num_of_web_response(status), mime_type, content)
+             make_response_expires_at({some = te(expiry)}, {some = te(now)}, request, web_err_status_of_web_response(status), mime_type, content)
 )
 
 /**
  * {2 Manipulating status}
  */
 
-web_err_num_of_web_response =
+web_err_status_of_web_response =
  WebStatus = {{
    continue = %% BslNet.Requestdef.sc_Continue %% : web_server_status
    switching_protocols = %% BslNet.Requestdef.sc_SwitchingProtocols %% : web_server_status
@@ -406,12 +406,14 @@ web_err_num_of_web_response =
   | {gateway_timeout}                 -> WebStatus.gateway_timeout
   | {http_version_not_supported}      -> WebStatus.http_version_not_supported
 
-web_err_description_of_web_err_num(e) =
-   of_int = %% BslNet.Requestdef.reason_phrase %% : int -> string
+web_err_num_of_web_response(e) =
    int_of_inner = %% BslNet.Requestdef.status_code %% : web_server_status -> int
-   of_int(int_of_inner(e))
+   int_of_inner(web_err_status_of_web_response(e))
+
+web_err_description_of_web_err_num(num) =
+   of_int = %% BslNet.Requestdef.reason_phrase %% : int -> string
+   of_int(num)
 
 web_err_description_of_web_response(e) = web_err_description_of_web_err_num(web_err_num_of_web_response(e))
-
 
 }}
