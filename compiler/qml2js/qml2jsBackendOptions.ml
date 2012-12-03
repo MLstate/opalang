@@ -29,12 +29,12 @@ module Arg = struct
 
     "--qmljs-no-alpha-renaming",
     A.Unit (fun () -> no_alpha_renaming := true ),
-    "disable alpharenaming for local bindings" ;
+    " disable alpharenaming for local bindings" ;
   ]
 
   let public_options = [
     "--bundle", A.String (fun b -> bundle := Some b),
-    "Create a bundle of the application"
+    " Create a bundle of the application"
   ]
 
   let options = public_options @
