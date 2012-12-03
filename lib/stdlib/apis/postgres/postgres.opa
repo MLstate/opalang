@@ -199,7 +199,8 @@ type Postgres.connection = {
   rows          : int /** The number of rows received during a query */
   rowdescs      : Postgres.rowdescs /** Stored value of the last row description received */
   paramdescs    : list(int) /** List of the last-received parameter descriptions */
-  handlers      : intmap((OpaType.ty,Postgres.abstract_handler)) /** Handlers for unknown data types */
+  handlers      : intmap((string,OpaType.ty,Postgres.abstract_handler)) /** Handlers for unknown data types */
+  backhandlers  : stringmap(int) /** Reverse map for outgoing data */
 }
 
 /** Defines whether an operation is for a prepared statement or a portal */
@@ -264,7 +265,7 @@ Postgres = {{
                  params=StringMap.empty processid=-1 secret_key=-1
                  query="" status="" suspended=false error=none
                  empty=true completed=[] paramdescs=[] rows=0 rowdescs=[]
-                 handlers=IntMap.empty }}
+                 handlers=IntMap.empty backhandlers=StringMap.empty }}
     | {~failure} -> {~failure}
 
   /** Close a connection object.
@@ -343,11 +344,17 @@ Postgres = {{
    *
    * @param conn The connection object.
    * @param type_id The PostgreSQL type id number, can be read from the server.
+   * @param name The type name.
    * @param handler A handler function, should return an option of an opa value corresponding to the type.
    * @returns An updated connection with the handler installed.
    */
-  install_handler(conn:Postgres.connection, type_id:Postgres.type_id, handler:Postgres.handler('a)) : Postgres.connection =
-    {conn with handlers=IntMap.add(type_id,(PostgresTypes.name_type(@typeval('a)),@unsafe_cast(handler)),conn.handlers)}
+  install_handler(conn:Postgres.connection, type_id:Postgres.type_id, name:string, handler:Postgres.handler('a))
+                 : Postgres.connection =
+    nty = PostgresTypes.name_type(@typeval('a))
+    {conn with
+       handlers=IntMap.add(type_id,(name,nty,@unsafe_cast(handler)),conn.handlers)
+       backhandlers=StringMap.add("{nty}",type_id,conn.backhandlers)
+    }
 
   /** Set the protocol minor version number.
    *
@@ -736,7 +743,7 @@ Postgres = {{
    *
    * @param conn The connection object.
    * @param name The name of the type.
-   * @returns A tuple of the updated connection (maybe with and [error] value) and the type_id (-1=not found).
+   * @returns A tuple of the updated connection (maybe with an [error] value) and the type_id ([-1] means "not found").
    */
   get_type_id(conn:Postgres.connection, name:string) : (Postgres.connection,int) =
     type_id = ServerReference.create(-1)
@@ -758,60 +765,73 @@ Postgres = {{
    * @param dummy A dummy optional value of the Opa type (used to analyse the field names).
    * @returns A Postgres result type with updated connection plus possible failure code.
    */
-  create_enum(conn:Postgres.connection, _:option('a)) : Postgres.result =
-    raw_ty = @typeval('a)
+  create_enum(conn:Postgres.connection, _:option('a)) : Postgres.result = create_enum_ty(conn, @typeval('a))
+  create_enum_ty(conn:Postgres.connection, raw_ty:OpaType.ty) : Postgres.result =
     match raw_ty with
     | {TyName_args=[]; TyName_ident=name} ->
       ty = PostgresTypes.name_type(raw_ty)
-      match ty with
-      | {TySum_col=col ...} ->
-        (names,err) =
-          List.fold((row, (names,err) -> 
-                      match err with
-                      | {some=_} -> (names,err)
-                      | {none} ->
-                        match row with
-                        | [~{label; ty}] ->
-                           if OpaType.is_void(ty)
-                           then ([label|names],err)
-                           else (names,{some="create_enum: Label {label} is not void ({ty})"})
-                        | _ -> (names,{some="create_enum: Bad type for enum {row}"})
-                        end),col,([],none))
-        match err with
-        | {none} ->
-           match
-             match get_type_id(conn, name) with
-             | (conn,-1) ->
-                qnames = String.concat(", ",List.map((name -> "'{name}'"),names))
-                conn = query(conn,"CREATE TYPE {name} AS ENUM ({qnames})",default_listener)
-                if Option.is_none(conn.error)
-                then get_type_id(conn, name)
-                else (conn,-1)
-             | (conn,type_id) -> (conn,type_id)
-             end
-           with
-           | (conn,-1) -> {failure=(conn,{bad_type="create_enum: can't create enum for type {ty}"})}
-           | (conn,type_id) ->
-              generic_handler(h_type_id:Postgres.type_id, h_ty:OpaType.ty, val:Postgres.data) : option(void) =
-                if type_id == h_type_id && ty == h_ty
-                then
-                  val = match val with ~{text} -> text | ~{binary} -> string_of_binary(binary)
-                  if List.mem(val,names)
-                  then
-                    match OpaValue.Record.field_of_name(val) with
-                    | {none} -> none
-                    | {some=field} -> {some=@unsafe_cast(OpaValue.Record.make_simple_record(field))}
-                    end
-                  else none
-                else none
-              do Log.notice("Postgres.create_enum","installing handler for type_id {type_id} type {OpaType.to_pretty(raw_ty)}")
-              {success={conn with handlers=IntMap.add(type_id,(ty,@unsafe_cast(generic_handler)),conn.handlers)}}
+      match PostgresTypes.enum_field_names(ty) with
+      | {success=names} ->
+         match
+           match get_type_id(conn, name) with
+           | (conn,-1) ->
+              qnames = String.concat(", ",List.map((name -> "'{name}'"),names))
+              conn = query(conn,"CREATE TYPE {name} AS ENUM ({qnames})",default_listener)
+              if Option.is_none(conn.error)
+              then get_type_id(conn, name)
+              else (conn,-1)
+           | (conn,type_id) -> (conn,type_id)
            end
-        | {some=err} -> {failure=(conn,{bad_type=err})}
-        end
-      | _ -> {failure=(conn,{bad_type="create_enum: bad type {ty}"})}
+         with
+         | (conn,-1) -> {failure=(conn,{bad_type="create_enum: can't create enum for type {ty}"})}
+         | (conn,type_id) ->
+            generic_handler(h_type_id:Postgres.type_id, h_ty:OpaType.ty, val:Postgres.data) : option(void) =
+              if type_id == h_type_id && ty == h_ty
+              then
+                val = match val with ~{text} -> text | ~{binary} -> string_of_binary(binary)
+                if List.mem(val,names)
+                then
+                  match OpaValue.Record.field_of_name(val) with
+                  | {none} -> none
+                  | {some=field} -> {some=@unsafe_cast(OpaValue.Record.make_simple_record(field))}
+                  end
+                else none
+              else none
+            do Log.notice("Postgres.create_enum","installing handler for type_id {type_id} type {OpaType.to_pretty(raw_ty)}")
+            {success={conn with
+                        handlers=IntMap.add(type_id,(name,ty,@unsafe_cast(generic_handler)),conn.handlers)
+                        backhandlers=StringMap.add("{ty}",type_id,conn.backhandlers)
+                      }}
+         end
+      | {~failure} -> {failure=(conn,{bad_type=failure})}
       end
     | _ -> {failure=(conn,{bad_type="create_enum: bad type {raw_ty}"})}
+
+  fold(f:Postgres.connection, 'a -> Postgres.result, conn:Postgres.connection, l:list('a)) : Postgres.result =
+    rec aux(conn, l) =
+      match l with
+      | [v|l] ->
+         match f(conn, v) with
+         | {success=conn} -> aux(conn, l)
+         | {~failure} -> {~failure}
+         end
+      | [] -> {success=conn}
+      end
+    aux(conn, l)
+
+  create_table(conn:Postgres.connection, dbase:string, temp:bool, value:'a, k:Postgres.listener) : Postgres.connection =
+    enums = PostgresTypes.record_enum_types(@typeval('a))
+    do jlog("enums:{enums}")
+    known_enums = IntMap.fold((_, (name,_,_), names -> [name|names]),conn.handlers,[])
+    new_enums = List.filter(((name, _) -> not(List.mem(name,known_enums))),enums)
+    do jlog("new_enums:{new_enums}")
+    match fold(create_enum_ty, conn, List.map((x -> x.f2),new_enums)) with
+    | {success=conn} -> query(conn,PostgresTypes.create(conn, dbase, temp, value),k)
+    | {failure=(conn,failure)} -> error(conn,failure,k)
+    end
+
+  insert(conn:Postgres.connection, dbase:string, value:'a, k:Postgres.listener) : Postgres.connection =
+    query(conn,PostgresTypes.insert(conn, dbase, value),k)
 
 }}
 
