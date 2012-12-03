@@ -522,8 +522,7 @@ let compile_expr_to_expr env private_env expr =
         let ident = srenaming env ident in
         let jsident = Serializer.JsIdent.resolve ident in
         let hole =
-          let quote = env.E.val_ Opacapi.String.quote in
-          let quote = srenaming env quote in
+          let quote = env.E.val_ ~side:`server Opacapi.String.quote in
           let quote = QmlCons.ident quote in
           let jsident = QmlCons.ident jsident in
           QmlCons.apply quote [jsident]

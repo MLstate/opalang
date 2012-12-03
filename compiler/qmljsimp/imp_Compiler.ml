@@ -81,7 +81,7 @@ let repeat2 n (f : int -> 'a -> 'b -> 'a * 'b) =
   aux 0
 
 let compile
-    ?runtime_ast ?(val_=fun _ -> assert false) ?bsl ?(closure_map=IdentMap.empty)
+    ?runtime_ast ?(val_=fun ?(side=`client) _ -> ignore side; assert false) ?bsl ?(closure_map=IdentMap.empty)
     ~renaming ~is_distant ~bsl_lang ~exported
     options _env_bsl env_typer code =
   let _chrono = Chrono.make () in

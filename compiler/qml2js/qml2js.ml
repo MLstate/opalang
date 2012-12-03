@@ -403,7 +403,7 @@ end
 
 module Sugar :
 sig
-  val for_opa : val_:(string -> QmlAst.ident) ->
+  val for_opa : val_:(?side:[`client | `server] -> string -> QmlAst.ident) ->
                 ?bsl:JsAst.code ->
                 closure_map:Ident.t IdentMap.t ->
                 is_distant:(Ident.t -> bool) ->

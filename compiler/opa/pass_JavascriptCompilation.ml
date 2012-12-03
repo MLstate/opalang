@@ -302,10 +302,10 @@ let full_serialize
         (List.rev_map fst rev_ast)
     ) in
   (* compilation of js code *)
-  let env_js_input_val_ name =
+  let env_js_input_val_ ?(side=`client) name =
     try
       let name = Hashtbl.find Opacapi.table name in
-      OpaMapToIdent.val_ ~side:`client name
+      OpaMapToIdent.val_ ~side name
     with Not_found ->
       OManager.error "Function %S not registered in Opacapi@\n" name in
   let env_js_input =

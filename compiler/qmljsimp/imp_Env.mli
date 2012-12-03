@@ -21,7 +21,7 @@ type env = {
   options : Qml2jsOptions.t;
   gamma : QmlTypes.gamma;
   annotmap : QmlAst.annotmap;
-  val_ : string -> Ident.t;
+  val_ : ?side:[`client|`server] -> string -> Ident.t;
   private_bymap : Imp_Bsl.JsImpBSL.ByPassMap.t;
   bsl_lang : BslLanguage.t;
   srenaming : QmlRenamingMap.t;
