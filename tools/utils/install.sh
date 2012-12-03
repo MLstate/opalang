@@ -120,32 +120,14 @@ create_wrapper() {
 case "$1" in
     create)
         shift
-        if [ -n "$1" ] && ! [ "$1" = "--help" ] && ! [ "$1" = "--name" ]
-        then OPT="--name $1"
-        else OPT="$1"
+        if [ -n "$1" ] && ! [ "$1" = "--help" ] && ! [ "$1" = "--name" ]; then
+          OPT="--name $1"
+        else
+          OPT="$1"
         fi
         shift
         export NODE_PATH="$NODE_PATH:'$STATIC_PREFIX':'$STDLIB_PREFIX':'$STDLIB_QMLJS_PREFIX'"
-        opa-create $OPT $@
-        ;;
-    bundle)
-        shift
-        TARGET=$1
-        BUNDLE=$TARGET.opa-bundle
-
-        if [ -z $TARGET ]; then
-           echo "Please specify a target"
-           exit 1
-        fi
-
-        rm -rfv $BUNDLE
-        mkdir -p $BUNDLE/node_modules
-        cp $TARGET.js $BUNDLE/
-        cp -rv ${TARGET}_depends $BUNDLE/
-        cp -rv '$STATIC_PREFIX'/opa-js-runtime* $BUNDLE/node_modules
-        cp -rv '$STDLIB_PREFIX'/* $BUNDLE/node_modules
-        cp -rv '$STDLIB_QMLJS_PREFIX'/* $BUNDLE/node_modules
-        tar -cvzf $BUNDLE.tar.gz $TARGET.opa-bundle
+        $MLSTATELIBS/bin/opa-create $OPT $@
         ;;
     export)
         shift
