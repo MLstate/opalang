@@ -587,6 +587,9 @@ PostgresTypes = {{
   field_types(conn:Postgres.connection, oparowl:Postgres.oparowl) : list(string) =
     List.map(((_,val) -> postgres_type(conn,val)),oparowl)
 
+  field_assigns(oparowl:Postgres.oparowl) : list(string) =
+    List.map(((key,val) -> "{key}={string_of_field_value(val)}"),oparowl)
+
   @private csl(l) = String.concat(",",l)
 
   create(conn:Postgres.connection, dbase:string, temp:bool, v:'a) : string =
@@ -598,6 +601,15 @@ PostgresTypes = {{
   insert(conn:Postgres.connection, dbase:string, v:'a) : string =
     row = of_opa(conn, v)
     "INSERT INTO {dbase}({csl(field_names(row))}) VALUES({csl(field_values(row))})"
+
+  update(conn:Postgres.connection, dbase:string, value:'a, select:'b) : string =
+    rowa = of_opa(conn, value)
+    rowb = of_opa(conn, select)
+    "UPDATE {dbase} SET {csl(field_assigns(rowa))} WHERE {String.concat(" and ",field_assigns(rowb))}"
+
+  delete(conn:Postgres.connection, dbase:string, select:'b) : string =
+    rowb = of_opa(conn, select)
+    "DELETE FROM {dbase} WHERE {String.concat(" and ",field_assigns(rowb))}"
 
   @private StringMap_keys(sm) : list(string) = StringMap.fold((k, _, keys -> [k|keys]),sm,[])
 

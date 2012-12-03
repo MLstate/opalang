@@ -833,6 +833,12 @@ Postgres = {{
   insert(conn:Postgres.connection, dbase:string, value:'a, k:Postgres.listener) : Postgres.connection =
     query(conn,PostgresTypes.insert(conn, dbase, value),k)
 
+  update(conn:Postgres.connection, dbase:string, value:'a, select:'b, k:Postgres.listener) : Postgres.connection =
+    query(conn,PostgresTypes.update(conn, dbase, value, select),k)
+
+  delete(conn:Postgres.connection, dbase:string, select:'b, k:Postgres.listener) : Postgres.connection =
+    query(conn,PostgresTypes.delete(conn, dbase, select),k)
+
 }}
 
 // End of file postgres.opa
