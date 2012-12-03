@@ -212,6 +212,11 @@ Rule =
   integer = parser sign="-"? val=natural -> Option.switch(_ -> -1, 1, sign) * val
 
   /**
+   * Same as Rule.integer except for 64-bit integers.
+   */
+  int64 = parser sign="-"? val=([0-9]+) -> Int64.of_string(Option.switch(_ -> "-", "", sign) ^ Text.to_string(val))
+
+  /**
    * A parser for byte (integer between 0 and 255
    */
   byte = parser
