@@ -275,6 +275,10 @@ let rewrite_identifiers env annotmap code =
     fun annotmap e ->
     let e = QmlAstWalk.Expr.map rw_ident e in
     let annotmap = QmlAnnotMap.remove_tsc_inst_label labeli annotmap in
+    let annotmap =
+      match tsc_opt with
+      | None -> annotmap
+      | Some tsc -> QmlAnnotMap.add_ty_label labeli (QmlTypes.Scheme.instantiate tsc) annotmap in
     let annotmap = QmlAnnotMap.add_tsc_inst_opt_label labeli tsc_opt annotmap in
     annotmap, e
   in
