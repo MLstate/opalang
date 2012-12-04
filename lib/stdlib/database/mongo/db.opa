@@ -654,52 +654,59 @@ Then use option --db-remote instead of --db-local.
       | _ -> (":{name}", "\"{name}\"")
       args = CommandLine.filter({
         title = "Options for Mongo database {msg}"
-        init = none
+        init = ~{name kind={none}}
         anonymous = []
         parsers = [
           {CommandLine.default_parser with
             names = ["--db-remote{suffix}"]
             description = "Use a remote mongo database(s), (default: {seed.f1}:{seed.f2})"
             param_doc = "[user:password@]host[:<port>][,[user:password@]host[:<port>]]*"
-            on_param(acc) =
+            on_param(acc0) =
               seeds_parser((seeds ->
-                acc = match acc with
+                acc = match acc0.kind with
                   | {some = {remote = acc}} -> acc
                   | _ -> default_remote
                 (auths,seeds) = List.unzip(seeds)
                 auths = List.filter_map((a -> a),auths)
-                {no_params = {some = {remote = {acc with seeds = List.append(acc.seeds, seeds); auth = List.append(acc.auth, auths)}}}}
+                {no_params = {acc0 with kind = {some = {remote = {acc with seeds = List.append(acc.seeds, seeds); auth = List.append(acc.auth, auths)}}}}}
               ))
           },
           {CommandLine.default_parser with
             names = ["--db-local{suffix}"]
             description = "Use a local mongo database, (default: {default_local()})"
             param_doc = "path"
-            on_encounter(_acc) =
-              {opt_params = {some = {local = {path = default_local()}}}}
-            on_param(_acc) =
-              parser path=(.*) -> {no_params = {some = {local = {path = Text.to_string(path)}}}}
+            on_encounter(acc) =
+              {opt_params = { acc with kind = {some = {local = {path = default_local()}}}}}
+            on_param(acc) =
+              parser path=(.*) -> {no_params = {acc with kind = {some = {local = {path = Text.to_string(path)}}}}}
+          },
+          {CommandLine.default_parser with
+            names = ["--db-prefix{suffix}"]
+            description = "Set the Mongo database name, (default: {name})"
+            param_doc = "dbname"
+            on_param(acc) =
+              parser path=(.*) -> {no_params = {acc with name = Text.to_string(path)}}
           },
         ]
       })
-      match args with
-      | {some = ~{remote}} -> open_remote(name, remote, seed)
-      | {some = ~{local}} -> open_local(name, local, seed)
+      match args.kind with
+      | {some = ~{remote}} -> open_remote(args.name, remote, seed)
+      | {some = ~{local}} -> open_local(args.name, local, seed)
       | {none} ->
         match Db.default_cmdline with
-        | {none} -> open_local(name, {path = default_local()}, seed)
-        | {some = {local = {none}}} -> open_local(name, {path = default_local()}, seed)
-        | {some = {local = {some = path}}} -> open_local(name, ~{path}, seed)
+        | {none} -> open_local(args.name, {path = default_local()}, seed)
+        | {some = {local = {none}}} -> open_local(args.name, {path = default_local()}, seed)
+        | {some = {local = {some = path}}} -> open_local(args.name, ~{path}, seed)
         | {some = {remote = {some = remote}}} ->
           Parser.try_parse(
             seeds_parser((seeds ->
                 (auth,seeds) = List.unzip(seeds)
                 auth = List.filter_map(x->x, auth)
-                open_remote(name, {default_remote with ~seeds ~auth}, seed)))
+                open_remote(args.name, {default_remote with ~seeds ~auth}, seed)))
             , remote) ?
             do Log.error("DbGen/Mongo", "Invalid --db-remote params for the database '{name}' (Mongo)")
           System.exit(1)
-        | {some = {remote = {none}}} -> open_remote(name, default_remote, seed)
+        | {some = {remote = {none}}} -> open_remote(args.name, default_remote, seed)
 
   }}
 
