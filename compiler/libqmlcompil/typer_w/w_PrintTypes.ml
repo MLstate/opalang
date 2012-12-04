@@ -20,11 +20,11 @@
 *)
 
 
-type print_level = 
+type print_level =
  | Function
  | Function_With_N_Arguments
  | Function_With_Some_SubType
- | Complete_Type 
+ | Complete_Type
 
 type context = {
   mutable print_level : print_level ;
@@ -35,7 +35,7 @@ type context = {
 (* depends *)
 module Format = Base.Format
 
-let context = 
+let context =
   { print_level = Complete_Type;
     print_fake_record = false ;
     error_type1 = W_CoreTypes.type_int () ;
@@ -220,6 +220,7 @@ let rec __prepare_print_simple_type ty =
   | W_Algebra.TM_print_prep_seen xtimes ->
       (* Increment the number of times the type was seen. *)
       incr xtimes
+  | W_Algebra.TM_export_cyclic _
   | W_Algebra.TM_not_seen | W_Algebra.TM_print_prep_seen_not_rec-> (
       (* The type was never seen of just seen but as non-recursive. We will
          tell that temporarily, if it seen without telling if it is

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -99,7 +99,7 @@ let __generalize ~forbid_non_gen_vars ~extra_variables initial_ty =
        1) This variable is shared with another function whose type was already
           generalized. In this case the variable will not yet be in effect in
           the list of the scheme's parameters we are bulding.
-       2) This variable is the one of a type forall present in the type we are 
+       2) This variable is the one of a type forall present in the type we are
           generalizing. In this case, this variable *must* not be inserted in
           the list the the parameters of the scheme we are bulding since it
           already belongs to the type forall's scheme.
@@ -443,6 +443,7 @@ let (__specialize, specialize_with_given_variables_mapping) =
     | W_Algebra.TM_copy_copied_as aliased_as ->
         (* Type was already seen. Its copy is recorded here. *)
         aliased_as
+    | W_Algebra.TM_export_cyclic _
     | W_Algebra.TM_not_seen -> (
         (* We must say we already saw ourself before recursing on the type
            structure, otherwise we can loop. Because we don't still know
