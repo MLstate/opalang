@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -533,7 +533,9 @@ struct
           expr oc e;
           output_string oc ")"
         end
-    | Let [] | Letrec [] | Letin ([], _) | Letrecin ([], _) -> assert false (* TODO: HdList.t *)
+    | Let [] | Letrec [] -> assert false
+    | Letin ([], e) | Letrecin ([], e) ->
+        expr oc e
     | Let binds ->
         output_string oc "let ";
         output_concat_map oc "\nand " expr_let binds;
