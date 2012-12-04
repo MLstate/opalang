@@ -488,14 +488,11 @@ _registered_event =  ClientEvent.register_event({none},
 
 @abstract type OpaNetwork.entity = external
 
-/**
- * A partial order on channels
- */
-compare_channel(a:channel('msg), b:channel('msg)) : Order.ordering =
-  Order.of_int(%%Session.compare_channels%%(a, b))
-
 Channel = {{
-  order = @nonexpansive(Order.make(compare_channel)) : order(channel('message), Channel.order)
+
+  ordering(a:channel, b:channel) = Order.of_int(%%Session.compare_channels%%(a, b))
+
+  order = @nonexpansive(Order.make(ordering)) : order(channel('message), Channel.order)
 
   /**
    * Low level make channel
@@ -625,3 +622,8 @@ ChannelServer = {{
   get_id : channel, _ -> option(string) = %%Session.get_server_id%%
 }}
 #<End>
+
+
+@comparator(channel('a))
+_compare_channel(_, a:channel('msg), b:channel('msg)) : Order.comparison =
+    Channel.ordering(a, b) <: Order.comparison
