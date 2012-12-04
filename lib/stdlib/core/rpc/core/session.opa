@@ -185,6 +185,11 @@ type make_at_response = option(RPC.Json.json)
 Session = {{
 
     /**
+     * Explicitely set the domain's URL used by AJAX request, no domain by default
+     */
+    @client set_domain_url = %%Session.set_domain_url%%
+
+    /**
      * {2 Creating sessions}
      */
 
