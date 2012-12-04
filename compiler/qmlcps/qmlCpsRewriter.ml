@@ -1853,10 +1853,11 @@ let instrument_expr e =
         let env = ref None in
         let e = aux tra (Some env) e in
         Q.Lambda (label, args, QC.directive (`cps_stack_lambda env) [e] [])
-    | Q.Directive (label,`partial_apply info,[Q.Apply (label2,e,el)],tyl) ->
+    | Q.Directive (label,`partial_apply info,(Q.Apply (label2,e,el))::more_args,tyl) ->
         let e = aux tra env e in
         let el = List.map (aux tra env) el in
-        Q.Directive (label,`partial_apply info,[Q.Apply (label2,e,el)],tyl)
+        let more_args = List.map (aux tra env) more_args in
+        Q.Directive (label,`partial_apply info,(Q.Apply (label2,e,el))::more_args,tyl)
     | Q.Apply (_, Q.Directive (_, `restricted_bypass _, _, _), _)
     | Q.Apply (_, Q.Directive (_, `may_cps, _, _), _)
     | Q.Apply (_, Q.Bypass _,_) -> tra env e
