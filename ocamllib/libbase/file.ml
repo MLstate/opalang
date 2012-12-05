@@ -324,10 +324,7 @@ let rec remove_all_symlinks path =
     remove_symlinks path
 
 (** create all necessary directories to access a file path *)
-let rec check_create_path ?(rights=0o755) ?(nobackslash=true) ?(isdirectory=false) path =
-  let path = remove_all_symlinks path in
-  let path = if isdirectory then Filename.concat path "test" else path in
-  let path = if nobackslash then Base.String.map (fun c -> if c='\\' then '/' else c) path else path in
+let rec check_create_path_of_filepath ~rights path =
   let dirname = Filename.dirname path in
   if dirname=path || dirname=".." || path="." || path="/" then (
     true (*terminal case*)
@@ -338,9 +335,16 @@ let rec check_create_path ?(rights=0o755) ?(nobackslash=true) ?(isdirectory=fals
       )
       (* terminal case *)
     with Sys_error _ -> (
-      check_create_path ~rights dirname
+      check_create_path_of_filepath ~rights dirname
       && (try Unix.mkdir dirname rights; true with Unix.Unix_error _ -> Printf.printf "mkdir error %s\n" dirname; false)
     )
+
+(** create all necessary directories to access a file or directory path *)
+let check_create_path ?(rights=0o755) ?(nobackslash=true) ?(isdirectory=false) path =
+  let path = if nobackslash then Base.String.map (fun c -> if c='\\' then '/' else c) path else path in
+  let path = remove_all_symlinks path in
+  let path = if isdirectory then Filename.concat path "test" else path in
+  check_create_path_of_filepath ~rights path
 
 (** hopefully, this is the ultimate and portable version of cp *)
 let copy ?(force=false) src tgt =
