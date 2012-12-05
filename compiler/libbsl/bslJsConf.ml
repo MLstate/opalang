@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -52,7 +52,7 @@ let default_opt = {
 }
 
 let default =
-  Optimized default_opt
+  Optimized {cleanup = true; localrenaming = true}
 
 let get_opt = function
   | Verbatim -> default_opt
