@@ -316,7 +316,8 @@ let rec remove_symlinks path =
 
 (* remove symlinks everywhere in the path *)
 let rec remove_all_symlinks path =
-  if path = "." || path = "/" then path else
+  let dirname = Filename.dirname path in
+  if dirname=path || path = "." || path = "/" then path else
     let dirname = Filename.dirname path in
     let dirname = remove_all_symlinks dirname in
     let path = Filename.concat dirname (Filename.basename path) in
