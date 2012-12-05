@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -95,7 +95,7 @@ let stmt_collect_locals acc s =
     fun tra acc -> function
     | J.Js_var (_, ident, _) -> Rename.add ident acc
     | J.Js_function (_, ident, _, _) -> Rename.add ident acc (* NOT traversing *)
-    | J.Js_trycatch (_,_,catches,_) ->
+    | J.Js_trycatch (_,_,catches,_) as s ->
         let acc = List.fold_left (fun acc (ident,_,_) -> Rename.add ident acc) acc catches in
         tra acc s
     | s ->
