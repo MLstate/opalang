@@ -1063,7 +1063,7 @@ module Generator = struct
                      in
                      OpaMapToIdent.typed_val ~label ~ty:[dataty] set_to_uniq annotmap gamma in
                    apply_postmap gamma kind dataty postmap
-                     (C.apply ~ty gamma annotmap set_to_uniq [set])
+                     (C.apply gamma annotmap set_to_uniq [set])
                | DbSchema.Map (_keyty, _), true ->
                    let (annotmap, map_to_uniq) =
                      let map_to_uniq = match kind with
