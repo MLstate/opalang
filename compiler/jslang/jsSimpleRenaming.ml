@@ -70,9 +70,11 @@ struct
     (map, number), new_ident
 
   let add ident (map, number) =
-    let new_ident, number = name_of_int number in
-    let map = IdentMap.add ident new_ident map in
-    (map, number)
+    if IdentMap.mem ident map then (map, number)
+    else
+      let new_ident, number = name_of_int number in
+      let map = IdentMap.add ident new_ident map in
+      (map, number)
 
   let resolve (map, _) ident =
     match IdentMap.find_opt ident map with
