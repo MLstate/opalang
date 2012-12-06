@@ -1077,7 +1077,12 @@ let finalize s =
     let lang = BslLanguage.nodejs in
     let update_session session js_pack nodejs_pack =
       assert (JsPackage.is_empty js_pack);
-      { session with s_nodejs_pack = JsPackage.merge session.s_nodejs_pack nodejs_pack }
+      { session with
+          s_nodejs_pack = JsPackage.merge session.s_nodejs_pack nodejs_pack;
+          s_has_server_code =
+          not (JsPackage.is_empty nodejs_pack)
+          || session.s_has_server_code
+      }
     in
     finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
   in
