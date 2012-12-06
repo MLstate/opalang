@@ -38,7 +38,11 @@ type Cursor.t('a) = {
     (Cursor.callback('a) -> void) observe,
 }
 
-// TODO: type origin = {server} or {client}
+type Cursor.network_message('a) =
+    { ('a, int) added }
+or  { ('a, int) changed }
+or  { ('a, int) removed }
+or  { ('a, int, int) moved }
 
 type Reactive.value('a) = {
     string id,
@@ -63,9 +67,12 @@ type Reactive.list('a) = {
     ('a->xhtml) itemFunc,
     (->xhtml) emptyFunc,
     ('a, int -> void) add,
+    ('a->void) push,
     ('a, int, int -> void) move,
+    (->int) length,
     ('a, int -> void) change,
-    ('a, int -> void) remove
+    ('a, int -> void) remove,
+    (string->Reactive.list('a)) sync
 }
 
 /**
@@ -314,7 +321,7 @@ module Reactive {
         )
     }
 
-    exposed function network(name){
+    private exposed function network(name){
         Network.network('a) Network.cloud(name)
     }
 
@@ -332,19 +339,21 @@ module Reactive {
 
     }
 
-
     @xmlizer(Reactive.value('a)) function to_xml(('a->xhtml) _alpha_to_xml, r) {
         render(identity)(r)
     }
 
     module List {
 
-        client (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function make(_init, itemFunc, emptyFunc) {
+        client (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function make(init, itemFunc, emptyFunc) {
 
             cb_map = Mutable.make(IntMap.empty)
             new_id = Fresh.client(identity)
+            list_length = Mutable.make(0)
 
             function observe(cb) {
+                CoreList.iteri( { function(i, v) cb.added(v, i) }, init)
+                list_length.set(CoreList.length(init))
                 cb_map.set(Map.add(new_id(), cb, cb_map.get()))
             }
 
@@ -354,8 +363,17 @@ module Reactive {
                 Map.iter({ function(_,cb) f(cb) }, cb_map.get())
             }
 
+            function length() {
+                list_length.get()
+            }
+
             function add(v, index) {
                 cb(_.added(v, index))
+                list_length.set(list_length.get()+1)
+            }
+
+            function push(v) {
+                add(v, length())
             }
 
             function move(v, from, to) {
@@ -370,7 +388,13 @@ module Reactive {
                 cb(_.removed(v, index))
             }
 
-            { ~cursor, ~itemFunc, ~emptyFunc, ~add, ~move, ~change, ~remove}
+            Reactive.list('a) self = { ~cursor, ~itemFunc, ~emptyFunc, ~length, ~add, ~push, ~move, ~change, ~remove,
+                                       sync:function(_){@fail("The reactive list is already in sync mode")}
+            }
+
+            self_sync = sync(self)
+
+            { self with sync:self_sync }
 
         }
 
@@ -396,6 +420,44 @@ module Reactive {
                 |> ignore
             }
             <span class={[class]} onready={replace} />
+        }
+
+        (Reactive.list('a)->(string->Reactive.list('a))) function sync(list)(network_name) {
+
+            Network.network(Cursor.network_message('a)) network = network(network_name)
+
+            client function on_message(msg) {
+                match(msg) {
+                case { added : (v, index) }: list.add(v, index)
+                case { moved : (v, from, to) }: list.move(v, from, to)
+                case { changed : (v, index) }: list.change(v, index)
+                case { removed : (v, index) }: list.remove(v, index)
+                }
+            }
+
+            Network.add_callback(on_message, network);
+
+            client function add(v, index) {
+                Network.broadcast({ added : (v, index) }, network);
+            }
+
+            client function push(v) {
+                add(v, list.length())
+            }
+
+            client function move(v, from, to) {
+                Network.broadcast({ moved : (v, from, to) }, network);
+            }
+
+            client function change(v, index) {
+                Network.broadcast({ changed : (v, index) }, network);
+            }
+
+            client function remove(v, index) {
+                Network.broadcast({ removed : (v, index) }, network);
+            }
+
+            { list with ~add, ~push, ~move, ~change, ~remove}
         }
 
         @xmlizer(Reactive.list('a)) function to_xml(_alpha_to_xml, r) {
