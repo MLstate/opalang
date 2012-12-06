@@ -2,12 +2,62 @@ New features:
 
     - Reactive UI based on Meteor Spark (wip)
 
-- Removed native backend.
+Updated APIs:
+
+  * Crypto:
+    - added very basic RSA module (new_key, encrypt, decrypt)
+
+  * Session:
+    - ability to set the domain URL in AJAX requests
 
   * Bootstrap:
     - upgraded to Bootstrap 2.2.1
     - added stdlib.themes.bootstrap.v2.1.0 for compatibility
     - embed button, collapse, dropdown, modal, popover, tab, tooltip, transition Bootstrap JS plugins into stdlib.widgets.bootstrap (v2.2.1)
+
+  * Mail:
+    - removed package stdlib.web.mail.imap.client because it is not implemented yet
+
+Improvements:
+
+  * Resource:
+    - also print the error number for default error page
+
+  * Plugins:
+    - allow '-' character in plugin names
+
+  * Source:
+    - minimal requirements: OCaml 4
+    - much less dependencies (cryptokit, iconv, ...)
+    - distclean target will also clean *.native file in opalang directory
+    - updated and improved installation_helper.sh
+    - warn when configure file has changed before compilation
+
+Removals:
+
+  * Source:
+    - removed native backend from GitHub
+    - removed manual, refcard, cheat-sheet of the doc folder
+
+  * CLI:
+    - removed 'opa bundle'
+
+Bug fixes:
+
+  * JS Launcher:
+    - use the real npm global location in NODE_PATH
+
+  * Syntax Parser:
+    - simple update parser has priority over update parser ('<--' vs '<-')
+
+  * Mongo:
+    - fixed a problem with percent encode / decode in BSON format
+
+  * SmtpClient:
+    - fix related to binary data sending
+
+  * Tools:
+    - maxmem compiles on Arch Linux
 
 
 2012.10.08, Version 1.0.7 (stable), v3523
