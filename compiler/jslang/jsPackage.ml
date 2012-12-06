@@ -103,6 +103,8 @@ let set_version t version = { t with version }
 let add_dependencies t d = { t with dependencies =
     List.fold_left (fun dependencies (k,v) -> StringMap.add k v dependencies) t.dependencies d }
 
+let get_dependencies t = StringMap.to_list t.dependencies
+
 let add_file t file = { t with files = file::t.files }
 
 let add_verbatim t verbatim = {t with code = Verbatim verbatim :: t.code }

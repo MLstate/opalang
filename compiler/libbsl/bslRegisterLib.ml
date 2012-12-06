@@ -1256,9 +1256,6 @@ let write_nodejs_pack filename f =
   else
     let pack = JsPackage.set_build_dir f.f_nodejs_pack (Filename.dirname filename)  in
     let pack = JsPackage.set_main pack (Filename.basename filename) in
-    let pack = JsPackage.auto_dependencies
-      ~miss:(OManager.warning ~wclass:WarningClass.bsl_register
-               "Dependency to @{<brigth>%s@} was auto added") pack in
     JsPackage.write pack
 
 let out_opa_code i f =

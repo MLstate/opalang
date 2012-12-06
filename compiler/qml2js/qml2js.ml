@@ -135,6 +135,19 @@ struct
            | Some path -> StringSet.add (Filename.dirname path) node_path
         ) node_path env_bsl.BslLib.all_plugins
     in
+    let plugins = env_bsl.BslLib.all_plugins in
+    let plugins = match env_bsl.BslLib.bundled_plugin with
+      | None -> plugins
+      | Some p -> p :: plugins
+    in
+    let deps =
+      List.fold_left
+        (fun acc plugin ->
+           let deps = JsPackage.get_dependencies plugin.BslPluginInterface.nodejs_pack in
+           List.map fst deps @ acc
+        ) [] plugins
+    in
+    let deps = List.uniq_unsorted deps in
     Format.sprintf
       "#!/usr/bin/env sh
 /*usr/bin/env true
@@ -142,12 +155,13 @@ export NODE_PATH=\"%a\"
 %s
 */
 
-var dependencies = ['mongodb', 'formidable', 'nodemailer', 'simplesmtp', 'imap'];
-var opa_dependencies = ['opa-js-runtime-cps'];
+var dependencies = [%a];
 %s
 "
       (StringSet.pp ":" Format.pp_print_string) node_path
+
       LaunchHelper.script
+      (Format.pp_list ", " (fun fmt s -> Format.fprintf fmt "'%s'" s)) deps
       LaunchHelper.js
 
   let extrafiles () =

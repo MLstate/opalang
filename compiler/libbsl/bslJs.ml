@@ -944,5 +944,10 @@ let preprocess ~options ~plugins ~dynloader_interface ~depends ~lang ~js_confs d
                  | e -> e)
     env.server_package
   in
+  let server_package =
+    JsPackage.auto_dependencies
+      ~miss:(OManager.warning ~wclass:WarningClass.bsl_register
+               "Dependency to @{<brigth>%s@} has been auto added") server_package
+  in
   javascript_env, env.client_package, server_package
 

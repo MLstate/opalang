@@ -49,6 +49,9 @@ val set_build_dir : t -> string -> t
 (** Add a list of dependencies. *)
 val add_dependencies : t -> (string * string) list -> t
 
+(** Get the list of dependencies. *)
+val get_dependencies : t -> (string * string) list
+
 (** Add an additional file to a package. (filename, content) *)
 val add_file : t -> (string * string) -> t
 

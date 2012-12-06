@@ -21,11 +21,11 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
     IS_WINDOWS=""
     IS_FREEBSD=""
     case $(uname) in
-	CYGWIN*) IS_WINDOWS=1;;
-	Darwin*) IS_MAC=1;;
-	Linux*|GNU/kFreeBSD) IS_LINUX=1;;
-	FreeBSD) IS_FREEBSD=1;;
-	*)
+    CYGWIN*) IS_WINDOWS=1;;
+    Darwin*) IS_MAC=1;;
+    Linux*|GNU/kFreeBSD) IS_LINUX=1;;
+    FreeBSD) IS_FREEBSD=1;;
+    *)
             echo "Error: could not detect OS. Defaulting to Linux" >&2
             IS_LINUX=1
     esac
@@ -34,54 +34,48 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
     read yesno
     case "$yesno" in
         y|Y|yes|YES)
-	    if [ -n "$IS_MAC" ]; then
-		port=`which port 2>&1`
-		if [ $? -eq 0 ] && [ -x "$port" ]; then
-		    echo "--> Installing via MacPorts...";
-		    sudo port install nodejs
-		else
-		    brew=`which brew 2>&1`
-		    if [ $? -eq 0 ] && [ -x "$brew" ]; then
-			echo "--> Installing via Homebrew...";
-			brew install node # Warning: brew installs are known to be buggy
-		    else
-			if ! [ -f /tmp/node-$NODE_VERSION.pkg ]; then
-			    NODE_URL=http://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION.pkg
-			    echo "--> Downloading $NODE_URL..."
-			    curl $NODE_URL > /tmp/node-$NODE_VERSION.pkg
-			fi
-			echo "--> Opening Node installer $NODE_VERSION, please follow the instructions and then relaunch this application"
-			open /tmp/node-$NODE_VERSION.pkg
-		exit 1
-		    fi
-		fi
-	    elif [ -n "$IS_LINUX" ]; then
-		case $(uname -v) in
-		    *Ubuntu*)
-			sudo apt-get install python-software-properties
-			sudo add-apt-repository ppa:chris-lea/node.js
-			sudo apt-get update
-			sudo apt-get install nodejs npm
-			;;
-		    *)
-			echo "--> node.js is missing, please install node.js from: http://nodejs.org"
-			exit 1
-		esac
-	    else
-		echo "--> node.js is missing, please install node.js from: http://nodejs.org"
-		exit 1
+        if [ -n "$IS_MAC" ]; then
+        port=`which port 2>&1`
+        if [ $? -eq 0 ] && [ -x "$port" ]; then
+            echo "--> Installing via MacPorts...";
+            sudo port install nodejs
+        else
+            brew=`which brew 2>&1`
+            if [ $? -eq 0 ] && [ -x "$brew" ]; then
+            echo "--> Installing via Homebrew...";
+            brew install node # Warning: brew installs are known to be buggy
+            else
+            if ! [ -f /tmp/node-$NODE_VERSION.pkg ]; then
+                NODE_URL=http://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION.pkg
+                echo "--> Downloading $NODE_URL..."
+                curl $NODE_URL > /tmp/node-$NODE_VERSION.pkg
+            fi
+            echo "--> Opening Node installer $NODE_VERSION, please follow the instructions and then relaunch this application"
+            open /tmp/node-$NODE_VERSION.pkg
+        exit 1
+            fi
+        fi
+        elif [ -n "$IS_LINUX" ]; then
+        case $(uname -v) in
+            *Ubuntu*)
+            sudo apt-get install python-software-properties
+            sudo add-apt-repository ppa:chris-lea/node.js
+            sudo apt-get update
+            sudo apt-get install nodejs npm
+            ;;
+            *)
+            echo "--> node.js is missing, please install node.js from: http://nodejs.org"
+            exit 1
+        esac
+        else
+        echo "--> node.js is missing, please install node.js from: http://nodejs.org"
+        exit 1
 
-	    fi;;
-	*) echo "--> Aborting..."; exit 1
+        fi;;
+    *) echo "--> Aborting..."; exit 1
     esac
 
 fi;
-
-# npm=`which npm 2>&1`
-# if [ $? -ne 0 ] || [ ! -x "$npm" ]; then
-#     echo "--> npm missing, please install npm from: http://npmjs.org/"
-#     exit 1
-# fi;
 
 if [ $? -ne 0 ]; then exit $?; fi;
 node "$0" "$@"; exit $?;
