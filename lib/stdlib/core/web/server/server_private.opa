@@ -373,7 +373,7 @@ Server_private = {{
           #<End>
 
         dispatcher =
-          // CAUTION     : The url_dispatcher called is delayed (via push) by complete_dispatcher for one important reason :
+          // CAUTION     : The url_dispatcher called is delayed (via push) by complete_dispatcher (in bslDispatcher) for one important reason :
           //               It introduces a new execution task in the scheduler.
           //               By default AppServer don't make this choice for you.
           //               Without it, you have no concurrent server response.
