@@ -54,6 +54,7 @@ SmtpClient = {{
       | {~text} -> (text, "")
       | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
       | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
+
     files =
       List.filter_map(x ->
         match x with
@@ -67,14 +68,13 @@ SmtpClient = {{
         | ~{filename resource} ->
            match Resource.export_data(resource) with
            | {some=~{data mimetype}} ->
-             data = string_of_binary(data)
              if String.has_prefix("text/", mimetype)
-             then some((filename,mimetype,"8bit",data))
-             else some((filename,mimetype,"base64",
-                        Crypto.Base64.encode(binary_of_string(data))))
+             then some((filename, mimetype, "8bit", string_of_binary(data)))
+             else some((filename, mimetype, "base64", Crypto.Base64.encode(data)))
            | {none} -> {none}
            end
       , options.files)
+
     f = %% BslNativeLib.ocaml_tuple_4 %%
     files = %% BslNativeLib.opa_list_to_ocaml_list %%(f, files)
     f = %% BslNativeLib.ocaml_tuple_2 %%
