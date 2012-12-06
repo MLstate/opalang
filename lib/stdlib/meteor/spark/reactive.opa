@@ -46,6 +46,7 @@ type Reactive.value('a) = {
     ('a->{}) set,
     (->'a) get_silently,
     ('a->{}) set_silently,
+    ((xhtml->xhtml)->xhtml) render,
     OpaType.ty ty
 }
 
@@ -80,7 +81,7 @@ module Reactive {
         Utils
     */
     private server unique_class = String.fresh(200)
-    private xts = Xhtml.to_string
+    private xts = Xhtml.serialize_as_standalone_html
     private function `@>>`(g,f) { function() { f(g()) } }
 
     /**
@@ -99,7 +100,7 @@ module Reactive {
     */
     private function unserialize_error(json) { void @fail("Impossible to unserialize the reactive value: {json}"); none }
 
-    // Impossible to write a generic unserialize function (value restrictions problems)
+    // Impossible to write a generic unserialize function (value restrictions)
     private client function client_unserialize(alpha_unserialization, json) {
         match (json){
         case { Record : [ ("initial_value", alpha), ("id", { String : id }) ] } :
@@ -165,9 +166,21 @@ module Reactive {
             value.set(v)
         }
 
-        Reactive.value('a) r = {~id, ~get, ~set, ~get_silently, ~set_silently, ty:@typeof(v)}
-        Hashtbl.add(client_side_reactive_table, id, @unsafe_cast(r));
-        r
+        ty = @typeof(v)
+
+        Reactive.value('a) self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
+                render: @unsafe_cast(void) }
+
+
+        function render(html_fun) {
+           reactive_render(html_fun)(self)
+        }
+
+        Reactive.value('a) self = { self with ~render }
+
+        Hashtbl.add(client_side_reactive_table, id, @unsafe_cast(self));
+
+        self
     }
 
     /**
@@ -220,7 +233,17 @@ module Reactive {
             }
         }
 
-        {~id, ~get, ~set, ~get_silently, ~set_silently, ty:@typeof(v)}
+        ty = @typeof(v)
+
+        self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
+                render:@unsafe_cast(void) }
+
+
+        function render(html_fun) {
+           reactive_render(html_fun)(self)
+        }
+
+        { self with ~render }
 
     }
 
@@ -238,10 +261,10 @@ module Reactive {
     /**
         Default function to display the reactive value in html.
     */
-    client function default_html_func(string id, RPC.Json.json json, ty) {
+    client function default_html_func(string id, RPC.Json.json json, ty, (xhtml->xhtml) xhtml_deco) {
         v = OpaSerialize.Json.unserialize_with_ty(json, ty) ? @fail
         Reactive.value('a) r = @unsafe_cast(get_or_make(id,@unsafe_cast(v)))
-        XmlConvert.of_alpha_with_ty(ty,r.get())
+        xhtml_deco(XmlConvert.of_alpha_with_ty(ty,r.get()))
     }
 
     // The function is not inside render with a client directive on purpose
@@ -262,15 +285,25 @@ module Reactive {
         <span class={[class]} onready={replace(html_func,class)}/>
     }
 
-    @xmlizer(Reactive.value('a)) function to_xml(('a->xhtml) _alpha_to_xml, r) {
+    function reactive_render(html_fun)(r) {
         render(
             v = r.get_silently()
             // Impossible to public_env with unknown 'a (cf EI)
             // this is why we store the type in r.ty and serialize by hand:
             json = OpaSerialize.partial_serialize(v, r.ty)
-            @public_env(function() { default_html_func(r.id, json, r.ty) })
+            @public_env(function() { default_html_func(r.id, json, r.ty, html_fun) })
         )
+    }
 
+    function bind(dom dom, Dom.event.kind e, (Dom.event -> void) f) {
+        Scheduler.push(
+            { function() Dom.bind(dom, e, f) |> ignore }
+        )
+    }
+
+
+    @xmlizer(Reactive.value('a)) function to_xml(('a->xhtml) _alpha_to_xml, r) {
+        reactive_render(identity)(r)
     }
 
     module List {
@@ -308,6 +341,10 @@ module Reactive {
 
             { ~cursor, ~itemFunc, ~emptyFunc, ~add, ~move, ~change, ~remove}
 
+        }
+
+        Reactive.list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a) function clone(reactive, item_fun, empty_fun) {
+            { reactive with itemFunc:item_fun, emptyFunc:empty_fun }
         }
 
         function render(cursor_getter, (->('a->xhtml)) item_func_getter, (->(->xhtml)) empty_func_getter) {
