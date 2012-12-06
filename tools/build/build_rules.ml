@@ -269,14 +269,21 @@ let escape_js_comments = [
   Sh"|"; Sh"sed -e '\\%^//\\(.*\\)%d'";
 ] in
 
-rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launchHelper.ml"
+rule "copy launch files"
   ~deps:[]
-  ~prods:[launchHelper]
+  ~prods:[launch_helper_script; launch_helper_js; "always_rebuild"]
   (fun env build ->
      Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P dependencies_path]);
-       cp (source_dir/launch_helper_script) (build_dir/launch_helper_script);
-       cp (source_dir/launch_helper_js) (build_dir/launch_helper_js);
+       cp (source_dir/launch_helper_script) launch_helper_script;
+       cp (source_dir/launch_helper_js) launch_helper_js;
+     ]);
+
+rule "launchHelper: tools/dependencies/launch_helper.sh -> compiler/qml2js/launchHelper.ml"
+  ~deps:[launch_helper_script; launch_helper_js]
+  ~prods:[launchHelper]
+  (fun env build ->
+     Seq[
        Cmd(S[Sh"mkdir"; A"-p"; P qml2js_path]);
        Cmd(S([Sh"echo let script = \\\" > "; P launchHelper]));
        Cmd(S([Sh"cat"; P launch_helper_script]
