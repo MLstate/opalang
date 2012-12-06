@@ -47,6 +47,7 @@ type Reactive.value('a) = {
     (->'a) get_silently,
     ('a->{}) set_silently,
     ((xhtml->xhtml)->xhtml) render,
+    (string->Reactive.value('a)) sync,
     OpaType.ty ty
 }
 
@@ -146,8 +147,10 @@ module Reactive {
         function get() {
             ctx = Context.get()
             ctx_id = Context.getId(ctx)
-            Hashtbl.add(ctx_table, ctx_id, ctx)
-            Context.onInvalidate(ctx,{ function() Hashtbl.remove(ctx_table, ctx_id)})
+            if (ctx_id > -1) {
+                Hashtbl.add(ctx_table, ctx_id, ctx)
+                Context.onInvalidate(ctx,{ function() Hashtbl.remove(ctx_table, ctx_id)})
+            }
             v = value.get()
             v
         }
@@ -169,14 +172,19 @@ module Reactive {
         ty = @typeof(v)
 
         Reactive.value('a) self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
-                render: @unsafe_cast(void) }
-
-
-        function render(html_fun) {
-           reactive_render(html_fun)(self)
+                function render(_){ <></> },
+                sync:function(_){@fail("The reactive value is already in sync mode")}
         }
 
-        Reactive.value('a) self = { self with ~render }
+        function self_render(html_fun) {
+           render(html_fun)(self)
+        }
+
+        self = { self with render:self_render }
+
+        self_sync = sync(self)
+
+        self = { self with sync:self_sync }
 
         Hashtbl.add(client_side_reactive_table, id, @unsafe_cast(self));
 
@@ -196,9 +204,9 @@ module Reactive {
 
         value = Mutable.make(v)
 
-        exposed function client_exists() {
-            b = ClientEvent.current_client_is_ready()
-            b//=false TODO
+        function client_exists() {
+            //b = ClientEvent.current_client_is_ready()
+            false // TODO
         }
 
         function get_silently() {
@@ -236,14 +244,19 @@ module Reactive {
         ty = @typeof(v)
 
         self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
-                render:@unsafe_cast(void) }
-
-
-        function render(html_fun) {
-           reactive_render(html_fun)(self)
+                function render(_){ <></> },
+                sync:function(_){@fail("The reactive value is already in sync mode")}
         }
 
-        { self with ~render }
+        function self_render(html_fun) {
+           render(html_fun)(self)
+        }
+
+        self = { self with render:self_render }
+
+        self_sync = sync(self)
+
+        { self with sync:self_sync }
 
     }
 
@@ -269,7 +282,7 @@ module Reactive {
 
     // The function is not inside render with a client directive on purpose
     // (OPA BUG: can't have a local function with client directive, cf serialization optimization)
-    private function replace(html_func,class)(_ev) {
+    private function replace(html_func,class)(Dom.event _ev) {
         function() { Spark.isolate({ function() xts(html_func()) } ) }
         |> Spark.render_f
         |> Spark.replace_f(Dom.select_class(class), _)
@@ -280,13 +293,13 @@ module Reactive {
         Render a reactive value in html.
         It will be automatically re-rendered each time the reactive value is modified.
     */
-    function render((->xhtml) html_func) {
+    private function placeholder((->xhtml) html_func) {
         class = "__{unique_class()}"
         <span class={[class]} onready={replace(html_func,class)}/>
     }
 
-    function reactive_render(html_fun)(r) {
-        render(
+    function render(html_fun)(r) {
+        placeholder(
             v = r.get_silently()
             // Impossible to public_env with unknown 'a (cf EI)
             // this is why we store the type in r.ty and serialize by hand:
@@ -301,9 +314,27 @@ module Reactive {
         )
     }
 
+    exposed function network(name){
+        Network.network('a) Network.cloud(name)
+    }
+
+    (Reactive.value('a)->(string->Reactive.value('a))) function sync(value)(network_name) {
+
+        Network.network('a) network = network(network_name)
+
+        Network.add_callback({ function(n) value.set(n) }, network);
+
+        function set(n) {
+            Network.broadcast(n, network);
+        }
+
+        { value with ~set }
+
+    }
+
 
     @xmlizer(Reactive.value('a)) function to_xml(('a->xhtml) _alpha_to_xml, r) {
-        reactive_render(identity)(r)
+        render(identity)(r)
     }
 
     module List {
