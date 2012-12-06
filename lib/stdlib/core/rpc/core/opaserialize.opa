@@ -341,11 +341,7 @@ OpaSerializeClosure = {{
       )}
 
     /* For list */
-    and aux_list(value, ty) =
-       l = List.foldr((v, acc ->
-         r = aux(v, ty)
-         r +> acc), value, [])
-       {List = l}
+    and aux_list(list, ty) = { List = List.map( aux(_,ty), list ) }
 
     /* For abstract type ************************/
     and aux_abstract_client(value, client) =
