@@ -26,9 +26,9 @@
 
 type Cursor.callback('a) = {
     ('a, int -> void) added,
+    ('a, int, int -> void) moved,
     ('a, int -> void) changed,
-    ('a, int -> void) removed,
-    ('a, int, int -> void) moved
+    ('a, int -> void) removed
 }
 
 type Cursor.t('a) = {
@@ -37,8 +37,7 @@ type Cursor.t('a) = {
 
 type Reactive.value('a) = {
     (->'a) get,
-    ('a->{}) set,
-    (->xhtml) html_func
+    ('a->{}) set
 }
 
 type Reactive.list('a) = {
@@ -51,127 +50,104 @@ type Reactive.list('a) = {
     ('a, int -> void) remove
 }
 
-module Reactive {
+client module Reactive {
 
-    private server unique_class = String.fresh(200)
+    module Render {
 
-    private xts = Xhtml.to_string
-    private function `@>>`(g,f) { function() { f(g()) } }
+        @both_implem unique_class = String.fresh(200)
 
-    client ('a->Reactive.value('a)) function make(v) {
+        private function placeholder((->dom_element) frag) {
+            class = "__{unique_class()}"
+            function replace(_) {
+                ignore(Spark.replace_f(Dom.select_class(class), frag));
+            }
+            <div class={[class]} onready={replace}/>
+        }
+
+        xts = Xhtml.to_string
+        function `@>>`(g,f) {
+            function() { f(g()) }
+        }
+
+        function value(htmlFunc) {
+            function() { Spark.isolate(htmlFunc @>> xts) }
+            |> Spark.render_f
+            |> placeholder
+        }
+
+        function list(cursor, itemFunc, elseFunc) {
+            Spark.render_f(function () {
+                Spark.list(cursor, function (item) {
+                    Spark.labelBranch(item._id, function () {
+                        Spark.isolate({ function() itemFunc(item) } @>> xts);
+                    })
+                }, (elseFunc @>> xts))
+            })
+            |> placeholder
+        }
+    }
+
+    ('a->Reactive.value('a)) function value(v) {
 
         value = Mutable.make(v)
         ctx_map = Mutable.make(intmap(Context.t) IntMap.empty)
 
         function get() {
             ctx = Context.get()
-            ctx_id = Context.getId(ctx)
-            ctx_map.set(Map.add(ctx_id, ctx, ctx_map.get()))
-            // TODO: cleanup on invalidate
-            v = value.get()
-            v
+            ctx_map.set(Map.add(Context.getId(ctx), ctx, ctx_map.get()))
+            // todo: context.onInvalidate()
+            value.get()
         }
+
         function set(n) {
             value.set(n)
-            Map.iter({ function(_, ctx_id) Context.invalidate(ctx_id)}, ctx_map.get())
+            Map.iter({ function(_, value) Context.invalidate(value)}, ctx_map.get())
         }
 
-        function html_func() {
-            <>{get()}</>
-        }
-
-        {~get, ~set, ~html_func}
+        {~get, ~set}
     }
 
-    function render((->(->xhtml)) html_func_getter) {
-        class = "__{unique_class()}"
-        client function replace(Dom.event _e) {
-            // html_func_getter (->(->xhtml)) can be server side
-            // and should return a client side rendering function
-            // (isolate have to use a full client side version
-            //  to avoid network ping/pang each rendering)
-            html_func = html_func_getter()
-            function() { Spark.isolate(html_func @>> xts) }
-            |> Spark.render_f
-            |> Spark.replace_f(Dom.select_class(class), _)
-            |> ignore
-        }
-        <span class={[class]} onready={replace} />
-    }
+    (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function list(_init, itemFunc, emptyFunc) {
 
-    @xmlizer(Reactive.value('a)) function to_xml(_alpha_to_xml, r) {
-        render({ function() r.html_func })
-    }
+        new_id = Fresh.client(identity)
 
-    module List {
+        cb_map = Mutable.make(IntMap.empty)
 
-        client (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function make(_init, itemFunc, emptyFunc) {
-
-            cb_map = Mutable.make(IntMap.empty)
-            new_id = Fresh.client(identity)
-
+        cursor = {
             function observe(cb) {
                 cb_map.set(Map.add(new_id(), cb, cb_map.get()))
             }
-
-            cursor = { ~observe }
-
-            function cb(f) {
-                Map.iter({ function(_,cb) f(cb) }, cb_map.get())
-            }
-
-            function add(v, index) {
-                cb(_.added(v, index))
-            }
-
-            function move(v, from, to) {
-                cb(_.moved(v, from, to))
-            }
-
-            function change(v, index) {
-                cb(_.changed(v, index))
-            }
-
-            function remove(v, index) {
-                cb(_.removed(v, index))
-            }
-
-            { ~cursor, ~itemFunc, ~emptyFunc, ~add, ~move, ~change, ~remove}
-
         }
 
-        function render(cursor_getter, (->('a->xhtml)) item_func_getter, (->(->xhtml)) empty_func_getter) {
-            class = "__{unique_class()}"
-            client function replace(Dom.event _e) {
-                // See comment in Reactive.render
-                cursor = cursor_getter()
-                item_func = item_func_getter()
-                empty_func = empty_func_getter()
-                Spark.render_f(function () {
-                    Spark.list(cursor, function (item) {
-                        Spark.labelBranch(item._id, function () {
-                            Spark.isolate({ function() item_func(item) } @>> xts);
-                        })
-                    }, (empty_func @>> xts))
-                })
-                |> Spark.replace_f(Dom.select_class(class), _)
-                |> ignore
-            }
-            <span class={[class]} onready={replace} />
+        function cb(f) {
+            Map.iter({ function(_,cb) f(cb) }, cb_map.get())
         }
 
-        @xmlizer(Reactive.list('a)) function to_xml(_alpha_to_xml, r) {
-            render({ function() r.cursor }, { function() r.itemFunc }, { function() r.emptyFunc })
+        function add(v, index) {
+            cb(_.added(v, index))
         }
+
+        function move(v, from, to) {
+            cb(_.moved(v, from, to))
+        }
+
+        function change(v, index) {
+            cb(_.changed(v, index))
+        }
+
+        function remove(v, index) {
+            cb(_.removed(v, index))
+        }
+
+        { ~cursor, ~itemFunc, ~emptyFunc, ~add, ~move, ~change, ~remove}
+
     }
 }
 
-// Macros can't be inside a module:
-
-@expand function render(r) {
-    Reactive.render({ function() r.html_func })
+@xmlizer(Reactive.value('a)) function reactive_to_xml(alpha_to_xml, r) {
+    Reactive.Render.value({ function() alpha_to_xml(r.get()) })
 }
 
-@expand function render_list(r) {
-    Reactive.List.render({ function() r.cursor }, { function() r.itemFunc }, { function() r.emptyFunc })
+@xmlizer(Reactive.list('a)) function reactive_list_to_xml(_alpha_to_xml, r) {
+    Reactive.Render.list(r.cursor, r.itemFunc, r.emptyFunc)
 }
