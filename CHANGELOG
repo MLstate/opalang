@@ -2,6 +2,8 @@ New features:
 
     - Reactive UI based on Meteor Spark (wip)
 
+    - Compilation on Windows using cygwin
+
 Updated APIs:
 
   * Crypto:
@@ -33,6 +35,15 @@ Improvements:
     - updated and improved installation_helper.sh
     - warn when configure file has changed before compilation
 
+  * Value restriction error:
+    - error only on type variables appearing in abstracted types
+
+  * Parse error:
+    - remove 'found a binding as condition' message
+
+  * Slicer warning:
+    - indicates client functions when warning about inapropriate client function call on server
+
 Removals:
 
   * Source:
@@ -59,6 +70,11 @@ Bug fixes:
   * Tools:
     - maxmem compiles on Arch Linux
 
+  * Value restiction:
+    - record specific type variables were not checked (fields and sum cases variables)
+
+  * Language:
+    - patterns and records cannot have two fields with the same name
 
 2012.10.08, Version 1.0.7 (stable), v3523
 
