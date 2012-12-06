@@ -213,7 +213,7 @@ let upgrade_options plugins options =
   in
 
   let server_plugins = List.filter (fun plugin ->
-    plugin.BPI.has_server_code
+    plugin.BPI.has_ml_code
   ) plugins in
   let rev_plugins = rev_acc t_bypass_plugins already_seen_plugin plugins in
   let rev_libs = rev_acc t_extralibs extralib_plugin server_plugins in

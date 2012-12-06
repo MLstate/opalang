@@ -289,7 +289,7 @@ let meta_plugin__01 buf
     ~depends
     ~js_pack
     ~nodejs_pack
-    ~has_server_code
+    ~has_ml_code
     ~opa_code
     ~ocaml_env
     ~javascript_env
@@ -316,7 +316,7 @@ struct
   let b = ~> b    "let depends  = [ %a ]\n"           (pp_ml_list pp_escaped)   depends    in
   let b = ~> b    "let js_pack = (Marshal.from_string %S 0)\n" (Marshal.to_string (js_pack : JsPackage.t) []) in
   let b = ~> b    "let nodejs_pack = (Marshal.from_string %S 0)\n" (Marshal.to_string (nodejs_pack : JsPackage.t) []) in
-  let b = ~> b    "let has_server_code = %B\n"       has_server_code                      in
+  let b = ~> b    "let has_ml_code = %B\n"           has_ml_code                      in
   let b = ~> b    "let opa_code = [ %a ]\n"          (pp_ml_list pp_fc)        opa_code   in
   let b = ~> b    "let ocaml_env = (Marshal.from_string %S 0)\n" (Marshal.to_string (ocaml_env : ocaml_env) []) in
   let b = ~> b    "let javascript_env = (Marshal.from_string %S 0)\n" (Marshal.to_string (javascript_env : javascript_env) []) in
@@ -354,7 +354,7 @@ let meta_plugin__03 = "
     opa_code ;
     js_pack ;
     nodejs_pack ;
-    has_server_code ;
+    has_ml_code ;
     dynloader ;
     ocaml_env ;
     javascript_env ;
@@ -386,7 +386,7 @@ type plugin = {
   opa_code              : (filename * contents) list ;
   js_pack               : JsPackage.t ;
   nodejs_pack           : JsPackage.t ;
-  has_server_code       : bool ;
+  has_ml_code       : bool ;
   dynloader             : dynloader ;
   ocaml_env             : ocaml_env ;
   javascript_env        : javascript_env ;
@@ -471,9 +471,9 @@ sig
   val nodejs_pack : contents
 
   (**
-     [true] if the plugin has any server-side code
+     [true] if the plugin has ml server-side code
   *)
-  val has_server_code : bool
+  val has_ml_code : bool
 
   (** {6 Registering primitives and types} *)
 

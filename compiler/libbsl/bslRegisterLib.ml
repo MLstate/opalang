@@ -167,7 +167,7 @@ type session = {
 
   s_rev_opa_decorated_files    : BslDirectives.opalang_decorated_file  list ;
 
-  s_has_server_code            : bool ;
+  s_has_ml_code            : bool ;
 
   (*
     3) collecting calls to the Register Interface.
@@ -344,7 +344,7 @@ let create ~options =
 
   let s_rev_opa_decorated_files      = [] in
 
-  let s_has_server_code              = false in
+  let s_has_ml_code                  = false in
 
   let s_rp_calls                     = BslKeyMap.empty in
   let s_rt_calls                     = BslKeyMap.empty in
@@ -381,7 +381,7 @@ let create ~options =
 
     s_rev_opa_decorated_files ;
 
-    s_has_server_code ;
+    s_has_ml_code ;
 
     s_rp_calls ;
     s_rt_calls ;
@@ -842,7 +842,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
   let depends          = s.s_depends.d_parents in
   let js_pack          = s.s_js_pack in
   let nodejs_pack      = s.s_nodejs_pack in
-  let has_server_code  = s.s_has_server_code in
+  let has_ml_code  = s.s_has_ml_code in
   let opa_code         = s.s_opa_code in
 
   let buf = FBuffer.create 1024 in
@@ -857,7 +857,7 @@ let f_plugin_up ~conf ~ocaml_env ~javascript_env s =
       ~depends
       ~js_pack
       ~nodejs_pack
-      ~has_server_code
+      ~has_ml_code
       ~opa_code
       ~ocaml_env
       ~javascript_env
@@ -1079,9 +1079,6 @@ let finalize s =
       assert (JsPackage.is_empty js_pack);
       { session with
           s_nodejs_pack = JsPackage.merge session.s_nodejs_pack nodejs_pack;
-          s_has_server_code =
-          not (JsPackage.is_empty nodejs_pack)
-          || session.s_has_server_code
       }
     in
     finalizing_js ~depends ~js_decorated_files ~js_confs ~lang update_session s
@@ -1138,7 +1135,7 @@ let finalize s =
     BMP.register_nodejs_pack               bmp_session   f_nodejs_pack ;
     BMP.register_opa_code                  bmp_session   f_opa_code ;
 
-    BMP.register_has_server_code           bmp_session   s.s_has_server_code ;
+    BMP.register_has_ml_code               bmp_session   s.s_has_ml_code ;
 
     BMP.register_ocaml_env                 bmp_session   ocaml_env ;
     BMP.register_javascript_env            bmp_session   javascript_env ;
@@ -1633,7 +1630,7 @@ let preprocess_file session filename =
       let session = {
         session with
           s_rev_ml_parsed_files ;
-          s_has_server_code = true ;
+          s_has_ml_code = true;
       } in
       session
 
@@ -1680,7 +1677,6 @@ let preprocess_file session filename =
       let session = {
         session with
           s_rev_nodejs_parsed_files ;
-          s_has_server_code = true ;
       } in
       session
 

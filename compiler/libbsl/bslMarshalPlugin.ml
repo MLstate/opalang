@@ -45,7 +45,7 @@ type t = {
   js_pack                              : JsPackage.t ;
   nodejs_pack                          : JsPackage.t ;
 
-  has_server_code                      : bool ;
+  has_ml_code                          : bool ;
 
   ocaml_env                            : BPI.ocaml_env ;
   javascript_env                       : BPI.javascript_env ;
@@ -66,7 +66,7 @@ type session = {
   mutable s_js_pack                    : JsPackage.t ;
   mutable s_nodejs_pack                : JsPackage.t ;
 
-  mutable s_has_server_code            : bool ;
+  mutable s_has_ml_code                : bool ;
 
   mutable s_ocaml_env                  : BPI.ocaml_env option ;
   mutable s_javascript_env             : BPI.javascript_env option ;
@@ -89,7 +89,7 @@ let create () = {
   s_js_pack = JsPackage.default ~name:"BMP" ;
   s_nodejs_pack = JsPackage.default ~name:"BMP" ;
 
-  s_has_server_code = false ;
+  s_has_ml_code     = false ;
 
   s_ocaml_env = None ;
   s_javascript_env = None ;
@@ -113,7 +113,7 @@ let finalize s = {
   js_pack                    = s.s_js_pack ;
   nodejs_pack                = s.s_nodejs_pack ;
 
-  has_server_code            = s.s_has_server_code ;
+  has_ml_code                = s.s_has_ml_code ;
 
   ocaml_env                  = Option.get s.s_ocaml_env ;
   javascript_env             = Option.get s.s_javascript_env ;
@@ -151,7 +151,7 @@ let register_opa_code s c               = s.s_opa_code <- c
 let register_js_pack s c                = s.s_js_pack <- c
 let register_nodejs_pack s c            = s.s_nodejs_pack <- c
 
-let register_has_server_code s c        = s.s_has_server_code <- c
+let register_has_ml_code s c            = s.s_has_ml_code <- c
 
 let register_ocaml_env s env            = s.s_ocaml_env <- Some env
 let register_javascript_env s env       = s.s_javascript_env <- Some env
@@ -254,7 +254,7 @@ let plugin t path =
     js_pack                 = t.js_pack ;
     nodejs_pack             = t.nodejs_pack ;
 
-    has_server_code         = t.has_server_code ;
+    has_ml_code             = t.has_ml_code ;
 
     ocaml_env               = t.ocaml_env ;
     javascript_env          = t.javascript_env ;
