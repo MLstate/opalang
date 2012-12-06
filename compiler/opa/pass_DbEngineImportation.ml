@@ -64,8 +64,9 @@ let import_packages engines =
   ObjectFiles.add_compiler_packages packages
 
 let process_code ~stdlib code =
-  if stdlib then
-    let default_engine = QmlDbGen.get_engine () in
+  let _ = stdlib in
+  (*  if stdlib then *)
+  let default_engine = QmlDbGen.get_engine () in
     let engines =
       match QmlDbGen.Args.get_engine () with
       | None -> []
@@ -109,7 +110,8 @@ let process_code ~stdlib code =
     r := engines
 
 let finalize ~stdlib =
-  if stdlib then (
+   let _ = stdlib in
+  (*if stdlib then*) (
     import_packages !r;
     match ObjectFiles.compilation_mode() with
     | `compilation ->
