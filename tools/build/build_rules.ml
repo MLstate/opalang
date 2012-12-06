@@ -106,8 +106,8 @@ let build_env_strings =
 dep ["with_static_preprocessing"] [environment];
 
 rule "environment generation"
-  ~prods:[environment;"i_dont_exist"](* fake prod to make sure this rule is
-                                      * always called *)
+  ~prods:[environment;"always_rebuild"] (* fake prod to make sure this rule is
+                                         * always called *)
   (fun env build ->
      Echo (build_env_strings, environment));
 
