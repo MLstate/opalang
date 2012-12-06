@@ -16,18 +16,19 @@ if (process.version < min_node_version) {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= '+min_node_version+')');
     process.exit(1);
 }
+
 dependencies = dependencies.filter(function(dependency, index, array) {
     // console.log('Checking', dependency, '...');
     try {
         module.require(dependency);
         return false;
     } catch(e) {
-    if (process.version < "v0.8.0") return true;
+        if (process.version < "v0.8.0") return true;
         return (e.code === 'MODULE_NOT_FOUND');
     }
 });
 
 if (dependencies.length > 0) {
-    console.error(dependencies.length+' modules are missing.', 'Please run: sudo npm install -g '+dependencies.join(' '));
+    console.error(dependencies.length+' modules are missing.', 'Please run: npm install '+dependencies.join(' '));
     process.exit(1);
 }
