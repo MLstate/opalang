@@ -222,7 +222,7 @@ Mime = {{
   decode_body(s:string, cte:string) =
     match String.lowercase(cte)
     | "quoted-printable" -> QuotedPrintable.decode(s)
-    | "base64" -> string_of_binary(Crypto.Base64.decode2(s))
+    | "base64" -> string_of_binary(Crypto.Base64.decode(s))
     | _ -> String.replace(crlf, "\n", s)
 
   /**
