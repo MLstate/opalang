@@ -46,17 +46,45 @@ Crypto = {{
    */
   random(length) = %%BslCrypto.secure_random%%(length)
 
+  /**
+   * This module supports the encoding and decoding of
+   * binary data in base 64 format, using only alphanumeric
+   * characters that can safely be transmitted over e-mail or
+   * in URLs.
+   *
+   * Based on OCaml Cryptokit interface.
+   */
   Base64 = {{
 
-    encode =  %% BslCrypto.base64_encode %% : binary -> string
-
-    encode_compact =  %% BslCrypto.base64_encode_compact %% : binary -> string
-
+    /**
+     * Returns a base 64 encoded string.
+     * The output is divided in lines of length 76 characters,
+     * and final [=] characters are used to pad the output,
+     * as specified in the MIME standard.
+     * The output is approximately [4/3] longer than the input.
+     */
     encode_multiline =  %% BslCrypto.base64_encode_multiline %% : binary -> string
 
-    decode =  %% BslCrypto.base64_decode %% : string -> binary
+    /**
+     * Same as {!Crypto.Base64.encode_multiline}, but the output is not
+     * split into lines, and no final padding is added.
+     * This is adequate for encoding short strings for
+     * transmission as part of URLs, for instance.
+     */
+    encode_compact =  %% BslCrypto.base64_encode_compact %% : binary -> string
 
-    decode2 =  %% BslCrypto.base64_decode2 %% : string -> binary
+    /**
+     * Same as {!Crypto.Base64.encode_compact}, but the output is
+     * padded with [=] characters at the end (if necessary).
+     */
+    encode =  %% BslCrypto.base64_encode %% : binary -> string
+
+    /**
+     * Returns a base 64 decoded binary.
+     * The input must consist of valid base 64 string;
+     * blanks are ignored.
+     */
+    decode =  %% BslCrypto.base64_decode %% : string -> binary
 
   }}
 
