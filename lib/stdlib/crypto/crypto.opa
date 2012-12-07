@@ -259,15 +259,15 @@ Crypto = {{
     new_key = %% BslCrypto.rsa_new_key %% : int -> Crypto.RSA.key
 
     /**
-     * Encrypt a string with a certain RSA key.
+     * Encrypt a binary data with a certain RSA key.
      */
-    encrypt = %% BslCrypto.rsa_encrypt %% : Crypto.RSA.key, string -> option(string)
+    encrypt = %% BslCrypto.rsa_encrypt %% : Crypto.RSA.key, binary -> option(binary)
 
     /**
-     * Decrypt an RSA encrypted message.
+     * Decrypt an RSA encrypted binary message.
      * /!\ You might need to trim the result in order to retrieve the origin message.
      */
-    decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, string -> option(string)
+    decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, binary -> option(binary)
 
   }}
 
