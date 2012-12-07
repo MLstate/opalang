@@ -86,12 +86,12 @@ This package also includes pieces of the following software:
 
 - Alea, MIT License
   Copyright (C) 2010 Johannes Baagøe <baagoe@baagoe.org>
-  http://baagoe.org/en/wiki/Better_random_numbers_for_javascrip
+  http://baagoe.org/en/w/index.php/Better_random_numbers_for_javascript
 
 - Underscore.js 1.3.3, MIT License
   Copyright (C) 2009-2012 Jeremy Ashkenas, DocumentCloud Inc.
   Portions of Underscore are inspired or borrowed from Prototype, Oliver Steele's Functional, and John Resig's Micro-Templating.
-  For all details and documentation: http://documentcloud.github.com/underscor
+  For all details and documentation: http://documentcloud.github.com/underscore
 
 Detailed copyright information of all these included packages lie in
 file <other_licenses>.
