@@ -22,3 +22,4 @@ We would like to thank the authors of the ocamljs/jslib.
 Opa also includes external libraries :
 * Bootstrap, from Twitter - http://twitter.github.com/bootstrap
 * Font Awesome - http://fortawesome.github.com/Font-Awesome
+* Meteor Spark - https://github.com/meteor/meteor/wiki/Spark
