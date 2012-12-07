@@ -8,18 +8,17 @@ used only during the build process of Opa :
 * The Closure Compiler (see tools/jschecker/README for copyright information)
 * JsDoc Toolkit (see tools/jsdoc-toolkit/README.txt for copyright information)
 
-The Closure Compiler is used as a checker for the Javascript part of the sources
-of Opa, and JsDoc Toolkit is used for generating html documentation pages from this
-Javascript code.
+The Closure Compiler is used as a checker for the JavaScript part of the sources
+of Opa, and JsDoc Toolkit is used for generating HTML documentation pages from this
+JavaScript code.
 
 The use of these tools is transitional, and will soon be made optional.
 
 Part of the jslang library, has been closely inspired by ocamljs/jslib:
 * ocamljs/jslib, © 2007-2009 2007-9 Skydeck, Inc, distributed under LGPL v2
-In particular files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules found in ocamljs, specialized for Opa specific needs.
+In particular files compiler/jslang/jsAst.ml and compiler/jslang/jsPrint.ml are extended versions of the modules found in ocamljs, specialized for Opa specific needs.
 We would like to thank the authors of the ocamljs/jslib.
 
 Opa also includes external libraries :
 * Bootstrap, from Twitter - http://twitter.github.com/bootstrap
 * Font Awesome - http://fortawesome.github.com/Font-Awesome
-
