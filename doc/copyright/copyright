@@ -2,7 +2,7 @@ Unless something else is mentioned, Opa is
 Copyright © 2011, 2012 MLstate. All Rights Reserved.
 
 This package was put together by MLstate <packaging@opalang.org> from
-the sources available at <http://opalang.org>.
+the sources available at <https://github.com/MLstate/opalang>.
 
 
   Opa is free software: you can redistribute it and/or modify it under the
@@ -19,7 +19,10 @@ the sources available at <http://opalang.org>.
 
 
 The complete text of the GNU Affero General Public License can be
-found in file <AGPL>, along with this one.
+found in file <AGPL-LICENSE>, along with this one.
+
+Opa library and tools are released under the MIT license.
+The complete text of the MIT license can be found in filr <MIT-LICENSE>.
 
 
 This package also includes pieces of the following software:
@@ -29,17 +32,9 @@ This package also includes pieces of the following software:
     Q Public license v1.0 (compiler)
     LGPL v2 with static linking exception (library)
 
-- cryptokit, http://forge.ocamlcore.org/projects/cryptokit/
-    © 2002-2005 INRIA
-    LGPL v2 with static linking exception
-
 - ocamlgraph, http://ocamlgraph.lri.fr
     © 2004-2008 Sylvain Conchon, Jean-Christophe Filliâtre, Julien Signoles
     LGPL v2.1 with static linking exception
-
-- camlimages, http://pauillac.inria.fr/camlimages
-    © 1999-2004 INRIA
-    LGPL v2 with static linking exception
 
 - jsmin, http://javascript.crockford.com/jsmin.html
     © 2007 Eugene Ossintsev
@@ -53,27 +48,6 @@ This package also includes pieces of the following software:
 - ulex, http://www.cduce.org/
     © 2005 Alain Frisch
     Expat License (MIT-like)
-
-- xmlm, http://erratique.ch/software/xmlm
-    © 2007-2009 Daniel C. Bünzli
-    BSD License
-
-- libnatpmp, http://miniupnp.free.fr/
-    © 2007-2009 Thomas Bernard
-    BSD License
-
-- miniupnpc, http://miniupnp.free.fr/
-    © 2005-2009 Thomas Bernard
-    BSD License
-
-- camlidl, http://caml.inria.fr/pub/old_caml_site/camlidl/
-    © 1999 INRIA
-    Q Public license v1.0 (compiler)
-    LGPL v2 with static linking exception (library)
-
-- iconv-ocaml, http://panathenaia.halfmoon.jp/alang/ocaml/
-    © 2010 YT
-    New BSD License
 
 - Twitter Bootstrap, http://twitter.github.com/bootstrap
     Copyright 2012 Twitter, Inc.
