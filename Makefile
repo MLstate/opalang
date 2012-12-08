@@ -11,11 +11,6 @@
 all: node
 
 OPALANG_DIR ?= .
-CONFIG_DIR ?= $(OPALANG_DIR)/tools/build
-
-BUILD_TOOLS_DIR = $(OPALANG_DIR)/tools/build
-
--include $(CONFIG_DIR)/config.make
 
 MAKE ?= $_
 OCAMLBUILD_OPT ?= -j 6
@@ -28,11 +23,16 @@ ifdef DEBUG_OCAMLBUILD
 OCAMLBUILD_OPT += -classic-display
 endif
 
+# Always register qmljs opabsl plugin rule
+MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
+
 export
 
-include $(BUILD_TOOLS_DIR)/Makefile.bld
+CONFIG_DIR ?= $(OPALANG_DIR)/tools/build
+include $(CONFIG_DIR)/config.make
 
-MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
+BUILD_TOOLS_DIR = $(OPALANG_DIR)/tools/build
+include $(BUILD_TOOLS_DIR)/Makefile.bld
 
 ##
 ## STANDARD TARGETS
