@@ -136,10 +136,12 @@ endef
 
 # List all packages and plugins in stdlib
 # caches are needed because too slow on cygwin/msys
+
 OPA_PACKAGES_CACHE = _build/OPA_PACKAGES.cache
+OPA_PACKAGES := $(shell mkdir -p _build; if [ ! -f $(OPA_PACKAGES_CACHE) ] || [ ! $(IS_WINDOWS) ]; then $(OPALANG_DIR)/lib/stdlib/all_packages.sh $(OPALANG_DIR)/lib/stdlib/node.exclude $(OPALANG_DIR)/lib/stdlib > $(OPA_PACKAGES_CACHE); fi; cat $(OPA_PACKAGES_CACHE))
+
 OPA_PLUGINS_CACHE = _build/OPA_PLUGINS.cache
-OPA_PACKAGES := $(shell mkdir -p _build; if [ ! -f $(OPA_PACKAGES_CACHE) ]; then $(OPALANG_DIR)/lib/stdlib/all_packages.sh $(OPALANG_DIR)/lib/stdlib/node.exclude $(OPALANG_DIR)/lib/stdlib > $(OPA_PACKAGES_CACHE); fi; cat $(OPA_PACKAGES_CACHE))
-OPA_PLUGINS  := $(shell if [ ! -f $(OPA_PLUGINS_CACHE) ]; then $(OPALANG_DIR)/lib/stdlib/all_plugins.sh $(OPALANG_DIR)/lib/stdlib > $(OPA_PLUGINS_CACHE); fi; cat $(OPA_PLUGINS_CACHE) && echo opabsl)
+OPA_PLUGINS  := $(shell if [ ! -f $(OPA_PLUGINS_CACHE) ] || [ ! $(IS_WINDOWS) ]; then $(OPALANG_DIR)/lib/stdlib/all_plugins.sh $(OPALANG_DIR)/lib/stdlib > $(OPA_PLUGINS_CACHE); fi; cat $(OPA_PLUGINS_CACHE) && echo opabsl)
 
 
 # Rules installing everything that has been compiled
