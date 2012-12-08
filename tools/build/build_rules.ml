@@ -1020,7 +1020,7 @@ let packages_building ~name ~stamp ~core_only ~rebuild
        fail_rule build
   ) in
 
-rule "Opabsl qmljs"
+rule "register qmljs opabsl plugin rule"
   ~deps:[prefixed_plugins_dir/"opabsl"/"opabsl" -.- "opa_plugin"]
   ~stamp:"opabsl.qmljs.stamp"
   (fun env build ->
@@ -1028,7 +1028,7 @@ rule "Opabsl qmljs"
      Nop
   );
 
-rule "Plugins qmljs"
+rule "register qmljs other plugins rule"
   ~deps:plugins_deps
   ~stamp:"plugins.qmljs.stamp"
   (fun env build ->
