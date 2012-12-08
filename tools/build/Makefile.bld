@@ -77,7 +77,7 @@ $(CONFIG_DIR)/config.ml: configure
 	@exit 1
 
 $(MYOCAMLBUILD): $(MYOCAMLBUILD_SOURCES)
-	@echo "Ocamlbuild plugin generation"
+	@echo "Ocamlbuild generation"
 	@$(BLDDIR)/gen_myocamlbuild.sh
 
 # arguments: path to cmi file, lib name
