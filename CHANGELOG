@@ -1,3 +1,5 @@
+2012.12.10, Version 1.1.0 (stable), v4050
+
 New features:
 
   * Tools:
@@ -16,8 +18,9 @@ New features:
     - New slice.exposed.implicit warning. Warns when a RPC entry point is generated from a lifted lambda with a non empty environment
 
   * Database:
-    - Database syntax of GridFS
+    - Database syntax for GridFS
     - Added --db-prefix option to change the mongo database prefix
+      Credit:Requested by Tristant Sloughter http://www.mail-archive.com/opa@lists.owasp.org/msg00317.html
 
   * Plugins:
     - New syntax (JavaScript compatible by using javadoc tags)
