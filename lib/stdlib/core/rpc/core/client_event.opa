@@ -298,7 +298,7 @@ ClientEvent = {{
         | {none} ->
           state = {
             dis_delay = Reference.create(Reference.get(disconnect_delay))
-            ina_delay = Reference.create(Reference.get(disconnect_delay))
+            ina_delay = Reference.create(Reference.get(inactive_delay) ? (-1))
             callbacks = Hashtbl.create(5)
             fresh     = Reference.create(0)
             dis_key   = Reference.create({none})
