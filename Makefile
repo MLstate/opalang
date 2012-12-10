@@ -75,6 +75,7 @@ DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerL
 distrib: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(DISTRIB_TOOLS))
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
 
 ##
 ## MANPAGES - done in install_release.sh
