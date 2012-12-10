@@ -915,7 +915,7 @@ struct
 
     parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;
-    js_classic_bypass_syntax = !js_bypass_syntax = `classic;
+    js_classic_bypass_syntax = !js_bypass_syntax = `jsdoc;
     backtrace = !ArgParser.backtrace;
   }
 

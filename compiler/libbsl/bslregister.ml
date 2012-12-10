@@ -60,7 +60,7 @@ let js_validator = ref (Some "js")
 let js_validator_files = MutableList.create ()
 let js_validator_options = MutableList.create ()
 let pprocess = ref None
-let js_bypass_syntax : [`classic | `jsdoc] ref = ref `classic
+let js_bypass_syntax : [`classic | `jsdoc] ref = ref `jsdoc
 
 let cwd = Sys.getcwd ()
 let is_default_lib = ref true
