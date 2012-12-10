@@ -276,7 +276,7 @@ msg Removing unneeded ocaml executables
 rm -rvf $INSTALLDIR/man/man*
 
 # leave only ocamlc.opt, ocamlopt.opt
-for i in {camlp4*,mkcamlp4,ocamlbuild.byte,ocamlcp,ocamldoc,ocamlmklib*,ocamlprof,ocaml,ocamlbuild.native,ocamldebug,ocamldoc.opt,ocamlmktop,ocamlrun,ocamlbrowser,ocamlc,ocamldep,ocamllex,ocamlopt,ocamlyacc,labltk,ocamlbuild,ocamldep.opt,ocamllex.opt,ocamlc.opt,ocamlobjinfo,ocamlfind,findlib,safe_camlp4,camlidl} ; do
+for i in {camlp4*,mkcamlp4,ocamlbuild.byte,ocamlcp,ocamldoc,ocamlmklib*,ocamlprof,ocaml,ocamlbuild.native,ocamldebug,ocamldoc.opt,ocamlmktop,ocamlrun,ocamlbrowser,ocamlc,ocamldep,ocamllex,ocamlopt,ocamlyacc,labltk,ocamlbuild,ocamldep.opt,ocamllex.opt,ocamlc.opt,ocamlobjinfo,ocamlfind,findlib,safe_camlp4,camlidl,ocamloptp} ; do
         echo "    --  Removing $INSTALLDIR/bin/$i"
         rm -fv $INSTALLDIR/bin/$i
 done
