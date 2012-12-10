@@ -76,6 +76,7 @@ Improvements:
     - distclean target will also clean *.native file in opalang directory
     - updated and improved installation_helper.sh
     - warn when configure file has changed before compilation
+    - more reliable check of node module dependencies
 
 
 Bug fixes:
