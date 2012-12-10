@@ -35,7 +35,6 @@ package stdlib.apis.mongo
 
 import stdlib.core.{date,rpc.core}
 import stdlib.io.socket
-import stdlib.crypto
 import stdlib.system
 
 /** Some (formerly) external types **/

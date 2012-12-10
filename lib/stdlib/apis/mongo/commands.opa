@@ -10,6 +10,7 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 package stdlib.apis.mongo
+import-plugin server
 
 /**
  * MongoDB binding for OPA.
@@ -186,6 +187,8 @@ type Mongo.mapReduceOptions = {
 MongoCommands = {{
 
   @private H = Bson.Abbrevs
+
+  @private md5 = %%BslMisc.md5%%
 
   /**
    * Run a "$cmd" command.
@@ -814,7 +817,7 @@ MongoCommands = {{
                         (match nolock_opt with | {some=nolock} -> [H.bool("nolock",nolock)] | {none} -> [])])
     run_command(m, dbname, cmd)
 
-  @private pass_digest(user:string, pass:string): string = Crypto.Hash.md5("{user}:mongo:{pass}")
+  @private pass_digest(user:string, pass:string): string = md5("{user}:mongo:{pass}")
 
   /**
    * Authentication: [add_user(mongo, "db", "user", "pass")] creates a
@@ -837,7 +840,7 @@ MongoCommands = {{
       (match Bson.find_element(bson,"nonce") with
        | {some={name="nonce"; value={String=nonce}}} ->
          digest = pass_digest(user,pass)
-         hash = Crypto.Hash.md5("{nonce}{user}{digest}")
+         hash = md5("{nonce}{user}{digest}")
          cmd = [H.i32("authenticate",1), H.str("user",user), H.str("nonce",nonce), H.str("key",hash)]
          run_command(m,db,cmd)
        | _ -> {failure={Error="Missing nonce String"}})
@@ -852,7 +855,7 @@ MongoCommands = {{
       (match Bson.find_element(bson,"nonce") with
        | {some={name="nonce"; value={String=nonce}}} ->
          digest = pass_digest(user,pass)
-         hash = Crypto.Hash.md5("{nonce}{user}{digest}")
+         hash = md5("{nonce}{user}{digest}")
          cmd = [H.i32("authenticate",1), H.str("user",user), H.str("nonce",nonce), H.str("key",hash)]
          run_command_ll(m,db,cmd)
        | _ -> {failure={Error="Missing nonce String"}})
