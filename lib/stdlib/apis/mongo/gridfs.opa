@@ -512,4 +512,13 @@ module GridFS{
         {metadata: f(file.metadata), file : file.file}
     }
 
+    /**
+     * Returns the metadata associated with a gridfs file.
+     * @param file A gridfs file
+     * @return The metadata of the file
+     */
+    function metadata(GridFS.file file){
+      file.metadata
+    }
+
 }
