@@ -11,7 +11,7 @@
 */
 
 import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, args, i18n}
-import-plugin {crypto, unix, server}
+import-plugin {unix, server}
 
 
 /**
@@ -194,7 +194,7 @@ Server_private = {{
       js_code = Client_code.retrieve_js_file()
 
       //As some bits of the JS are generated at launch-time and can be randomized (e.g. @public sessions), the server id isn't sufficient
-      js_unique_stamp = %% BslCrypto.md5 %%(js_code)
+      js_unique_stamp = %% BslMisc.md5 %%(js_code)
       js_file_no_internal_without_version = "code/all.js"
       js_file_no_internal_with_version = "{js_unique_stamp}/{js_file_no_internal_without_version}"
       js_file_with_version = "{base_url_string}/{_internal_}/{js_file_no_internal_with_version}"

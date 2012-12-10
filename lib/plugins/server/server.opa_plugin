@@ -7,6 +7,7 @@ bslJson.js
 bslJson.nodejs
 bslServer_event.nodejs
 bslI18n.js
+bslMisc.nodejs
 
 actor.js
 actor.nodejs
