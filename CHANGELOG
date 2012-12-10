@@ -1,13 +1,34 @@
 New features:
 
-    - Reactive UI based on Meteor Spark (wip)
+  * Tools:
+    - opa export
+      Builds a usable node.js package from an Opa package
 
-    - Compilation on Windows using cygwin
+  * Stdlib:
+    - (stdlib.io.socket) Added SocketPool
+    - (stdlib.apis.mongo) Added GridFS
+    - (stdlib.core.web.client) Added XHR
+
+  * Compiler:
+    - Added --backtrace compiler option to record bactrace of exception
+    - Added --bundle bundle.tgz to produces an archive wich contains the javascript applications and runtime dependencies
+    - Opa compiled packages (opx) are fully compatible with npm
+    - New slice.exposed.implicit warning. Warns when a RPC entry point is generated from a lifted lambda with a non empty environment
+
+  * Database:
+    - Database syntax of GridFS
+    - Added --db-prefix option to change the mongo database prefix
+
+  * Plugins:
+    - New syntax (JavaScript compatible by using javadoc tags)
 
 Updated APIs:
 
   * Crypto:
-    - added very basic RSA module (new_key, encrypt, decrypt)
+    - Added basic Crypto.RSA module (new_key, encrypt, decrypt)
+    - Added Crypto.Salt module
+    - Changed Crypto.HMAC functions takes key as binary instead of string
+      Credit:Reported by Alok Menghrajani: http://forum.opalang.org/0_368
 
   * Session:
     - ability to set the domain URL in AJAX requests
@@ -20,13 +41,34 @@ Updated APIs:
   * Mail:
     - removed package stdlib.web.mail.imap.client because it is not implemented yet
 
+  * Binary:
+    - Added comparison function (order, ordering, compare, equals)
+
+  * WebClient:
+    - Added WebClient.request to handles more generic request (binary as example)
+
 Improvements:
 
-  * Resource:
+  * Compiler:
+    - Value restriction error only on type variables appearing in abstracted types
+    - Parser: remove 'found a binding as condition' message
+    - Slicer: indicates client functions when warning about inapropriate client function call on server
+
+  * Runtime:
+    - @fail directive print backtrace if --backtrace compiler option is used
+    - Print backtrace of uncaught exception
+
+  * Stdlib:
+    - Display caller position when Option.get fails
+    - Added List.random_elt
+    - UserContext error are throwed as an exception to the caller thread
     - also print the error number for default error page
 
   * Plugins:
+    - option('a) are projected as null or 'a to javascript bypasses instead of backend representation
     - allow '-' character in plugin names
+    - Automatically detects dependencies to node packages, produce a correct package.json
+    - Javascript plugins are optimized by default (cleaning, renaming, simplication, ...)
 
   * Source:
     - minimal requirements: OCaml 4
@@ -35,14 +77,39 @@ Improvements:
     - updated and improved installation_helper.sh
     - warn when configure file has changed before compilation
 
-  * Value restriction error:
-    - error only on type variables appearing in abstracted types
 
-  * Parse error:
-    - remove 'found a binding as condition' message
+Bug fixes:
 
-  * Slicer warning:
-    - indicates client functions when warning about inapropriate client function call on server
+  * Compiler:
+    - Functions inherits slicer annotations from their enclosed functor
+    - Fix RPC entry point of lifted lambdas
+    - Value restriction checks also row and columns variables
+    - Don't clean (server side) functions which are both implemented to optimize the closure serialization
+    - @js_ident on client side
+    - Infinite loop when renaming javascript plugins (try catch)
+    - Javascript renaming of overlapped var
+    - Parser: simple update parser has priority over update parser ('<--' vs '<-')
+    - patterns and records cannot have two fields with the same name
+    - Typing of dbset access when the request can only returns 0 or 1 result
+    - Fixed a parsing bug when THEN expression of IF expression are a list of bindings
+    - Bad runtime type instantiation with some lifted lambdas
+
+  * Runtime:
+    - Some requests hangs (unwanted scheduling)
+      Credit:Bug reported by Alok Menghrajani: http://forum.opalang.org/1_318
+    - JS Launcher: add also non standard plugins path in NODE_PATH
+    - JS Launcher: use the real npm global location in NODE_PATH
+
+  * Mongo:
+    - Corrupted data when reading binary data
+      Credit:Bug reported by Alok Menghrajani http://forum.opalang.org/1_324
+    - fixed a problem with percent encode / decode in BSON format
+
+  * Stdlib:
+    - SmtpClient: fix related to binary data sending
+    - Binary.of_string of non filled binary
+    - Cryto functions take care of non trimed binary
+      Credit:Bug Reported by Alok Menghrajani: http://forum.opalang.org/2_413
 
 Removals:
 
@@ -52,29 +119,6 @@ Removals:
 
   * CLI:
     - removed 'opa bundle'
-
-Bug fixes:
-
-  * JS Launcher:
-    - use the real npm global location in NODE_PATH
-
-  * Syntax Parser:
-    - simple update parser has priority over update parser ('<--' vs '<-')
-
-  * Mongo:
-    - fixed a problem with percent encode / decode in BSON format
-
-  * SmtpClient:
-    - fix related to binary data sending
-
-  * Tools:
-    - maxmem compiles on Arch Linux
-
-  * Value restiction:
-    - record specific type variables were not checked (fields and sum cases variables)
-
-  * Language:
-    - patterns and records cannot have two fields with the same name
 
 2012.10.08, Version 1.0.7 (stable), v3523
 
