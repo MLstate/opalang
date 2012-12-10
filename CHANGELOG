@@ -1,4 +1,4 @@
-2012.12.10, Version 1.1.0 (stable), v4050
+2012.12.10, Version 1.1.0 (stable), v4051
 
 New features:
 
@@ -13,9 +13,9 @@ New features:
 
   * Compiler:
     - Added --backtrace compiler option to record bactrace of exception
-    - Added --bundle bundle.tgz to produces an archive wich contains the javascript applications and runtime dependencies
+    - Added --bundle bundle.tgz to produce an archive wich contains the JavaScript applications and runtime dependencies
     - Opa compiled packages (opx) are fully compatible with npm
-    - New slice.exposed.implicit warning. Warns when a RPC entry point is generated from a lifted lambda with a non empty environment
+    - New slice.exposed.implicit warning. Warns when an RPC entry point is generated from a lifted lambda with a non empty environment
 
   * Database:
     - Database syntax for GridFS
@@ -55,7 +55,7 @@ Improvements:
   * Compiler:
     - Value restriction error only on type variables appearing in abstracted types
     - Parser: remove 'found a binding as condition' message
-    - Slicer: indicates client functions when warning about inapropriate client function call on server
+    - Slicer: indicate client functions when warning about inapropriate client function call on server
 
   * Runtime:
     - @fail directive print backtrace if --backtrace compiler option is used
@@ -68,10 +68,10 @@ Improvements:
     - also print the error number for default error page
 
   * Plugins:
-    - option('a) are projected as null or 'a to javascript bypasses instead of backend representation
+    - option('a) are projected as null or 'a to JavaScript bypasses instead of backend representation
     - allow '-' character in plugin names
     - Automatically detects dependencies to node packages, produce a correct package.json
-    - Javascript plugins are optimized by default (cleaning, renaming, simplication, ...)
+    - JavaScript plugins are optimized by default (cleaning, renaming, simplication, ...)
 
   * Source:
     - minimal requirements: OCaml 4
@@ -85,13 +85,13 @@ Improvements:
 Bug fixes:
 
   * Compiler:
-    - Functions inherits slicer annotations from their enclosed functor
+    - Functions inherit slicer annotations from their enclosed functor
     - Fix RPC entry point of lifted lambdas
-    - Value restriction checks also row and columns variables
+    - Value restriction also checks row and columns variables
     - Don't clean (server side) functions which are both implemented to optimize the closure serialization
     - @js_ident on client side
-    - Infinite loop when renaming javascript plugins (try catch)
-    - Javascript renaming of overlapped var
+    - Infinite loop when renaming JavaScript plugins (try catch)
+    - JavaScript renaming of overlapped var
     - Parser: simple update parser has priority over update parser ('<--' vs '<-')
     - patterns and records cannot have two fields with the same name
     - Typing of dbset access when the request can only returns 0 or 1 result
@@ -101,7 +101,7 @@ Bug fixes:
   * Runtime:
     - Some requests hangs (unwanted scheduling)
       Credit:Bug reported by Alok Menghrajani: http://forum.opalang.org/1_318
-    - JS Launcher: add also non standard plugins path in NODE_PATH
+    - JS Launcher: also add non standard plugins path in NODE_PATH
     - JS Launcher: use the real npm global location in NODE_PATH
 
   * Mongo:
