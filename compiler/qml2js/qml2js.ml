@@ -154,15 +154,15 @@ struct
 export NODE_PATH=\"%a\"
 %s
 */
-
-var dependencies = [%a];
 %s
+require('opa-js-runtime-cps');
+check_opa_deps([%a]);
 "
       (StringSet.pp ":" Format.pp_print_string) node_path
 
       LaunchHelper.script
-      (Format.pp_list ", " (fun fmt s -> Format.fprintf fmt "'%s'" s)) deps
       LaunchHelper.js
+      (Format.pp_list ", " (fun fmt s -> Format.fprintf fmt "'%s'" s)) deps
 
   let extrafiles () =
     match ObjectFiles.get_current_package_name () with

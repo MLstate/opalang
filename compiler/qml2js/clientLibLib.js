@@ -80,3 +80,25 @@ function js_assert(b, s){
 var js_debug = function(s)
 {
 }
+
+/**
+ * FIXME: should be put elsewhere
+ */
+
+function check_opa_deps(dependencies){
+  var deps = dependencies.filter(function(dependency, index, array) {
+    // console.log('Checking', dependency, '...');
+    try {
+        require(dependency);
+        return false;
+    } catch(e) {
+        if (process.version < "v0.8.0") return true;
+        return (e.code === 'MODULE_NOT_FOUND');
+    }
+  });
+
+  if (deps.length > 0) {
+      console.error(deps.length+' modules are missing.', 'Please run: sudo npm install -g', deps.join(' '));
+      process.exit(1);
+  }
+}
