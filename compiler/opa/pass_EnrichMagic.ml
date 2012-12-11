@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -102,6 +102,17 @@ let process_expr ~specialize_env ~stdlib ~gamma ~annotmap ((i, e) as cpl) =
           match args with
           | [] -> add_to_specialize_env ~specialize_env ty expri d
           | _ -> specialize_env (*specialize doesn't support polymorphic for moment *) in
+        let annotmap, expr =
+          let annot = QmlAst.QAnnot.expr e in
+          match QmlAnnotMap.find_tsc_opt annot annotmap with
+          | None -> annotmap, expr
+          | Some tsc ->
+              let vars = QmlGenericScheme.export_vars tsc in
+              assert (QmlTypeVars.FreeVars.is_row_empty vars);
+              assert (QmlTypeVars.FreeVars.is_col_empty vars);
+              let (vars, _, _) = QmlTypeVars.FreeVars.export_as_lists vars in
+              QC.TypedExpr.directive annotmap (`abstract_ty_arg (vars, [], [])) [expr] []
+        in
         (specialize_env, annotmap, [to_add], expr)
     | Q.Directive (_, #Q.opavalue_directive, _, _) -> assert false
     | _ ->
