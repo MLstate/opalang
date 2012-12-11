@@ -204,7 +204,7 @@ SRCDIR=$OPALANG
 OPABOOK=$OPALANG/doc/book # the tutorial and book
 
 # This is absolutely correct that the 2 variables are inversed, we should fix the value inside
-./configure -prefix $INSTALLDIR -libdir $PREFIX -release
+#./configure -prefix $INSTALLDIR -libdir $PREFIX -release
 
 
 TARGETS="distrib"
@@ -213,9 +213,9 @@ if [ $NOMAN = "false" ]; then
 fi
 
 if [ $NOOCAML = "false" ]; then
-    make clean $TARGETS install
+    make install
 else
-    make clean $TARGETS install-node
+    make install-node
 fi
 
 mkdir -p $INSTALLDIR/share/opa/
@@ -329,7 +329,10 @@ upxf(){
     if [ -n "$IS_WINDOWS" ];
     then
     #assuming 32-bits ocaml
-    upx $1 || true
+	if file $1 | grep "ELF ";
+	then
+	    upx $1 || true
+	fi
     elif [ -n "$IS_MAC" ];
     then
 	echo "No UPX on Mac for the moment, might bug..."
