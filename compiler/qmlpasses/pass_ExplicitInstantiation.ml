@@ -1290,6 +1290,10 @@ let have_typeof ~set gamma annotmap qmlAst =
           debug "Have typeof for typeval:  %a" pp#ty t ;
           #<End>;
           tainted_from_ty t
+      | Q.Directive (_, `abstract_ty_arg (v, r, c), [_], _) ->
+          let quantif = QmlTypeVars.FreeVars.empty in
+          let quantif = QmlTypeVars.FreeVars.add_list (v, r, c) quantif in
+          QmlTypeVars.FreeVars.union tainted quantif
       | _ -> tainted in
     match QmlAnnotMap.find_tsc_inst_opt (Q.QAnnot.expr e) annotmap with
     | None -> tainted
