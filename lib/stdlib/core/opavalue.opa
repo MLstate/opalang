@@ -122,6 +122,12 @@ OpaValue = {{
     | {none} -> alt(value)
     | {some = f} ->
       nargs  = List.length(args)
+      clos_tyarg = OpaValue.Closure.Args.create(nargs)
+      do List.iteri(
+        (i, ty ->
+          OpaValue.Closure.Args.set(clos_tyarg, i, ty)
+        ), args)
+      f = OpaValue.Closure.apply(@unsafe_cast(f), clos_tyarg)
       nextra = List.length(extra)
       clos_arg = OpaValue.Closure.Args.create(nargs + 1 + nextra)
       do List.iteri(
