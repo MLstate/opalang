@@ -250,11 +250,11 @@ gzip -c -9 CHANGELOG > $INSTALLDIR/share/doc/opa/changelog.gz
 if ! grep -q "Copyright.*\<$(date +%Y)\>" doc/copyright/copyright; then
     echo "[31mWARNING[0m: copyright doesn't appear to be up-to-date (doesn't mention current year)"
 fi
-# Careful: copyright file mentions that it must be along <AGPL> and <other_licenses>
+# Careful: copyright file mentions that it must be along <LICENSE> and <other_licenses>
 # (which _must_ both be included for legal reasons)
 install -m 0644 -v $SRCDIR/doc/copyright/copyright $INSTALLDIR/share/doc/opa/
 {
-    echo "OPA includes parts of the following software, with the given licenses:"
+    echo "Opa includes parts of the following software, with the given licenses:"
     echo
     for f in $SRCDIR/doc/copyright/[0-9][0-9]_*; do
         name=$(basename $f)
@@ -267,7 +267,7 @@ install -m 0644 -v $SRCDIR/doc/copyright/copyright $INSTALLDIR/share/doc/opa/
     done
 } > $INSTALLDIR/share/doc/opa/other_licenses
 chmod 644 $INSTALLDIR/share/doc/opa/other_licenses
-install -m 0644 -v $SRCDIR/LICENSE $INSTALLDIR/share/doc/opa/AGPL
+install -m 0644 -v $SRCDIR/LICENSE $INSTALLDIR/share/doc/opa/LICENSE
 
 # Cleaning up:
 msg Removing unneeded ocaml executables
