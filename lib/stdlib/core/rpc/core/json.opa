@@ -69,26 +69,7 @@
 */
 
 
-import stdlib.core.{js, web.core, map}
-
-/**
- * {1 Types defined in this module}
- */
-
-/**
- * The type of json. All json object can be represented by this
- * type.
- */
-type RPC.Json.json0('json) =
-    { Int: int }
-  / { Float: float }
-  / { String: string }
-  / { Bool: bool }
-  / { List: list('json) }
-  / { Record: list((string, 'json)) }
-
-@opacapi
-type RPC.Json.json = RPC.Json.json0(RPC.Json.json)
+import stdlib.core.{json, js, web.core, map}
 
 type RPC.Json.js_code =
   RPC.Json.json0(RPC.Json.js_code) / { Direct : string}

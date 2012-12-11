@@ -11,7 +11,7 @@
 */
 
 import-plugin server
-import stdlib.core.{xhtml, rpc.core, map}
+import stdlib.core.{json, xhtml, rpc.core, map}
 
 
 /**

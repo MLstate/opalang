@@ -13,8 +13,9 @@
 /*
     @author David Rajchenbach-Teller
 **/
+
 import-plugin server
-import stdlib.core.{date, web.core, rpc.core, xhtml, security.ssl, parser}
+import stdlib.core.{json, date, web.core, rpc.core, xhtml, security.ssl, parser}
 
 /**
  * A client for web operations GET, POST, HEAD, etc.
