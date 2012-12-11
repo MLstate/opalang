@@ -1157,10 +1157,8 @@ module Js = struct
       | [] -> self#typeident f ident
       | _ -> (
         match ident with
-        | Typeident s ->
-          let ss : string = Obj.magic s in
+        | Typeident _ ->
           try
-            let _ = Scanf.sscanf ss "tuple_%d" (fun x -> x) in
             pp f "@[@[<2>(%a)@]@]" (list ",@ " self#under_comma#ty) params
           with
           | Scanf.Scan_failure _ -> pp f "@[@[<2>%a(%a@])@]" self#typeident ident (list ",@ " self#under_comma#ty) params
@@ -1455,17 +1453,8 @@ module Js = struct
     method directive : 'dir. ('ident,[< all_directives ] as 'dir) directive pprinter =
       fun f (variant, exprs, tys) ->
         match variant, exprs, tys with
-        | `coerce, [e], [ty] -> (
-          match ty with
-          | (TypeNamed (Typeident tyname, []), _) -> (
-            try
-              let tyname : string = Obj.magic tyname in
-              let _ = Scanf.sscanf tyname "tuple_%d" (fun x -> x) in
-              pp f "@[<h>%a@]" self#under_colon#expr e
-            with | Scanf.Scan_failure _ -> pp f "@[<h>(%a) %a@]" self#ty ty self#under_colon#expr e
-          )
-          | _ ->  pp f "@[<h>%a %a@]" self#ty ty self#under_colon#expr e
-        )
+        | `coerce, [e], [ty] ->
+            pp f "@[<h>(%a) %a@]" self#ty ty self#under_colon#expr e
         | `module_, [m], _ ->
           self#module_binding (fun _ _ -> ()) f ((), m)
         | `string, l, _ -> Sugar.String.pp_expr self#expr_sugar f l
@@ -1781,6 +1770,12 @@ let makeFamilly syntax =
       method directive f = function
         | ((`xml_parser x : [< all_directives ]),_,_) -> self#xml_parser f x
         | (`parser_ x,_,_) -> self#trx_expr f x
+        | (`coerce, [e], [(TypeNamed (Typeident tyname, []), _)])
+            when (try
+                    ignore(Scanf.sscanf tyname "tuple_%d" (fun x -> x));
+                    true
+                  with | _ -> false) ->
+            pp f "@[<h>%a@]" self#under_colon#expr e
         | d -> super#directive f d
 
       method xml_parser f l =
