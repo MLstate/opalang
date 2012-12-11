@@ -231,12 +231,12 @@ Server_private = {{
 
         provide_js =
           Resource_private.make_resource_include(js_file_with_version, {system_js},
-            binary_of_string(JsMinifier.minify(js_code)), {true}, {false}, {permanent},
-            (x -> Resource.binary(x, "text/javascript")))
+            binary_of_string(JsMinifier.minify(js_code)), true, false, {permanent},
+            Resource.binary(_, "text/javascript"))
         provide_css =
           Resource_private.make_resource_include(css_file_with_version, {system_css},
-            binary_of_string(css_code), {true}, {false}, {permanent},
-            (x -> Resource.binary(x, "text/css")))
+            binary_of_string(css_code), true, false, {permanent},
+            Resource.binary(_, "text/css"))
 
         internal_error(winfo)(e) =
           do Log.warning("Server_private","Exception while answering {Debug.dump(e)}")
