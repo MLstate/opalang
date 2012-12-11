@@ -1123,6 +1123,12 @@ type lambda_lifting_directive = [
                                             * what would the value be?) *)
 ]
 
+  (** Explicit instantiation directives *)
+type ei_directive = [
+| `apply_ty_arg of ty list * ty_row list * ty_col list
+| `abstract_ty_arg of TypeVar.t list * RowVar.t list * ColVar.t list
+]
+
 (*
   If you want to add a new directive, it should appear:
   - in qmlPrinters line ~650 if the variant holds some data line
@@ -1143,6 +1149,7 @@ type qml_directive = [
   | closure_instrumentation_directive
   | thread_context_directive
   | type_directive
+  | ei_directive
 
   | `closure_create of Ident.t * int * ((ty, unit) QmlGenericScheme.tsc) option
       (** definition of a closure with its implementation, arity, and type scheme *)
@@ -1172,10 +1179,6 @@ type qml_directive = [
           with an optional information [info] (ie the expr list is either [e] or [e;info])
           Specifies that an expression evaluating to a record
           should be executed only when the record is effectively accessed.*)
-
-  (** Explicit instantiation directives *)
-  | `apply_ty_arg of ty list * ty_row list * ty_col list
-  | `abstract_ty_arg of TypeVar.t list * RowVar.t list * ColVar.t list
 
   | `doctype of (string list * doctype_access_directive * doctype_info list)
   | `hybrid_value

@@ -217,6 +217,7 @@ type 'a ignored_directive =[
 | Q.lambda_lifting_directive
 | Q.slicer_directive
 | Q.closure_instrumentation_directive
+| Q.ei_directive
 | `async
 ]
 
