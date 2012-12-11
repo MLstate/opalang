@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -51,7 +51,6 @@ type WeatherWidget.config = {
 CWeather = {{
 
   @private
-  @server
   s_onmessage(_, msg) =
     match msg with
     | {weather_for=location; ~config; reply_to=channel} ->

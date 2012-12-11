@@ -944,6 +944,14 @@ Dom = {{
        else
         Log.info("Dom.transform", "empty DOM selection {to_string(jq)}")
 
+  @private @publish
+  optimize_action(action:Dom.transformation): Dom.transformation = match action with
+        | {~jq ~subject ~verb} ->
+           match subject with
+             | {~content} -> {~jq ~verb subject={content = Xhtml.precompile(content)}}
+             | _          -> action //TODO: Precompile CSS?
+           end
+        | _ -> action
 
   /**
    * Exec a list of actions
@@ -953,15 +961,7 @@ Dom = {{
   transform(l:list(Dom.transformation)):void =
     @sliced_expr(
     {client = transform_on_client(l)
-     server =
-       optimize(action:Dom.transformation): Dom.transformation = match action with
-        | {~jq ~subject ~verb} ->
-           match subject with
-             | {~content} -> {~jq ~verb subject={content = Xhtml.precompile(content)}}
-             | _          -> action //TODO: Precompile CSS?
-           end
-        | _ -> action
-        transform_on_client(List.map(optimize, l))
+     server = transform_on_client(List.map(optimize_action, l))
     })
 
   /**

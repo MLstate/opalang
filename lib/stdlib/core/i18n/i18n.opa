@@ -102,14 +102,13 @@ Turkic/Altaic family
 
 }}
 
-@server
 @private
-@publish
 UserI18n =
 {{
 
   get_lang_opt() = UserContext.execute(id->id,UC)
 
+  @publish
   get_lang():I18n.language =
     match thread_context().key
     {client=_} -> get_lang_opt()
@@ -117,12 +116,16 @@ UserI18n =
                   ServerI18n.get_server_lang()
    _ -> ServerI18n.get_server_lang()
 
+  @publish
   set_lang(l:I18n.language) =
     match thread_context().key
     {client=_} -> UserContext.change(_->some(l), UC)
     _ -> ServerI18n.set_server_lang(l)
   // Associate cookies and users
+
+
   @private
+  @server_private
   UC = UserContext.make(none):UserContext.t(option(I18n.language))
 
 }}

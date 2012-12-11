@@ -53,7 +53,7 @@ XhtmlOptions = {{
     anonymous = []
   }
 
-  @private @server @publish // i.e. published for options (see above)
+  @private @publish // i.e. published for options (see above)
   p_options = CommandLine.filter(commandline)
 
 }}

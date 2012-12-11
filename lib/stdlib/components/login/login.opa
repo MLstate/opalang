@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -203,7 +203,7 @@ CLogin = {{
   /**
    * Get the credential value from the login component.
    */
-  @server @publish
+  @server
   get_credential(login:CLogin.t('a,'b,'c)):'c =
     UserContext.execute(login.config.get_credential, login.state)
 

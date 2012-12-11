@@ -335,7 +335,7 @@ Session = {{
      *   server1 ... --chan-directory own
      *   server2 ... --chan-directory ipserver1
      */
-    @publish @server make_shared(key : string, state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
+    @publish make_shared(key : string, state : 'state, on_message : ('state, 'message -> Session.instruction('state))) =
 //      do accept_make_at()
     #<Ifstatic:OPA_CHANNEL>
       _ = (key, state, on_message)
@@ -381,7 +381,7 @@ Session = {{
     * @param state As in [Session.make]
     * @param on_message As in [Session.make]
    **/
-    @server cloud(key, state, handler) =
+    cloud(key, state, handler) =
       if cloud_mode
       then make_shared(key, state, handler)
       else get_local_cloud(key, state, handler)
@@ -435,7 +435,7 @@ Session = {{
      * [make_at state handler channel] Like [make state handler] but
      * the session is created on the server that own the given channel.
      */
-    @server make_at(state: 'state, on_message : ('state, 'message -> Session.instruction('state)), session :channel('a)) =
+    make_at(state: 'state, on_message : ('state, 'message -> Session.instruction('state)), session :channel('a)) =
       match get_endpoint(session) with
       | {none} -> /* Make here */
         make(state, on_message)

@@ -58,9 +58,9 @@
 
 
 /* Export module OpaRPC_Server*/
-@opacapi @server OpaRPC_Server_send_to_client              = OpaRPC_Server.send_to_client
-@opacapi @server OpaRPC_Server_async_send_to_client        = OpaRPC_Server.async_send_to_client
-@opacapi @server OpaRPC_Server_Dispatcher_register         = OpaRPC_Server.Dispatcher.register
-@opacapi @server OpaRPC_Server_try_cache                   = OpaRPC_Server.try_cache
+@opacapi @server_private OpaRPC_Server_send_to_client              = OpaRPC_Server.send_to_client
+@opacapi @server_private OpaRPC_Server_async_send_to_client        = OpaRPC_Server.async_send_to_client
+@opacapi @server_private OpaRPC_Server_Dispatcher_register         = OpaRPC_Server.Dispatcher.register
+@opacapi @server_private OpaRPC_Server_try_cache                   = OpaRPC_Server.try_cache
 
 @opacapi Scheduler_push = Scheduler.push

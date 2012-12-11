@@ -59,7 +59,6 @@ dom_event_to_opa_event(e) = (%% bslClientOnly.dom_event_to_opa_event %%)(e)
 
 type native_event = external
 
-@both
 FunAction = {{
 
   /**

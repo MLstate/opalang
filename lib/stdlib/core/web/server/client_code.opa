@@ -30,7 +30,7 @@ import stdlib.core.{js, rpc.core, pack}
  * {1 Interface}
  */
 
-@server Client_code = {{
+Client_code = {{
 
   // Note: defaults for pack.opa are littleEndian, Signed, Longlong
   @private D = Pack.Decode
@@ -184,6 +184,7 @@ import stdlib.core.{js, rpc.core, pack}
     JsAst.js_codes_to_string(server_asts,asts)
 
   @private
+  @server_private
   css_files = Server_reference.create([]:list(string))
 
   register_css_file(css_file:string) : void =

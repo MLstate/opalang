@@ -397,7 +397,7 @@ type Cell.timeout = {
 
 type middle('msg, 'ctx) = external
 
-@server Cell_Server = {{
+Cell_Server = {{
 
   Dispatcher = {{
 

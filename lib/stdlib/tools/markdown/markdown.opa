@@ -680,7 +680,7 @@ with a linebreak
   * @param opt Markdown configuration
   * @param src Source string
   */
-  @publish @server of_string(_opt:Markdown.options, src:string):Markdown.t =
+  @server of_string(_opt:Markdown.options, src:string):Markdown.t =
     src = "{src} "
     parts = String.replace("\r", "", src)
       |> String.explode_with("\n", _, false)
@@ -721,7 +721,7 @@ with a linebreak
   * @param opt Markdown configuration
   * @param src Markdown source element
   */
-  @publish @server to_xhtml(opt:Markdown.options, src:Markdown.t) =
+  @server to_xhtml(opt:Markdown.options, src:Markdown.t) =
     List.fold(
       elt, acc ->
         acc <+> break <+> aux_block(opt, src.refs)(elt),
@@ -735,7 +735,7 @@ with a linebreak
   * @param opt Markdown configuration
   * @param src Source string
   */
-  @publish @server xhtml_of_string(opt:Markdown.options, src:string):xhtml =
+  @server xhtml_of_string(opt:Markdown.options, src:string):xhtml =
     of_string(opt, src) |> to_xhtml(opt, _)
 
   // maybe use WNotification widget?
