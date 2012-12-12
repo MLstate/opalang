@@ -265,7 +265,7 @@ let extract_end_module =
 
 let extract_register implementation =
   let re = Str.regexp (
-    "^{\\([^}]*\\)}" ^ (* Type between brackets *)
+    "^[{(]\\([^}]*\\)[)}]" ^ (* Type between brackets or paren *)
     "\\([ \t]+[a-zA-Z][a-zA-Z0-9_]*\\)?[ \t]*" ^ (* Optional bypass name *)
     "\\([^ \t]+\\)?[ \t]*$" (* Optional source code *)
   ) in
