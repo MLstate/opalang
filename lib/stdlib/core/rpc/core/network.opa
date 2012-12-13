@@ -142,7 +142,7 @@ Network = {{
             | {~remove}    ->
               {set = ChannelSet.remove(remove, chans)}
             | {~broadcast} ->
-              do sleep(0, -> ChannelSet.iter(chan -> send(chan, broadcast), chans))//Note: sending asynchronously
+              do Scheduler.push( -> ChannelSet.iter( send(_, broadcast), chans))//Note: sending asynchronously
               {unchanged}                                                   //to minimize critical section
         )
       me
