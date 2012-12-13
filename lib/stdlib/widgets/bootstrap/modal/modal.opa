@@ -50,7 +50,7 @@ Modal = {{
   @both
   make(id:string, title:xhtml, body:xhtml, footer:xhtml, options:Modal.options) =
     <div id="{id}" class="modal hide fade"
-         tabindex="-1" role="dialog"
+         role="dialog"
          aria-labelledby="{title}" aria-hidden="true"
          onready={_->init(#{id}, options)}>
       <div class="modal-header">
