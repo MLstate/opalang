@@ -198,7 +198,7 @@ let generate_typeofer need_instrumentation gamma annotmap env (i,e) =
         let _quant, ty_i, () = QmlGenericScheme.export_unsafe tsc in
         ty_i in
       let ty_env, ty_remaining, ty_args, _ty_ret = extract_env_type env_size gamma ty_i in
-      let annotmap, g = Cons.ident annotmap i (*ty_i*) (Q.TypeArrow (ty_env, ty_remaining)) in
+      let annotmap, g = Cons.ident annotmap i ty_i in
       let annotmap = QmlAnnotMap.add_tsc_inst_opt (Q.QAnnot.expr g) tsc_gen_opt annotmap in
       let new_tsc_gen_opt, gamma =
         let ty = Q.TypeArrow (ty_env,ty_remaining) in
