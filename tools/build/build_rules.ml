@@ -901,6 +901,7 @@ let make_all_packages = [
   stdlib_packages_dir/packages_exclude_node
 ] in
 let all_packages_file = stdlib_packages_dir/"all.node.packages" in
+(* FIXME: is not regenerated when a new package is added *)
 let all_packages_building =
   let prod = all_packages_file in
   rule "all.node.packages"
