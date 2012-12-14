@@ -94,6 +94,7 @@ HttpRequest = {{
     /**
      * Extract low-level http request information
      */
+    @package
     get_low_level_request(x: HttpRequest.request): WebInfo.private.native_request =
       x.request
 
@@ -105,16 +106,18 @@ HttpRequest = {{
         raw(x.request)
 
     /**
-     * Return the user agent associated to a request.
+     * Try to get the "Accept-Language" header of a connexion
      */
+    `get_Accept-Language`(x: HttpRequest.request): option(string) =
+      get_headers(x).header_get("Accept_Language")
+
+
+
     get_user_agent(x:HttpRequest.request) =
       get_request_ua = %% BslNet.Requestdef.get_request_ua %% :  WebInfo.private.native_request -> string
       request = get_low_level_request(x)
       UserAgentParser.user_compat(get_request_ua(request))
 
-    /**
-     * Determine the method used to connect to this server
-     */
     get_method(x: HttpRequest.request): HttpRequest.method =
       raw = %% BslNet.Http_server.get_method %% : WebInfo.private.native_request -> string
       request = get_low_level_request(x)
@@ -129,10 +132,6 @@ HttpRequest = {{
         | "OPTIONS" -> { options }
         | s         -> { other = s }
 
-    /**
-     * Extract the headers of a connexion
-     * !!! WARNING !!! all '-' in header name are replaced by '_' in input and output of headers and header_get
-     */
     get_headers(x: HttpRequest.request): {headers: list(string); header_get: string -> option(string)} =
       request    = get_low_level_request(x)
       raw_list   = %% BslNet.Http_server.get_header_names %%: WebInfo.private.native_request -> list(string)
@@ -140,37 +139,16 @@ HttpRequest = {{
       {headers    = raw_list(request)
        header_get = raw_values(request)}
 
-    /**
-     * Try to get the "Host" header of a connexion
-     */
     get_host(x: HttpRequest.request): option(string) =
       get_headers(x).header_get("Host")
 
-    /**
-     * Try to get the "Accept-Language" header of a connexion
-     */
-    `get_Accept-Language`(x: HttpRequest.request): option(string) =
-      get_headers(x).header_get("Accept_Language")
-
-    /**
-     * Indicates if the given request is secured
-     */
     is_secured(x: HttpRequest.request): bool =
       request    = get_low_level_request(x)
       %% BslNet.Http_server.is_secured %%(request)
 
-    /**
-     * Returns the body of a request.
-     *
-     * Note: The binary data *must* be valid utf8 sequence else the resulted string
-     * can be corrupted. [HttpRequest.get_bin_body] is more safe.
-     */
     get_body(x: HttpRequest.request): string =
       Binary.to_string(get_bin_body(x))
 
-    /**
-     * Return the body of a request as binary.
-     */
     get_bin_body(x):binary =
       %%BslNet.Requestdef.get_bin_body%%(get_low_level_request(x))
 
@@ -189,36 +167,16 @@ HttpRequest = {{
           StringMap.add(a, b, acc)
         , list, StringMap.empty)
 
-    /**
-     * Return the body of a XML request.
-     *
-     * Use this function as part of a protocol involving POST
-     * or PUT requests (typically, as part of
-     * a SOAP protocol) to inspect the content of the request.
-     */
     get_xml_body(x: HttpRequest.request): option(xmlns) =
       Xmlns.try_parse(get_body(x))
 
-    /**
-     * Return the body of a JSON request.
-     *
-     * Use this function as part of a protocol involving POST
-     * or PUT requests (typically, as part of
-     * a REST protocol) to inspect the content of the request.
-     */
     get_json_body(x: HttpRequest.request): option(RPC.Json.json) =
       Json.of_string(get_body(x))
 
-    /**
-     * Extract the uri of the request
-     */
     get_uri(x: HttpRequest.request): string =
       raw = %% BslNet.Http_server.get_uri %%
       raw(x.request)
 
-    /**
-     * Extract the uri of the request
-     */
     get_url(x: HttpRequest.request): option(Uri.relative) =
       match Uri.of_string(get_uri(x)) with
       | {some={path=_ fragment=_ query=_ is_from_root=_ is_directory=_}} as x -> x
@@ -226,9 +184,6 @@ HttpRequest = {{
         {some={~path ~fragment ~query is_from_root=true is_directory=false}}
       | _ -> {none}
 
-    /**
-     * Extract low-level ip information
-     */
     get_ip(x : HttpRequest.request) : ip =
       WebInfo.get_conn_ip(x.connexion)
 
@@ -338,32 +293,89 @@ HttpRequest = {{
 
   get_cookie() = apply2(Generic.get_cookie)
 
+  /**
+   * Retuns the user agent of the current client.
+   */
   get_user_agent() = apply(Generic.get_user_agent)
 
+  /**
+   * Retuns the method of the incomming request.
+   */
   get_method() = apply(Generic.get_method)
 
+  /**
+   * Retuns the headers of the incomming request.
+   */
   get_headers() = apply(Generic.get_headers)
 
+  /**
+   * Retuns the "Host" header of the incomming request.
+   */
   get_host() = apply(Generic.get_host)
 
+  /**
+   * Checks if the incomming request is encrypted (https)
+   */
   is_secured() = apply(Generic.is_secured)
 
+  /**
+   * Returns the body of the incomming request.
+   *
+   * Note: The body *must* be valid utf8 sequence else the resulted string
+   * can be corrupted. [HttpRequest.get_bin_body] is more safe.
+   */
   get_body() = apply(Generic.get_body)
 
+  /**
+   * Returns the body of the incomming request as binary.
+   */
   get_bin_body() = apply(Generic.get_bin_body)
 
+  /**
+   * Returns the form-data of the incomming POST request.
+   *
+   * Use this function as part of a protocol involving POST
+   * or PUT requests to extract the content
+   * of the request.
+   */
   get_form_data() = apply(Generic.get_form_data)
 
+  /**
+   * Returns the body of the incomming XML request.
+   *
+   * Use this function as part of a protocol involving POST
+   * or PUT requests (typically, as part of
+   * a SOAP protocol) to inspect the content of the request.
+   */
   get_xml_body() = apply2(Generic.get_xml_body)
 
+  /**
+   * Returns the body of a incomming JSON request.
+   *
+   * Use this function as part of a protocol involving POST
+   * or PUT requests (typically, as part of
+   * a REST protocol) to inspect the content of the request.
+   */
   get_json_body() = apply2(Generic.get_json_body)
 
+  /**
+   * Returns the uri of the incomming request as a string.
+   */
   get_uri() = apply(Generic.get_uri)
 
+  /**
+   * Returns the uri of the incomming request.
+   */
   get_url() = apply2(Generic.get_url)
 
+  /**
+   * Returns the ip information of the incomming request
+   */
   get_ip() = apply(Generic.get_ip)
 
+  /**
+   * Returns the multipart object of a multipart incomming request.
+   */
   get_multipart() = apply2(Generic.get_multipart)
 
 }}
