@@ -136,6 +136,42 @@ Binary = {{
   of_hex(data) = of_encoding(data, "hex")
 
   /**
+   * Returns the index of the first occurrence of [value] on [binary] after
+   * the [start] position.
+   * @param binary The binary container where to look
+   * @param separator
+   * @return The index of the first occurrence or -1 if [value] does not occurs.
+   */
+  indexOf(binary, value, start) =
+    // TODO - Naive
+    lb = Binary.length(binary)
+    ls = Binary.length(value)
+    rec aux(i, j) =
+      if j == ls then i - j
+      else if (i + ls - j > lb) then
+        -1
+      else if(Binary.get_int8(binary, i)==Binary.get_int8(value, j)) then
+        aux(i+1, j+1)
+      else if (j != 0) then
+        aux(i-j+1, 0)
+      else aux(i+1, 0)
+    aux(start,0)
+
+  /**
+   * Splits a binary by a binary separator.
+   * @param binary The binary to split.
+   * @param separator The binary which separates chunks.
+   */
+  explode(binary, separator) =
+    lb = Binary.length(binary)
+    ls = Binary.length(separator)
+    rec aux(start) =
+      match indexOf(binary, separator, start)
+      | -1 -> [Binary.get_binary(binary, start, lb - start)]
+      | i -> [Binary.get_binary(binary, start, i - start) | aux(i+ls)]
+    aux(0)
+
+  /**
    * Create binary data of the given size.
    *
    * @param hint The initial size.
@@ -162,6 +198,16 @@ Binary = {{
    * @return void
    */
   resize : binary, int -> void = %%BslBinary.resize%%
+
+  /**
+   * Sets the position of the cursor of the end. If the requested postion is
+   * greater than the underlying buffer, the buffer can be reallocated.
+   *
+   * @param b The binary data.
+   * @param pos Move the cursor of the end to this postion.
+   * @return void
+   */
+  seek : binary, int -> void = %%BslBinary.resize%%
 
   /**
    * Clear out any data.
