@@ -233,44 +233,6 @@ HttpRequest = {{
       WebInfo.get_conn_ip(x.connexion)
 
     /**
-     * Determine if the user has been identified.
-     *
-     * Note that user identification can be trusted only if
-     * your server is running in secure mode.
-     * Otherwise, crafty attackers with sufficient resources
-     * can forge identification credentials.
-     *
-     * @return {none} if the user is not identified
-     * @return {some = cookie} if the user is identified with a given cookie
-     */
-    get_user(x: HttpRequest.request): option(user_id) =
-      Option.map(
-        x -> user_id_of_string(x),
-        get_cookie(x)
-      )
-
-    /**
-     * Like [get_user], but make an error instead of return [none]
-     */
-    get_user_unsafe(x) =
-      get_user(x) ? (
-        do Log.error("HttpRequest.Generix", "No user on http request")
-        error("[get_user_unsafe] failed")
-      )
-
-    /**
-     * Return a human-readable string describing the user behind a connexion.
-     *
-     * This string is meant for debugging and logging purposes, not for identification.
-     * For identification, use rather [get_user] or more powerful functions from module
-     * [UserContext].
-     */
-    get_connexion_string(x: HttpRequest.request):string  =
-      match get_user(x)
-        | {none} -> "<unidentified>"
-        | {~some}-> string_of_user_id(some)
-
-    /**
      * {1 Manipulation of multipart request}
      */
     @private
@@ -401,16 +363,6 @@ HttpRequest = {{
   get_url() = apply2(Generic.get_url)
 
   get_ip() = apply(Generic.get_ip)
-
-  get_user() = apply2(Generic.get_user)
-
-  get_user_unsafe() =
-    apply(Generic.get_user_unsafe) ? (
-      do Log.error("HttpRequest", "No http request")
-      error("[get_user_unsafe] failed")
-    )
-
-  get_connexion_string() = apply(Generic.get_connexion_string)
 
   get_multipart() = apply2(Generic.get_multipart)
 
