@@ -179,6 +179,16 @@ WBootstrap = {{
   pull_right(x:xhtml) = Xhtml.update_class("pull-right", x)
 
   /**
+   * Add a data-toggle attribute to an xhtml chunk
+   */
+  data_toggle(toggle, x) = Xhtml.add_attribute_unsafe("data-toggle", toggle, x)
+
+  /**
+   * Add a data-target attribute to an xhtml chunk
+   */
+  data_target(target, x) = Xhtml.add_attribute_unsafe("data-target", target, x)
+
+  /**
    * Add an optional href attribute to an xhtml
    */
   @private add_href_opt(href:option(string), x:xhtml) =
