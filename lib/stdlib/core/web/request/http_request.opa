@@ -11,7 +11,7 @@
 */
 
 import-plugin server
-import stdlib.core.{json, xhtml, rpc.core, map}
+import stdlib.core.{json, xhtml, rpc.core, map, iter}
 
 
 /**
@@ -45,13 +45,16 @@ type HttpRequest.method =
 / { options }/**A request intended do determine what form of communication is available on the server*/
 / { other: string }
 
-/**
- * A multipart request, see section "{1 Manipulation of multipart request}"
- */
-type HttpRequest.multipart = external
+
 type HttpRequest.payload = external
-//type HttpRequest.request = external -- in web_info.opa
 type HttpRequest.msg_list = external
+
+type HttpRequest.headers = list({name:string value:string})
+
+/**
+ * A multipart request
+ */
+type HttpRequest.multipart = iter({part:HttpRequest.part headers:HttpRequest.headers})
 
 /**
  * A part of multipart request is :
@@ -157,20 +160,22 @@ HttpRequest = {{
       %% BslNet.Http_server.is_secured %%(request)
 
     /**
-     * Return the body of a request.
+     * Returns the body of a request.
      *
-     * Use this function as part of a protocol involving POST
-     * or PUT requests to inspect the content
-     * of the request.
+     * Note: The binary data *must* be valid utf8 sequence else the resulted string
+     * can be corrupted. [HttpRequest.get_bin_body] is more safe.
      */
     get_body(x: HttpRequest.request): string =
       Binary.to_string(get_bin_body(x))
 
+    /**
+     * Return the body of a request as binary.
+     */
     get_bin_body(x):binary =
       %%BslNet.Requestdef.get_bin_body%%(get_low_level_request(x))
 
     /**
-     * Return the form-data of a POST request.
+     * Returns the form-data of a POST request.
      *
      * Use this function as part of a protocol involving POST
      * or PUT requests to extract the content
@@ -265,17 +270,85 @@ HttpRequest = {{
         | {none} -> "<unidentified>"
         | {~some}-> string_of_user_id(some)
 
-    @private get_multipart_raw = @may_cps(%%BslNet.Http_server.get_multipart%%)
-
     /**
      * {1 Manipulation of multipart request}
      */
-    /**
-     * If it's a multipart request returns corresponding
-     * [HttpRequest.multipart].
-     */
-    get_multipart(x):option(HttpRequest.multipart) =
-      get_multipart_raw(get_low_level_request(x))
+    @private
+    crlf2 = Binary.of_string("\r\n\r\n")
+
+    @private
+    header_parser =
+      parser Rule.ws name=((![:].)*) [:] value=((!"\r\n".)*) "\r\n"? ->
+        {name = String.lowercase(Text.to_string(name))
+         value=Text.to_string(value)}
+
+    @private
+    headers_parser =
+      parser hlist=header_parser* -> hlist:HttpRequest.headers
+
+    @private Multipart = {{
+
+      form_data(request, boundary) : HttpRequest.multipart =
+        body = get_bin_body(request)
+        boundary = Binary.of_string("--{boundary}")
+        rec aux(parts) =
+          match parts with
+          | [] | [_] -> {none}
+          | [t|q] ->
+            i = Binary.indexOf(t, crlf2, 0)
+            headers = Binary.get_string(t, 0, i)
+            body = Binary.get_binary(t, i+4, Binary.length(t)-i-6)
+            match Parser.try_parse(headers_parser, headers)
+            | {none} ->
+              do Log.error("Multipart", "cannot read headers : '{headers}'")
+              aux(q)
+            | {some=headers} ->
+              match List.find((x -> x.name == "content-disposition"), headers)
+              | {none} ->
+                do Log.error("Multipart", "content-disposition is not found")
+                aux(q)
+              | {some=disp} ->
+                match Parser.try_parse(
+                  parser
+                  | [ ]* "form-data;" [ ]* x={
+                    file(filename, name) =
+                      {part=~{name filename content=-> {content=body}}
+                       ~headers}
+                    quoted = parser [\"] s=((![\"].)*) [\"] -> Text.to_string(s)
+                    parser
+                    | "name="name=quoted[;] [ ]* "filename="filename=quoted[;]? ->
+                      file(filename, name)
+                    | "filename="filename=quoted[;] [ ]* "name="name=quoted[;]? ->
+                      file(filename, name)
+                    | "name="name=(.*) ->
+                      {part={name=Text.to_string(name) value=Binary.to_string(body)}
+                      ~headers}
+                  } -> x, disp.value    )
+                | {none} ->
+                  do Log.error("Multipart", "cannot parse content-disposition")
+                  aux(q)
+                | {some=current} -> {some = (current, {next = -> aux(q)})}
+                end
+              end
+            end
+        {next = -> aux(List.tail(Binary.explode(body, boundary)))}
+
+    }}
+
+    get_multipart(request) : option(HttpRequest.multipart) =
+      match get_headers(request).header_get("content-type") with
+      | {none} -> {none}
+      | {some = ctype} ->
+        Parser.try_parse(
+          parser
+            | "multipart/form-data;" [ ]* "boundary="boundary=(.*) ->
+              Multipart.form_data(request, boundary)
+            | "multipart/"kind=((![;].)*)
+              {parser !. ->
+                Log.error("Multipart", "multipart/{kind} is not handled by the Opa server.")}
+              Rule.fail -> @fail
+          , ctype
+        )
 
     /**
      * [fold_multipart(multipart, acc, folder)]. Fold a [multipart]
@@ -284,8 +357,11 @@ HttpRequest = {{
      * acc)], [fold_headers] is be able to fold on corresponding [part]
      * headers (first argument is header name, second is header value).
      */
-    fold_multipart = @may_cps(%%BslNet.Http_server.fold_multipart%%)
-      : HttpRequest.multipart, 'acc, (HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc) -> 'acc
+    fold_multipart(mpart:HttpRequest.multipart, acc:'acc, folder:(HttpRequest.part, ('a, (string, string, 'a -> 'a) -> 'a), 'acc -> 'acc)) : 'acc =
+      Iter.fold(
+      (~{part headers}, acc ->
+        folder(part, (a, f -> List.fold(~{name value}, a -> f(name, value, a), headers, a)), acc)
+      ), mpart, acc)
 
   }}
 
