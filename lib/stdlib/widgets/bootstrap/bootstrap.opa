@@ -87,10 +87,20 @@ type WBootstrap.Navigation.page_nav_elt = {
 
 type WBootstrap.Table.elt = xhtml
 
+type WBootstrap.Table.elts = list(WBootstrap.Table.elt)
+
 type WBootstrap.Table.decoration =
   {bordered}
 / {striped}
 / {condensed}
+
+type WBootstrap.Table.decorations = list(WBootstrap.Table.decoration)
+
+type WBootstrap.Table.line =
+  list(xhtml)
+/ {elts:list(xhtml) handles:list(handle_assoc(xhtml_event))}
+
+type WBootstrap.Table.lines = list(WBootstrap.Table.line)
 
 // Button
 
@@ -437,27 +447,35 @@ WBootstrap = {{
 
   Table = {{
 
-    @private gen_head(elts:list(WBootstrap.Table.elt)) =
+    @private gen_head(elts:WBootstrap.Table.elts) =
       <thead><tr>{
-        @toplevel.List.map(e -> <th>{e}</th>, elts)
+        @toplevel.List.map(e ->
+          <th>{e}</th>
+        , elts)
       }</tr></thead>
 
-    @private gen_body(lines:list(list(WBootstrap.Table.elt))) =
+    @private gen_body(lines:WBootstrap.Table.lines) =
       <tbody>{
         @toplevel.List.map(
           line ->
-            <tr>{
+            build_line(line:list(xhtml)) =
+              <tr>{
               @toplevel.List.map(
-                e -> <td>{e}</td>
-              , line)
-            }</tr>
+                  e -> <td>{e}</td>
+                , line)
+              }</tr>
+            match line
+            ~{hd tl} -> build_line(~{hd tl})
+            {nil} -> build_line([])
+            ~{elts handles} ->
+              build_line(elts) |> Xhtml.add_binds(handles, _)
         , lines)
       }</tbody>
 
     /**
      * Create a table
      */
-    table(head:list(WBootstrap.Table.elt), body:list(list(WBootstrap.Table.elt)), decorations:list(WBootstrap.Table.decoration)) =
+    table(head:WBootstrap.Table.elts, body:WBootstrap.Table.lines, decorations:WBootstrap.Table.decorations) =
       xhtml = <table class="table">
                 {gen_head(head)}
                 {gen_body(body)}
