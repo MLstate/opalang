@@ -472,8 +472,9 @@ OpaRPC_Server =
 
     /* Duplication
      * can not use [HttpRequest.Generic.get_body] because HttpRequest.request depends on the package [stdlib.rpc.core] */
-    get_requested_post_content = %% BslNet.Requestdef.get_request_message_body %% : WebInfo.private.native_request -> string
-      
+    get_requested_post_content(request) =
+      Binary.to_string(%%BslNet.Requestdef.get_bin_body%%(request))
+
     parser_(winfo) =
       parser
         #<Ifstatic:OPA_FULL_DISPATCHER>
@@ -482,7 +483,7 @@ OpaRPC_Server =
             ThreadContext.Client.get_opt({current})
             ? error("No client context : {ThreadContext.get_opt({current})}")
           id = Text.to_string(id)
-          body = (%%BslNet.Requestdef.get_request_message_body %%(winfo.http_request.request))
+          body = get_requested_post_content(winfo.http_request.request)
           if rpc_return(client, id, body) then reply(winfo, "true", {success})
           else reply(winfo, "false", {unauthorized})
               #<End>

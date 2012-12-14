@@ -417,7 +417,7 @@ Cell_Server = {{
           #<Ifstatic:OPA_CHANNEL>
           request = winfo.http_request.request
           jbody =
-            Json.of_string(%%BslNet.Requestdef.get_request_message_body %%(request)) ?
+            Json.of_string(Binary.to_string(%%BslNet.Requestdef.get_bin_body%%(request))) ?
             forbidden("Bad formatted request")
           match jbody with
           | {Record = [("to", cell), ("message", msg)]} ->

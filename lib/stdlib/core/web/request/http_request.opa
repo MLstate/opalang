@@ -164,8 +164,10 @@ HttpRequest = {{
      * of the request.
      */
     get_body(x: HttpRequest.request): string =
-      raw = %% BslNet.Requestdef.get_request_message_body %%: WebInfo.private.native_request -> string
-      raw(get_low_level_request(x))
+      Binary.to_string(get_bin_body(x))
+
+    get_bin_body(x):binary =
+      %%BslNet.Requestdef.get_bin_body%%(get_low_level_request(x))
 
     /**
      * Return the form-data of a POST request.
@@ -309,6 +311,8 @@ HttpRequest = {{
   is_secured() = apply(Generic.is_secured)
 
   get_body() = apply(Generic.get_body)
+
+  get_bin_body() = apply(Generic.get_bin_body)
 
   get_form_data() = apply(Generic.get_form_data)
 
