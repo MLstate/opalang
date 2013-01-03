@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -160,6 +160,12 @@ struct
     | QFlds of ('expr, 'expr query) fields
     | QExists of bool
 
+  type 'expr sqlquery = {
+    sql_fds : (string * string) list;
+    sql_tbs : string list;
+    sql_ops : 'expr query;
+  }
+
   type 'expr query_options = {
     limit : 'expr option;
     skip  : 'expr option;
@@ -221,6 +227,7 @@ struct
     | ExprKey of 'expr
     | NewKey
     | Query of 'expr query * 'expr query_options
+    | SQLQuery of 'expr sqlquery * 'expr query_options
 
   type 'expr path = 'expr path_elt list
 
@@ -362,12 +369,29 @@ struct
                    fields)
       options.sort
 
+  let pp_sqlquery pp_expr fmt {sql_fds; sql_tbs; sql_ops} =
+    pp fmt "SELECT ";
+    (match sql_fds with
+     | [] -> pp fmt "* "
+     | _ ->
+         (BaseFormat.pp_list ","
+            (fun fmt (db, field) ->
+               match db with "" -> ()
+               | _ -> pp fmt "%s," db; pp fmt "%s" field))
+           fmt
+           sql_fds
+    );
+    pp fmt " FROM ";
+    (BaseFormat.pp_list "," Format.pp_print_string) fmt sql_tbs;
+    (pp_query pp_expr) fmt sql_ops
+
   let pp_path_elt pp_expr f =
     function
     | FldKey (s) -> pp f "/%s" s
     | ExprKey e -> pp f "[@[<hv>%a@]]" pp_expr e
     | NewKey -> pp f "[?]"
     | Query (q, o) -> pp f "[%a%a]" (pp_query pp_expr) q (pp_options pp_expr) o
+    | SQLQuery (q, o) -> pp f "[%a%a]" (pp_sqlquery pp_expr) q (pp_options pp_expr) o
 
   let pp_path_elts pp_expr fmt elts =
       pp fmt "%a" (BaseFormat.pp_list "" (pp_path_elt pp_expr)) elts
@@ -574,6 +598,12 @@ struct
           (fun (q, o) -> Query (q, o))
           (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
              (q, o)
+          )
+    | SQLQuery ({sql_fds; sql_tbs; sql_ops}, o) ->
+        TU.wrap
+          (fun (sql_ops, o) -> SQLQuery ({sql_fds; sql_tbs; sql_ops}, o))
+          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
+             (sql_ops, o)
           )
 
   let foldmap_expr f acc dbdef =
