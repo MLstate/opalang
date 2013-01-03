@@ -128,6 +128,14 @@ Crypto = {{
     sha256(key, data) = digest("sha256", key, data)
 
     /**
+     * Calculates the HMAC-SHA512 digest of [data] with the secret [key].
+     * @param key is a secret key
+     * @param data is a message
+     * @return the calculated digest
+     */
+    sha512(key, data) = digest("sha512", key, data)
+
+    /**
      * Calculates the HMAC-SHA1 digest of [data] with the secret [key].
      * @param key is a secret key
      * @param data is a message
@@ -181,6 +189,13 @@ Crypto = {{
     sha256(data) = digest("sha256", data)
 
     /**
+     * Calculates the SHA512 digest of [data].
+     * @param data is a message
+     * @return the calculated digest
+     */
+    sha512(data) = digest("sha512", data)
+
+    /**
      * Calculates the HMAC-RIPEM160 digest of [data].
      * @param data is a message
      * @return the calculated digest
@@ -228,6 +243,13 @@ Crypto = {{
     sha256(data, length) = salt(data, length, Hash.sha256)
 
     /**
+     * Returns a salted and sha512 hashed binary data from [data]
+     * @param data The data to salt and hash
+     * @param length The length of the random salt
+     */
+    sha512(data, length) = salt(data, length, Hash.sha512)
+
+    /**
      * Returns a salted and ripemd160 hashed binary data from [data]
      * @param data The data to salt and hash
      * @param length The length of the random salt
@@ -267,6 +289,15 @@ Crypto = {{
      * @return A boolean that indicates if [data] matches with the [salted] data
      */
     check_sha256(data, salted) = check(data, salted, Hash.sha256)
+
+    /**
+     * Checks if the given [data] matches with the [salted] data, using the sha512
+     * hash algorithm.
+     * @param data The data to check
+     * @param salted The salted data used for comparison.
+     * @return A boolean that indicates if [data] matches with the [salted] data
+     */
+    check_sha512(data, salted) = check(data, salted, Hash.sha512)
 
     /**
      * Checks if the given [data] matches with the [salted] data, using the ripemd160
