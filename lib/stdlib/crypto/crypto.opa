@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -120,7 +120,7 @@ Crypto = {{
     sha1(key, data) = digest("sha1", key, data)
 
     /**
-     * Calculates the HMAC-SHA1 digest of [data] with the secret [key].
+     * Calculates the HMAC-SHA256 digest of [data] with the secret [key].
      * @param key is a secret key
      * @param data is a message
      * @return the calculated digest
