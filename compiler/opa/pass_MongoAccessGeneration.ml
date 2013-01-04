@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -19,7 +19,7 @@
 
 (**
   Pass for MongoDB backend
-  
+
   @author Quentin Bourgerie
 *)
 
@@ -837,6 +837,7 @@ module Generator = struct
                          ),
                          `expr uexpr::embed_field
                      | DbAst.NewKey
+                     | DbAst.SQLQuery _
                      | DbAst.Query _ ->
                          QmlError.error context
                            "This kind of sub selection is not yet implemented by mongo generator")

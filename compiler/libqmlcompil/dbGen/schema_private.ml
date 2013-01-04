@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -891,6 +891,19 @@ let is_uniq t node query =
     | _ -> false
   in aux query keyty
 
+let fields_of_sqldata schema node {Db. sql_fds=_; sql_tbs; sql_ops=_} =
+  List.fold_left
+    (fun acc tab ->
+       let rows =
+         let node = SchemaGraphLib.find_field_edge schema node tab in
+         match SchemaGraphLib.type_of_node (E.dst node) with
+         | Q.TypeName ([Q.TypeRecord (Q.TyRow (rows, _)); _], name)
+             when Q.TypeIdent.to_string name = "dbset" -> rows
+         | _ -> raise Not_found
+       in
+       (rows@acc)
+    )
+    [] sql_tbs
 
 let coerce_query_element ~context gamma ty (query, options) =
   let coerce new_annots wrap ty expr =
@@ -1067,6 +1080,20 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
         let new_annots', epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path in
         new_annots @ new_annots', (Db.Query (query, options))::epath
 
+    | Db.SQLQuery ({Db. sql_fds; sql_tbs; sql_ops} as sqlquery, options)::path ->
+        assert (path = []); (*TODO ?*)
+        let fields = try
+          fields_of_sqldata t node sqlquery
+        with Not_found ->
+          cerror "According the path definition, query is invalid"
+        in
+        let ty = Q.TypeRecord (Q.TyRow (fields, None)) in
+        let new_annots, (sql_ops, options) =
+          coerce_query_element ~context gamma ty (sql_ops, options)
+        in
+        new_annots, (Db.SQLQuery ({Db.sql_tbs; sql_fds; sql_ops}, options))::[]
+
+
 let get_virtual_path vpath epath =
   let rec aux acc = function
     | ((Db.Decl_fld f1)::q1, ((Db.FldKey f2) as e)::q2) when f1 = f2 ->
@@ -1161,6 +1188,17 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
   | (Db.Query (query, _))::epath, C.Multi ->
       let partial = not (is_uniq t node query) in
       aux_multi epath partial
+  | (Db.SQLQuery ({Db. sql_fds; sql_tbs=_; sql_ops=_} as sqlquery, _))::epath, _ ->
+      assert (epath = []); (*TODO ?*)
+      let fields = fields_of_sqldata t node sqlquery in
+      let fields = List.filter
+        (fun (f, _) -> List.exists (fun (_dname, f1) -> String.equal f f1) sql_fds)
+        fields
+      in
+      let partial = true in
+      let rebuildt = (fun t -> if partial then C.Db.set t else t) in
+      let dataty = Q.TypeRecord (Q.TyRow (fields, None)) in
+      rebuildt dataty, `virtualset (dataty, dataty, partial, rebuildt)
   | (Db.ExprKey _)::epath, C.Multi ->
       aux_multi epath false
   | (Db.FldKey fld)::_rp, C.Sum ->

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -229,7 +229,7 @@ let get_expr_dep_context ?filter e =
              ( match (fst (List.hd (fst dbelt))) with
                | DbAst.FldKey s -> Option.if_none filter (add_root s acc) acc
                | DbAst.NewKey
-               | DbAst.ExprKey _ | DbAst.Query _ ->
+               | DbAst.ExprKey _ | DbAst.Query _ | DbAst.SQLQuery _ ->
                    (* not possible, see the parser *)
                    assert false
              )

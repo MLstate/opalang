@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -241,6 +241,32 @@ query_field <- query_nokeywords field_long:f query_simple:q
 query_fields <- (=list1(query_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
   {{ QmlAst.Db.QFlds l }}
 
+(* ******************************************************************)
+(**
+   {7 Path SQL querying }
+*)
+sqlfield <-
+/ spacing Opa_lexer.field_identifier_nosp:tb "." Opa_lexer.field_identifier_nosp:s {{tb, s}}
+/ spacing Opa_lexer.field_identifier_nosp:s {{"", s}}
+
+sqlfields <- (=list1(sqlfield, Opa_lexer.comma))
+
+sqltables <- (=list1(spacing Opa_lexer.field_identifier_nosp:s {{s}}, Opa_lexer.comma))
+
+;/** SQL Query **/
+sqlquery <-
+  (=Opa_lexer.exact_keyword("SELECT")) spacing sqlfields:f spacing
+  (=Opa_lexer.exact_keyword("FROM")) spacing sqltables:t spacing
+  (=Opa_lexer.exact_keyword("WHERE")) spacing query:q spacing
+  {{
+     {QmlAst.Db.sql_ops = q; sql_fds = f; sql_tbs = t}
+  }}
+
+
+(* ******************************************************************)
+(**
+   {7 Path options querying }
+*)
 query_options_limit <-
   (=Opa_lexer.exact_keyword("limit")) query_expr:limit
   {{ fun opt -> {opt with QmlAst.Db.limit = Some limit} }}
@@ -275,6 +301,11 @@ query_options <-
   }}
 
 query_with_options <-
+  / sqlquery:q
+    {{
+       let options = QmlAst.Db.default_query_options in
+       QmlAst.Db.SQLQuery (q, options)
+    }}
   / query:q (Opa_parser.separator query_options:o {{o}})?:o
     {{
        let options =

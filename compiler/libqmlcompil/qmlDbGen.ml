@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -307,6 +307,7 @@ module Schema = struct
               raise (Base.NotImplemented "Query in a non multi node")
           end
       | DbAst.NewKey -> raise (Base.NotImplemented "New key")
+      | DbAst.SQLQuery _ -> raise (Base.NotImplemented "SQLQuery")
     in
     let node, kind =
       let rec find path ((node, kind, _) as x) =
