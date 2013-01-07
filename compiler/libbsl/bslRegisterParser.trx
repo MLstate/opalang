@@ -362,11 +362,12 @@ registerKeys <-
 
 # BslTypes
 
-;+bslty : { BslTypes.t } <- b_ENTRY {{ __1 }}
+;+bslty : { BslTypes.t } <- b_ENTRY spacing !. {{ __1 }}
+
+
 
 b_ENTRY <-
-  / b_PARAMS spacing "->" spacing b_BASE {{ B.Fun (pos(), __1, __5) }}
-  / spacing "->" spacing b_BASE {{ B.Fun (pos(), [], __4) }}
+  / b_Fun
   / b_BASE
 
 b_BASE <-
@@ -376,6 +377,7 @@ b_BASE <-
   / b_Bool
   / b_Option
   / b_OpaValue
+  / b_Callback
   / b_External
   / "(" spacing b_ENTRY spacing ")" {{ __3 }}
 
@@ -406,6 +408,14 @@ b_OpaValue <- "opa[" spacing b_ENTRY spacing "]" {{ B.OpaValue (pos(), __3) }}
 
 b_External <-
  / name b_TUPLE? {{ B.External (pos(), __1, Option.default [] __2) }}
+
+b_Callback <-
+  / "callback(" spacing b_Fun spacing ")"
+  {{ match __3 with B.Fun (p, a, r) -> B.Callback(p, a, r) | _ -> assert false }}
+
+b_Fun  <-
+  / b_PARAMS spacing "->" spacing b_BASE {{ B.Fun (pos(), __1, __5) }}
+  / spacing "->" spacing b_BASE {{ B.Fun (pos(), [], __4) }}
 
 
 # Utils

@@ -91,6 +91,7 @@ struct
   let function_projection
       ~level (* The recursion level, to avoid parameter shadowing *)
       ?(more=None)
+      ?(callback=false)
       ?(cps=`no)
       ?(check=false) ~inputs ~outputs ~bsltags _env ~key private_env
       type_params type_return id =
@@ -156,10 +157,15 @@ struct
             match cps with
             | `to_ -> function_
             | `from ->
+                let transform =
+                  if callback then "callback_opa2js"
+                  else "uncps"
+                in
                 JsCons.Expr.call ~pure:true
-                  (JsCons.Expr.ident (JsAst.Native (`global true, "uncps")))
+                  (JsCons.Expr.ident (JsAst.Native (`global true, transform)))
                   [(JsCons.Expr.ident (JsAst.Native (`local, "k")));
                    function_;
+                   JsCons.Expr.int (List.length type_params);
                    JsCons.Expr.string (BslKey.to_string key)
                   ]
       in
@@ -387,14 +393,16 @@ struct
         aux_external ~check:env.options.Qml2jsOptions.check_bsl_types
           (aux_qml_of_js ~level ~bsltags) key env private_env p id
 
+    | B.Callback (_, inputs, output)
     | B.Fun (_, inputs, output) ->
+        let callback = match typ with | B.Callback _ -> true | _ -> false in
         let cps =
           match env.options.Qml2jsOptions.cps, bsltags.BslTags.cps_bypass with
           | true, false -> `to_
           | false, true -> `from
           | true, true | false, false -> `no
         in
-        function_projection ~level ~cps ~bsltags env ~key
+        function_projection ~level ~cps ~bsltags env ~key ~callback
           ~check:env.options.Qml2jsOptions.check_bsl_types
           ~inputs:(aux_js_of_qml ~level:(level + 1) ~bsltags key env)
           ~outputs:(aux_qml_of_js ~level:(level + 1) ~bsltags key env)
@@ -431,7 +439,9 @@ struct
     | B.External (_,_,p) ->
         aux_external (aux_js_of_qml ~level ~bsltags) key env private_env p id
 
+    | B.Callback (_, inputs, output)
     | B.Fun (_, inputs, output) ->
+        let callback = match typ with | B.Callback _ -> true | _ -> false in
         let cps, more =
           match env.options.Qml2jsOptions.cps, bsltags.BslTags.cps_bypass with
           | true, false -> `from, None
@@ -442,7 +452,7 @@ struct
                                          [fun_])
           | false, false -> `no, None
         in
-        function_projection ~level ~more ~cps ~bsltags env ~key
+        function_projection ~level ~more ~cps ~bsltags env ~key ~callback
           ~inputs:(aux_qml_of_js ~level:(level + 1) ~bsltags key env)
           ~outputs:(aux_js_of_qml ~level:(level + 1) ~bsltags key env)
           private_env

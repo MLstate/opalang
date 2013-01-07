@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -102,6 +102,7 @@ type t =
   | Option   of pos * t
   | OpaValue of pos * t
   | Fun      of pos * t list * t
+  | Callback of pos * t list * t
   | External of pos * string * t list
 
 (** {6 GUIDELINES for matching a [t] } *)
@@ -273,6 +274,9 @@ val compare : ?normalize:bool -> t -> t -> int
    projection, in order not to lose the context.
 *)
 val is_second_order : t -> bool
+
+(** As is_second_order but don't consider Callback as function *)
+val has_fun : t -> bool
 
 (**
    This function is used e.g. to check the definition of a bsl primitive

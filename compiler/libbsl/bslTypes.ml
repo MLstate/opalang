@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -65,6 +65,7 @@ type t =
   | Option   of pos * t
   | OpaValue of pos * t
   | Fun      of pos * t list * t
+  | Callback of pos * t list * t
   | External of pos * string * t list
 
 let pos = LangAst.pos
@@ -103,9 +104,14 @@ let pp_scope ~scope fmt =
         Format.fprintf fmt "%s[%a]" ty_opavalue (aux false) t
 
     | ( Fun (_, u, v) ) as t ->
-        if parfun then Format.fprintf fmt "(%a)" (aux false) t else
+        if parfun  then
+          Format.fprintf fmt "(%a)" (aux false) t
+        else
           let paren_out = true in
           Format.fprintf fmt "%a -> %a" (pp_list ", " (aux true)) u (aux paren_out) v
+
+    | Callback (p, u, v) ->
+        Format.fprintf fmt "callback(%a)" (aux false) (Fun (p,u,v))
 
     | External (_, n, vs) ->
         Format.fprintf fmt "%s[%a]" ty_external (pp_parameters (aux true) n) vs
@@ -153,6 +159,13 @@ struct
         acc,
         if u == fu && v = fv then t else
           Fun (pos, fu, fv)
+
+    | Callback (pos, u, v) ->
+        let acc, fu = List.fold_left_map_stable tra acc u in
+        let acc, fv = tra acc v in
+        acc,
+        if u == fu && v = fv then t else
+          Callback (pos, fu, fv)
 
     | External (pos, name, params) ->
         let acc, fparams = List.fold_left_map_stable tra acc params in
@@ -265,6 +278,12 @@ let compare ?(normalize=false) a b =
     | OpaValue (_, t), OpaValue (_, t') -> compare t t'
     | OpaValue _, _ -> -1
     | _, OpaValue _ -> 1
+    | Callback (_, u, v), Callback (_, u', v') ->
+        let r = List.make_compare compare u u' in
+        if r <> 0 then r
+        else compare v v'
+    | Callback _ , _ -> -1
+    | _, Callback _ -> 1
     | Fun (_, u, v), Fun (_, u', v') ->
         let r = List.make_compare compare u u' in
         if r <> 0 then r
@@ -303,6 +322,7 @@ let pp_multi_context fmt ts =
 let is_second_order t =
   let contains_arrow = Walk.exists (
     function
+    | Callback _
     | Fun _ -> true
     | _ -> false
   )
@@ -310,6 +330,13 @@ let is_second_order t =
   match t with
   | Fun (_, args, returned) ->
       List.exists contains_arrow (returned::args)
+  | _ -> false
+
+let has_fun = function
+  | Fun (_, args, returned) ->
+      List.exists
+        (Walk.exists (function Fun _ -> true | _ -> false))
+        (returned::args)
   | _ -> false
 
 
@@ -391,7 +418,8 @@ let check_inclusion ?(static_strict_check=true) subst ~expected ~found =
     | OpaValue _, _
     | _, OpaValue _ -> fail ()
 
-    | Fun (_, u, v), Fun (_, u', v') ->
+    | Fun (_, u, v), Fun (_, u', v')
+    | Callback (_, u, v), Callback (_, u', v') ->
         let subst =
           try
             List.fold_left2 aux subst u u'
@@ -400,6 +428,8 @@ let check_inclusion ?(static_strict_check=true) subst ~expected ~found =
         in
         aux subst v' v (* beware of inversion *)
 
+    | Callback _, _
+    | _, Callback _
     | Fun _, _
     | _, Fun _ -> fail ()
 
@@ -599,6 +629,11 @@ let to_ty ?(typeident=Q.TypeIdent.of_string) t = (* don't factorize t because of
         let v = aux v in
         Q.TypeArrow (u, v)
 
+    | Callback (_, u, v) ->
+        let u = List.map aux u in
+        let v = aux v in
+        Q.TypeArrow (u, v)
+
     | External (_, name, tlist) ->
         Q.TypeName (List.map aux tlist, typeident ~check:false name)
 
@@ -671,6 +706,8 @@ let rec pp_meta_scope scope fmt t =
 
   | Fun (_, u, v)      ->
       Format.fprintf fmt "B.Fun (%s, [%a], (%a))" var_mp (pp_list "@ ;@ " pp_meta) u pp_meta v
+  | Callback (_, u, v)      ->
+      Format.fprintf fmt "B.Callback (%s, [%a], (%a))" var_mp (pp_list "@ ;@ " pp_meta) u pp_meta v
 
   | External (_, n, vs) ->
       Format.fprintf fmt "B.External (%s, %S, [%a])" var_mp n (pp_list "@ ;@ " pp_meta) vs

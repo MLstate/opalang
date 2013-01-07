@@ -428,10 +428,13 @@ module U = struct
     || (bsltags.BslTags.cps_bypass)
     || (bsltags.BslTags.raise_)
 
-  let warn_second_order bp_tags bp =
+  let warn_second_order bp_typer bp_tags bp =
     let key = bp_get_key bp in
     let bsltags = bp_tags (bp_get_key bp) in
-    if is_second_order_bypass bsltags then
+    if is_second_order_bypass bsltags
+      (* The bypass can be second order but contains only callbacks *)
+      && BslTypes.has_fun (bp_typer key)
+    then
       OManager.warning ~wclass:WarningClass.bsl_projection "The bypass %a is second-order and is not a cps-bypass" BslKey.pp key
 
   let label () = Annot.nolabel "Cps.nolabel"
@@ -815,7 +818,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
     | Q.Apply (_, bypass, bp_args) ->
         let bypass = U.bp_cps env.bsl_bypass_cps bypass in
         let cps = U.is_cps_bp env.bsl_bypass_tags bypass in
-        U.warn_second_order env.bsl_bypass_tags bypass;
+        U.warn_second_order env.bsl_bypass_typer env.bsl_bypass_tags bypass;
         if cps || not(Skip.can)
         then U.bp_apply ~cps bypass bp_args context
         else U.skipped_bp_apply bypass bp_args

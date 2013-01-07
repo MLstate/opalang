@@ -448,6 +448,17 @@ function opa_cps_callback_to_js_callback0(k, f){
 }
 
 /**
+ * Transform any opa cps callback (* -> void) to a js_callback
+ */
+function callback_opa2js(k, f, a){
+    return function(){
+        var args = Array.prototype.slice.call(arguments);
+        args[a] = ccont(k, function(){});
+        return f.apply(null, args);
+    }
+}
+
+/**
  * Wrap opa function
  */
 function wrap_tc(opa){

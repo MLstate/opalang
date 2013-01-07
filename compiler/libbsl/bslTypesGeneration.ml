@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -62,6 +62,9 @@ struct
           if parfun then Format.fprintf fmt "(%a)" (aux false) t else
             let paren_out = true in
             Format.fprintf fmt "%a -> %a" (Format.pp_list ",@ " (aux true)) args (aux paren_out) ret
+
+      | B.Callback (pos, args, ret) ->
+          Format.fprintf fmt "callback(%a)" (aux false) (B.Fun (pos, args, ret))
 
       (* all external and record types from bsl should be named *)
 
@@ -178,6 +181,9 @@ struct
             let args = unit_fun args in
             Format.fprintf fmt "%a -> %a" (Format.pp_list " -> " (opavalue true)) args (opavalue paren_out) ret
 
+      | B.Callback (pos, args, ret) ->
+          Format.fprintf fmt "callback(%a)" (opavalue false) (B.Fun (pos, args, ret))
+
       (* External and Record types should be column only *)
       | B.External (_, n, vs) -> (
           OcamlPrint.pp_parameters (opavalue true) n fmt vs
@@ -207,6 +213,9 @@ struct
             let paren_out = true in
             let args = unit_fun args in
             Format.fprintf fmt "%a -> %a" (Format.pp_list " -> " (aux true)) args (aux paren_out) ret
+
+      | B.Callback (pos, args, ret) ->
+          Format.fprintf fmt "callback(%a)" (aux false) (B.Fun (pos, args, ret))
 
       (* all external and record types from bsl should be named *)
       | B.External (_, n, vs) ->
@@ -254,6 +263,7 @@ struct
       | B.OpaValue _ ->
           Format.pp_print_string fmt ty_opavalue
 
+      | B.Callback (_, args, ret)
       | B.Fun (_, args, ret) -> (
           match args with
           | [] ->

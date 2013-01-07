@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2012 MLstate
 
     This file is part of Opa.
 
@@ -32,6 +32,7 @@ struct
     | BslTypes.Option   (pos, _)
     | BslTypes.OpaValue (pos, _)
     | BslTypes.Fun      (pos, _, _)
+    | BslTypes.Callback      (pos, _, _)
     | BslTypes.External (pos, _, _) -> pos
 
   (* output *)

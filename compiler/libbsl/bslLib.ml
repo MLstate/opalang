@@ -1280,8 +1280,8 @@ struct
         | UnknownExt ext ->
             !! "unknown extenstion @{<bright>%S@}" ext
 
-        | DefinitionError _ ->
-            !! "You cannot define such a type"
+        | DefinitionError t ->
+            !! "You cannot define such a type: %a" BslTypes.pp t
 
         | NotRegistredType (skey, typ) ->
             !! "In: %a@\nThe type with key:@{<bright>%S@} is not registred" BslTypes.pp typ skey
