@@ -53,7 +53,7 @@ module Schema = struct
     package : ObjectFiles.package_name;
   }
 
-  type query = QmlAst.expr DbAst.query * QmlAst.expr DbAst.query_options
+  type query = (QmlAst.expr, QmlAst.expr) DbAst.query * QmlAst.expr DbAst.query_options
 
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty
@@ -76,7 +76,7 @@ module Schema = struct
     | None -> ()
     | Some (u, (q, o)) ->
         Format.fprintf fmt "[%a%a]/* uniq : %b */"
-          (QmlAst.Db.pp_query QmlPrint.pp#expr) q
+          (QmlAst.Db.pp_query QmlPrint.pp#expr QmlPrint.pp#expr) q
           (QmlAst.Db.pp_options QmlPrint.pp#expr) o
           u
 

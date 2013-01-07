@@ -142,6 +142,7 @@ let rewrite_funs pg =
               else
                 failwith (Printf.sprintf "function %s is undefined" f)
           | Some (fdef, _) ->
+              Format.eprintf "%s \n%!" f;
               let functions = StringMap.remove f functions in
               let expected_arity = List.length fdef.P.vars in
               if expected_arity = List.length vars then

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -58,7 +58,7 @@ module Schema: sig
     package : ObjectFiles.package_name;
   }
 
-  type query = QmlAst.expr QmlAst.Db.query * QmlAst.expr QmlAst.Db.query_options
+  type query = (QmlAst.expr, QmlAst.expr) QmlAst.Db.query * QmlAst.expr QmlAst.Db.query_options
 
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty
