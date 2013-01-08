@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011-2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -140,7 +140,7 @@ PostgresTypes = {{
   getTextByteA(s:string) : Postgres.opatype =
     if String.has_prefix("\\x",s)
     then {Bytea=Binary.of_hex(String.sub(2,String.length(s)-2,s))}
-    else @fail("TODO: bytea escape format")
+    else @fail("TODO: bytea escape format: {s}")
 
   @private comma = parser "," -> void
   @private lp(ep) = parser | "\{" l=Rule.parse_list_sep(false, ep, comma) "}" -> l
@@ -158,17 +158,17 @@ PostgresTypes = {{
 
   @private getTextArray(s:string, elem, mk) : Postgres.opatype =
     match dims(s) with
-    | {some=1} -> 
+    | {some=1} ->
       match Parser.try_parse(lp(elem),s) with
       | {some=l} -> mk({Array1=l})
       | {none} -> {BadText=s}
       end
-    | {some=2} -> 
+    | {some=2} ->
       match Parser.try_parse(lp(lp(elem)),s) with
       | {some=ll} -> mk({Array2=ll})
       | {none} -> {BadText=s}
       end
-    | {some=3} -> 
+    | {some=3} ->
       match Parser.try_parse(lp(lp(lp(elem))),s) with
       | {some=ll} -> mk({Array3=ll})
       | {none} -> {BadText=s}
@@ -275,7 +275,7 @@ PostgresTypes = {{
   getElement(rowdesc:Postgres.rowdesc, data:binary, output:Postgres.oparow) : Postgres.oparow =
     add(v) = StringMap.add(rowdesc.name,v,output)
     //do jlog("rowdesc:{rowdesc}")
-    //do jlog("{rowdesc.name}: data({Binary.length(data)})=\n{bindump(data)}") 
+    //do jlog("{rowdesc.name}: data({Binary.length(data)})=\n{bindump(data)}")
     if Binary.length(data) == 0
     then add({Null})
     else
@@ -329,7 +329,7 @@ PostgresTypes = {{
   enum_field_names(ty:OpaType.ty) : outcome(list(string),string) =
     match ty with
     | {TySum_col=col ...} ->
-       List.fold((row, result -> 
+       List.fold((row, result ->
                    match result with
                    | {~failure} -> {~failure}
                    | {success=names} ->
@@ -959,10 +959,11 @@ PostgresTypes = {{
     | (_,{TySum_col=col ...}) -> column_to_rec(row, col)
     | _ -> @fail
 
-  to_opa_ty(conn:Postgres.connection, row:Postgres.oparow, ty:OpaType.ty, dflt:option('a)) : option('a) =
-    row_to_opa_aux(conn, row, ty, dflt)
+  to_opa_ty(conn:Postgres.connection, row, ty:OpaType.ty, dflt:option('a)) : option('a) =
+        row_to_opa_aux(conn, getRow(conn.rowdescs, row), ty, dflt)
 
-  to_opa(conn:Postgres.connection, row:Postgres.oparow) : option('a) = to_opa_ty(conn, row, @typeval('a), none)
+  to_opa(conn:Postgres.connection, row) : option('a) =
+     to_opa_ty(conn, row, @typeval('a), none)
 
 }}
 
