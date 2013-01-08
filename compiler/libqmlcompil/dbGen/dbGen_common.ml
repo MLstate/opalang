@@ -183,7 +183,7 @@ module Db = struct
       | `db3 -> OptionalOpacapi.Types.db3set
       | `mongo -> Opacapi.Types.DbMongoSet.t
       | `dropbox -> Opacapi.Types.DbDropboxSet.t
-      | `postgres -> Opacapi.Types.DbMongoSet.t
+      | `postgres -> Opacapi.Types.DbPostgresSet.t
     in
     QmlAst.TypeName ([ty], typ ident)
 

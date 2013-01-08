@@ -1096,7 +1096,7 @@ let pass_PostgresCodeGeneration =
        let schema = typerEnv.QmlTypes.schema in
        let code = env.Passes.qmlAst in
        let (nannotmap, code) =
-         Pass_MongoAccessGeneration.process_code
+         Pass_PostgresCodeGeneration.process_code
            ~stdlib_gamma gamma annotmap schema code in
        let typerEnv = { typerEnv with QmlTypes.
                           gamma = gamma;
