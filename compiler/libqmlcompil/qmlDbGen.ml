@@ -32,7 +32,7 @@ module DbAst = QmlAst.Db
 
 module C = DbGen_common
 
-type engine = [`db3 | `mongo | `dropbox]
+type engine = DbAst.engine
 
 let settyp = DbGen_common.settyp
 

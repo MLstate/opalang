@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -38,6 +38,7 @@ struct
       |`db3 -> "db3"
       |`mongo -> "mongo"
       |`dropbox -> "dropbox"
+      |`postgres -> "postgres"
     in
     List.iter (fun x -> Format.fprintf f "%s;" (aux x)) l
 end
@@ -58,6 +59,7 @@ let import_packages engines =
        | `db3   -> "stdlib.database.db3"
        | `mongo -> "stdlib.database.mongo"
        | `dropbox -> "stdlib.database.dropbox"
+       | `postgres -> "stdlib.database.postgres"
          )
       engines
   in

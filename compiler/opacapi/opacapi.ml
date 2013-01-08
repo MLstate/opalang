@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -369,7 +369,6 @@ struct
   let char = !! "Unicode.character"
   let continuation = !! "continuation"
   let dbset = !! "dbset"
-  let dbdropboxset = !! "DbDropboxSet.t"
   let dom = !! "dom"
   let finite_single_thread_lazy = !! "finite_single_thread_lazy"
   let float = !! "float"
@@ -412,6 +411,15 @@ struct
     let val_path = !! "val_path"
   end
 
+  module DbMongo =
+  struct
+    let (!!) s = !! ("DbMongo." ^ s)
+    let t  = !! "t"
+    let engine  = !! "engine"
+    let val_path = !! "private.val_path"
+    let ref_path = !! "private.ref_path"
+  end
+
   module DbMongoSet =
   struct
     let (!!) s = !! ("DbMongoSet." ^ s)
@@ -422,16 +430,8 @@ struct
   module DbDropboxSet =
   struct
     let (!!) s = !! ("DbDropboxSet." ^ s)
+    let t = !! "t"
     let engine  = !! "engine"
-  end
-
-  module DbMongo =
-  struct
-    let (!!) s = !! ("DbMongo." ^ s)
-    let t  = !! "t"
-    let engine  = !! "engine"
-    let val_path = !! "private.val_path"
-    let ref_path = !! "private.ref_path"
   end
 
   module DbDropbox =
@@ -441,6 +441,22 @@ struct
     let engine  = !! "engine"
     let val_path = !! "private.val_path"
     let ref_path = !! "private.ref_path"
+  end
+
+  module DbPostgres =
+  struct
+    let (!!) s = !! ("DbPostgres." ^ s)
+    let t  = !! "t"
+    let engine  = !! "engine"
+    let val_path = !! "private.val_path"
+    let ref_path = !! "private.ref_path"
+  end
+
+  module DbPostgresSet =
+  struct
+    let (!!) s = !! ("DbPostgresSet." ^ s)
+    let t  = !! "t"
+    let engine  = !! "engine"
   end
 
   module Cell =

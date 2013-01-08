@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -242,6 +242,9 @@ val pass_MongoCodeGeneration :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_DropBoxCodeGeneration :
+  (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
+
+val pass_PostgresCodeGeneration :
   (unit Passes.env_Gen, unit Passes.env_Gen) opa_pass
 
 val pass_DocApiGeneration :

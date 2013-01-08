@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -208,6 +208,9 @@ let compile backend_handlers =
 
     |?> (If.database `dropbox,
          "DropBoxCodeGeneration", S3.pass_DropBoxCodeGeneration)
+
+    |?> (If.database `postgres,
+         "PostgresCodeGeneration", S3.pass_PostgresCodeGeneration)
 
     (* could be just after typing, if dbgen didn't complain that it can't find its coercions :/ *)
     |+> ("PurgeTypeDirectivesAfterTyping", S3.pass_PurgeTypeDirectiveAfterTyping)

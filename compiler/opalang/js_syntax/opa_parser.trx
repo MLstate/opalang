@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -487,6 +487,7 @@ db_options <-
   / "@" "db3" {{ {QmlAst.Db.backend = `db3} }}
   / "@" "mongo" {{ {QmlAst.Db.backend = `mongo} }}
   / "@" "dropbox" {{ {QmlAst.Db.backend = `dropbox} }}
+  / "@" "postgres" {{ {QmlAst.Db.backend = `postgres} }}
 
 
 
