@@ -236,9 +236,10 @@ struct
       path, absolute or relative, ending with the filename prefix). DbGen sets
       this to [~/.mlstate/<progname>/default] by default (based on argv.(0)) *)
   type engine = [
-  |`db3
-  |`mongo
-  |`dropbox
+  | `db3
+  | `mongo
+  | `dropbox
+  | `postgres
   ]
 
   type options = {
@@ -437,6 +438,7 @@ struct
     | `db3 -> "@db3"
     | `mongo -> "@mongo"
     | `dropbox -> "@dropbox"
+    | `postgres -> "@postgres"
 
   let path_decl_key_to_string = function
     | Decl_fld s -> "/"^s

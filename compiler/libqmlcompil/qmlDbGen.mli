@@ -19,7 +19,7 @@
 (** {6 Command line arguments } *)
 
 (** Describes different backend that dbgen handle. *)
-type engine = [`db3 | `mongo | `dropbox]
+type engine = QmlAst.Db.engine
 
 (** Command line specification provides necessary options for switch
     database backend. *)

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -16,6 +16,7 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 module Arg = Base.Arg
+module Format = Base.Format
 let version = 9 (* Should be the same as in db3/Dbgraph *)
 
 type path = string list
@@ -59,7 +60,7 @@ type schema_node = {
   plain : bool;
 }
 
-type engine = [ `db3 | `mongo | `dropbox]
+type engine = [ `db3 | `mongo | `dropbox | `postgres ]
 
 module Args = struct
 
@@ -74,16 +75,24 @@ module Args = struct
   let descr = function
     | `db3   -> "Db3"
     | `mongo -> "Mongo"
+    | `postgres -> "Postgres"
     | `dropbox -> "Dropbox"
 
-  let assoc = [("mongo", `mongo); ("db3", `db3); ("dropbox", `dropbox)]
+  let assoc = [
+    ("mongo"      ,`mongo);
+    ("db3"        ,`db3);
+    ("dropbox"    ,`dropbox);
+    ("postgres"   ,`postgres);
+  ]
 
   let r = ref None
 
   let options = [
     ("--database", Arg.spec_fun_of_assoc
-       (fun s -> r := Some {engine=s}) assoc,
-     " Select kind of database (db3|mongo|dropbox)");
+       (fun s -> r := Some {engine=s}) assoc
+     , (Format.sprintf " Select kind of database [%a]"
+        (Format.pp_list "|" (Format.pp_fst Format.pp_print_string)) assoc)
+    );
   ]
 
   let get_engine () = Option.map (fun r -> r.engine) !r
@@ -164,6 +173,7 @@ module Db = struct
       | `db3 -> OptionalOpacapi.Types.Db3.t
       | `mongo -> Opacapi.Types.DbMongo.t
       | `dropbox -> Opacapi.Types.DbDropbox.t
+      | `postgres -> Opacapi.Types.DbPostgres.t
     in
     QmlAst.TypeName ([], typ ident)
 
@@ -172,7 +182,8 @@ module Db = struct
       match engine with
       | `db3 -> OptionalOpacapi.Types.db3set
       | `mongo -> Opacapi.Types.DbMongoSet.t
-      | `dropbox -> Opacapi.Types.dbdropboxset
+      | `dropbox -> Opacapi.Types.DbDropboxSet.t
+      | `postgres -> Opacapi.Types.DbPostgresSet.t
     in
     QmlAst.TypeName ([ty], typ ident)
 
@@ -182,12 +193,16 @@ module Db = struct
   let dropbox_engine () =
     QmlAst.TypeName ([], typ Opacapi.Types.DbDropbox.engine)
 
+  let postgres_engine () =
+    QmlAst.TypeName ([], typ Opacapi.Types.DbPostgres.engine)
+
   let ref_path_ty tydata =
     let tyengine =
       match get_engine() with
       | `db3 -> ref_path_ty tydata
       | `dropbox -> dropbox_engine ()
       | `mongo -> mongo_engine ()
+      | `postgres -> postgres_engine ()
     in
     QmlAst.TypeName ([tydata; tyengine],
                      (* typ don't use typ with type defined inside stdlib.core*)
@@ -199,6 +214,7 @@ module Db = struct
       | `db3 -> val_path_ty tydata
       | `dropbox -> dropbox_engine ()
       | `mongo -> mongo_engine ()
+      | `postgres -> postgres_engine ()
     in
     QmlAst.TypeName ([tydata; tyengine],
                      (* typ don't use typ with type defined inside stdlib.core*)
