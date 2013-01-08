@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011-2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -180,6 +180,7 @@ type Postgres.rows = (list(Postgres.rowdesc),list(Postgres.row))
 
 /** A Postgres driver connection object.
  */
+@abstract
 type Postgres.connection = {
   name           : string /** A name for the connection */
   secure         : option(SSL.secure_type) /** Optional SSL security information */
@@ -220,7 +221,7 @@ type Postgres.listener_def = {
 }
 
 /** Cursor direction flags. */
-type Postgres.cursor_direction = {forward} / {backward} 
+type Postgres.cursor_direction = {forward} / {backward}
 
 /** Cursor amount indicator. */
 type Postgres.cursor_amount = {num:int} / {all} / {next} / {prior}
@@ -233,7 +234,7 @@ Postgres = {{
   @private bindump = (%% BslPervasives.bindump %%: binary -> string)
 
   @private to_rowdesc((name,table_id,table_attribute_number,type_id,data_type_size,type_modifier,format_code)) =
-    ~{name table_id table_attribute_number type_id data_type_size type_modifier format_code} : Postgres.rowdesc 
+    ~{name table_id table_attribute_number type_id data_type_size type_modifier format_code} : Postgres.rowdesc
 
   @private string_of_sp(sp:Postgres.sp) =
     match sp with
@@ -259,9 +260,7 @@ Postgres = {{
    * to manage the connection but doesn't actually open a connection to the server
    * until an operation is performed on the connection.
    *
-   * @param name The name of the connection, this is only relevant if you have connections to multiple PostgreSQL servers.
-   * @param secure Optional SSL security type.
-   * @param dbase The name of the PostgreSQL database to connect to.
+   * @param db The Postgres database to connect
    * @returns An outcome of either a connection object or an [Apigen.failure] value.
    */
   connect(name:string, secure:option(SSL.secure_type), dbase:string) =
@@ -292,6 +291,13 @@ Postgres = {{
     match Pg.close(sconn) with
     | {success=c} -> {success={conn with conn=c processid=-1 secret_key=-1}}
     | {~failure} -> {~failure}
+
+  /**
+   * Returns the error status of the connection.
+   * @param conn A Postgres connection
+   * @return Error status of [conn]
+   */
+  get_error(conn:Postgres.connection) = conn.error
 
   /** Search for PostgreSQL parameter.
    *
@@ -372,23 +378,22 @@ Postgres = {{
    */
   set_minor_version(conn:Postgres.connection, minor_version:int) : Postgres.connection = {conn with ~minor_version}
 
-  @private again(conn:Postgres.connection, result:Postgres.listener_arg, k:Postgres.listener) : Postgres.connection =
-    do k(conn, result)
-    loop(conn, k)
+  @private ignore_listener(_, _, _) = void
 
-  @private final(conn:Postgres.connection, result:Postgres.listener_arg, k:Postgres.listener) : Postgres.connection =
-    do k(conn, result)
-    conn
+  @private again(conn:Postgres.connection, result:Postgres.listener_arg, acc, f) =
+    loop(conn, f(conn, result, acc), f)
 
-  @private error(conn:Postgres.connection, failure:Postgres.failure, k:Postgres.listener) : Postgres.connection =
-    do k(conn, {final={failure=(conn, failure)}})
-    conn
+  @private final(conn:Postgres.connection, result:Postgres.listener_arg, acc, f) =
+    (conn, f(conn, result, acc))
+
+  @private error(conn:Postgres.connection, failure:Postgres.failure, acc, f) =
+    (conn, f(conn, {final={failure=(conn, failure)}}, acc))
 
   /* Implementation note, the PostgreSQL docs recomment using a single input
    * point for all incoming messages from PostgreSQL.  This is how we implement
    * this driver.  Only the authentication, query, sync and flush commands call this routine.
    */
-  @private loop(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
+  @private loop(conn:Postgres.connection, acc:'a, f) : (Postgres.connection, 'a) =
     get_result(conn,status) : Postgres.listener_arg =
       conn = {conn with ~status}
       {final=
@@ -396,37 +401,60 @@ Postgres = {{
         | {some=failure} -> {failure=(conn,failure)}
         | {none} -> {success=conn}}
     match Pg.reply({success=conn.conn}) with
-    | {success=(c,{Authentication={Ok}})} -> loop({conn with conn=c},k)
+    | {success=(c,{Authentication={Ok}})} -> 
+      loop({conn with conn=c}, acc, k)
     | {success=(c,{Authentication={CleartextPassword}})} ->
        match (Pg.password({success=c},c.conf.password)) with
-       | {success=c} -> loop({conn with conn=c},k)
-       | ~{failure} -> loop({conn with error={some={api_failure=failure}}},k)
+       | {success=c} -> loop({conn with conn=c}, acc, f)
+       | ~{failure} -> loop({conn with error={some={api_failure=failure}}}, acc, f)
        end
     | {success=(c,{Authentication={MD5Password=salt}})} ->
        inner = Crypto.Hash.md5(c.conf.password^c.conf.user)
        outer = Crypto.Hash.md5(inner^(%%bslBinary.to_encoding%%(salt,"binary")))
        md5password = "md5"^outer
        match (Pg.password({success=c},md5password)) with
-       | {success=c} -> loop({conn with conn=c},k)
-       | ~{failure} -> loop({conn with error={some={api_failure=failure}}},k)
+       | {success=c} -> loop({conn with conn=c}, acc, f)
+       | ~{failure} -> loop({conn with error={some={api_failure=failure}}}, acc, f)
        end
-    | {success=(c,{ParameterStatus=(n,v)})} -> loop({conn with conn=c; params=StringMap.add(n,v,conn.params)},k)
-    | {success=(c,{BackendKeyData=(processid,secret_key)})} -> loop({conn with conn=c; ~processid ~secret_key},k)
-    | {success=(c,{~CommandComplete})} -> loop({conn with conn=c; completed=[CommandComplete|conn.completed]},k)
-    | {success=(c,{PortalSuspended})} -> conn = {conn with conn=c}; final(conn, get_result({conn with suspended=true},""),k)
-    | {success=(c,{EmptyQueryResponse})} -> loop({conn with conn=c; empty=true},k)
-    | {success=(c,{~RowDescription})} -> rowdescs = List.map(to_rowdesc,RowDescription) again({conn with conn=c; ~rowdescs},{~rowdescs},k)
-    | {success=(c,{~DataRow})} -> again({conn with conn=c; rows=conn.rows+1},~{DataRow},k)
-    | {success=(c,{~ParameterDescription})} -> loop({conn with conn=c; paramdescs=ParameterDescription},k)
-    | {success=(c,{NoData})} -> loop({conn with conn=c; paramdescs=[]},k)
-    | {success=(c,{ParseComplete})} -> loop({conn with conn=c},k)
-    | {success=(c,{BindComplete})} -> loop({conn with conn=c},k)
-    | {success=(c,{CloseComplete})} -> loop({conn with conn=c},k)
-    | {success=(c,{~NoticeResponse})} -> again({conn with conn=c},~{NoticeResponse},k)
-    | {success=(c,{~ErrorResponse})} -> again({conn with conn=c; error={some={postgres={error=ErrorResponse}}}}, ~{ErrorResponse},k)
-    | {success=(c,{ReadyForQuery=status})} -> conn = {conn with conn=c}; final(conn, get_result(conn,status),k)
-    | {success=(c,reply)} -> error({conn with conn=c}, {bad_reply=reply},k)
-    | ~{failure} -> error(conn, {api_failure=failure},k)
+    | {success=(c,{ParameterStatus=(n,v)})} -> 
+      loop({conn with conn=c; params=StringMap.add(n,v,conn.params)}, acc, f)
+    | {success=(c,{BackendKeyData=(processid,secret_key)})} -> 
+      loop({conn with conn=c; ~processid ~secret_key}, acc, f)
+    | {success=(c,{~CommandComplete})} -> 
+      loop({conn with conn=c; completed=[CommandComplete|conn.completed]}, acc, f)
+    | {success=(c,{EmptyQueryResponse})} -> 
+      loop({conn with conn=c; empty=true}, acc, f)
+    | {success=(c,{~ParameterDescription})} -> 
+      loop({conn with conn=c; paramdescs=ParameterDescription}, acc, f)
+    | {success=(c,{NoData})} -> 
+      loop({conn with conn=c; paramdescs=[]}, acc, f)
+    | {success=(c,{ParseComplete})} -> 
+      loop({conn with conn=c}, acc, f)
+    | {success=(c,{BindComplete})} -> 
+      loop({conn with conn=c}, acc, f)
+    | {success=(c,{CloseComplete})} -> 
+      loop({conn with conn=c}, acc, f)
+
+    | {success=(c,{~RowDescription})} -> 
+      rowdescs = List.map(to_rowdesc,RowDescription) 
+      again({conn with conn=c; ~rowdescs},{~rowdescs}, acc, f)
+    | {success=(c,{~DataRow})} -> 
+      again({conn with conn=c; rows=conn.rows+1},~{DataRow}, acc, f)
+    | {success=(c,{~NoticeResponse})} -> 
+      again({conn with conn=c},~{NoticeResponse}, acc, f)
+    | {success=(c,{~ErrorResponse})} -> 
+      again({conn with conn=c; error={some={postgres={error=ErrorResponse}}}}, ~{ErrorResponse}, acc, f)
+    | {success=(c,{PortalSuspended})} -> 
+      conn = {conn with conn=c}
+      final(conn, get_result({conn with suspended=true},""), acc, f)
+    | {success=(c,{ReadyForQuery=status})} -> 
+      conn = {conn with conn=c}; 
+      final(conn, get_result(conn, status), acc, f)
+
+    | {success=(c,reply)} -> 
+      error({conn with conn=c}, {bad_reply=reply}, acc, f)
+    | ~{failure} -> 
+      error(conn, {api_failure=failure}, acc, f)
     end
 
   @private init(conn:Postgres.connection, query) : Postgres.connection =
@@ -480,32 +508,35 @@ Postgres = {{
    * @param listener A Postgres listener callback.
    * @returns An updated connection with connection data installed.
    */
-  authenticate(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
-    conn = init(conn, "authentication")
+  authenticate(conn:Postgres.connection) : Postgres.connection =
+    conn = init_conn(conn, "authentication")
     version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
     match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
-    | {success=c} -> loop({conn with conn=c},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    | {success=c} -> loop({conn with conn=c}, acc, f)
+    | ~{failure} -> error(conn,{api_failure=failure}, acc, f)
 
   /** Issue simple query command and read back responses.
-   *
-   * The simple query protocol is a simple command to which the server will reply
-   * with the results of the query.  It is similar to doing [Parse]/[Bind]/[Describe]/[Execute]/[Sync].
-   * If any row data are returned, the listener will be called, likewise for errors and notices.
-   *
-   * Note that this routine also returns an updated connection object upon failure since the effects
-   * of previously successful messages received from the server may be retained.
-   *
+
+   * The simple query protocol is a simple command to which the server will
+   * reply with the results of the query.  It is similar to doing
+   * [Parse]/[Bind]/[Describe]/[Execute]/[Sync]. On each returned row data the
+   * [folder] function will be called, likewise for errors and notices.  Note that this
+   * routine also returns an updated connection object upon failure since the
+   * effects of previously successful messages received from the server may be
+   * retained.
+
    * @param conn The connection object.
+   * @param init The initial value.
    * @param query The query string (can contain multiple queries).
-   * @param listener A Postgres listener callback.
-   * @returns An outcome of an updated connection object or a failure plus a connection object.
+   * @param folder A function that called on each result.
+   * @return The updated connection and the result of successive calls to the
+   * [folder] function.
    */
-  query(conn:Postgres.connection, query, k:Postgres.listener) : Postgres.connection =
+  query(conn:Postgres.connection, init, query, folder) =
     conn = init(conn, query)
-    match Pg.query({success=conn.conn},query) with
-    | {success=c} -> loop({conn with conn=c},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    match Pg.query({success=conn.conn}, query) with
+    | {success=c} -> loop({conn with conn=c}, init, folder)
+    | ~{failure} -> error(conn, {api_failure=failure}, init, folder)
     end
 
   /** Extract the raw data for a named column from a [Postgres.full_row] object.
@@ -546,13 +577,16 @@ Postgres = {{
    * @param query The query string (may contain placeholders for later data, eg. "$1" etc.).
    * @param oids The object ids for the types of the parameters (may be zero to keep the type unspecified).
    * @param listener A Postgres listener callback.
-   * @returns An updated connection object or failure.
+   * @return An updated connection object or failure.
    */
-  parse(conn:Postgres.connection, name, query, oids, k:Postgres.listener) : Postgres.connection =
+  parse(conn:Postgres.connection, name, query, oids) : Postgres.connection =
     conn = init(conn, "Parse({query},{name})")
-    match Pg.parse({success=conn.conn},(name,query,oids)) with
-    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    match Pg.parse({success=conn.conn}, (name,query,oids)) with
+    | {success=c} -> 
+      conn = {conn with conn=c} 
+      final(conn, {final={success=conn}}, void, ignore_listener).f1
+    | ~{failure} -> 
+      error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
 
   /** Bind parameters to a prepared statement and a portal.
@@ -560,32 +594,40 @@ Postgres = {{
    * @param conn The connection object.
    * @param portal The name of the destination portal (empty means the unnamed portal).
    * @param name The name of the source prepared statement.
-   * @param codes The parameter format codes (0=text, 1=binary).
    * @param params The list of parameters.
    * @param result_codes A list of the result column return codes (0=text, 1=binary).
    * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  bind(conn:Postgres.connection, portal, name, codes, params, result_codes, k:Postgres.listener) : Postgres.connection =
+  bind(conn:Postgres.connection, portal, name, params) : Postgres.connection =
     conn = init(conn, "Bind({name},{portal})")
-    match Pg.bind({success=conn.conn},(portal,name,codes,params,result_codes)) with
-    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    match Pg.bind({success=conn.conn}, (portal, name, [1], params, [1])) with
+    | {success=c} -> 
+      conn = {conn with conn=c} 
+      final(conn,{final={success=conn}}, void, ignore_listener).f1
+    | ~{failure} -> 
+      error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
 
   /** Execute named portal.
    *
    * @param conn The connection object.
+   * @param init The initial value.
    * @param portal The name of the portal to execute (empty means the unnamed portal).
    * @param rows_to_return The number of rows to return (zero means unlimited).
-   * @param listener A Postgres listener callback.
-   * @returns The original connection object or failure.
+   * @param folder A function that called on each result.
+   * @return The updated connection and the result of successive calls to the
+   * [folder] function.
    */
-  execute(conn:Postgres.connection, portal, rows_to_return, k:Postgres.listener) : Postgres.connection =
-    conn = init(conn, "Execute({portal})")
+  execute(conn:Postgres.connection, init, portal, rows_to_return, folder) =
+    // should we fold on sync instead of execute ?
+    conn = init_conn(conn, "Execute({portal})")
     match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
-    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    | {success=c} -> 
+      conn = {conn with conn=c} 
+      loop(sync(conn), {final={success=conn}}, init, folder)
+    | ~{failure} -> 
+      error(conn, {api_failure=failure}, init, folder)
     end
 
   /** Describe portal or statement.
@@ -599,11 +641,14 @@ Postgres = {{
    * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  describe(conn:Postgres.connection, sp:Postgres.sp, name, k:Postgres.listener) : Postgres.connection =
-    conn = init(conn, "Describe({string_of_sp(sp)},{name})")
+  describe(conn:Postgres.connection, sp:Postgres.sp, name) : Postgres.connection =
+    conn = init_conn(conn, "Describe({string_of_sp(sp)},{name})")
     match Pg.describe({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    | {success=c} -> 
+      conn = {conn with conn=c} 
+      final(conn,{final={success=conn}}, void, ignore_listener).f1
+    | ~{failure} -> 
+      error(conn,{api_failure=failure}, void, ignore_listener).f1
     end
 
   /** Close a prepared statement or portal.
@@ -619,11 +664,14 @@ Postgres = {{
    * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  closePS(conn:Postgres.connection, sp:Postgres.sp, name, k:Postgres.listener) : Postgres.connection =
-    conn = init(conn, "Close({string_of_sp(sp)},{name})")
+  closePS(conn:Postgres.connection, sp:Postgres.sp, name) : Postgres.connection =
+    conn = init_conn(conn, "Close({string_of_sp(sp)},{name})")
     match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    | {success=c} -> 
+	  conn = {conn with conn=c} 
+      final(conn,{final={success=conn}}, void, ignore_listener).f1
+    | ~{failure} -> 
+      error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
 
   /** Send [Sync] command and read back response data.
@@ -636,11 +684,14 @@ Postgres = {{
    * @param listener A Postgres listener callback.
    * @returns An updated connection object or failure.
    */
-  sync(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
-    conn = init(conn, "Sync")
+  sync(conn:Postgres.connection) : Postgres.connection =
+    conn = init_conn(conn, "Sync")
     match Pg.sync({success=conn.conn}) with
-    | {success=c} -> conn = {conn with conn=c} loop(conn,k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    | {success=c} -> 
+      conn = {conn with conn=c} 
+      loop(conn, void, ignore_listener).f1
+    | ~{failure} -> 
+      error(conn,{api_failure=failure}, void, ignore_listener).f1
     end
 
   /** Send a [Flush] command and read back response data.
@@ -651,8 +702,8 @@ Postgres = {{
    * @param listener A Postgres listener callback.
    * @returns An updated connection object or failure.
    */
-  flush(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
-    conn = init(conn, "Flush")
+  flush(conn:Postgres.connection) : Postgres.connection =
+    conn = init_conn(conn, "Flush")
     match Pg.flush({success=conn.conn}) with
     | {success=c} -> conn = {conn with conn=c} loop(conn,k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
@@ -676,8 +727,9 @@ Postgres = {{
     if conn.processid == -1 || conn.secret_key == -1
     then {failure=(conn,{no_key})}
     else
-      match connect(conn.name, conn.secure, conn.dbase) with
-      | {success=conn2} ->
+      match make(conn.name, conn.secure, conn.dbase) with
+      | {success=db} ->
+         conn2 = connect(db)
          match Pg.cancel({success=conn2.conn},(conn.processid,conn.secret_key)) with
          | {success=c} ->
             _ = close(conn2,false)
@@ -754,14 +806,16 @@ Postgres = {{
    * @returns A tuple of the updated connection (maybe with an [error] value) and the type_id ([-1] means "not found").
    */
   get_type_id(conn:Postgres.connection, name:string) : (Postgres.connection,int) =
-    type_id = ServerReference.create(-1)
-    conn = query(conn,"SELECT oid from pg_type WHERE typname='{name}'",
-                 make_listener({default_listener_def with
-                                 on_row={some=(conn, row ->
-                                                match StringMap.get("oid",PostgresTypes.getRow(conn.rowdescs,row)) with
-                                                | {some={Int=tid}} -> ServerReference.set(type_id,tid)
-                                                | _ -> void)}}))
-    (conn,ServerReference.get(type_id))
+    query(conn, -1, "SELECT oid from pg_type WHERE typname='{name}'",
+          (conn, msg, tid ->
+            match msg with
+            | {DataRow = row} ->
+              match StringMap.get("oid",PostgresTypes.getRow(conn.rowdescs,row)) with
+              | {some={Int=tid}} -> tid
+              | _ -> tid
+              end
+            | _ -> tid)
+         )
 
   /** Create a new [ENUM] type on the server from an Opa type and install a handler for it.
    *
@@ -784,7 +838,10 @@ Postgres = {{
            match get_type_id(conn, name) with
            | (conn,-1) ->
               qnames = String.concat(", ",List.map((name -> "'{name}'"),names))
-              conn = query(conn,"CREATE TYPE {name} AS ENUM ({qnames})",default_listener)
+              (conn, _) =
+                query(conn, void,
+                      "CREATE TYPE {name} AS ENUM ({qnames})",
+                      ignore_listener)
               if Option.is_none(conn.error)
               then get_type_id(conn, name)
               else (conn,-1)
@@ -817,13 +874,14 @@ Postgres = {{
 
   /** Fold a function over a list, with connection.
    *
-   * Fold a function f(conn, element) for each element in a list. 
-   * 
+   * Fold a function f(conn, element) for each element in a list.
+   *
    * @param f The function to fold.
    * @param conn The connection object.
    * @param l The list of elements.
    * @returns The final result or the first error.
    */
+  @private
   fold(f:Postgres.connection, 'a -> Postgres.result, conn:Postgres.connection, l:list('a)) : Postgres.result =
     rec aux(conn, l) =
       match l with
@@ -849,15 +907,15 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  create_table(conn:Postgres.connection, dbase:string, temp:bool, value:'a, k:Postgres.listener) : Postgres.connection =
+  create_table(conn:Postgres.connection, dbase:string, temp:bool, value:'a) : Postgres.connection =
     enums = PostgresTypes.record_enum_types(@typeval('a))
-    do jlog("enums:{enums}")
     known_enums = IntMap.fold((_, (name,_,_), names -> [name|names]),conn.handlers,[])
     new_enums = List.filter(((name, _) -> not(List.mem(name,known_enums))),enums)
-    do jlog("new_enums:{new_enums}")
     match fold(create_enum_ty, conn, List.map((x -> x.f2),new_enums)) with
-    | {success=conn} -> query(conn,PostgresTypes.create(conn, dbase, temp, value),k)
-    | {failure=(conn,failure)} -> error(conn,failure,k)
+    | {success=conn} ->
+      q = PostgresTypes.create(conn, dbase, temp, value)
+      query(conn, void, q, ignore_listener).f1
+    | {failure=(conn,failure)} -> error(conn, failure, void, ignore_listener).f1
     end
 
   /** Insert a row into a database.
@@ -868,8 +926,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  insert(conn:Postgres.connection, dbase:string, value:'a, k:Postgres.listener) : Postgres.connection =
-    query(conn,PostgresTypes.insert(conn, dbase, value),k)
+  insert(conn:Postgres.connection, dbase:string, value:'a) =
+    query(conn, void, PostgresTypes.insert(conn, dbase, value), ignore_listener).f1
 
   /** Update rows in a database. Sets individual fields only.
    *
@@ -880,8 +938,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  update(conn:Postgres.connection, dbase:string, value:'a, select:'b, k:Postgres.listener) : Postgres.connection =
-    query(conn,PostgresTypes.update(conn, dbase, value, select),k)
+  update(conn:Postgres.connection, dbase:string, value:'a, select:'b) =
+    query(conn, void, PostgresTypes.update(conn, dbase, value, select), ignore_listener).f1
 
   /** Delete a value from a database.
    *
@@ -891,8 +949,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  delete(conn:Postgres.connection, dbase:string, select:'b, k:Postgres.listener) : Postgres.connection =
-    query(conn,PostgresTypes.delete(conn, dbase, select),k)
+  delete(conn:Postgres.connection, dbase:string, select:'b) : Postgres.connection =
+    query(conn, void, PostgresTypes.delete(conn, dbase, select), ignore_listener).f1
 
   /** Open a transaction block.
    *
@@ -900,8 +958,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  begin(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
-    {query(conn,"BEGIN",k) with in_transaction=true}
+  begin(conn:Postgres.connection) : Postgres.connection =
+    {query(conn, void, "BEGIN", ignore_listener).f1 with in_transaction=true}
 
   /** Close a transaction block.
    *
@@ -909,8 +967,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  commit(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
-    {query(conn,"COMMIT",k) with in_transaction=false}
+  commit(conn:Postgres.connection) : Postgres.connection =
+    {query(conn, void, "COMMIT", ignore_listener).f1 with in_transaction=false}
 
   /** Roll back a transaction.
    *
@@ -918,8 +976,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  rollback(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
-    {query(conn,"ROLLBACK",k) with in_transaction=false}
+  rollback(conn:Postgres.connection) : Postgres.connection =
+    {query(conn, void, "ROLLBACK", ignore_listener).f1 with in_transaction=false}
 
   /** Declare a cursor.
    *
@@ -930,10 +988,10 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  declare_cursor(conn:Postgres.connection, binary:bool, name:string, query:string, k:Postgres.listener) : Postgres.connection =
+  declare_cursor(conn:Postgres.connection, binary:bool, name:string, query:string) : Postgres.connection =
     if conn.in_transaction
-    then Postgres.query(conn,"DECLARE {name} {if binary then "BINARY " else ""}CURSOR FOR {query}",k)
-    else error(conn, {sql="Cannot declare cursor outside of transaction"}, k)
+    then Postgres.query(conn, void, "DECLARE {name} {if binary then "BINARY " else ""}CURSOR FOR {query}", ignore_listener).f1
+    else error(conn, {sql="Cannot declare cursor outside of transaction"}, void, ignore_listener).f1
 
   @private string_of_cursor_direction(cd:option(Postgres.cursor_direction)) : string =
     match cd with
@@ -958,10 +1016,14 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  fetch(conn:Postgres.connection, name:string,
-        direction:option(Postgres.cursor_direction), amount:option(Postgres.cursor_amount),
-        k:Postgres.listener) : Postgres.connection =
-    query(conn,"FETCH {string_of_cursor_direction(direction)}{string_of_cursor_amount(amount)}FROM {name}",k)
+  fetch(conn:Postgres.connection,
+        init,
+        name:string,
+        direction:option(Postgres.cursor_direction),
+        amount:option(Postgres.cursor_amount),
+        f) : Postgres.connection =
+    query(conn, init,
+          "FETCH {string_of_cursor_direction(direction)}{string_of_cursor_amount(amount)}FROM {name}", f).f1
 
   /** Move a cursor pointer.
    *
@@ -972,10 +1034,11 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  move(conn:Postgres.connection, name:string,
-       direction:option(Postgres.cursor_direction), amount:option(Postgres.cursor_amount),
-       k:Postgres.listener) : Postgres.connection =
-    query(conn,"MOVE {string_of_cursor_direction(direction)}{string_of_cursor_amount(amount)}IN {name}",k)
+  move(conn:Postgres.connection,
+       name:string,
+       direction:option(Postgres.cursor_direction),
+       amount:option(Postgres.cursor_amount)) : Postgres.connection =
+    query(conn, void, "MOVE {string_of_cursor_direction(direction)}{string_of_cursor_amount(amount)}IN {name}", ignore_listener).f1
 
   /** Close and destroy a cursor.
    *
@@ -984,8 +1047,8 @@ Postgres = {{
    * @param k The listener.
    * @returns An updated connection object.
    */
-  close_cursor(conn:Postgres.connection, name:string, k:Postgres.listener) : Postgres.connection =
-    query(conn,"CLOSE {name}",k)
+  close_cursor(conn:Postgres.connection, name:string) : Postgres.connection =
+    query(conn, void, "CLOSE {name}", ignore_listener).f1
 
 }}
 
