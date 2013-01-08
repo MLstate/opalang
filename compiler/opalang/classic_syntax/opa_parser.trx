@@ -658,6 +658,7 @@ directive1 <-
   / "typeof" {{ `typeof }}
   / "unsafe_cast" {{ `unsafe_cast }}
   / "wait" {{ `wait }}
+  / "spawn" {{ `spawn }}
 
 directive1_typ <-
   / "typeval" {{ `typeval }}
@@ -676,7 +677,6 @@ directive1str <-
 
 directive1rec <-
   / "lazy_record" {{ `create_lazy_record }}
-  / "spawn" {{ `spawn }}
 
 directive1or2str <-
   / "static_content_directory" {{ (fun x -> `static_content_directory (x, false)) }}
