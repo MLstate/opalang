@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -227,14 +227,14 @@ WireProtocol = {{
   refresh_requestId(msg:WireProtocol.Message) : WireProtocol.Message =
     {msg with MsgHeader={msg.MsgHeader with requestID=nextrid()}}
 
-  estart(typ,name,u,usize) = (2+usize+String.length(name),[{Byte=typ}, {Cstring=name}, u])
+  estart(typ,name,u,usize) = (2+usize+String.byte_length(name),[{Byte=typ}, {Cstring=name}, u])
   int(name,i) = estart(el_int, name, {Long=i}, 4)
   long(name,l) = estart(el_long, name, {Longlong=l}, 8)
   int64(name,i64) = estart(el_long, name, {Int64=i64}, 8)
   double(name,d) = estart(el_double, name, {Float=d}, 8)
   bool(name,b) = estart(el_bool, name, {Bool=b}, 1)
 
-  estart0(typ,name) = (2+String.length(name),[{Byte=typ}, {Cstring=name}])
+  estart0(typ,name) = (2+String.byte_length(name),[{Byte=typ}, {Cstring=name}])
   null(name) = estart0(el_null, name)
   minkey(name) = estart0(el_minkey, name)
   maxkey(name) = estart0(el_maxkey, name)
@@ -242,20 +242,20 @@ WireProtocol = {{
 
   string_base(name,value,typ) =
     valuesize = String.byte_length(value)
-    (7+String.length(name)+valuesize,[{Byte=typ}, {Cstring=name}, {Long=valuesize+1}, {Cstring=value}])
+    (7+String.byte_length(name)+valuesize,[{Byte=typ}, {Cstring=name}, {Long=valuesize+1}, {Cstring=value}])
   string(name,value) = string_base(name,value,el_string)
   symbol(name,value) = string_base(name,value,el_symbol)
   code(name,value) = string_base(name,value,el_code)
 
   code_w_scope(name,code,scope) =
-    codesize = String.length(code)
+    codesize = String.byte_length(code)
     (docsize,doc) = packDocument(scope)
-    (11+codesize+String.length(name)+docsize,
+    (11+codesize+String.byte_length(name)+docsize,
      [{Byte=el_codewscope}, {Cstring=name}, {Long=codesize+docsize+9}, {Long=codesize+1}, {Cstring=code}, {Pack=doc}])
 
   binary(name,typ,bin) =
     strsize = Binary.length(bin)
-    size = 7+String.length(name)+strsize
+    size = 7+String.byte_length(name)+strsize
     if typ == st_bin_binary_old
     then (size+4,[{Byte=el_bindata}, {Cstring=name}, {Long=strsize+4}, {Byte=typ}, {Binary=bin; le=true; size={L}}])
     else (size,[{Byte=el_bindata}, {Cstring=name}, {Binary=bin; payload=[{Byte=typ}]; le=true; size={L}}])
@@ -272,7 +272,7 @@ WireProtocol = {{
       do Binary.add_uint32_be(b, cnt)
       b)
 
-  oid(name,oid) = (14+String.length(name),[{Byte=el_oid}, {Cstring=name}, {FixedBinary=(12,oid)}])
+  oid(name,oid) = (14+String.byte_length(name),[{Byte=el_oid}, {Cstring=name}, {FixedBinary=(12,oid)}])
 
   oid_of_string(str:string) : binary =
     c2h(c1,c2) : option(int) =
@@ -287,7 +287,7 @@ WireProtocol = {{
       | ({some=i1},{some=i2}) -> {some=i1*16+i2}
       | _ -> {none}
     null = binary_of_string("\000\000\000\000\000\000\000\000\000\000\000\000")
-    if String.length(str) < 24
+    if String.byte_length(str) < 24
     then null
     else
       oid = Binary.create(12)
@@ -322,26 +322,26 @@ WireProtocol = {{
           aux(i+1,["{h2c(c1)}{h2c(c2)}"|sl])
       aux(0,[])
 
-  regex(name,pattern,opts) = (4+String.length(name)+String.length(pattern)+String.length(opts),
+  regex(name,pattern,opts) = (4+String.byte_length(name)+String.byte_length(pattern)+String.byte_length(opts),
                               [{Byte=el_regex}, {Cstring=name}, {Cstring=pattern}, {Cstring=opts}])
 
   bson(name,bson) =
     (docsize,doc) = packDocument(bson)
-    (2+String.length(name)+docsize,[{Byte=el_object}, {Cstring=name}, {Pack=doc}])
+    (2+String.byte_length(name)+docsize,[{Byte=el_object}, {Cstring=name}, {Pack=doc}])
 
-  timestamp(name,(i,t)) = (10+String.length(name),[{Byte=el_timestamp}, {Cstring=name}, {Long=i}, {Long=t}])
+  timestamp(name,(i,t)) = (10+String.byte_length(name),[{Byte=el_timestamp}, {Cstring=name}, {Long=i}, {Long=t}])
 
-  date(name,millis) = (10+String.length(name),[{Byte=el_date}, {Cstring=name}, {Longlong=millis}])
+  date(name,millis) = (10+String.byte_length(name),[{Byte=el_date}, {Cstring=name}, {Longlong=millis}])
 
   time_t(name,t) = date(name,Date.in_milliseconds(t))
 
   object(name, obj) =
     (docsize,doc) = packDocument(obj)
-    (2+String.length(name)+docsize,[{Byte=el_object}, {Cstring=name}, {Pack=doc}])
+    (2+String.byte_length(name)+docsize,[{Byte=el_object}, {Cstring=name}, {Pack=doc}])
 
   array(name, arr) =
     (docsize,doc) = packDocument(arr)
-    (2+String.length(name)+docsize,[{Byte=el_array}, {Cstring=name}, {Pack=doc}])
+    (2+String.byte_length(name)+docsize,[{Byte=el_array}, {Cstring=name}, {Pack=doc}])
 
   packDocument(doc:Bson.document) : (int,Pack.data) =
     rec aux(doc) =
@@ -498,7 +498,7 @@ WireProtocol = {{
 
   packInsert(hdr:WireProtocol.MsgHeader, ins:WireProtocol.Insert) : Pack.data =
     (bodysize,bodies) = List.fold_backwards((doc, (s,bs) -> (s2,b2) = packDocument(doc) (s+s2,[b2|bs])),ins.documents,(0,[]))
-    nssize = String.length(ins.fullCollectionName) + 1
+    nssize = String.byte_length(ins.fullCollectionName) + 1
     head = make_header(20+nssize+bodysize,hdr.requestID,hdr.responseTo,_OP_INSERT)
     List.flatten([[{Pack=head}, {Long=ins.flags}, {Cstring=ins.fullCollectionName}], List.map((b -> {Pack=b}),bodies)])
 
@@ -533,7 +533,7 @@ WireProtocol = {{
   packUpdate(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Update) : Pack.data =
     (selectorsize,selectordata) = packDocument(bdy.selector)
     (updatesize,updatedata) = packDocument(bdy.update)
-    nssize = String.length(bdy.fullCollectionName) + 1
+    nssize = String.byte_length(bdy.fullCollectionName) + 1
     head = make_header(24+nssize+selectorsize+updatesize,hdr.requestID,hdr.responseTo,_OP_UPDATE)
     [{Pack=head}, {Long=0}, {Cstring=bdy.fullCollectionName}, {Long=bdy.flags}, {Pack=selectordata}, {Pack=updatedata}]
 
@@ -580,7 +580,7 @@ WireProtocol = {{
          (rfssize,rfsdata) = packDocument(rfs)
          (rfssize,[{Pack=rfsdata}])
       | {none} -> (0,[])
-    nssize = String.length(bdy.fullCollectionName)
+    nssize = String.byte_length(bdy.fullCollectionName)
     head = make_header(29+nssize+querysize+rfssize,hdr.requestID,hdr.responseTo,_OP_QUERY)
     List.flatten([[{Pack=head},
                    {Long=bdy.flags}, {Cstring=bdy.fullCollectionName},
@@ -618,7 +618,7 @@ WireProtocol = {{
     "  fullCollectionName={gm.fullCollectionName}\n  numberToReturn={gm.numberToReturn}\n  cursorID=0x{hex1664(gm.cursorID)}"
 
   packGetMore(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.GetMore) : Pack.data =
-    nssize = String.length(bdy.fullCollectionName) + 1
+    nssize = String.byte_length(bdy.fullCollectionName) + 1
     head = make_header(32+nssize,hdr.requestID,hdr.responseTo,_OP_GET_MORE)
     [{Pack=head}, {Long=0}, {Cstring=bdy.fullCollectionName}, {Long=bdy.numberToReturn}, {Int64=bdy.cursorID}]
 
@@ -650,7 +650,7 @@ WireProtocol = {{
 
   packDelete(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Delete) : Pack.data =
     (selectorsize,selectordata) = packDocument(bdy.selector)
-    nssize = String.length(bdy.fullCollectionName) + 1
+    nssize = String.byte_length(bdy.fullCollectionName) + 1
     head = make_header(24+nssize+selectorsize,hdr.requestID,hdr.responseTo,_OP_DELETE)
     [{Pack=head}, {Long=0}, {Cstring=bdy.fullCollectionName}, {Long=bdy.flags}, {Pack=selectordata}]
 
@@ -697,7 +697,7 @@ WireProtocol = {{
   string_of_Msg(msg:WireProtocol.Msg) = "  msg={msg.message}"
 
   packMsg(hdr:WireProtocol.MsgHeader, bdy:WireProtocol.Msg) : Pack.data =
-    msgsize = String.length(bdy.message) + 1
+    msgsize = String.byte_length(bdy.message) + 1
     head = make_header(17+msgsize,hdr.requestID,hdr.responseTo,_OP_MSG)
     [{Pack=head}, {Cstring=bdy.message}]
 
