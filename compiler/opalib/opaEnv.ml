@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -108,7 +108,7 @@ let js_bypass_syntax_of_string = function
   | "jsdoc"
   | "new" -> Some `jsdoc
   | _ -> None
-let js_bypass_syntax : [`classic | `jsdoc] ref = ref `classic
+let js_bypass_syntax : [`classic | `jsdoc] ref = ref `jsdoc
 let set_js_bypass_syntax s =
   js_bypass_syntax := Option.get (js_bypass_syntax_of_string s)
 
@@ -915,7 +915,7 @@ struct
 
     parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;
-    js_classic_bypass_syntax = !js_bypass_syntax = `jsdoc;
+    js_classic_bypass_syntax = !js_bypass_syntax = `classic;
     backtrace = !ArgParser.backtrace;
   }
 
