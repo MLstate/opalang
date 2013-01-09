@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -147,21 +147,6 @@ struct
     let alpha = next () in
     let beta = next () in
     Q.TypeArrow ([alpha], beta)
-
- let opavalue_make_performer tys build_add build =
-    let ty, add_args =
-      match tys with
-      | [Q.TypeName (args, _) as ty] ->
-          let lf = List.map
-            (fun param ->
-               match param with
-               | Q.TypeVar _ -> build_add param
-               | _ -> OManager.error "OpaValue directive : parameters of named type can be only a type variable")
-            args in
-          ty, lf
-      | _ -> OManager.error "OpaValue directive should take exclusively named type"
-    in
-    build add_args ty
 
 end
 
@@ -377,28 +362,19 @@ let ty directive exprs tys =
   (* === *)
   (* Enrich magic *)
   | `stringifier ->
-      let stringifier =
-        Ty.opavalue_make_performer tys
-          (fun param -> Q.TypeArrow ([param], Ty.string))
-          (fun add ty -> Q.TypeArrow (add@[ty], Ty.string))
-      in Q.TypeArrow ([stringifier], stringifier)
+      let stringifier = Q.TypeArrow (tys, Ty.string) in
+      Q.TypeArrow ([stringifier], stringifier)
 
   | `comparator ->
       let comparison = Ty.named_type Opacapi.Types.Order.comparison [] in
-      let comparator = Ty.opavalue_make_performer tys
-        (fun param -> Q.TypeArrow ([param; param], comparison))
-        (fun add ty -> Q.TypeArrow (add@[ty; ty], comparison)) in
+      let comparator = Q.TypeArrow (tys@tys, comparison) in
       Q.TypeArrow ([comparator], comparator)
 
   | `serializer ->
       let options = Ty.named_type Opacapi.Types.OpaSerialize.options [] in
       let json = Ty.named_type Opacapi.Types.RPC.Json.json [] in
-      let serializer = Ty.opavalue_make_performer tys
-        (fun param -> Q.TypeArrow ([param; options], json))
-        (fun add ty -> Q.TypeArrow (add@[ty;options], json)) in
-      let unserializer = Ty.opavalue_make_performer tys
-        (fun param -> Q.TypeArrow ([json], (Ty.named_type Opacapi.Types.option [param])))
-        (fun add ty -> Q.TypeArrow (add@[json], (Ty.named_type Opacapi.Types.option [ty]))) in
+      let serializer = Q.TypeArrow (tys@[options], json) in
+      let unserializer = Q.TypeArrow ([json], (Ty.named_type Opacapi.Types.option tys)) in
       let cpl =
         Q.TypeRecord
           (Q.TyRow ([("f1", serializer);
@@ -407,9 +383,7 @@ let ty directive exprs tys =
 
   | `xmlizer ->
       let xml = Ty.named_type Opacapi.Types.xml [] in
-      let xmlizer = Ty.opavalue_make_performer tys
-        (fun param -> Q.TypeArrow ([param], xml))
-        (fun add ty -> Q.TypeArrow (add@[ty], xml)) in
+      let xmlizer = Q.TypeArrow (tys, xml) in
       Q.TypeArrow ([xmlizer], xmlizer)
 
   | `recval ->
