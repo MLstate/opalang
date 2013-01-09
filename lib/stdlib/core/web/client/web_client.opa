@@ -591,6 +591,11 @@ WebClient =
                 on_result(x) = Continuation.return(k, x)
                 try_post_with_options_async(location, options, on_result)
            )
+      try_post_binary_with_options(location:Uri.uri, options:WebClient.Post.binary_options): WebClient.result(binary) =
+          @callcc(k ->
+                on_result(x) = Continuation.return(k, x)
+                try_post_binary_with_options_async(location, options, on_result)
+           )
 
       /**
        * Place a POST request using custom options, non-blocking.
@@ -659,7 +664,7 @@ WebClient =
           Generic.try_request_with_options_async(location, "POST", generic_options, options.content, on_success, on_failure)
        )
 
-      try_post_binary_with_options(location:Uri.uri, options:WebClient.Post.binary_options, on_result: WebClient.result(binary) -> void): void =
+      try_post_binary_with_options_async(location:Uri.uri, options:WebClient.Post.binary_options, on_result: WebClient.result(binary) -> void): void =
           do if (options.redirect_to_get != none) then @fail("try_post_binary_with_options currently doesn't follow redirections. Use WebClient.request instead.")
           length = post_content_length(Binary.length, options.content)
           aux(headers, key, opt) =
