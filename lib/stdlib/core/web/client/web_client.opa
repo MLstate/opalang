@@ -148,6 +148,25 @@ type WebClient.Post.options('content) =
    ssl_policy:       option(SSL.policy)
  }
 
+ /**
+ * Options for binary POST operations
+ *
+ * Use with [WebClient.Post.try_post_binary_with_options]
+ */
+type WebClient.Post.binary_options =
+ {
+   mimetype:         string
+   content:          option(binary)
+   auth:             option(string)
+   custom_headers:   list((string,string)) // the difference with Post.options('content) type
+   custom_agent:     option(string)
+   redirect_to_get:  option(WebClient.Get.options) // not supported for the moment
+   timeout_sec:      option(float)
+   ssl_key:          option(SSL.private_key)
+   ssl_policy:       option(SSL.policy)
+ }
+
+
 /**
  * Options for PUT operations
  */
@@ -531,13 +550,7 @@ WebClient =
 
    Post = {{
 
-      /**
-       * Default options for POST operations
-       *
-       * By default, no authentication is performed, no custom headers,
-       * connexions timeout after 36 seconds, mime-type is "application/x-www-form-urlencoded"
-       */
-      default_options: WebClient.Post.options('content) =
+      @private  _default_options =
       {
         mimetype         = "application/x-www-form-urlencoded"
         content          = {none}
@@ -551,6 +564,19 @@ WebClient =
       }
 
       /**
+       * Default options for POST operations
+       *
+       * By default, no authentication is performed, no custom headers,
+       * connexions timeout after 36 seconds, mime-type is "application/x-www-form-urlencoded"
+       */
+      default_options = _default_options : WebClient.Post.options('content)
+
+      /**
+       * Same as [default_options] but for binary content
+       */
+      default_binary_options = _default_options : WebClient.Post.binary_options
+
+      /**
        * Place a POST request using default options, blocking-style.
        *
        * This function will block your current thread (but not other computations) until the result is computed.
@@ -559,8 +585,8 @@ WebClient =
        * is not critical, e.g. because other threads/users will use the CPU while this thread is waiting, or because
        * your are still in a prototyping phase.
        */
-      try_post(location:Uri.uri, content:string): WebClient.result(string) = try_post_with_options(location, {default_options with content = {some = content}})
-      try_post_with_options(location:Uri.uri, options:WebClient.Post.options(string)): WebClient.result(string) =
+      try_post(location:Uri.uri, content:'content): WebClient.result('content) = try_post_with_options(location, {default_options with content = {some = content}})
+      try_post_with_options(location:Uri.uri, options:WebClient.Post.options('content)): WebClient.result('content) =
           @callcc(k ->
                 on_result(x) = Continuation.return(k, x)
                 try_post_with_options_async(location, options, on_result)
@@ -584,9 +610,9 @@ WebClient =
        * Usage suggestion: use [try_post_bg] and [try_post_with_options_bg] to optimize the total execution
        * time of this specific thread.
        */
-      try_post_bg(location:Uri.uri, content:string): -> WebClient.result(string) =
+      try_post_bg(location:Uri.uri, content:'content): -> WebClient.result('content) =
           try_post_with_options_bg(location, {default_options with content = {some = content}})
-      try_post_with_options_bg(location:Uri.uri, options:WebClient.Post.options(string)): -> WebClient.result(string) =
+      try_post_with_options_bg(location:Uri.uri, options:WebClient.Post.options('content)): -> WebClient.result('content) =
           result = @spawn({result = try_post_with_options(location, options)})
           -> @wait(result).result
 
@@ -600,15 +626,23 @@ WebClient =
         * Usage suggestion: use [try_post_async] and [try_post_with_options_async] when your code is very concurrent
         * and you intend to send messages on completion of requests.
         */
-      try_post_async(location:Uri.uri, content:string, on_result: WebClient.result(string) -> void): void =
+      try_post_async(location:Uri.uri, content:'content, on_result: WebClient.result('content) -> void): void =
           try_post_with_options_async(location, {default_options with content = {some = content}}, on_result)
+
+      @private post_content_length(content_length, content) =
+        match content with
+        | {none} -> 0
+        | ~{some} -> content_length(some)
+
+      @private post_headers(content_length, options) =
+          length = post_content_length(content_length, options.content)
+          post_headers = ["Content-Length: {length}", "Content-Type: {options.mimetype}"]
+          post_headers ++ options.custom_headers
+
+
       try_post_with_options_async(location:Uri.uri, options:WebClient.Post.options(string), on_result: WebClient.result(string) -> void): void =
       (
-          length  = match options.content with
-             | {none} -> 0
-             | ~{some} -> String.length(some)
-          post_headers = ["Content-Length: {length}", "Content-Type: {options.mimetype}"]
-          headers = post_headers ++ options.custom_headers
+          headers = post_headers(String.length, options)
           generic_options = {
             operation        = "POST"
             auth             = options.auth
@@ -624,6 +658,30 @@ WebClient =
           on_failure(x) = on_result({failure = x})
           Generic.try_request_with_options_async(location, "POST", generic_options, options.content, on_success, on_failure)
        )
+
+      try_post_binary_with_options(location:Uri.uri, options:WebClient.Post.binary_options, on_result: WebClient.result(binary) -> void): void =
+          do if (options.redirect_to_get != none) then @fail("try_post_binary_with_options currently doesn't follow redirections. Use WebClient.request instead.")
+          length = post_content_length(Binary.length, options.content)
+          aux(headers, key, opt) =
+            match opt with
+            | { some=value } ->  headers ++ [(key, value)]
+            | { none } -> headers
+          headers = [
+              ("Content-Length", "{length}"),
+              ("Content-Type", options.mimetype)]
+              ++ options.custom_headers
+          headers = aux(headers, "Authorization", options.auth)
+          headers = aux(headers, "User-Agent", options.custom_agent)
+          generic_options = {
+            method = "POST"
+            headers = headers
+            // TODO redirect
+            content = options.content
+            timeout = Option.map((f:float -> Duration.ms(Int.of_float(f * 1000.))), options.timeout_sec)
+            ssl_key = options.ssl_key
+            ssl_policy = options.ssl_policy
+          }
+          on_result(request(location, generic_options))
 
        /**
         * Normalize a form-like request into a string-based one.
