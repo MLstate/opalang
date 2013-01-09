@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -991,11 +991,11 @@ Map_make(order: order('key,'order) ) : Map =
 
 }} //: Map_make
 
-@stringifier(ordered_map('key, 'val, 'order)) map_to_string(k2s, v2s, _o2s, map) =
+@stringifier(ordered_map('key, 'val, 'order)) map_to_string(map) =
   tx = Map.fold(key, val, tx ->
-    Text.insert_right(tx, k2s(key)) |>
-    Text.insert_right(_, " => ")    |>
-    Text.insert_right(_, v2s(val))  |>
+    Text.insert_right(tx, "{key}") |>
+    Text.insert_right(_, " => ")   |>
+    Text.insert_right(_, "{val}")  |>
     Text.insert_right(_, "\n")
     , map, Text.cons(""))
   Text.to_string(tx)

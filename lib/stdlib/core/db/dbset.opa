@@ -16,12 +16,12 @@ DbSet = {{
 
   iterator(dbset:dbset('a, _)):iter('a) = dbset.iter
 
-  @stringifier(dbset('a, _)) to_string(fa, _, dbset) =
+  @stringifier(dbset('a, _)) to_string(dbset) =
     tx = Text.cons("Database Set:\n")
     (_, tx) = fold((0, tx), dbset)((i, tx), a ->
       tx = Text.insert_right(tx, "  {i}")
         |> Text.insert_right(_, " : ")
-        |> Text.insert_right(_, fa(a))
+        |> Text.insert_right(_, "{a}")
         |> Text.insert_right(_, ",\n")
       (i+1, tx)
     )

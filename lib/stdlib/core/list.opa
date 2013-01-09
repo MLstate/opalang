@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -1448,10 +1448,12 @@ List = {{
    *
    *   [[[x_1], ..., [x_n]]]
    *
-   * @param l a list to be pretty-printed.
+   * @param l a list to be pretty-printed
+   *
+   * NB: this is the default list-printer
    */
-  to_string(l) =
-    to_string_using("[", "]", ", ", l)
+  @stringifier(list('a))
+  to_string(l) = list_to_string(x -> "{x}", l)
 
   /**
    * Pretty-printing an arbitrary list [[x_1, ... x_n]] using a value printer [f] as:
@@ -1461,12 +1463,12 @@ List = {{
    * @param alpha_to_string a value printer
    * @param l a list to be pretty-printed.
    *
-   * NB: this is the default list-printer
    */
-  @stringifier(list('a)) list_to_string(alpha_to_string : 'a -> string, l : list('a)) : string =
-    to_string(List.map(alpha_to_string, l))
+  list_to_string(f, l : list('a)) : string =
+    to_string_using("[", "]", ", ", List.map(f, l))
 
 }}
+
 
 /**
  * {1 Values exported to the global namespace}

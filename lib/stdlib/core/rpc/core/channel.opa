@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -625,5 +625,5 @@ ChannelServer = {{
 
 
 @comparator(channel('a))
-_compare_channel(_, a:channel('msg), b:channel('msg)) : Order.comparison =
+_compare_channel(a:channel('msg), b:channel('msg)) : Order.comparison =
     Channel.ordering(a, b) <: Order.comparison

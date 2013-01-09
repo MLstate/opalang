@@ -789,10 +789,10 @@ OpaSerializeClosure = {{
   /**
    * (De)serialization of arrays
   **/
-  @private serialize_llarray(sera, a, opt) =
-    {List = LowLevelArray.fold((x, acc -> sera(x, opt) +> acc), a, [])}
+  @private serialize_llarray(a, opt) =
+    {List = LowLevelArray.fold((x, acc -> partial_serialize_options(x, @typeof(a), opt) +> acc), a, [])}
 
-  @private unserialize_llarray(unser : RPC.Json.json -> option('a), json) =
+  @private unserialize_llarray(json): option(llarray('a)) =
     match json : RPC.Json.json with
     | {List = l} ->
       size = List.length(l)
@@ -802,7 +802,7 @@ OpaSerializeClosure = {{
           match acc with
           | {none} -> none
           | _ ->
-            match unser(x) with
+         match finish_unserialize(x, @typeval('a)) with
             | {none} -> {none}
             | {some = x} ->
               do LowLevelArray.set(a, size-1-i, x)

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -340,7 +340,7 @@ OpaType = {{
 
         "\{TyForall_quant = {aux_quant(TyForall_quant)}; TyForall_body = {aux(TyForall_body)}}"
     and aux_quant(~{types rows cols}:OpaTsc.quantifier) =
-      "vars:" ^ List.to_string(types) ^ ",rows:" ^ List.to_string(rows) ^ ",cols:" ^ List.to_string(cols)
+      "vars:" ^ List.list_to_string(identity, types) ^ ",rows:" ^ List.list_to_string(identity, rows) ^ ",cols:" ^ List.list_to_string(identity, cols)
     aux(ty)
 
   to_pretty_fields(fields : list(OpaType.field)) =
@@ -386,8 +386,8 @@ OpaType = {{
         "forall(" ^ aux_quant(TyForall_quant) ^ ")." ^ aux(TyForall_body)
     and aux_quant(~{types rows cols}:OpaTsc.quantifier) =
       match (rows, cols) with
-      | ([], []) -> List.to_string(types)
-      | _ -> List.to_string(types) ^ ",rows:" ^ List.to_string(rows) ^ ",cols:" ^ List.to_string(cols)
+      | ([], []) -> List.list_to_string(identity, types)
+      | _ -> List.list_to_string(identity, types) ^ ",rows:" ^ List.list_to_string(identity, rows) ^ ",cols:" ^ List.list_to_string(identity, cols)
       end
     aux(ty)
 

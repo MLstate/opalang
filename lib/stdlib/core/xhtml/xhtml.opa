@@ -463,16 +463,16 @@ Xml =
   }}
 
   // conversion from a list to xml + registering auto-magical conversion from list to xml
-  @xmlizer(list('a)) list_to_xml(alpha_to_xml, l) =
-    create_fragment(List.map(alpha_to_xml, l))
+  @xmlizer(list('a)) list_to_xml(l) =
+    create_fragment(List.map(XmlConvert.of_alpha, l))
 
   // conversion from an option to xml + registering auto-magical conversion from list to xml
-  @xmlizer(option('a)) option_to_xml(alpha_to_xml, o) =
-    Option.switch(alpha_to_xml, <></>, o)
+  @xmlizer(option('a)) option_to_xml(o) =
+    Option.switch(XmlConvert.of_alpha, <></>, o)
 
   // conversion from an iterator to xml + registering auto-magical conversion from iterator to xml
-  @xmlizer(iter('a)) iterator_to_xml(alpha_to_xml, i) =
-    create_fragment(Iter.map(alpha_to_xml, i) |> Iter.to_list)
+  @xmlizer(iter('a)) iterator_to_xml(i) =
+    create_fragment(Iter.map(XmlConvert.of_alpha, i) |> Iter.to_list)
 
   /**
    *  Fold on every node of the xml
