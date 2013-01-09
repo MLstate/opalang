@@ -117,7 +117,7 @@ OpaValue = {{
     "[{fun_name}] on {OpaType.to_pretty(original_ty)} is impossible.\n" ^
     "Because contains a value of type {OpaType.to_pretty(ty)}."
 
-  todo_magic_container(get, ident, args, todo_with_type, alt, value, extra) =
+  todo_magic_container(get, ident, args, alt, value, extra) =
     match get(ident) with
     | {none} -> alt(value)
     | {some = f} ->
@@ -131,16 +131,11 @@ OpaValue = {{
           ), args)
         OpaValue.Closure.apply(@unsafe_cast(f), clos_tyarg)
       nextra = List.length(extra)
-      clos_arg = OpaValue.Closure.Args.create(nargs + 1 + nextra)
-      do List.iteri(
-        (i, ty ->
-          OpaValue.Closure.Args.set(clos_arg, i,
-            todo_with_type(ty))
-        ), args)
-      do Closure.Args.set(clos_arg, nargs, value)
+      clos_arg = OpaValue.Closure.Args.create(1 + nextra)
+      do Closure.Args.set(clos_arg, 0, value)
       do List.iteri(
         (i, e ->
-          OpaValue.Closure.Args.set(clos_arg, i + nargs + 1, e)
+          OpaValue.Closure.Args.set(clos_arg, i + 1, e)
         ), extra)
       OpaValue.Closure.apply(@unsafe_cast(f), clos_arg)
 
@@ -195,7 +190,7 @@ OpaValue = {{
       | {TyName_args = args; TyName_ident = ident} ->
         todo_magic_container(
           %%BslValue.MagicContainer.to_string_get%%,
-          ident, args, (ty -> to_string_with_type(ty, _)),
+          ident, args,
           aux(_, OpaType.type_of_name(ident, args), text),
           value, [])
 
@@ -258,14 +253,13 @@ OpaValue = {{
           match nargs with
           | 0 -> comparator(a, b)
           | _ ->
-            clos_arg = OpaValue.Closure.Args.create(nargs + 2)
+            clos_arg = OpaValue.Closure.Args.create(nargs)
             do List.iteri(
               (i, ty ->
-                OpaValue.Closure.Args.set(clos_arg, i, aux(_, _, ty))
+                OpaValue.Closure.Args.set(clos_arg, i, ty)
               ), args)
-            do Closure.Args.set(clos_arg, nargs, a)
-            do Closure.Args.set(clos_arg, nargs + 1, b)
-            OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
+            comparator = OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
+            comparator(a, b)
           end
         end
 

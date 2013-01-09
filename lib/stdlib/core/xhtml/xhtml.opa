@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -653,7 +653,7 @@ XmlConvert = {{
       | {TyName_args = args; TyName_ident = ident} ->
         OpaValue.todo_magic_container(
           %%BslValue.MagicContainer.xmlizer_get%%,
-          ident, args, (ty -> aux(_, ty)),
+          ident, args,
           aux(_, OpaType.type_of_name(ident, args)),
           value, [])
       | ty ->

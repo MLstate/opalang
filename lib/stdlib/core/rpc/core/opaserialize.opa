@@ -1,6 +1,5 @@
-
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -419,7 +418,7 @@ OpaSerializeClosure = {{
              Option.map((r -> r.f1),
                         %%BslValue.MagicContainer.serializer_get%%(ident))
            ),
-           ident, args, (ty -> partial_serialize_options(_, ty, _)),
+           ident, args,
            aux(_, OpaType.type_of_name(ident, args)),
            value, [options]
          )
@@ -743,7 +742,7 @@ OpaSerializeClosure = {{
              Option.map((r -> r.f2),
                         %%BslValue.MagicContainer.serializer_get%%(ident))
           ),
-          ident, args, (ty -> aux(_, ty)),
+          ident, args,
           aux(_, OpaType.type_of_name(ident, args)),
           json, [])
       | (_, {TyForall_quant = _; TyForall_body = body}) ->

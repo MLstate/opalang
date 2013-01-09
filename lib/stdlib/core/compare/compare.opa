@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -281,15 +281,16 @@ compare_front(ty) =
        match nargs with
        | 0 -> ((_postenv,a,b -> comparator(a,b)), preenv)
        | _ ->
-         (args_cmp,preenv) = List.fold_map(aux,args,preenv)
-         cmp(postenv,a,b)=
-           clos_arg = OpaValue.Closure.Args.create(nargs+2)
-           do List.iteri(
-             (i, cmp -> OpaValue.Closure.Args.set(clos_arg, i, cmp(postenv,_,_))
-           ), args_cmp)
-           // FIXME: we shouldn't be applying an array where the two last
-           // indexes are undefined!!!
-           f = OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
+         (_args_cmp,preenv) = List.fold_map(aux,args,preenv)
+         cmp(_postenv,a,b)=
+           f = match nargs with
+             | 0 -> @unsafe_cast(comparator)
+             | _ ->
+               clos_arg = OpaValue.Closure.Args.create(nargs)
+               do List.iteri(
+                 (i, x -> OpaValue.Closure.Args.set(clos_arg, i, x)
+               ), args)
+               OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
            f(a,b)
          (cmp,preenv)
        #<Else>
