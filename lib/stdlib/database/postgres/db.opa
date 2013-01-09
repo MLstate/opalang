@@ -40,10 +40,20 @@ type DbPostgres.ref_path('a) = Db.ref_path('a, DbPostgres.engine)
  *
  * @category database
  * @author Quentin Bourgerie
- * @destination experimental
+ * @stability experimental
+ * @destination internal
  */
 DbPostgres = {{
 
+  /**
+   * Opening a database.
+   */
+  open(name):DbPostgres.t =
+    // Outcome.get : Temporary (Postgres interface MUST be updated)
+    @spawn(Outcome.get(Postgres.make(name, none, name)))
+
 }}
+
+@opacapi DbPostgres_open = DbPostgres.open
 
 

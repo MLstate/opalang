@@ -174,6 +174,12 @@ let make_db(x) =
 module DbMongo = (val make_db "DbMongo" : DB)
 module DbDropbox = (val make_db "DbDropbox" : DB)
 
+module DbPostgres =
+struct
+  let (!!) s = !! ("DbPostgres_" ^ s)
+  let open_ = !! "open"
+end
+
 module DbMongoSet =
 struct
   let (!!) s = !! ("DbMongoSet_" ^ s)
