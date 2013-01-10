@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012, 2013 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -135,6 +135,7 @@ module Generator = struct
 
   let strlst_to_field fld =
     BaseFormat.sprintf "%a" (BaseFormat.pp_list "." Format.pp_print_string) fld
+
 
   let expr_of_strexprpath_rev ?any gamma annotmap path =
     let path = match path with [] -> [`string "value"] | _ -> path in

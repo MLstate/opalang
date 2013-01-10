@@ -16,7 +16,7 @@ MAKE ?= $_
 OCAMLBUILD_OPT ?= -j 6
 
 ifndef NO_REBUILD_OPA_PACKAGES
-OPAOPT += --rebuild
+OPAOPT +=
 endif
 
 ifdef DEBUG_OCAMLBUILD

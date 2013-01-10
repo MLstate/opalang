@@ -55,6 +55,8 @@ module Schema = struct
 
   type query = (QmlAst.expr, QmlAst.expr) DbAst.query * QmlAst.expr DbAst.query_options
 
+  type sqlquery = QmlAst.expr DbAst.sqlquery * QmlAst.expr DbAst.query_options
+
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty
     | DbSet of QmlAst.ty
@@ -64,6 +66,7 @@ module Schema = struct
     | Plain
     | Partial of bool (* Inside sum*) * string list * string list
     | SetAccess of set_kind * string list * (bool (*is_unique*) * query) option * QmlAst.path option
+    | SqlAccess of sqlquery
 
   type node = {
     ty : QmlAst.ty;
@@ -101,6 +104,10 @@ module Schema = struct
           pp_set_kind sk
           pp_query query
           (Option.pp (DbAst.pp_path_elts QmlPrint.pp#expr)) epath
+    | SqlAccess (sqlquery, option) ->
+        Format.fprintf fmt "@[<hov>sql access : [%a%a]@]"
+          (QmlAst.Db.pp_sqlquery QmlPrint.pp#expr) sqlquery
+          (QmlAst.Db.pp_options QmlPrint.pp#expr) option
 
   let pp_node fmt node =
     Format.fprintf fmt "{@[<hov>type : %a; @. kind : %a; ...@]}"
@@ -196,6 +203,7 @@ module Schema = struct
       | (DbAst.FldKey _s0, _) -> false
       | (DbAst.ExprKey _, C.Multi_edge _) -> true
       | (DbAst.Query _, C.Multi_edge _) -> true
+      | (DbAst.SQLQuery _, C.Multi_edge _) -> true
       | (DbAst.NewKey, _) -> true
       | _ -> assert false (* TODO *)
     in
@@ -249,7 +257,6 @@ module Schema = struct
     let database = get_database schema dbname in
     let llschema = declaration.Sch.schema in
     let find_next_step (node, kind, path) fragment =
-      let next = next llschema node fragment in
       let get_setkind schema node =
         match Graph.succ_e schema node with
         | [edge] ->
@@ -274,12 +281,14 @@ module Schema = struct
       in
       match fragment with
       | DbAst.ExprKey expr ->
+          let next = next llschema node fragment in
           let setkind = get_setkind llschema node in
           let options = {DbAst.limit = None; skip = None; sort = None} in
           let kind = SetAccess (setkind, path, Some (true, (DbAst.QEq expr, options)), None) in
           (next, kind, path)
 
       | DbAst.FldKey key ->
+          let next = next llschema node fragment in
           let kind =
             let nlabel = Graph.V.label next in
             match nlabel.C.nlabel with
@@ -291,10 +300,12 @@ module Schema = struct
                 | Partial (sum, path, part), _ ->
                     Partial (sum && is_sum node, path, key::part)
                 | Plain, _ -> Partial (is_sum node, path, key::[])
+                | SqlAccess _, _
                 | SetAccess _, _ -> raise (Base.NotImplemented "Selection inside a multi node")
           in let path = key::path
           in (next, kind, path)
       | DbAst.Query (query, options) ->
+          let next = next llschema node fragment in
           begin match kind with
           | SetAccess (_k, path, None, _) ->
               let uniq = Sch.is_uniq llschema node query in
@@ -306,14 +317,27 @@ module Schema = struct
           | _ ->
               raise (Base.NotImplemented "Query in a non multi node")
           end
+      | DbAst.SQLQuery (query, options) ->
+          begin match kind with
+          | SqlAccess _
+          | SetAccess (_, _, Some _, _) ->
+              raise (Base.NotImplemented "Selection inside a multi node")
+          | Partial _ ->
+              raise (Base.NotImplemented "SQL query on a partial node")
+          | SetAccess (_, _, None, _) | Compose _ | Plain ->
+              (node, SqlAccess (query, options), path)
+          end
       | DbAst.NewKey -> raise (Base.NotImplemented "New key")
-      | DbAst.SQLQuery _ -> raise (Base.NotImplemented "SQLQuery")
     in
     let node, kind =
       let rec find path ((node, kind, _) as x) =
         match (path, kind) with
         | [], _ -> node, kind
-        | _::_, SetAccess (k, p, (Some _ as q), None) -> node, SetAccess(k, p, q, Some path)
+        | _::_, SetAccess (k, p, (Some _ as q), None) ->
+            node, SetAccess(k, p, q, Some path)
+        | _::_, SqlAccess q ->
+            assert (path = []);
+            node, SqlAccess q
         | t::q, _ -> find q (find_next_step x t)
       in find path (get_root llschema, Compose [], [])
     in
@@ -338,6 +362,7 @@ module Schema = struct
           Partial (sum, List.rev path, List.rev part)
       | SetAccess (k, path, query, epath) ->
           SetAccess (k, List.rev path, query, epath)
+      | SqlAccess _ as sa -> sa
       | Plain -> Plain
     in
     let default =
