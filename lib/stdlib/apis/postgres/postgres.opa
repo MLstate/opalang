@@ -266,7 +266,7 @@ Postgres = {{
    */
   connect(name:string, secure:option(SSL.secure_type), dbase:string) =
     preamble = if Option.is_some(secure) then {some=request_ssl} else none
-    match Pg.connect(name,secure,preamble) with
+    match Pg.connect(name,secure,preamble,true) with
     | {success=conn} ->
       {success={ ~name ~secure ~conn ~dbase ssl_accepted=false
                  major_version=default_major_version minor_version=default_minor_version
@@ -285,11 +285,11 @@ Postgres = {{
    * @returns An outcome of the updated connection or an [Apigen.failure] value.
    */
   close(conn:Postgres.connection, terminate:bool) =
-    _ =
+    sconn =
       if terminate
       then Pg.terminate({success=conn.conn})
-      else {success={}}
-    match Pg.close({success=conn.conn}) with
+      else {success=conn.conn}
+    match Pg.close(sconn) with
     | {success=c} -> {success={conn with conn=c processid=-1 secret_key=-1}}
     | {~failure} -> {~failure}
 
@@ -396,36 +396,36 @@ Postgres = {{
         | {some=failure} -> {failure=(conn,failure)}
         | {none} -> {success=conn}}
     match Pg.reply({success=conn.conn}) with
-    | {success={Authentication={Ok}}} -> loop(conn,k)
-    | {success={Authentication={CleartextPassword}}} ->
-       match (Pg.password({success=conn.conn},conn.conn.conf.password)) with
-       | {success={}} -> loop(conn,k)
+    | {success=(c,{Authentication={Ok}})} -> loop({conn with conn=c},k)
+    | {success=(c,{Authentication={CleartextPassword}})} ->
+       match (Pg.password({success=c},c.conf.password)) with
+       | {success=c} -> loop({conn with conn=c},k)
        | ~{failure} -> loop({conn with error={some={api_failure=failure}}},k)
        end
-    | {success={Authentication={MD5Password=salt}}} ->
-       inner = Crypto.Hash.md5(conn.conn.conf.password^conn.conn.conf.user)
+    | {success=(c,{Authentication={MD5Password=salt}})} ->
+       inner = Crypto.Hash.md5(c.conf.password^c.conf.user)
        outer = Crypto.Hash.md5(inner^(%%bslBinary.to_encoding%%(salt,"binary")))
        md5password = "md5"^outer
-       match (Pg.password({success=conn.conn},md5password)) with
-       | {success={}} -> loop(conn,k)
+       match (Pg.password({success=c},md5password)) with
+       | {success=c} -> loop({conn with conn=c},k)
        | ~{failure} -> loop({conn with error={some={api_failure=failure}}},k)
        end
-    | {success={ParameterStatus=(n,v)}} -> loop({conn with params=StringMap.add(n,v,conn.params)},k)
-    | {success={BackendKeyData=(processid,secret_key)}} -> loop({conn with ~processid ~secret_key},k)
-    | {success={~CommandComplete}} -> loop({conn with completed=[CommandComplete|conn.completed]},k)
-    | {success={PortalSuspended}} -> final(conn, get_result({conn with suspended=true},""),k)
-    | {success={EmptyQueryResponse}} -> loop({conn with empty=true},k)
-    | {success={~RowDescription}} -> rowdescs = List.map(to_rowdesc,RowDescription) again({conn with ~rowdescs},{~rowdescs},k)
-    | {success={~DataRow}} -> again({conn with rows=conn.rows+1},~{DataRow},k)
-    | {success={~ParameterDescription}} -> loop({conn with paramdescs=ParameterDescription},k)
-    | {success={NoData}} -> loop({conn with paramdescs=[]},k)
-    | {success={ParseComplete}} -> loop(conn,k)
-    | {success={BindComplete}} -> loop(conn,k)
-    | {success={CloseComplete}} -> loop(conn,k)
-    | {success={~NoticeResponse}} -> again(conn,~{NoticeResponse},k)
-    | {success={~ErrorResponse}} -> again({conn with error={some={postgres={error=ErrorResponse}}}}, ~{ErrorResponse},k)
-    | {success={ReadyForQuery=status}} -> final(conn, get_result(conn,status),k)
-    | {success=reply} -> error(conn, {bad_reply=reply},k)
+    | {success=(c,{ParameterStatus=(n,v)})} -> loop({conn with conn=c; params=StringMap.add(n,v,conn.params)},k)
+    | {success=(c,{BackendKeyData=(processid,secret_key)})} -> loop({conn with conn=c; ~processid ~secret_key},k)
+    | {success=(c,{~CommandComplete})} -> loop({conn with conn=c; completed=[CommandComplete|conn.completed]},k)
+    | {success=(c,{PortalSuspended})} -> conn = {conn with conn=c}; final(conn, get_result({conn with suspended=true},""),k)
+    | {success=(c,{EmptyQueryResponse})} -> loop({conn with conn=c; empty=true},k)
+    | {success=(c,{~RowDescription})} -> rowdescs = List.map(to_rowdesc,RowDescription) again({conn with conn=c; ~rowdescs},{~rowdescs},k)
+    | {success=(c,{~DataRow})} -> again({conn with conn=c; rows=conn.rows+1},~{DataRow},k)
+    | {success=(c,{~ParameterDescription})} -> loop({conn with conn=c; paramdescs=ParameterDescription},k)
+    | {success=(c,{NoData})} -> loop({conn with conn=c; paramdescs=[]},k)
+    | {success=(c,{ParseComplete})} -> loop({conn with conn=c},k)
+    | {success=(c,{BindComplete})} -> loop({conn with conn=c},k)
+    | {success=(c,{CloseComplete})} -> loop({conn with conn=c},k)
+    | {success=(c,{~NoticeResponse})} -> again({conn with conn=c},~{NoticeResponse},k)
+    | {success=(c,{~ErrorResponse})} -> again({conn with conn=c; error={some={postgres={error=ErrorResponse}}}}, ~{ErrorResponse},k)
+    | {success=(c,{ReadyForQuery=status})} -> conn = {conn with conn=c}; final(conn, get_result(conn,status),k)
+    | {success=(c,reply)} -> error({conn with conn=c}, {bad_reply=reply},k)
     | ~{failure} -> error(conn, {api_failure=failure},k)
     end
 
@@ -484,7 +484,7 @@ Postgres = {{
     conn = init(conn, "authentication")
     version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
     match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
-    | {success={}} -> loop(conn,k)
+    | {success=c} -> loop({conn with conn=c},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
 
   /** Issue simple query command and read back responses.
@@ -504,7 +504,7 @@ Postgres = {{
   query(conn:Postgres.connection, query, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, query)
     match Pg.query({success=conn.conn},query) with
-    | {success={}} -> loop(conn,k)
+    | {success=c} -> loop({conn with conn=c},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -551,7 +551,7 @@ Postgres = {{
   parse(conn:Postgres.connection, name, query, oids, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Parse({query},{name})")
     match Pg.parse({success=conn.conn},(name,query,oids)) with
-    | {success={}} -> final(conn,{final={success=conn}},k)
+    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -569,7 +569,7 @@ Postgres = {{
   bind(conn:Postgres.connection, portal, name, codes, params, result_codes, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Bind({name},{portal})")
     match Pg.bind({success=conn.conn},(portal,name,codes,params,result_codes)) with
-    | {success={}} -> final(conn,{final={success=conn}},k)
+    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -584,7 +584,7 @@ Postgres = {{
   execute(conn:Postgres.connection, portal, rows_to_return, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Execute({portal})")
     match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
-    | {success={}} -> final(conn,{final={success=conn}},k)
+    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -602,7 +602,7 @@ Postgres = {{
   describe(conn:Postgres.connection, sp:Postgres.sp, name, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Describe({string_of_sp(sp)},{name})")
     match Pg.describe({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success={}} -> final(conn,{final={success=conn}},k)
+    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -622,7 +622,7 @@ Postgres = {{
   closePS(conn:Postgres.connection, sp:Postgres.sp, name, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Close({string_of_sp(sp)},{name})")
     match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success={}} -> final(conn,{final={success=conn}},k)
+    | {success=c} -> conn = {conn with conn=c} final(conn,{final={success=conn}},k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -639,7 +639,7 @@ Postgres = {{
   sync(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Sync")
     match Pg.sync({success=conn.conn}) with
-    | {success={}} -> loop(conn,k)
+    | {success=c} -> conn = {conn with conn=c} loop(conn,k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -654,7 +654,7 @@ Postgres = {{
   flush(conn:Postgres.connection, k:Postgres.listener) : Postgres.connection =
     conn = init(conn, "Flush")
     match Pg.flush({success=conn.conn}) with
-    | {success={}} -> loop(conn,k)
+    | {success=c} -> conn = {conn with conn=c} loop(conn,k)
     | ~{failure} -> error(conn,{api_failure=failure},k)
     end
 
@@ -679,9 +679,9 @@ Postgres = {{
       match connect(conn.name, conn.secure, conn.dbase) with
       | {success=conn2} ->
          match Pg.cancel({success=conn2.conn},(conn.processid,conn.secret_key)) with
-         | {success={}} ->
+         | {success=c} ->
             _ = close(conn2,false)
-            {success=conn}
+            {success={conn with conn=c}}
          | ~{failure} -> {failure=(conn,{api_failure=failure})}
          end
       | ~{failure} -> {failure=(conn,{api_failure=failure})}

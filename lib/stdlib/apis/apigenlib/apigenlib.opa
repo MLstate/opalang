@@ -492,6 +492,7 @@ type ApigenLib.read_packet = Socket.connection, int, Mailbox.t -> outcome((Mailb
 type ApigenLib.connection = {
   string name,
   ApigenLib.conf conf,
+  bool retain, // total mass
   option(Socket.t) conn,
   SocketPool.t pool,
   ApigenLib.read_packet read_packet
@@ -499,18 +500,18 @@ type ApigenLib.connection = {
 
 private
 type ApigenLib.sr =
-     {(ApigenLib.connection) recv} // Expect reply
-  or {(ApigenLib.connection,int) recvraw} // Expect raw reply
-  or {(ApigenLib.connection,binary) send} // Send and forget
-  or {(ApigenLib.connection,binary) sendrecv} // Send and expect reply
+     {recv} // Expect reply
+  or {int recvraw} // Expect raw reply
+  or {binary send} // Send and forget
+  or {binary sendrecv} // Send and expect reply
   or {stop} // Stop the cell
 
 private
 type ApigenLib.srr =
-     {Apigen.outcome(void) sendresult}
-  or {Apigen.outcome(binary) sndrcvresult}
-  or {Apigen.outcome(binary) rcvresult}
-  or {Apigen.outcome(binary) rcvrawresult}
+     {ApigenLib.connection sendresult}
+  or {(ApigenLib.connection,binary) sndrcvresult}
+  or {(ApigenLib.connection,binary) rcvresult}
+  or {(ApigenLib.connection,binary) rcvrawresult}
   or {stopresult}
   or {Apigen.failure failure}
 
@@ -536,11 +537,12 @@ module ApilibConnection(Socket.host default_host) {
    * @param conf The configuration of the connection to open.
    * @param secure Optional SSL secure_type value.
    * @param preamble Optional function called on socket before SSL handshake.
+   * @param retain Retain allocated sockets between calls.
    * @return A connection object (not connected).
    */
-  function ApigenLib.connection init(family_name, name, secure, preamble) {
+  function ApigenLib.connection init(family_name, name, secure, preamble, retain) {
     conf = Conf.get_default(family_name, name)
-    ~{ name, conf, conn:{none},
+    ~{ name, conf, retain, conn:{none},
        pool:SocketPool.make_secure(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose},secure,preamble),
        read_packet:read_packet_prefixed(default_length)
      }
@@ -557,13 +559,32 @@ module ApilibConnection(Socket.host default_host) {
     {conn with ~read_packet}
   }
 
+  function Apigen.outcome(ApigenLib.connection) allocate(ApigenLib.connection conn) {
+    match (conn.conn) {
+    case {some:_}: {success:conn};
+    case {none}:
+      match (SocketPool.get(conn.pool)) {
+      case ~{failure}: {failure:{socket:failure}};
+      case {success:c}: {success:{conn with conn:{some:c}}};
+      }
+    }
+  }
+
+  function ApigenLib.connection release(ApigenLib.connection conn) {
+    match (conn.conn) {
+    case {some:c}: SocketPool.release(conn.pool,c); {conn with conn:none};
+    case {none}: conn;
+    }
+  }
+
   /**
-   * Connect to the server (actualy makes a physical connection).
+   * Connect to the server (actually makes a physical connection).
    * @param conn The connection object.
    * @param host The socket host definition (host, port).
    * @returns Updated connection object with the physical connection installed.
    */
   function Apigen.outcome(ApigenLib.connection) connect(ApigenLib.connection conn, Socket.host host) {
+    conn = release(conn);
     Log.info(conn, "connect","addr={host.f1} port={host.f2}")
     SocketPool.reconnect(conn.pool,(host.f1,host.f2))
     {success:conn}
@@ -575,10 +596,18 @@ module ApilibConnection(Socket.host default_host) {
    * @return
    */
   function Apigen.outcome(ApigenLib.connection) check(ApigenLib.connection conn) {
+    allocated = Option.is_some(conn.conn)
+    conn = release(conn)
     match (SocketPool.get(conn.pool)) {
     case ~{failure}: {failure:{socket:failure}}
     case {success:c}:
-      SocketPool.release(conn.pool, c)
+      conn =
+        if (allocated)
+          {conn with conn:{some:c}}
+        else {
+          SocketPool.release(conn.pool, c)
+          conn
+        }
       {success:conn}
     }
   }
@@ -587,18 +616,28 @@ module ApilibConnection(Socket.host default_host) {
    * Close the physical connection.
    */
   function ApigenLib.connection close(ApigenLib.connection conn) {
+    conn = release(conn)
     Log.info(conn, "close","{SocketPool.gethost(conn.pool)}")
     SocketPool.stop(conn.pool)
     conn
   }
 
-  private function Apigen.outcome(void) send_no_reply_(ApigenLib.connection c, binary msg, bool _reply_expected) {
+  private function set_mbox(c, mbox) {
+    c =
+      match ((mbox,c.conn)) {
+      case ({some:mbox},{some:conn}): {c with conn:{some:{conn with ~mbox}}};
+      default: c;
+      }
+    if (c.retain) c else release(c)
+  }
+
+  private function ApigenLib.srr send_no_reply(ApigenLib.connection c, binary msg) {
     match (c.conn) {
     case {some:conn}:
       len = Binary.length(msg)
       Log.debug(c, "send", "\n{bindump(msg)}")
       match (Socket.binary_write_len_with_err_cont(conn.conn,c.conf.timeout,msg,len)) {
-      case {success:cnt}: if (cnt==len) {success:void} else {failure:{socket:"Write failure"}}
+      case {success:cnt}: if (cnt==len) {sendresult:set_mbox(c,none)} else {failure:{socket:"Write failure"}}
       case {~failure}: {failure:{socket:failure}};
       }
     case {none}:
@@ -607,111 +646,116 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-  private function Apigen.outcome(void) send_no_reply(ApigenLib.connection c, binary msg) { send_no_reply_(c,msg,false) }
-
-  private function (option(Mailbox.t),Apigen.outcome(binary)) send_with_reply(ApigenLib.connection c, binary msg) {
+  private function ApigenLib.srr send_with_reply(ApigenLib.connection c, binary msg) {
     match (c.conn) {
     case {some:conn}:
-       match (send_no_reply_(c,msg,true)) {
-       case {success:_}:
+       match (send_no_reply(c,msg)) {
+       case {sendresult:c}:
          match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox)) {
          case {success:(mailbox,reply)}:
            Log.debug(c, "receive", "\n{bindump(reply)}")
-           ({some:mailbox},{success:reply})
+           {sndrcvresult:(set_mbox(c,{some:mailbox}),reply)}
          case {~failure}:
            Log.info(c, "receive","failure={failure}")
            _ = Mailbox.reset(conn.mbox)
-           ({none},{failure:{socket:failure}})
+           {failure:{socket:failure}}
          }
        case {~failure}:
          Log.info(c, "receive","failure={failure}")
          _ = Mailbox.reset(conn.mbox)
-         ({none},{~failure});
+         {~failure};
+       default: @fail("bad sendresult");
        }
     case {none}:
       Log.error(c, "receive","No socket")
-      ({none},{failure:{socket:"No socket"}})
+      {failure:{socket:"No socket"}}
     }
   }
 
-  private function (option(Mailbox.t),Apigen.outcome(binary)) get_reply(ApigenLib.connection c) {
+  private function ApigenLib.srr get_reply(ApigenLib.connection c) {
     match (c.conn) {
     case {some:conn}:
     match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox)) {
     case {success:(mailbox,reply)}:
       Log.debug(c, "receive", "\n{bindump(reply)}")
-      ({some:mailbox},{success:reply})
+      {rcvresult:(set_mbox(c,{some:mailbox}),reply)}
     case {~failure}:
       Log.info(c, "receive","failure={failure}")
       _ = Mailbox.reset(conn.mbox)
-      ({none},{failure:{socket:failure}})
+      {failure:{socket:failure}}
     }
     case {none}:
       Log.error(c, "receive","No socket")
-      ({none},{failure:{socket:"No socket"}})
+      {failure:{socket:"No socket"}}
     }
   }
 
-  private function (option(Mailbox.t),Apigen.outcome(binary)) get_raw(ApigenLib.connection c, int no_bytes) {
+  private function ApigenLib.srr get_raw(ApigenLib.connection c, int no_bytes) {
     match (c.conn) {
     case {some:conn}:
     match (read_raw(conn.conn, c.conf.timeout, conn.mbox, no_bytes)) {
     case {success:(mailbox,reply)}:
       Log.debug(c, "receive", "\n{bindump(reply)}")
-      ({some:mailbox},{success:reply})
+      {rcvrawresult:(set_mbox(c,{some:mailbox}),reply)}
     case {~failure}:
       Log.info(c, "receive","failure={failure}")
       _ = Mailbox.reset(conn.mbox)
-      ({none},{failure:{socket:failure}})
+      {failure:{socket:failure}}
     }
     case {none}:
       Log.error(c, "receive","No socket")
-      ({none},{failure:{socket:"No socket"}})
+      {failure:{socket:"No socket"}}
     }
   }
 
+/*
   private function sr_snr(ApigenLib.connection c, binary msg) {
     sr = send_no_reply(c,msg)
-    ({none},{sendresult:sr})
+    ({none},{sendresult:(set_mbox(c,none),sr)})
   }
 
   private function sr_swr(ApigenLib.connection c, binary msg) {
     (mbox,swr) = send_with_reply(c,msg)
-    (mbox,{sndrcvresult:swr})
+    (mbox,{sndrcvresult:(set_mbox(c,mbox),swr)})
   }
 
   private function sr_gr(ApigenLib.connection c) {
     (mbox,gr) = get_reply(c)
-    (mbox,{rcvresult:gr})
+    (mbox,{rcvresult:(set_mbox(c,mbox),gr)})
   }
 
   private function sr_graw(ApigenLib.connection c, int no_bytes) {
     (mbox,gr) = get_raw(c, no_bytes)
-    (mbox,{rcvrawresult:gr})
+    (mbox,{rcvrawresult:(set_mbox(c,mbox),gr)})
   }
+*/
 
   private function ApigenLib.srr srpool(ApigenLib.connection c, ApigenLib.sr msg) {
-    match (SocketPool.get(c.pool)) {
-    case {success:connection}:
-      conn = {some:connection}
-      (mbox,result) =
+    //match (SocketPool.get(c.pool)) {
+    match (allocate(c)) {
+    //case {success:connection}:
+    case {success:c}:
+      //conn = {some:connection}
+      result =
         match (msg) {
-        case {recv:c}: sr_gr({c with ~conn})
-        case {recvraw:(c,no_bytes)}: sr_graw({c with ~conn},no_bytes)
-        case {send:(c,msg)}: sr_snr({c with ~conn},msg)
-        case {sendrecv:(c,msg)}: sr_swr({c with ~conn},msg)
+        case {recv}: get_reply(c)
+        case {recvraw:no_bytes}: get_raw(c,no_bytes)
+        case {send:msg}: send_no_reply(c,msg)
+        case {sendrecv:msg}: send_with_reply(c,msg)
         case {stop}: Log.debug(c, "srpool","stop"); @fail
         }
-      connection =
-        match (mbox) {
-        case {some:mbox}: {connection with ~mbox}
-        case {none}: connection
-        }
-      SocketPool.release(c.pool,connection)
+      //c =
+      //  match ((mbox,c.conn)) {
+      //  case ({some:mbox},{some:conn}): {c with conn:{some:{conn with ~mbox}}};
+      //  default: c;
+      //  }
+      //SocketPool.release(c.pool,connection)
+      //c = if (c.retain) c else release(c)
       result
     case {~failure}:
       Log.error(c, "srpool","Can't get pool {failure}")
-      {failure:{socket:failure}}
+      {~failure}
+      //{failure:{socket:failure}}
     }
   }
 
@@ -725,11 +769,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param msg The binary message.
    * @returns Success void or a failure code.
    */
-  function Apigen.outcome(void) snd(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
+  function Apigen.outcome(ApigenLib.connection) snd(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{send:((c,msg))})) {
-      case {~sendresult}: sendresult;
+      match (srpool(c,{send:msg})) {
+      case {~sendresult}: {success:sendresult};
       case {~failure}: {~failure};
       default: @fail
       }
@@ -747,11 +791,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param msg The binary message.
    * @returns Success of a reply message or a failure code.
    */
-  function Apigen.outcome(binary) sndrcv(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
+  function Apigen.outcome((ApigenLib.connection,binary)) sndrcv(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{sendrecv:((c,msg))})) {
-      case {~sndrcvresult}: sndrcvresult;
+      match (srpool(c,{sendrecv:msg})) {
+      case {~sndrcvresult}: {success:sndrcvresult};
       case {~failure}: {~failure};
       default: @fail;
       }
@@ -768,11 +812,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param conn The connection object outcome.
    * @returns Success of a reply message or a failure code.
    */
-  function Apigen.outcome(binary) rcv(Apigen.outcome(ApigenLib.connection) conn) {
+  function Apigen.outcome((ApigenLib.connection,binary)) rcv(Apigen.outcome(ApigenLib.connection) conn) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{recv:c})) {
-      case {~rcvresult}: rcvresult;
+      match (srpool(c,{recv})) {
+      case {~rcvresult}: {success:rcvresult};
       case {~failure}: {~failure};
       default: @fail;
       }
@@ -790,11 +834,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param no_bytes The number of bytes to read.
    * @returns Success of a reply message or a failure code.
    */
-  function Apigen.outcome(binary) rcvraw(Apigen.outcome(ApigenLib.connection) conn, int no_bytes) {
+  function Apigen.outcome((ApigenLib.connection,binary)) rcvraw(Apigen.outcome(ApigenLib.connection) conn, int no_bytes) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{recvraw:(c,no_bytes)})) {
-      case {~rcvrawresult}: rcvrawresult;
+      match (srpool(c,{recvraw:no_bytes})) {
+      case {~rcvrawresult}: {success:rcvrawresult};
       case {~failure}: {~failure};
       default: @fail;
       }
