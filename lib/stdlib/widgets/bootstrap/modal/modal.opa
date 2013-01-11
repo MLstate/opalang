@@ -65,7 +65,7 @@ Modal = {{
     </div>
 
   init(dom:dom, options:Modal.options) =
-    (%%modal.init%%)(Dom.to_string(dom), options.backdrop, options.static, options.keyboard, options.show)
+    (%%modal.init%%)(Dom.to_string(dom), options)
 
   toggle(dom:dom) =
     (%%modal.toggle%%)(Dom.to_string(dom))
