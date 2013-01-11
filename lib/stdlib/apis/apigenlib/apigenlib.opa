@@ -559,6 +559,10 @@ module ApilibConnection(Socket.host default_host) {
     {conn with ~read_packet}
   }
 
+  /**
+   * Ensure that a socket is allocated to the connection.
+   * @param conn The connection object.
+   */
   function Apigen.outcome(ApigenLib.connection) allocate(ApigenLib.connection conn) {
     match (conn.conn) {
     case {some:_}: {success:conn};
@@ -570,6 +574,10 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
+  /**
+   * Release an allocated socket.
+   * @param conn The connection object.
+   */
   function ApigenLib.connection release(ApigenLib.connection conn) {
     match (conn.conn) {
     case {some:c}: SocketPool.release(conn.pool,c); {conn with conn:none};
@@ -591,9 +599,10 @@ module ApilibConnection(Socket.host default_host) {
   }
 
   /**
-   * Check if the connection is ready
+   * Check if the connection is ready.
+   * Note that this will break the connection if it is already allocated.
    * @param m The connection to check
-   * @return
+   * @returns connection object with the same allocated state as on call.
    */
   function Apigen.outcome(ApigenLib.connection) check(ApigenLib.connection conn) {
     allocated = Option.is_some(conn.conn)
@@ -623,6 +632,7 @@ module ApilibConnection(Socket.host default_host) {
   }
 
   private function set_mbox(c, mbox) {
+    // We MUST update the mailbox in the connection before release.
     c =
       match ((mbox,c.conn)) {
       case ({some:mbox},{some:conn}): {c with conn:{some:{conn with ~mbox}}};
@@ -708,54 +718,19 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-/*
-  private function sr_snr(ApigenLib.connection c, binary msg) {
-    sr = send_no_reply(c,msg)
-    ({none},{sendresult:(set_mbox(c,none),sr)})
-  }
-
-  private function sr_swr(ApigenLib.connection c, binary msg) {
-    (mbox,swr) = send_with_reply(c,msg)
-    (mbox,{sndrcvresult:(set_mbox(c,mbox),swr)})
-  }
-
-  private function sr_gr(ApigenLib.connection c) {
-    (mbox,gr) = get_reply(c)
-    (mbox,{rcvresult:(set_mbox(c,mbox),gr)})
-  }
-
-  private function sr_graw(ApigenLib.connection c, int no_bytes) {
-    (mbox,gr) = get_raw(c, no_bytes)
-    (mbox,{rcvrawresult:(set_mbox(c,mbox),gr)})
-  }
-*/
-
   private function ApigenLib.srr srpool(ApigenLib.connection c, ApigenLib.sr msg) {
-    //match (SocketPool.get(c.pool)) {
     match (allocate(c)) {
-    //case {success:connection}:
     case {success:c}:
-      //conn = {some:connection}
-      result =
-        match (msg) {
-        case {recv}: get_reply(c)
-        case {recvraw:no_bytes}: get_raw(c,no_bytes)
-        case {send:msg}: send_no_reply(c,msg)
-        case {sendrecv:msg}: send_with_reply(c,msg)
-        case {stop}: Log.debug(c, "srpool","stop"); @fail
-        }
-      //c =
-      //  match ((mbox,c.conn)) {
-      //  case ({some:mbox},{some:conn}): {c with conn:{some:{conn with ~mbox}}};
-      //  default: c;
-      //  }
-      //SocketPool.release(c.pool,connection)
-      //c = if (c.retain) c else release(c)
-      result
+      match (msg) {
+      case {recv}: get_reply(c)
+      case {recvraw:no_bytes}: get_raw(c,no_bytes)
+      case {send:msg}: send_no_reply(c,msg)
+      case {sendrecv:msg}: send_with_reply(c,msg)
+      case {stop}: Log.debug(c, "srpool","stop"); @fail
+      }
     case {~failure}:
       Log.error(c, "srpool","Can't get pool {failure}")
       {~failure}
-      //{failure:{socket:failure}}
     }
   }
 
