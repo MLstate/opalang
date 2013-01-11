@@ -1,3 +1,20 @@
+Updated APIs:
+
+  * Crypto:
+    - added SHA-512 functions
+
+  * WBootstrap
+    - extended table body lines type
+    - added data-toggle and data-target functions
+
+  * Plugins
+    - Bootsrap.Modal: removed aria-labelledby and tabindex
+
+Bug fixes:
+
+  * Plugins:
+    - Some bootstrap plugins are not cleaned because of a reflow problem
+
 2012.12.10, Version 1.1.0 (stable), v4051
 
 New features:
