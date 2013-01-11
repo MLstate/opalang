@@ -178,6 +178,7 @@ module DbPostgres =
 struct
   let (!!) s = !! ("DbPostgres_" ^ s)
   let open_ = !! "open"
+  let build_dbset = !! "build_dbset"
 end
 
 module DbMongoSet =

@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -1148,6 +1148,10 @@ Pack = {{
      * @return the size in bytes of the resulting packing
      **/
     packlen(data:Pack.data) : int = packlen_with(data, default_options)
+
+    packulen(u:Pack.u, options:Pack.options) : int =
+      (_, size, bnd) = packitemsize(options.size, u)
+      size+bound(0,bnd)
 
     packlen_with(data:Pack.data, options:Pack.options) : int =
       (List.fold((u, (s, len) ->

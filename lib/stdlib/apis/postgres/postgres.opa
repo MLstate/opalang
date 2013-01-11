@@ -226,6 +226,8 @@ type Postgres.cursor_direction = {forward} / {backward}
 /** Cursor amount indicator. */
 type Postgres.cursor_amount = {num:int} / {all} / {next} / {prior}
 
+type Postgres.data = Postgres.opatype
+
 /**
  * {1 Interface}
  */
@@ -252,6 +254,60 @@ Postgres = {{
 
   /** The ApigenLib connection module, contains send and receive functions. */
   Conn = Pg.Conn
+
+
+  pack(data: Postgres.data): Pack.data =
+    match data with
+    | {Null}      -> [{Int = -1}]
+    | ~{Int}      -> [{Int = 4}, ~{Int}]
+    | ~{Int16}    -> [{Int = 2}, ~{Int size={S}}]
+    | ~{Int64}    -> [{Int = 8}, ~{Int64}]
+    | ~{Bool}     -> [{Int = 1}, ~{Bool}]
+    | ~{String}   -> [{Int = String.byte_length(String)+1}, {Cstring = String}]
+    | ~{Real}     -> [{Int = 4}, {Float32 = Real}]
+    | ~{Float}    -> [{Int = 8}, ~{Float}]
+    | ~{Bytea}    -> [{Int = Binary.length(Bytea)}, {Binary = Bytea}]
+    | {Date=d}    -> [{Int = 4}, ~{Int32=d}]
+    | {Time=d}    -> [{Int = 8}, ~{Int=d}]
+    | {Timestamp=d} -> [{Int = 8}, ~{Int=d}]
+    | {Duration=_}
+    | {Timestamptz=_}
+    | {Money=_}
+    | {Numeric=_}
+    | {IntArray1=_}
+    | {IntArray2=_}
+    | {IntArray3=_}
+    | {Int16Array1=_}
+    | {Int16Array2=_}
+    | {Int16Array3=_}
+    | {Int64Array1=_}
+    | {Int64Array2=_}
+    | {Int64Array3=_}
+    | {RealArray1=_}
+    | {RealArray2=_}
+    | {RealArray3=_}
+    | {FloatArray1=_}
+    | {FloatArray2=_}
+    | {FloatArray3=_}
+    | {StringArray1=_}
+    | {StringArray2=_}
+    | {StringArray=_}
+    | {TypeId=_}
+    | {BadData=_}
+    | {BadText=_}
+    | {BadCode=_}
+    | {BadDate=_}
+    | {BadEnum=_} ->
+      do Log.error("Postgres", "NYI: {data}")
+      @fail
+
+  /**
+   * Serialize a postgres value to it's binary representation.
+   * @param data The value to serialize
+   / @return The serialized reprensentation of [data]
+   */
+  serialize(data:Postgres.data): binary =
+    Pack.Encode.pack(data)
 
   /**
    * Returns the name of the database
@@ -408,7 +464,7 @@ Postgres = {{
         | {some=failure} -> {failure=(conn,failure)}
         | {none} -> {success=conn}}
     match Pg.reply({success=conn.conn}) with
-    | {success=(c,{Authentication={Ok}})} -> 
+    | {success=(c,{Authentication={Ok}})} ->
       loop({conn with conn=c}, acc, k)
     | {success=(c,{Authentication={CleartextPassword}})} ->
        match (Pg.password({success=c},c.conf.password)) with
@@ -423,45 +479,45 @@ Postgres = {{
        | {success=c} -> loop({conn with conn=c}, acc, f)
        | ~{failure} -> loop({conn with error={some={api_failure=failure}}}, acc, f)
        end
-    | {success=(c,{ParameterStatus=(n,v)})} -> 
+    | {success=(c,{ParameterStatus=(n,v)})} ->
       loop({conn with conn=c; params=StringMap.add(n,v,conn.params)}, acc, f)
-    | {success=(c,{BackendKeyData=(processid,secret_key)})} -> 
+    | {success=(c,{BackendKeyData=(processid,secret_key)})} ->
       loop({conn with conn=c; ~processid ~secret_key}, acc, f)
-    | {success=(c,{~CommandComplete})} -> 
+    | {success=(c,{~CommandComplete})} ->
       loop({conn with conn=c; completed=[CommandComplete|conn.completed]}, acc, f)
-    | {success=(c,{EmptyQueryResponse})} -> 
+    | {success=(c,{EmptyQueryResponse})} ->
       loop({conn with conn=c; empty=true}, acc, f)
-    | {success=(c,{~ParameterDescription})} -> 
+    | {success=(c,{~ParameterDescription})} ->
       loop({conn with conn=c; paramdescs=ParameterDescription}, acc, f)
-    | {success=(c,{NoData})} -> 
+    | {success=(c,{NoData})} ->
       loop({conn with conn=c; paramdescs=[]}, acc, f)
-    | {success=(c,{ParseComplete})} -> 
+    | {success=(c,{ParseComplete})} ->
       loop({conn with conn=c}, acc, f)
-    | {success=(c,{BindComplete})} -> 
+    | {success=(c,{BindComplete})} ->
       loop({conn with conn=c}, acc, f)
-    | {success=(c,{CloseComplete})} -> 
+    | {success=(c,{CloseComplete})} ->
       loop({conn with conn=c}, acc, f)
 
-    | {success=(c,{~RowDescription})} -> 
-      rowdescs = List.map(to_rowdesc,RowDescription) 
+    | {success=(c,{~RowDescription})} ->
+      rowdescs = List.map(to_rowdesc,RowDescription)
       again({conn with conn=c; ~rowdescs},{~rowdescs}, acc, f)
-    | {success=(c,{~DataRow})} -> 
+    | {success=(c,{~DataRow})} ->
       again({conn with conn=c; rows=conn.rows+1},~{DataRow}, acc, f)
-    | {success=(c,{~NoticeResponse})} -> 
+    | {success=(c,{~NoticeResponse})} ->
       again({conn with conn=c},~{NoticeResponse}, acc, f)
-    | {success=(c,{~ErrorResponse})} -> 
+    | {success=(c,{~ErrorResponse})} ->
       again({conn with conn=c; error={some={postgres={error=ErrorResponse}}}}, ~{ErrorResponse}, acc, f)
-    | {success=(c,{PortalSuspended})} -> 
+    | {success=(c,{PortalSuspended})} ->
       conn = {conn with conn=c}
       final(conn, get_result({conn with suspended=true},""), acc, f)
-    | {success=(c,{ReadyForQuery=status})} -> 
-      conn = {conn with conn=c}; 
+    | {success=(c,{ReadyForQuery=status})} ->
+      conn = {conn with conn=c};
       final(conn, get_result(conn, status), acc, f)
 
-    | {success=(c,reply)} -> 
+    | {success=(c,reply)} ->
       error({conn with conn=c}, {bad_reply=reply}, acc, f)
-    | ~{failure} -> 
-      error(conn, {api_failure=failure}, acc, f)
+    | ~{failure} ->
+    error(conn, {api_failure=failure}, acc, f)
     end
 
   @private init(conn:Postgres.connection, query) : Postgres.connection =
@@ -589,10 +645,10 @@ Postgres = {{
   parse(conn:Postgres.connection, name, query, oids) : Postgres.connection =
     conn = init(conn, "Parse({query},{name})")
     match Pg.parse({success=conn.conn}, (name,query,oids)) with
-    | {success=c} -> 
-      conn = {conn with conn=c} 
+    | {success=c} ->
+      conn = {conn with conn=c}
       final(conn, {final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} -> 
+    | ~{failure} ->
       error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
 
@@ -606,13 +662,14 @@ Postgres = {{
    * @param listener A Postgres listener callback.
    * @returns The original connection object or failure.
    */
-  bind(conn:Postgres.connection, portal, name, params) : Postgres.connection =
+  bind(conn:Postgres.connection, portal, name, params:list(Postgres.data)) : Postgres.connection =
+    params = List.map(serialize, params)
     conn = init(conn, "Bind({name},{portal})")
-    match Pg.bind({success=conn.conn}, (portal, name, [1], params, [1])) with
-    | {success=c} -> 
-      conn = {conn with conn=c} 
+    match Pg.bind({success=conn.conn}, (portal, name, [1], params, [0])) with
+    | {success=c} ->
+      conn = {conn with conn=c}
       final(conn,{final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} -> 
+    | ~{failure} ->
       error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
 
@@ -630,10 +687,10 @@ Postgres = {{
     // should we fold on sync instead of execute ?
     conn = init_conn(conn, "Execute({portal})")
     match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
-    | {success=c} -> 
-      conn = {conn with conn=c} 
+    | {success=c} ->
+      conn = {conn with conn=c}
       loop(sync(conn), {final={success=conn}}, init, folder)
-    | ~{failure} -> 
+    | ~{failure} ->
       error(conn, {api_failure=failure}, init, folder)
     end
 
@@ -651,10 +708,10 @@ Postgres = {{
   describe(conn:Postgres.connection, sp:Postgres.sp, name) : Postgres.connection =
     conn = init_conn(conn, "Describe({string_of_sp(sp)},{name})")
     match Pg.describe({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success=c} -> 
-      conn = {conn with conn=c} 
+    | {success=c} ->
+      conn = {conn with conn=c}
       final(conn,{final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} -> 
+    | ~{failure} ->
       error(conn,{api_failure=failure}, void, ignore_listener).f1
     end
 
@@ -674,10 +731,10 @@ Postgres = {{
   closePS(conn:Postgres.connection, sp:Postgres.sp, name) : Postgres.connection =
     conn = init_conn(conn, "Close({string_of_sp(sp)},{name})")
     match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success=c} -> 
-	  conn = {conn with conn=c} 
+    | {success=c} ->
+	  conn = {conn with conn=c}
       final(conn,{final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} -> 
+    | ~{failure} ->
       error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
 
@@ -694,10 +751,10 @@ Postgres = {{
   sync(conn:Postgres.connection) : Postgres.connection =
     conn = init_conn(conn, "Sync")
     match Pg.sync({success=conn.conn}) with
-    | {success=c} -> 
-      conn = {conn with conn=c} 
+    | {success=c} ->
+      conn = {conn with conn=c}
       loop(conn, void, ignore_listener).f1
-    | ~{failure} -> 
+    | ~{failure} ->
       error(conn,{api_failure=failure}, void, ignore_listener).f1
     end
 
@@ -824,60 +881,7 @@ Postgres = {{
             | _ -> tid)
          )
 
-  /** Create a new [ENUM] type on the server from an Opa type and install a handler for it.
-   *
-   * For a type such as [type mood = {happy} or {ok} or {sad}] the record labels
-   * are turned into an ENUM type at the server, the [type_id] is read back and
-   * a handler is installed for the Opa type.  A notice is posted if the operation succeeds.
-   *
-   * @param conn The connection object.
-   * @param dummy A dummy optional value of the Opa type (used to analyse the field names).
-   * @returns A Postgres result type with updated connection plus possible failure code.
-   */
-  create_enum(conn:Postgres.connection, _:option('a)) : Postgres.result = create_enum_ty(conn, @typeval('a))
-  create_enum_ty(conn:Postgres.connection, raw_ty:OpaType.ty) : Postgres.result =
-    match raw_ty with
-    | {TyName_args=[]; TyName_ident=name} ->
-      ty = PostgresTypes.name_type(raw_ty)
-      match PostgresTypes.enum_field_names(ty) with
-      | {success=names} ->
-         match
-           match get_type_id(conn, name) with
-           | (conn,-1) ->
-              qnames = String.concat(", ",List.map((name -> "'{name}'"),names))
-              (conn, _) =
-                query(conn, void,
-                      "CREATE TYPE {name} AS ENUM ({qnames})",
-                      ignore_listener)
-              if Option.is_none(conn.error)
-              then get_type_id(conn, name)
-              else (conn,-1)
-           | (conn,type_id) -> (conn,type_id)
-           end
-         with
-         | (conn,-1) -> {failure=(conn,{bad_type="create_enum: can't create enum for type {ty}"})}
-         | (conn,type_id) ->
-            generic_handler(h_type_id:Postgres.type_id, h_ty:OpaType.ty, val:Postgres.data) : option(void) =
-              if type_id == h_type_id && ty == h_ty
-              then
-                val = match val with ~{text} -> text | ~{binary} -> string_of_binary(binary)
-                if List.mem(val,names)
-                then
-                  match OpaValue.Record.field_of_name(val) with
-                  | {none} -> none
-                  | {some=field} -> {some=@unsafe_cast(OpaValue.Record.make_simple_record(field))}
-                  end
-                else none
-              else none
-            do Log.notice("Postgres.create_enum","installing handler for type_id {type_id} type {OpaType.to_pretty(raw_ty)}")
-            {success={conn with
-                        handlers=IntMap.add(type_id,(name,ty,@unsafe_cast(generic_handler)),conn.handlers)
-                        backhandlers=StringMap.add("{ty}",type_id,conn.backhandlers)
-                      }}
-         end
-      | {~failure} -> {failure=(conn,{bad_type=failure})}
-      end
-    | _ -> {failure=(conn,{bad_type="create_enum: bad type {raw_ty}"})}
+
 
   /** Fold a function over a list, with connection.
    *

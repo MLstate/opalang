@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -159,4 +159,11 @@ sig
   val remove_coerce : QmlAst.expr -> QmlAst.expr
   (** shows the number of nodes in the expressions of a code *)
   val code_size : QmlAst.code -> int
+end
+
+module DbWalk : sig
+  module Query :
+    TraverseInterface.TRAVERSE
+    with type 'a t = ('b, 'c) QmlAst.Db.query constraint 'a = 'b * 'c * _
+    and  type 'a container = ('b, 'c) QmlAst.Db.query constraint 'a = 'b * 'c * _
 end
