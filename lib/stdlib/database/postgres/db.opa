@@ -20,7 +20,7 @@ import stdlib.apis.postgres
 package stdlib.database.postgres
 
 @opacapi
-abstract type DbPostgres.t = Cps.future(Postgres.db)
+abstract type DbPostgres.t = Cps.future(Postgres.connection)
 
 @opacapi
 abstract type DbPostgres.engine = void
@@ -93,21 +93,21 @@ module DbPostgres{
   function DbPostgres.t open(name, statements){
     @spawn(
       /* 1 - Opening the postgres database */
-      match(Postgres.make(name, none, name)){
+      match(Postgres.connect(name, none, name)){
       case ~{failure} :
         Log.error0(name, "Can't open Postgres database {failure}")
         @fail("DbPostgres.open")
-      case {success : db} :
-        Log.info(db, "opened")
+      case {success : c0} :
+        c = c0
+        Log.info(c, "opened")
         /* 2 - Prepare statements */
-        c = Postgres.connect(db)
         List.iter(
           function(~{id, query, types}){
             c = Postgres.parse(c, id, query, types)
             match(Postgres.get_error(c)){
             case {none} : void
             case {some: e} :
-              Log.error(db, "An error occurs while prepare statements
+              Log.error(c, "An error occurs while prepare statements
 error: {e}
 id: {id}
 query: {query}
@@ -116,7 +116,8 @@ query: {query}
             }
           }
           , statements)
-        db
+        Postgres.release(c)
+        c0
       }
     )
   }
@@ -130,39 +131,27 @@ query: {query}
    * @param args Arguments of prepared statement, a list of pre-packed values.
    * @return A database set.
    */
-  function DbPostgresSet.t('a) build_dbset(DbPostgres.t db, name, list(Pack.u) args){
-    db = @wait(db)
-    c = Postgres.connect(db)
+  function DbPostgresSet.t('a) build_dbset(DbPostgres.t db, name, list(Postgres.data) args){
+    c = @wait(db)
     c = Postgres.authenticate(c) // TODO
     match(Postgres.get_error(c)){
     case {some: e} :
-      Log.error(db, "Authentication failure {e}")
+      Log.error(c, "Authentication failure {e}")
       @fail
     case {none} :
-      args = List.map(Pack.Encode.pack, args)
-      (args, err) =
-        List.fold_map(function(arg, err){
-          match(arg){
-          case ~{failure} :
-            Log.error(db, "Error when serialize argument: {failure}")
-            (Binary.create(0), true)
-          case ~{success} : (success, err)
-          }
-        }, args, false)
-      if(err){ @fail }
       c = Postgres.bind(c, "", name, args)
       c = Postgres.describe(c, {statement}, name)
       /* For moment we fetch all rows, then we create an iterator with it. But
        we have other alternatives. (Lazy execute, PG Cursor?)
        */
-      rows =
+      (_, rows) =
         Postgres.execute(c, [], "", 0, function(conn, msg, acc){
           match(msg){
           case {DataRow:row}:
             match(option('a) PostgresTypes.to_opa(conn, row)){
             case {some:data}: [data|acc]
             case {none}:
-              Log.error(db, "A row can't be unserialized, skip it")
+              Log.error(c, "A row can't be unserialized, skip it")
               acc
             }
           default: acc

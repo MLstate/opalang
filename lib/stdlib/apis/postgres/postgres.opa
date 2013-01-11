@@ -160,10 +160,6 @@ type Postgres.rowdesc = {
  */
 type Postgres.rowdescs = list(Postgres.rowdesc)
 
-/** PostgreSQL raw data can be text or binary.
- */
-type Postgres.data = {text:string} / {binary:binary}
-
 /** A row is just a list of binary values.  You need the [format_code] values
  * to tell if each one is text or binary.
  */
@@ -252,24 +248,20 @@ Postgres = {{
   /** The default minor version of the protocol, you shouldn't ever have to set this */
   default_minor_version = Pg.default_minor_version
 
-  /** The ApigenLib connection module, contains send and receive functions. */
-  Conn = Pg.Conn
-
-
   pack(data: Postgres.data): Pack.data =
     match data with
     | {Null}      -> [{Int = -1}]
     | ~{Int}      -> [{Int = 4}, ~{Int}]
-    | ~{Int16}    -> [{Int = 2}, ~{Int size={S}}]
+    | ~{Int16}    -> [{Int = 2}, {Int=Int16 size={S}}]
     | ~{Int64}    -> [{Int = 8}, ~{Int64}]
     | ~{Bool}     -> [{Int = 1}, ~{Bool}]
-    | ~{String}   -> [{Int = String.byte_length(String)+1}, {Cstring = String}]
+    | {String=s}   -> [{Int = String.byte_length(s)+1}, {Cstring = s}]
     | ~{Real}     -> [{Int = 4}, {Float32 = Real}]
     | ~{Float}    -> [{Int = 8}, ~{Float}]
     | ~{Bytea}    -> [{Int = Binary.length(Bytea)}, {Binary = Bytea}]
-    | {Date=d}    -> [{Int = 4}, ~{Int32=d}]
-    | {Time=d}    -> [{Int = 8}, ~{Int=d}]
-    | {Timestamp=d} -> [{Int = 8}, ~{Int=d}]
+    | {Date=d}    -> [{Int = 4}, {Int=Date.in_milliseconds(d) size={S}}]
+    | {Time=d}    -> [{Int = 8}, {Int=Date.in_milliseconds(d)}]
+    | {Timestamp=d} -> [{Int = 8}, {Int=Date.in_milliseconds(d)}]
     | {Duration=_}
     | {Timestamptz=_}
     | {Money=_}
@@ -291,7 +283,7 @@ Postgres = {{
     | {FloatArray3=_}
     | {StringArray1=_}
     | {StringArray2=_}
-    | {StringArray=_}
+    | {StringArray3=_}
     | {TypeId=_}
     | {BadData=_}
     | {BadText=_}
@@ -307,7 +299,7 @@ Postgres = {{
    / @return The serialized reprensentation of [data]
    */
   serialize(data:Postgres.data): binary =
-    Pack.Encode.pack(data)
+    Outcome.get(Pack.Encode.pack(pack(data)))
 
   /**
    * Returns the name of the database
@@ -326,7 +318,7 @@ Postgres = {{
    * @param db The Postgres database to connect
    * @returns An outcome of either a connection object or an [Apigen.failure] value.
    */
-  connect(name:string, secure:option(SSL.secure_type), dbase:string) =
+  connect(name:string, secure:option(SSL.secure_type), dbase:string): outcome(Postgres.connection, _) =
     preamble = if Option.is_some(secure) then {some=request_ssl} else none
     match Pg.connect(name,secure,preamble,true) with
     | {success=conn} ->
@@ -465,7 +457,7 @@ Postgres = {{
         | {none} -> {success=conn}}
     match Pg.reply({success=conn.conn}) with
     | {success=(c,{Authentication={Ok}})} ->
-      loop({conn with conn=c}, acc, k)
+      loop({conn with conn=c}, acc, f)
     | {success=(c,{Authentication={CleartextPassword}})} ->
        match (Pg.password({success=c},c.conf.password)) with
        | {success=c} -> loop({conn with conn=c}, acc, f)
@@ -520,7 +512,7 @@ Postgres = {{
     error(conn, {api_failure=failure}, acc, f)
     end
 
-  @private init(conn:Postgres.connection, query) : Postgres.connection =
+  @private init_conn(conn:Postgres.connection, query) : Postgres.connection =
     {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; rowdescs=[]; paramdescs=[]; ~query}
 
   /* Failed attempt to get SSL connection.  We do everything the docs say,
@@ -575,8 +567,8 @@ Postgres = {{
     conn = init_conn(conn, "authentication")
     version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
     match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
-    | {success=c} -> loop({conn with conn=c}, acc, f)
-    | ~{failure} -> error(conn,{api_failure=failure}, acc, f)
+    | {success=c} -> loop({conn with conn=c}, void, ignore_listener).f1
+    | ~{failure} -> error(conn,{api_failure=failure}, void, ignore_listener).f1
 
   /** Issue simple query command and read back responses.
 
@@ -596,38 +588,12 @@ Postgres = {{
    * [folder] function.
    */
   query(conn:Postgres.connection, init, query, folder) =
-    conn = init(conn, query)
+    conn = init_conn(conn, query)
     match Pg.query({success=conn.conn}, query) with
     | {success=c} -> loop({conn with conn=c}, init, folder)
     | ~{failure} -> error(conn, {api_failure=failure}, init, folder)
     end
 
-  /** Extract the raw data for a named column from a [Postgres.full_row] object.
-   *
-   * This is a routine for handling the raw row data from the server which may be
-   * either binary or text according to the [format_code] value in the row description.
-   * The type of the data is embodied in the row description which has the object id for
-   * the type.  This will then need to be decoded to generate, for example ints or dates,
-   * from the raw data.
-   *
-   * @param name The name of the column.
-   * @param row The row data.
-   * @returns The row description plus the data.
-   */
-  get_row_value_by_column_name(name:string, row:Postgres.full_row) : outcome((Postgres.rowdesc,Postgres.data),Postgres.failure) =
-    rec aux(rds, r) =
-      match (rds, r) with
-      | ([rd|rds],[el|r]) ->
-         if rd.name == name
-         then
-           match rd.format_code with
-           | 0 -> {success=(rd,{text=string_of_binary(el)})}
-           | 1 -> {success=(rd,{binary=el})}
-           | n -> {failure={bad_format=n}}
-         else aux(rds, r)
-      | ([],[]) -> {failure={not_found}}
-      | _ -> {failure={bad_row=(row.f2, row.f3)}}
-    aux(row.f2, row.f3)
 
   /** Send a parse query message.
    *
@@ -643,7 +609,7 @@ Postgres = {{
    * @return An updated connection object or failure.
    */
   parse(conn:Postgres.connection, name, query, oids) : Postgres.connection =
-    conn = init(conn, "Parse({query},{name})")
+    conn = init_conn(conn, "Parse({query},{name})")
     match Pg.parse({success=conn.conn}, (name,query,oids)) with
     | {success=c} ->
       conn = {conn with conn=c}
@@ -664,7 +630,7 @@ Postgres = {{
    */
   bind(conn:Postgres.connection, portal, name, params:list(Postgres.data)) : Postgres.connection =
     params = List.map(serialize, params)
-    conn = init(conn, "Bind({name},{portal})")
+    conn = init_conn(conn, "Bind({name},{portal})")
     match Pg.bind({success=conn.conn}, (portal, name, [1], params, [0])) with
     | {success=c} ->
       conn = {conn with conn=c}
@@ -689,7 +655,7 @@ Postgres = {{
     match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
     | {success=c} ->
       conn = {conn with conn=c}
-      loop(sync(conn), {final={success=conn}}, init, folder)
+      loop(sync(conn), init, folder)
     | ~{failure} ->
       error(conn, {api_failure=failure}, init, folder)
     end
@@ -769,8 +735,11 @@ Postgres = {{
   flush(conn:Postgres.connection) : Postgres.connection =
     conn = init_conn(conn, "Flush")
     match Pg.flush({success=conn.conn}) with
-    | {success=c} -> conn = {conn with conn=c} loop(conn,k)
-    | ~{failure} -> error(conn,{api_failure=failure},k)
+    | {success=c} ->
+      conn = {conn with conn=c}
+      loop(conn, void, ignore_listener).f1
+    | ~{failure} ->
+      error(conn,{api_failure=failure}, void, ignore_listener).f1
     end
 
   /** Send cancel request message on secondary channel.
@@ -791,12 +760,11 @@ Postgres = {{
     if conn.processid == -1 || conn.secret_key == -1
     then {failure=(conn,{no_key})}
     else
-      match make(conn.name, conn.secure, conn.dbase) with
-      | {success=db} ->
-         conn2 = connect(db)
-         match Pg.cancel({success=conn2.conn},(conn.processid,conn.secret_key)) with
+      match connect(conn.name, conn.secure, conn.dbase) with
+      | {success=conn} ->
+         match Pg.cancel({success=conn.conn},(conn.processid,conn.secret_key)) with
          | {success=c} ->
-            _ = close(conn2,false)
+            _ = close(conn, false)
             {success={conn with conn=c}}
          | ~{failure} -> {failure=(conn,{api_failure=failure})}
          end
@@ -904,30 +872,6 @@ Postgres = {{
       | [] -> {success=conn}
       end
     aux(conn, l)
-
-  /** Create a table on the PostgreSQL server for a given type instantiating all enum types.
-   *
-   * A table is created to host the given value type (must be a record).
-   * If there are any enum-suitable types in the record, a handler will
-   * be generated and installed in the connection.
-   *
-   * @param conn The connection object.
-   * @param dbase The name of the database.
-   * @param temp Whether the table is temporary or not.
-   * @param value An instance of the type to be used (not added to the table).
-   * @param k The listener.
-   * @returns An updated connection object.
-   */
-  create_table(conn:Postgres.connection, dbase:string, temp:bool, value:'a) : Postgres.connection =
-    enums = PostgresTypes.record_enum_types(@typeval('a))
-    known_enums = IntMap.fold((_, (name,_,_), names -> [name|names]),conn.handlers,[])
-    new_enums = List.filter(((name, _) -> not(List.mem(name,known_enums))),enums)
-    match fold(create_enum_ty, conn, List.map((x -> x.f2),new_enums)) with
-    | {success=conn} ->
-      q = PostgresTypes.create(conn, dbase, temp, value)
-      query(conn, void, q, ignore_listener).f1
-    | {failure=(conn,failure)} -> error(conn, failure, void, ignore_listener).f1
-    end
 
   /** Insert a row into a database.
    *
@@ -1060,6 +1004,9 @@ Postgres = {{
    */
   close_cursor(conn:Postgres.connection, name:string) : Postgres.connection =
     query(conn, void, "CLOSE {name}", ignore_listener).f1
+
+  release(conn:Postgres.connection) : void =
+    ignore(Pg.Conn.release(conn.conn))
 
 }}
 

@@ -72,7 +72,7 @@ type Postgres.opatype =
  / {StringArray2:list(list(string))}
  / {StringArray3:list(list(list(string)))}
  / {Duration:Duration.duration}
- / {TypeId:(int,Postgres.data)}
+  / {TypeId:(int,{text:string}/{binary:binary})}
  / {BadData:binary}
  / {BadText:string}
  / {BadCode:(int,binary)}
@@ -83,7 +83,7 @@ type Postgres.oparow = stringmap(Postgres.opatype)
 
 type Postgres.oparowl = list((string,Postgres.opatype))
 
-type Postgres.handler('a) = Postgres.type_id, OpaType.ty, Postgres.data -> option('a)
+type Postgres.handler('a) = Postgres.type_id, OpaType.ty, {text:string}/{binary:binary} -> option('a)
 
 type Postgres.abstract_handler = Postgres.handler(void)
 
@@ -960,7 +960,7 @@ PostgresTypes = {{
     | _ -> @fail
 
   to_opa_ty(conn:Postgres.connection, row, ty:OpaType.ty, dflt:option('a)) : option('a) =
-        row_to_opa_aux(conn, getRow(conn.rowdescs, row), ty, dflt)
+     row_to_opa_aux(conn, getRow(conn.rowdescs, row), ty, dflt)
 
   to_opa(conn:Postgres.connection, row) : option('a) =
      to_opa_ty(conn, row, @typeval('a), none)
