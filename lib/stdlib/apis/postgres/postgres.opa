@@ -248,20 +248,20 @@ Postgres = {{
   /** The default minor version of the protocol, you shouldn't ever have to set this */
   default_minor_version = Pg.default_minor_version
 
-  pack(data: Postgres.data): Pack.data =
+  pack(data: Postgres.data): Pack.u =
     match data with
-    | {Null}      -> [{Int = -1}]
-    | ~{Int}      -> [{Int = 4}, ~{Int}]
-    | ~{Int16}    -> [{Int = 2}, {Int=Int16 size={S}}]
-    | ~{Int64}    -> [{Int = 8}, ~{Int64}]
-    | ~{Bool}     -> [{Int = 1}, ~{Bool}]
-    | {String=s}   -> [{Int = String.byte_length(s)+1}, {Cstring = s}]
-    | ~{Real}     -> [{Int = 4}, {Float32 = Real}]
-    | ~{Float}    -> [{Int = 8}, ~{Float}]
-    | ~{Bytea}    -> [{Int = Binary.length(Bytea)}, {Binary = Bytea}]
-    | {Date=d}    -> [{Int = 4}, {Int=Date.in_milliseconds(d) size={S}}]
-    | {Time=d}    -> [{Int = 8}, {Int=Date.in_milliseconds(d)}]
-    | {Timestamp=d} -> [{Int = 8}, {Int=Date.in_milliseconds(d)}]
+    | {Null}      -> {Int = -1}
+    | ~{Int}      -> ~{Int}
+    | ~{Int16}    -> {Int=Int16 size={S}}
+    | ~{Int64}    -> ~{Int64}
+    | ~{Bool}     -> ~{Bool}
+    | {String=s}   -> {Cstring = s}
+    | ~{Real}     -> {Float32 = Real}
+    | ~{Float}    -> ~{Float}
+    | ~{Bytea}    -> {Binary = Bytea}
+    | {Date=d}    -> {Int=Date.in_milliseconds(d) size={S}}
+    | {Time=d}    -> {Int=Date.in_milliseconds(d)}
+    | {Timestamp=d} -> {Int=Date.in_milliseconds(d)}
     | {Duration=_}
     | {Timestamptz=_}
     | {Money=_}
@@ -299,7 +299,7 @@ Postgres = {{
    / @return The serialized reprensentation of [data]
    */
   serialize(data:Postgres.data): binary =
-    Outcome.get(Pack.Encode.pack(pack(data)))
+    Outcome.get(Pack.Encode.pack([pack(data)]))
 
   /**
    * Returns the name of the database
@@ -455,7 +455,9 @@ Postgres = {{
         match conn.error with
         | {some=failure} -> {failure=(conn,failure)}
         | {none} -> {success=conn}}
-    match Pg.reply({success=conn.conn}) with
+    x = Pg.reply({success=conn.conn})
+    do jlog("{x}")
+    match x with
     | {success=(c,{Authentication={Ok}})} ->
       loop({conn with conn=c}, acc, f)
     | {success=(c,{Authentication={CleartextPassword}})} ->
@@ -509,7 +511,7 @@ Postgres = {{
     | {success=(c,reply)} ->
       error({conn with conn=c}, {bad_reply=reply}, acc, f)
     | ~{failure} ->
-    error(conn, {api_failure=failure}, acc, f)
+      error(conn, {api_failure=failure}, acc, f)
     end
 
   @private init_conn(conn:Postgres.connection, query) : Postgres.connection =
@@ -699,7 +701,7 @@ Postgres = {{
     match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
     | {success=c} ->
 	  conn = {conn with conn=c}
-      final(conn,{final={success=conn}}, void, ignore_listener).f1
+      final(conn, {final={success=conn}}, void, ignore_listener).f1
     | ~{failure} ->
       error(conn, {api_failure=failure}, void, ignore_listener).f1
     end
@@ -719,7 +721,7 @@ Postgres = {{
     match Pg.sync({success=conn.conn}) with
     | {success=c} ->
       conn = {conn with conn=c}
-      loop(conn, void, ignore_listener).f1
+      final(conn, {final={success=conn}}, void, ignore_listener).f1
     | ~{failure} ->
       error(conn,{api_failure=failure}, void, ignore_listener).f1
     end

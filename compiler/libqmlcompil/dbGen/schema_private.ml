@@ -905,6 +905,14 @@ let fields_of_sqldata schema node {Db. sql_fds=_; sql_tbs; sql_ops=_} =
     )
     [] sql_tbs
 
+let type_of_sqldata schema node ({Db. sql_fds; sql_tbs=_; sql_ops=_} as query) =
+  let fields = fields_of_sqldata schema node query in
+  let fields = List.filter
+    (fun (f, _) -> List.exists (fun (_dname, f1) -> String.equal f f1) sql_fds)
+    fields
+  in Q.TypeRecord (Q.TyRow (fields, None))
+
+
 let coerce_query_element ~qwrap ~quwrap ~context gamma ty (query, options) =
   let simple_coerce new_annots wrap ty expr =
     let e = QmlAstCons.UntypedExpr.coerce expr ty in

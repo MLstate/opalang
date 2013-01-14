@@ -185,6 +185,7 @@ Pg = {{
       {List=([{Short=0; signed=false; le=false}],List.map(((s) -> [{Short=s; signed=false; le=false}]),codes)); size={S}; le=false},
       {List=([{Binary=Binary.create(0); size={L}}],List.map(((b) -> [{Binary=b; size={L}}]),parameters)); size={S}; le=false},{List=([{Short=0; le=false}],List.map(((s) -> [{Short=s; le=false}]),result_column_codes)); size={S}; le=false}]
     do ServerReference.set(length,[{Long=Pack.Encode.packlen(data)-1; le=false}])
+    do jlog("Bind {data}")
     data
 
   /** Parser for GSSContinue Authentication submessage

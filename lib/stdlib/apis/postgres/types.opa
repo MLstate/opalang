@@ -72,7 +72,7 @@ type Postgres.opatype =
  / {StringArray2:list(list(string))}
  / {StringArray3:list(list(list(string)))}
  / {Duration:Duration.duration}
-  / {TypeId:(int,{text:string}/{binary:binary})}
+ / {TypeId:(int,{text:string}/{binary:binary})}
  / {BadData:binary}
  / {BadText:string}
  / {BadCode:(int,binary)}
@@ -960,7 +960,12 @@ PostgresTypes = {{
     | _ -> @fail
 
   to_opa_ty(conn:Postgres.connection, row, ty:OpaType.ty, dflt:option('a)) : option('a) =
+    x = getRow(conn.rowdescs, row)
+     do Log.notice("ROWDESC", "{conn.rowdescs}")
+     do Log.notice("GETROW", "{x}")
+     do Log.notice("Type", "{ty}")
      row_to_opa_aux(conn, getRow(conn.rowdescs, row), ty, dflt)
+
 
   to_opa(conn:Postgres.connection, row) : option('a) =
      to_opa_ty(conn, row, @typeval('a), none)

@@ -325,7 +325,8 @@ module Schema = struct
           | Partial _ ->
               raise (Base.NotImplemented "SQL query on a partial node")
           | SetAccess (_, _, None, _) | Compose _ | Plain ->
-              (node, SqlAccess (query, options), path)
+              let ty = Sch.type_of_sqldata llschema node query in
+              ({node with C.ty}, SqlAccess (query, options), path)
           end
       | DbAst.NewKey -> raise (Base.NotImplemented "New key")
     in

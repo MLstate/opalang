@@ -29,7 +29,7 @@ abstract type DbPostgres.engine = void
 abstract type DbPostgresSet.engine = void
 
 @opacapi
-abstract type DbPostgresSet.t('a) = dbset('a, DbPostgresSet.engine)
+type DbPostgresSet.t('a) = dbset('a, DbPostgresSet.engine)
 
 @opacapi type DbPostgres.private.val_path('a) = void
 
@@ -100,12 +100,15 @@ module DbPostgres{
       case {success : c0} :
         c = c0
         Log.info(c, "opened")
+        c = Postgres.authenticate(c)
+        check_error("Authentication", c)
         /* 2 - Prepare statements */
         List.iter(
           function(~{id, query, types}){
             c = Postgres.parse(c, id, query, types)
             match(Postgres.get_error(c)){
-            case {none} : void
+            case {none} :
+              Log.debug(c, "Prepared statement: {id}")
             case {some: e} :
               Log.error(c, "An error occurs while prepare statements
 error: {e}
@@ -122,6 +125,17 @@ query: {query}
     )
   }
 
+  private
+  function check_error(msg, c){
+    match(Postgres.get_error(c)){
+    case {some: e} :
+      Log.error(c, "{msg} failure {e}")
+      @fail
+    case {none} :
+      Log.debug(c, "{msg} success")
+    }
+  }
+
   /**
    * Create a database set from a prepared statement. The type of value in
    * database set is inferred by the compiler and should match with the prepared
@@ -133,33 +147,29 @@ query: {query}
    */
   function DbPostgresSet.t('a) build_dbset(DbPostgres.t db, name, list(Postgres.data) args){
     c = @wait(db)
-    c = Postgres.authenticate(c) // TODO
-    match(Postgres.get_error(c)){
-    case {some: e} :
-      Log.error(c, "Authentication failure {e}")
-      @fail
-    case {none} :
-      c = Postgres.bind(c, "", name, args)
-      c = Postgres.describe(c, {statement}, name)
-      /* For moment we fetch all rows, then we create an iterator with it. But
-       we have other alternatives. (Lazy execute, PG Cursor?)
-       */
-      (_, rows) =
-        Postgres.execute(c, [], "", 0, function(conn, msg, acc){
-          match(msg){
-          case {DataRow:row}:
-            match(option('a) PostgresTypes.to_opa(conn, row)){
-            case {some:data}: [data|acc]
-            case {none}:
-              Log.error(c, "A row can't be unserialized, skip it")
-              acc
-            }
-          default: acc
+    c = Postgres.bind(c, "", name, args)
+    check_error("Bind", c)
+    c = Postgres.describe(c, {statement}, name)
+    check_error("Describe", c)
+    /* For moment we fetch all rows, then we create an iterator with it. But
+     we have other alternatives. (Lazy execute, PG Cursor?)
+     */
+    (_, rows) =
+      Postgres.execute(c, [], "", 0, function(conn, msg, acc){
+        match(msg){
+        case {DataRow:row}:
+          match(option('a) PostgresTypes.to_opa(conn, row)){
+          case {some:data}: [data|acc]
+          case {none}:
+            Log.error(c, "A row can't be unserialized, skip it")
+            acc
           }
-        })
-      iter = Iter.of_list(rows)
-      DbSet.build(iter, void)
-    }
+        default: acc
+        }
+      })
+    check_error("Execute", c)
+    iter = Iter.of_list(rows)
+    DbSet.build(iter, void)
   }
 }
 
