@@ -40,9 +40,18 @@ module QueryMap = BaseMap.Make(
   end
 )
 
+module UpdateMap = BaseMap.Make(
+  struct
+    type t = (S.query option * Q.expr QD.update)
+    let compare = Pervasives.compare
+  end
+)
+
 type env = {
   (* (id of prepared statement, string query) *)
-  prepared : (string * string) QueryMap.t;
+  q_prepared : (string * string) QueryMap.t;
+  (* (id of prepared statement, string query) *)
+  u_prepared : (string * string) UpdateMap.t;
   gamma : QmlTypes.gamma;
   annotmap : Q.annotmap;
   schema : S.t
@@ -52,7 +61,8 @@ module Generator =
 struct
 
   let make_env gamma annotmap schema = {
-    prepared = QueryMap.empty;
+    q_prepared = QueryMap.empty;
+    u_prepared = UpdateMap.empty;
     gamma; annotmap; schema;
   }
 
@@ -68,14 +78,42 @@ struct
     Format.pp_list "."
       (fun fmt -> function | `string s -> Format.pp_print_string fmt s | _ -> assert false)
 
-  let pp_postgres_query fmt (q:QmlAst.expr QmlAst.Db.sqlquery) =
-    let pos = ref 0 in
+  let database
+      ({gamma; annotmap; q_prepared; u_prepared; _} as env)
+      name =
+    let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
+    let annotmap, name = C.string annotmap name in
+    let annotmap, statements =
+      let f = fun _prepared (qid, query) (annotmap, statements) ->
+        let annotmap, qid = C.string annotmap qid in
+        let annotmap, query = C.string annotmap query in
+        (* TODO: Optimized types *)
+        let annotmap, types = C.list (annotmap, gamma) [] in
+        let annotmap, statement =
+          C.record annotmap [
+            "id", qid;
+            "query", query;
+            "types", types;
+          ]
+        in
+        annotmap, statement::statements
+      in
+      let annotmap, statements =
+        QueryMap.fold f q_prepared (annotmap, []) in
+      let annotmap, statements =
+        UpdateMap.fold f u_prepared (annotmap, statements) in
+      C.list (annotmap, gamma) statements
+    in
+    let annotmap, pgdb = C.apply gamma annotmap open_ [name; statements] in
+    {env with annotmap}, pgdb
+
+
+  (* ******************************************************)
+  (* QUERYING *********************************************)
+  (* ******************************************************)
+  let pp_postgres_genquery pp_expr fmt (q:(_, _) QmlAst.Db.query) =
     let rec aux fmt q =
       let pp x = Format.fprintf fmt x in
-      let pp_expr fmt = function
-        | `expr _ -> incr pos; pp "$%d" !pos
-        | `bind s -> Format.pp_print_string fmt s
-      in
       match q with
       | QD.QEq   e    -> pp " = %a" pp_expr e
       | QD.QGt   e    -> pp " > %a" pp_expr e
@@ -105,6 +143,12 @@ struct
             ) flds
     in
     let pp x = Format.fprintf fmt x in
+    pp " WHERE ";
+    aux fmt q
+
+  let pp_postgres_sqlquery fmt q =
+    let pos = ref 0 in
+    let pp x = Format.fprintf fmt x in
     pp "SELECT ";
     (match q.QD.sql_fds with
      | [] -> pp "* "
@@ -119,59 +163,34 @@ struct
     );
     pp " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt q.QD.sql_tbs;
-    pp " WHERE ";
-    aux fmt q.QD.sql_ops
+    pp_postgres_genquery
+      (fun fmt -> function
+       | `expr _ -> incr pos; Format.fprintf fmt "$%d" !pos
+       | `bind s -> Format.pp_print_string fmt s
+      ) fmt q.QD.sql_ops
 
-  let database
-      ({gamma; annotmap; prepared; _} as env)
-      name =
-    let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
-    let annotmap, name = C.string annotmap name in
-    let annotmap, statements =
-      let annotmap, statements = QueryMap.fold
-        (fun _prepared (qid, query) (annotmap, statements) ->
-           let annotmap, qid = C.string annotmap qid in
-           let annotmap, query = C.string annotmap query in
-           (* TODO: Optimized types *)
-           let annotmap, types = C.list (annotmap, gamma) [] in
-           let annotmap, statement =
-             C.record annotmap [
-               "id", qid;
-               "query", query;
-               "types", types;
-             ]
-           in
-           annotmap, statement::statements
-        ) prepared (annotmap, [])
-      in
-      C.list (annotmap, gamma) statements
-    in
-    let annotmap, pgdb = C.apply gamma annotmap open_ [name; statements] in
-    {env with annotmap}, pgdb
-
-  let prepared_statement =
+  let prepared_statement_for_query =
     let fresh_id =
       let fresh = Fresh.fresh_factory (fun x -> x) in
-      fun () -> Format.sprintf "prepared_%d" (fresh ())
+      fun () -> Format.sprintf "query_%d" (fresh ())
     in
     fun
-      ({gamma=_; annotmap; prepared; _} as env)
+      ({annotmap; q_prepared; _} as env)
       ((sqlquery, options) as query) ->
       let buffer = Buffer.create 256 in
       let fmt = Format.formatter_of_buffer buffer in
-      pp_postgres_query fmt sqlquery;
+      pp_postgres_sqlquery fmt sqlquery;
       (* TODO OPTIONS *)
       ignore options;
-
       Format.pp_print_flush fmt ();
       let qid = fresh_id () in
-      let prepared = QueryMap.add query (qid, Buffer.contents buffer) prepared in
-      {env with annotmap; prepared}
+      let q_prepared = QueryMap.add query (qid, Buffer.contents buffer) q_prepared in
+      {env with annotmap; q_prepared}
 
   let execute_statement
-      ({gamma; annotmap; prepared; _} as env)
+      ({gamma; annotmap; q_prepared; _} as env)
       node query =
-    let qid, _ = try QueryMap.find query prepared with
+    let qid, _ = try QueryMap.find query q_prepared with
         Not_found -> OManager.i_error "Can't found prepared statement"
     in
     let annotmap, database =
@@ -214,6 +233,135 @@ struct
     let annotmap, dbset = C.apply gamma annotmap build [database; qid; args] in
     {env with annotmap}, dbset
 
+
+  (* ******************************************************)
+  (* UPDATING *********************************************)
+  (* ******************************************************)
+  let pp_update ~tbl pp_expr fmt (u:_ QmlAst.Db.update) =
+    Format.fprintf fmt "UPDATE %s SET " tbl;
+    match u with
+    | QD.UFlds flds ->
+        Format.pp_list ", "
+          (fun fmt (s, u) ->
+             Format.fprintf fmt "%a = " pp_postgres_field s;
+             match u with
+             | QD.UIncr e -> Format.fprintf fmt "%a + %a" pp_postgres_field s pp_expr e;
+             | QD.UExpr e -> Format.fprintf fmt "%a" pp_expr e;
+             | _ -> assert false
+          ) fmt flds
+    | QD.UExpr _
+    | QD.UIncr _ -> assert false
+    | QD.UId _
+    | QD.UAppend _
+    | QD.UAppendAll _
+    | QD.URemove _
+    | QD.URemoveAll _
+    | QD.UPop
+    | QD.UShift ->
+        (* External table? Embedded? Mixed? *)
+        assert false
+
+  let pp_insert ~tbl pp_expr fmt (u:_ QmlAst.Db.update) =
+    match u with
+    | QD.UFlds flds ->
+        Format.fprintf fmt "INSERT INTO %s(%a) VALUES(" tbl
+          (Format.pp_list ", "
+             (fun fmt (s, _u) -> pp_postgres_field fmt s))
+          flds;
+        Format.pp_list ", "
+          (fun fmt (_s, u) ->
+             match u with
+             | QD.UIncr e
+             | QD.UExpr e -> pp_expr fmt e;
+             | _ -> assert false
+          ) fmt flds;
+        Format.fprintf fmt ")"
+    | QD.UExpr _
+    | QD.UIncr _ -> assert false
+    | QD.UId _
+    | QD.UAppend _
+    | QD.UAppendAll _
+    | QD.URemove _
+    | QD.URemoveAll _
+    | QD.UPop
+    | QD.UShift ->
+        (* External table? Embedded? Mixed? *)
+        assert false
+
+  let pp_postgres_insert_or_update annotmap ~name ~tbl fmt q (u:_ QmlAst.Db.update) =
+    let aset = ref AnnotSet.empty in
+    let pp_annot fmt i = Format.fprintf fmt "x%d" (Annot.to_int i) in
+    let pp_expr fmt e =
+      let annot = Annot.annot (Q.Label.expr e) in
+      aset := AnnotSet.add annot !aset;
+      pp_annot fmt annot
+    in
+    let pp x = Format.fprintf fmt x in
+    pp "CREATE OR REPLACE FUNCTION %s(" name;
+    let buffer = Buffer.create 256 in
+    let fmt2 = Format.formatter_of_buffer buffer in
+    let pp2 x = Format.fprintf fmt2 x in
+    pp2 ")RETURNS VOID AS\n";
+    pp2 "$$\n";
+    pp2 "BEGIN\n";
+    pp2 "  LOOP\n";
+    pp2 "    %a " (pp_update ~tbl pp_expr) u;
+    begin match q with
+    | Some (q, _) -> pp_postgres_genquery pp_expr fmt2 q;
+    | _ -> ()
+    end;
+    pp2 ";\n";
+    pp2 "    IF found THEN\n";
+    pp2 "      RETURN;\n";
+    pp2 "    END IF;\n";
+    pp2 "    BEGIN\n";
+    pp2 "      %a;\n" (pp_insert ~tbl pp_expr) u;
+    pp2 "    EXCEPTION WHEN unique_violation THEN\n";
+    pp2 "    END;\n";
+    pp2 "  END LOOP;\n";
+    pp2 "END;\n";
+    pp2 "$$\n";
+    pp2 "LANGUAGE plpgsql;\n";
+    Format.pp_print_flush fmt2 ();
+    let () =
+      let pp_elt fmt a =
+        Format.fprintf fmt "%a %s" pp_annot a
+          (match QmlAnnotMap.find_ty a annotmap with
+           | Q.TypeConst Q.TyFloat  -> "FLOAT8"
+           | Q.TypeConst Q.TyInt    -> "INT"
+           | Q.TypeConst Q.TyString -> "TEXT"
+           | _   -> assert false
+          )
+      in
+      let max = AnnotSet.max_elt !aset in
+      let set = AnnotSet.remove max !aset in
+      AnnotSet.pp ", " pp_elt fmt set;
+      pp_elt fmt max
+    in
+    Format.pp_print_string fmt (Buffer.contents buffer);
+    ()
+
+  let prepared_statement_for_update =
+    let fresh_id =
+      let fresh = Fresh.fresh_factory (fun x -> x) in
+      fun () -> Format.sprintf "update_%d" (fresh ())
+    in
+    fun
+      ({annotmap; u_prepared; _} as env)
+      ~tbl
+      query
+      (update, update_options) ->
+        let buffer = Buffer.create 256 in
+        let fmt = Format.formatter_of_buffer buffer in
+        let uid = fresh_id () in
+        pp_postgres_insert_or_update annotmap ~name:uid ~tbl fmt query update;
+        (* TODO OPTIONS *)
+        ignore (update_options);
+        Format.pp_print_flush fmt ();
+        Format.eprintf "%s\n%!" (Buffer.contents buffer);
+        let u_prepared = UpdateMap.add (query, update) (uid, Buffer.contents buffer) u_prepared in
+        {env with annotmap; u_prepared}
+
   let path ~context
       ({schema; _} as env)
       (label, dbpath, kind, select)
@@ -222,10 +370,20 @@ struct
     match node.S.database.S.options.QD.backend with
     | `postgres ->
         begin
-          match node.S.kind with
-          | S.SqlAccess query ->
-              let env = prepared_statement env query in
+          match kind, node.S.kind with
+          | QD.Default, S.SqlAccess query ->
+              let env = prepared_statement_for_query env query in
               execute_statement env node query
+          | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, _) ->
+              let query =
+                match query with
+                | None -> None
+                | Some (true, q) -> Some q
+                | _ -> assert false
+              in
+              let env = prepared_statement_for_update env ~tbl query (upd, opt) in
+              let annotmap, v = C.cheap_void env.annotmap env.gamma in
+              {env with annotmap}, v
           | _ -> assert false
         end
     | _ -> env, Q.Path (label, dbpath, kind, select)
