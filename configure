@@ -312,17 +312,22 @@ else
 fi
 
 # - checking for nodejs
+# On Debian, node is now called nodejs. The configure script prefers the latter
+# if it exists, as node might be some other program when both exist.
 echo-check for nodejs
-if which node &>/dev/null; then
-    echo-ok found
+NODE_EXEC=""
+if which nodejs &>/dev/null; then NODE_EXEC=nodejs; else
+	if which node &>/dev/null; then NODE_EXEC=node; fi; fi
+if [ "$NODE_EXEC" != "" ]; then
+	echo-ok found: $NODE_EXEC
 else
-    echo-err Not found
-    exit 1
+	echo-err Not found
+	exit 1
 fi
 
 # - checking for nodejs version
 echo-check for nodejs version
-NODE_VERSION=$(node --version)
+NODE_VERSION=$($NODE_EXEC --version)
 NODE_MIN_VERSION="v0.6"
 if [[ $NODE_VERSION > $NODE_MIN_VERSION ]]; then
     echo-ok $NODE_VERSION
