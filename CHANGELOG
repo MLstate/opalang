@@ -6,12 +6,15 @@ Updated APIs:
   * Dom:
     - added remove_attribute_unsafe
 
+  * Plugins
+    - Bootsrap.Modal: removed aria-labelledby and tabindex
+
+  * Rule:
+    - added base64_char and base64_string parser
+
   * WBootstrap
     - extended table body lines type
     - added data-toggle and data-target functions
-
-  * Plugins
-    - Bootsrap.Modal: removed aria-labelledby and tabindex
 
 Bug fixes:
 
