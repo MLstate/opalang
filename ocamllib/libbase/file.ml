@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -674,6 +674,7 @@ let get_one_location ?dir
      )
     directories filename =
   let found_files = get_locations ?dir directories filename in
+  let found_files = List.uniq_unsorted found_files in
   match found_files with
   | [fullname] -> fullname
   | [] -> missing_file  directories filename
