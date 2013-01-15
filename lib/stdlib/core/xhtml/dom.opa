@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -1277,6 +1277,12 @@ Dom = {{
   set_attribute_unsafe(dom:dom, name:string, value:string): void =
   (
         do %% BslDom.set_attribute_unsafe %%(of_selection(dom), name, value)
+        void
+  )
+
+  remove_attribute_unsafe(dom:dom, name:string): void =
+  (
+        do %% BslDom.remove_attribute_unsafe %%(of_selection(dom), name)
         void
   )
 
