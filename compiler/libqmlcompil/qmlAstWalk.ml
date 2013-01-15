@@ -847,4 +847,48 @@ struct
        let map tra input = Traverse.Unoptimized.map foldmap tra input
      end)
 
+  module Update = Traverse.Make2
+    (struct
+       type 'a t = 'b QmlAst.Db.update constraint 'a = ('b * _ * _)
+
+       let foldmap tra acc input =
+         match input with         (* Simple updating*)
+         | Db.UExpr _
+         | Db.UIncr _
+         | Db.UAppend    _
+         | Db.UAppendAll _
+         | Db.URemove    _
+         | Db.URemoveAll _
+         | Db.UPop
+         | Db.UShift -> acc, input
+         | Db.UId (e, u) ->
+             let acc, u' = tra acc u in
+             acc, if u == u' then input else Db.UId (e, u')
+         | Db.UFlds flds ->
+             let acc, flds' =
+               List.fold_left_map_stable
+                 (fun acc ((s,f) as bnd) ->
+                    let acc, f' = tra acc f in
+                    acc, if f == f' then bnd else (s, f')
+                 ) acc flds in
+             acc, if flds == flds' then input else Db.UFlds flds'
+
+       let fold tra acc input =
+         match input with
+         | Db.UExpr _
+         | Db.UIncr _
+         | Db.UAppend    _
+         | Db.UAppendAll _
+         | Db.URemove    _
+         | Db.URemoveAll _
+         | Db.UPop
+         | Db.UShift -> acc
+         | Db.UId (_, u) -> tra acc u
+         | Db.UFlds   flds ->
+             List.fold_left (fun acc (_,f) -> tra acc f) acc flds
+
+       let iter tra input = Traverse.Unoptimized.iter foldmap tra input
+       let map tra input = Traverse.Unoptimized.map foldmap tra input
+     end)
+
 end

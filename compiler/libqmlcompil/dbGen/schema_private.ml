@@ -891,22 +891,26 @@ let is_uniq t node query =
     | _ -> false
   in aux query keyty
 
-let fields_of_sqldata schema node {Db. sql_fds=_; sql_tbs; sql_ops=_} =
+let fields_of_sqldata gamma schema node {Db. sql_fds=_; sql_tbs; sql_ops=_} =
   List.fold_left
     (fun acc tab ->
-       let rows =
-         let node = SchemaGraphLib.find_field_edge schema node tab in
-         match SchemaGraphLib.type_of_node (E.dst node) with
-         | Q.TypeName ([Q.TypeRecord (Q.TyRow (rows, _)); _], name)
-             when Q.TypeIdent.to_string name = "dbset" -> rows
-         | _ -> raise Not_found
-       in
-       (rows@acc)
+       let node = SchemaGraphLib.find_field_edge schema node tab in
+       let ty = SchemaGraphLib.type_of_node (E.dst node) in
+       let ty =
+         QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty
+           ~until:Opacapi.Types.dbset in
+       match ty with
+       | Q.TypeName ([data; _], name) when Q.TypeIdent.to_string name = "dbset" ->
+           let rec aux = function
+             | Q.TypeRecord (Q.TyRow (rows, _)) -> rows @ acc
+             | ty -> aux (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty)
+           in aux data
+       | _ -> raise Not_found
     )
     [] sql_tbs
 
-let type_of_sqldata schema node ({Db. sql_fds; sql_tbs=_; sql_ops=_} as query) =
-  let fields = fields_of_sqldata schema node query in
+let type_of_sqldata gamma schema node ({Db. sql_fds; sql_tbs=_; sql_ops=_} as query) =
+  let fields = fields_of_sqldata gamma schema node query in
   let fields = List.filter
     (fun (f, _) -> List.exists (fun (_dname, f1) -> String.equal f f1) sql_fds)
     fields
@@ -1098,7 +1102,7 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
     | Db.SQLQuery ({Db. sql_fds; sql_tbs; sql_ops} as sqlquery, options)::path ->
         assert (path = []); (*TODO ?*)
         let fields = try
-          fields_of_sqldata t node sqlquery
+          fields_of_sqldata gamma t node sqlquery
         with Not_found ->
           cerror "According the path definition, query is invalid"
         in
@@ -1131,7 +1135,7 @@ let get_virtual_path vpath epath =
            (p, r, (ident, tyread, tywrite))::acc
     ) vpath []
 
-let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option) ?epath0 vpath epath =
+let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option) ?epath0 gamma vpath epath =
   let context = match context with
     | Some context -> QmlError.Context.merge2 context (V.label node).C.context
     | None -> (V.label node).C.context
@@ -1148,7 +1152,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
     let setty = node.C.ty in
     let dataty, dnode, _ =
       find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node)
-        ~kind ~epath0 vpath epath
+        ~kind ~epath0 gamma vpath epath
     in
     (match setty with
      | Q.TypeName ([setparam; _], name) when Q.TypeIdent.to_string name = "dbset" ->
@@ -1183,7 +1187,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
   in
   match epath, (V.label node).C.nlabel with
   | path, C.Hidden ->
-      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath path
+      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 gamma vpath path
   | [], C.Multi -> (
       match node.C.ty with
       | Q.TypeName ([setparam;_], name) when Q.TypeIdent.to_string name = "dbset" ->
@@ -1201,13 +1205,13 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
             fld
             QmlPrint.pp#path_elts epath0
       in
-      find_exprpath_aux ~context t ~node:next ~kind ~epath0 vpath epath
+      find_exprpath_aux ~context t ~node:next ~kind ~epath0 gamma vpath epath
   | (Db.Query (query, _))::epath, C.Multi ->
       let partial = not (is_uniq t node query) in
       aux_multi epath partial
   | (Db.SQLQuery ({Db. sql_fds; sql_tbs=_; sql_ops=_} as sqlquery, _))::epath, _ ->
       assert (epath = []); (*TODO ?*)
-      let fields = fields_of_sqldata t node sqlquery in
+      let fields = fields_of_sqldata gamma t node sqlquery in
       let fields = List.filter
         (fun (f, _) -> List.exists (fun (_dname, f1) -> String.equal f f1) sql_fds)
         fields
@@ -1220,24 +1224,24 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       aux_multi epath false
   | (Db.FldKey fld)::_rp, C.Sum ->
       let e = SchemaGraphLib.find_field_edge t node fld in
-      find_exprpath_aux ~context t ~node:(E.dst e) ~kind ~epath0 vpath epath
+      find_exprpath_aux ~context t ~node:(E.dst e) ~kind ~epath0 gamma vpath epath
   | Db.NewKey::epath, C.Multi when SchemaGraphLib.multi_key t node = C.Kint ->
-      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 vpath epath
+      find_exprpath_aux ~context t ~node:(SchemaGraph.unique_next t node) ~kind ~epath0 gamma vpath epath
   | k::_,_ ->
       internal_error
         "Failed to lookup path %a at \"%a\""
         QmlPrint.pp#path_elts epath0
         QmlPrint.pp#path_elt k
 
-let find_exprpath ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option) vpath epath =
+let find_exprpath ?context gamma t ?(node=SchemaGraphLib.get_root t) ?(kind=Db.Option) vpath epath =
   let context = match context with
   | Some context -> QmlError.Context.merge2 context (V.label node).C.context
   | None -> (V.label node).C.context
   in
   match get_virtual_path vpath epath with
-  | [] -> find_exprpath_aux ~context t ~node ~kind vpath epath
+  | [] -> find_exprpath_aux ~context t ~node ~kind gamma vpath epath
   | [(_p, [], (ident, tyread, tywrite))] ->
-      (match find_exprpath_aux ~context t ~node ~kind vpath epath with
+      (match find_exprpath_aux ~context t ~node ~kind gamma vpath epath with
        | ty, n, `realpath -> ty, n, `virtualpath (ident, tyread, tywrite)
        | _, _, `virtualset _ -> QmlError.error context
            "Can't make a virtual path on a dbset"
@@ -1378,7 +1382,7 @@ let preprocess_path ~context t gamma prepath kind select =
   let prepath = apply_aliases db_def.path_aliases prepath in
   let root = SchemaGraphLib.get_root db_def.schema in
   let new_annots, epath = convert_dbpath ~context db_def.schema gamma root kind select prepath prepath in
-  let ty, _node, virtual_ = find_exprpath ~context db_def.schema db_def.virtual_path ~node:root ~kind epath in
+  let ty, _node, virtual_ = find_exprpath ~context gamma db_def.schema db_def.virtual_path ~node:root ~kind epath in
   let label = Annot.nolabel "dbgen.preprocess_path" in
   let kind = Preprocess.kind ~context gamma kind ty virtual_ in
   let (ty, virtual_), select = Preprocess.select ~context gamma select ty virtual_ in
@@ -1725,3 +1729,4 @@ let foldmap_expr f acc t =
     acc, { db_def with schema = s }
   in
   StringListMap.fold_map f t acc
+

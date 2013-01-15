@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -1939,7 +1939,7 @@ module CodeGenerator ( Arg : DbGenByPass.S ) = struct
              "This kind of selection is not yet implemented by the db3 backend"
       );
       let dbinfo = StringListMap.find prefix dbinfo_map in
-      let _, node, virtual_ = Schema_private.find_exprpath db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
+      let _, node, virtual_ = Schema_private.find_exprpath gamma db_def.Schema_private.schema db_def.Schema_private.virtual_path ~kind path in
       let r = match virtual_ with
         | `virtualset (_, wty, false, _) ->
             make_virtualset_fullpath  ~context db_def.Schema_private.schema dbinfo gamma node path kind wty

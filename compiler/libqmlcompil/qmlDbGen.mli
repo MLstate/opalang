@@ -188,7 +188,7 @@ module Schema: sig
 
   val get_db_declaration: t -> database list
 
-  val get_node: t -> QmlAst.path -> node
+  val get_node: QmlTypes.gamma -> t -> QmlAst.path -> node
 
   val pp_node: node BaseFormat.pprinter
 

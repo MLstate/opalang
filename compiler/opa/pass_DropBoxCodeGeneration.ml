@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of OPA.
 
@@ -131,9 +131,9 @@ module Generator = struct
         OManager.error "This kind of update is not yet implemented by dropbox backend : %a"
           (QmlAst.Db.pp_update QmlPrint.pp#expr) u
 
-  let get_node ~context schema path =
+  let get_node ~context gamma schema path =
     try
-      DbSchema.get_node schema path
+      DbSchema.get_node gamma schema path
     with Base.NotImplemented s ->
       QmlError.error context
         "Can't generates mongo access because : %s is not yet implemented"
@@ -194,7 +194,7 @@ module Generator = struct
                 let annotmap, path =
                   let rpath = List.map (fun s -> `string s ) rpath in
                   expr_of_path gamma annotmap (`string dbname::rpath) in
-                let partial = List.map (fun s -> `string s) partial in  
+                let partial = List.map (fun s -> `string s) partial in
                 let annotmap, uexpr =
                   update_to_expr gamma annotmap dataty (DbAst.UFlds [partial, u])
                 in
@@ -280,7 +280,7 @@ module Generator = struct
   and string_path ~context gamma annotmap schema (kind, strpath) select =
     let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
-      get_node ~context schema strpath in
+      get_node ~context gamma schema strpath in
     let strpath = List.map (fun s -> `string s) strpath in
     gen_string_path ~context expr_of_strexprpath gamma annotmap schema node (kind, strpath) select
 
@@ -312,7 +312,7 @@ module Generator = struct
 
 
   let path ~context gamma annotmap schema (label, dbpath, kind, select) =
-    let node = get_node ~context schema dbpath in
+    let node = get_node ~context gamma schema dbpath in
     match node.DbSchema.database.DbSchema.options.DbAst.backend with
     | `dropbox -> (
         let annotmap, mongopath =

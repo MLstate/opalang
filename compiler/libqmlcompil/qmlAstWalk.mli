@@ -166,4 +166,9 @@ module DbWalk : sig
     TraverseInterface.TRAVERSE
     with type 'a t = ('b, 'c) QmlAst.Db.query constraint 'a = 'b * 'c * _
     and  type 'a container = ('b, 'c) QmlAst.Db.query constraint 'a = 'b * 'c * _
+
+  module Update :
+    TraverseInterface.TRAVERSE
+    with type 'a t = 'b QmlAst.Db.update constraint 'a = 'b * _ * _
+    and  type 'a container = 'b QmlAst.Db.update constraint 'a = 'b * _ * _
 end

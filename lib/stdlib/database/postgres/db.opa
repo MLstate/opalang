@@ -88,9 +88,10 @@ module DbPostgres{
    * Opening a database and prepare statements.
    * @param name Name of the database to open
    * @param statements A list of statements to prepare
+   * @param queries A list of queries to initialize
    * @return A initialized database
    */
-  function DbPostgres.t open(name, statements){
+  function DbPostgres.t open(name, statements, queries){
     @spawn(
       /* 1 - Opening the postgres database */
       match(Postgres.connect(name, none, name)){
@@ -119,6 +120,21 @@ query: {query}
             }
           }
           , statements)
+        /* 3 - Init queries */
+        List.iter(
+          function(~{query}){
+            (c, _) = Postgres.query(c, void, query, function(_, _, _){void})
+            match(Postgres.get_error(c)){
+            case {none} :
+              Log.debug(c, "Initial query: {query}")
+            case {some: e} :
+              Log.error(c, "An error occurs while processing an initial query:
+error: {e}
+query: {query}
+")
+            }
+          }
+          , queries)
         Postgres.release(c)
         c0
       }
@@ -126,6 +142,7 @@ query: {query}
   }
 
   private
+  @expand
   function check_error(msg, c){
     match(Postgres.get_error(c)){
     case {some: e} :
@@ -154,7 +171,7 @@ query: {query}
     /* For moment we fetch all rows, then we create an iterator with it. But
      we have other alternatives. (Lazy execute, PG Cursor?)
      */
-    (_, rows) =
+    (c, rows) =
       Postgres.execute(c, [], "", 0, function(conn, msg, acc){
         match(msg){
         case {DataRow:row}:
@@ -167,13 +184,26 @@ query: {query}
         default: acc
         }
       })
+    Postgres.release(c)
     check_error("Execute", c)
     iter = Iter.of_list(rows)
     DbSet.build(iter, void)
   }
+
+  function void update_or_insert(DbPostgres.t db, string procname, list(Postgres.data) args){
+    c = @wait(db)
+    args = List.map(PostgresTypes.string_of_field_value, args)
+    args = List.to_string_using("(", ")", ",", args)
+    command = "SELECT {procname}{args}"
+    (c, _) = Postgres.query(c, void, command, function(_,_,_){void})
+    Postgres.release(c)
+    check_error("UpdateInsert({command})", c)
+  }
+
 }
 
 @opacapi DbPostgres_open = DbPostgres.open
 @opacapi DbPostgres_build_dbset = DbPostgres.build_dbset
+@opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
 
 

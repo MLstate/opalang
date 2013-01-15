@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -21,7 +21,7 @@ module Q = QmlAst
 module BSLDbGen = QmlDbGen.DbGenByPass.BSLDbGenAlphaOpa
 module DbGen = QmlDbGen.DbGen ( BSLDbGen )
 
-let clean_code schema code =
+let clean_code gamma schema code =
   List.filter
     (function
      | Q.Database (_, _, _, opt) when opt.Q.Db.backend = `db3 -> false
@@ -32,14 +32,14 @@ let clean_code schema code =
                      | Q.Db.Db_Constraint (Q.Db.Decl_fld prefix::_, _)
                      | Q.Db.Db_Virtual    (Q.Db.Decl_fld prefix::_, _))
                     ) when let open QmlDbGen.Schema in
-       (get_node schema [Q.Db.FldKey prefix]).database.options.Q.Db.backend = `db3
+       (get_node gamma schema [Q.Db.FldKey prefix]).database.options.Q.Db.backend = `db3
            -> false
      | _ -> true
     ) code
 
 let process_code gamma annotmap schema code alpha_opt =
   (* 1°: Remove db3 database declaration and db3 path declaration *)
-  let code = clean_code schema code in
+  let code = clean_code gamma schema code in
 
   (* 2°: generate database accessors from the schema *)
   let dbinfo, gamma, annotmap_opt, dbgen_init_code, dbgen_accessors_code =
