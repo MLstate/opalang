@@ -51,11 +51,10 @@ type Reactive.value('a) = {
     (->'a) get_silently,
     ('a->{}) set_silently,
     ((xhtml->xhtml)->xhtml) render,
-    (string->Reactive.value('a)) sync,
     OpaType.ty ty
 }
 
-@both_implem @serializer(Reactive.value('a)) serialization_reactive = (Reactive.serialize, Reactive.unserialize)
+@both_implem @serializer(Reactive.value('a)) (Reactive.value('a), OpaSerialize.options -> RPC.Json.json, RPC.Json.json -> option(Reactive.value('a))) serialization_reactive = (Reactive.serialize, Reactive.unserialize)
 
 type serialized_reactive('a) = {
     string id,
@@ -71,17 +70,10 @@ type Reactive.list('a) = {
     ('a, int, int -> void) move,
     (->int) length,
     ('a, int -> void) change,
-    ('a, int -> void) remove,
-    (string->Reactive.list('a)) sync
+    ('a, int -> void) remove
 }
 
-/**
-    Fake type for the client_side_reactive_table
-    storing different type of values
-*/
-private type black_t = external
-
-CoreList = List
+private CoreList = List
 
 module Reactive {
 
@@ -89,17 +81,20 @@ module Reactive {
         Utils
     */
     private server unique_class = String.fresh(200)
-    private xts = Xhtml.serialize_as_standalone_html
+    private function xts(xhtml) {
+        Xhtml.serialize_as_standalone_html(xhtml);
+    }
+
     private function `@>>`(g,f) { function() { f(g()) } }
 
     /**
         Table of all the Reactive values on the client
     */
-    private client client_side_reactive_table = (Hashtbl.t(string, Reactive.value(black_t))) Hashtbl.create(1)
-    private client function Reactive.value('a) get_or_make(id, 'a v) {
+    private client client_side_reactive_table = (Hashtbl.t(string, Reactive.value(black))) Hashtbl.create(1)
+    private client function Reactive.value('a) get_or_make(id, network, 'a v) {
         match(Hashtbl.try_find(client_side_reactive_table, id)){
         case {some:r} : @unsafe_cast(r)
-        case {none} : make_on_client(id, v);
+        case {none} : make_on_client(id, network, v);
         }
     }
 
@@ -109,47 +104,53 @@ module Reactive {
     private function unserialize_error(json) { void @fail("Impossible to unserialize the reactive value: {json}"); none }
 
     // Impossible to write a generic unserialize function (value restrictions)
-    private client function client_unserialize(alpha_unserialization, json) {
+    private client function option(Reactive.value('a)) client_unserialize(json) {
+        alpha_unserialization = OpaSerialize.finish_unserialize(_, @typeval('a))
         match (json){
         case { Record : [ ("initial_value", alpha), ("id", { String : id }) ] } :
             value = (alpha_unserialization(alpha) ? @fail)
-            get_or_make(string id, value)
+            get_or_make(string id, none, value)
             |> some(_)
         default : unserialize_error(json);
         }
     }
 
-    private server function server_unserialize(alpha_unserialization, json) {
+    private server function option(Reactive.value('a)) server_unserialize(json) {
+        alpha_unserialization = OpaSerialize.finish_unserialize(_, @typeval('a))
         match (json){
         case { Record : [ ("initial_value", alpha), ("id", { String : id }) ] } :
             value = (alpha_unserialization(alpha) ? @fail)
-            make_on_server(string id, value)
+            make_on_server(string id, none, value)
             |> some(_)
         default : unserialize_error(json);
         }
     }
 
-    function serialize(alpha_serialization, Reactive.value('a) reactive, opt) {
+    function RPC.Json.json serialize(Reactive.value('a) reactive, OpaSerialize.options opt) {
+        alpha_serialization = OpaSerialize.partial_serialize_options(_, @typeof(reactive), opt)
         initial_value =
             reactive.get_silently()
-            |> alpha_serialization(_, opt);
+            |> alpha_serialization(_);
         { Record : [ ("initial_value", initial_value), ("id", { String : reactive.id }) ] }
     }
 
 
-    function option(Reactive.value('a)) unserialize((RPC.Json.json->option('a)) u,j) {
-        @sliced_expr( { client : @unsafe_cast(client_unserialize(@unsafe_cast(u),j)),
-                        server : @unsafe_cast(server_unserialize(@unsafe_cast(u),j)) }
+    function option(Reactive.value('a)) unserialize(RPC.Json.json j) {
+        @sliced_expr( { client : client_unserialize(j),
+                        server : server_unserialize(j) }
                     )
+    }
+
+    private function make_on_client(id, network, v){
+        make_on_client_with_ty(id, network, v, @typeof(v))
     }
 
     /**
         Reactive.make on the client side.
     */
-    private client (string,'a->Reactive.value('a)) function make_on_client(id,  v) {
+    private client (string,option(Network.network('a)), 'a, OpaType.ty->Reactive.value('a)) function make_on_client_with_ty(id, network, v, ty) {
         value = Mutable.make(v)
         ctx_table = Hashtbl.t(int, Context.t) Hashtbl.create(1)
-
 
         function get() {
             ctx = Context.get()
@@ -168,6 +169,11 @@ module Reactive {
             LowLevelArray.iter({ function(v) Context.invalidate(v.value)}, keys)
         }
 
+        match (network){
+        case {some:network}: Network.add_callback({ function(n) set(n) }, network);
+        case {none}: void;
+        }
+
         function get_silently() {
             value.get()
         }
@@ -176,11 +182,8 @@ module Reactive {
             value.set(v)
         }
 
-        ty = @typeof(v)
-
         Reactive.value('a) self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
-                function render(_){ <></> },
-                sync:function(_){@fail("The reactive value is already in sync mode")}
+                function render(_){ <></> }
         }
 
         function self_render(html_fun) {
@@ -188,10 +191,6 @@ module Reactive {
         }
 
         self = { self with render:self_render }
-
-        self_sync = sync(self)
-
-        self = { self with sync:self_sync }
 
         Hashtbl.add(client_side_reactive_table, id, @unsafe_cast(self));
 
@@ -202,23 +201,41 @@ module Reactive {
         Reactive.make on the server side.
     */
     private gom = get_or_make
-    private client function get_value_from_client(id,v)() { gom(id,v)|>_.get() }
-    private client function set_value_on_client(id)(v) { gom(id,v)|>_.set(v) }
-    private client function get_value_silently_from_client(id,v)() { gom(id,v)|>_.get_silently() }
-    private client function set_value_silently_on_client(id)(v) { gom(id,v)|>_.set_silently(v) }
+    private client function get_value_from_client(id,network,v)() { gom(id,network,v)|>_.get() }
+    private client function set_value_on_client(id,network)(v) { gom(id,network,v)|>_.set(v) }
+    private client function get_value_silently_from_client(id,network,v)() { gom(id,network,v)|>_.get_silently() }
+    private client function set_value_silently_on_client(id,network)(v) { gom(id,network,v)|>_.set_silently(v) }
 
-    private server (string,'a->Reactive.value('a)) function make_on_server(id,v) {
+    private function make_on_server(id, network, v){
+        make_on_server_with_ty(id, network, v, @typeof(v))
+    }
+
+    private server (string,option(Network.network('a)),'a, OpaType.ty ->Reactive.value('a)) function make_on_server_with_ty(id,network,v,ty) {
 
         value = Mutable.make(v)
 
+        /** TODO: add in the stdlib:
+        exposed function current_client_is_ready(){
+            match (ThreadContext.get({current}).key){
+            case ~{ `client` } :
+                match (ClientEvent.ClientTbl.try_find((ClientEvent.state_tbl), `client` )){
+                case {some:_} : true
+                default : false
+                }
+            default : false
+            }
+        }
+        */
+
         function client_exists() {
-            //b = ClientEvent.current_client_is_ready()
-            false // TODO
+            b = true // TODO: current_client_is_ready()
+            //jlog("Client ready: {b}");
+            b
         }
 
         function get_silently() {
             if(client_exists()) {
-                get_value_silently_from_client(id,v)()
+                get_value_silently_from_client(id,network,v)()
             }else{
                 value.get();
             }
@@ -226,7 +243,7 @@ module Reactive {
 
         function set_silently(v) {
             if(client_exists()) {
-                set_value_silently_on_client(id)(v)
+                set_value_silently_on_client(id,network)(v)
             }else{
                 value.set(v);
             }
@@ -234,7 +251,7 @@ module Reactive {
 
         function get() {
             if(client_exists()) {
-                get_value_from_client(id,v)()
+                get_value_from_client(id,network,v)()
             }else{
                 get_silently();
             }
@@ -242,29 +259,21 @@ module Reactive {
 
         function set(v) {
             if(client_exists()) {
-                set_value_on_client(id)(v)
+                set_value_on_client(id,network)(v)
             }else{
                 set_silently(v);
             }
         }
 
-        ty = @typeof(v)
-
         self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
-                function render(_){ <></> },
-                sync:function(_){@fail("The reactive value is already in sync mode")}
+                function render(_){ <></> }
         }
 
         function self_render(html_fun) {
            render(html_fun)(self)
         }
 
-        self = { self with render:self_render }
-
-        self_sync = sync(self)
-
-        { self with sync:self_sync }
-
+        { self with render:self_render }
     }
 
     /**
@@ -273,8 +282,8 @@ module Reactive {
     ('a->Reactive.value('a)) function make(v) {
         id = Random.base64_url(6);
         @sliced_expr({
-            client : make_on_client(id,v),
-            server : make_on_server(id,v)
+            client : make_on_client(id,none,v),
+            server : make_on_server(id,none,v)
         })
     }
 
@@ -283,8 +292,10 @@ module Reactive {
     */
     client function default_html_func(string id, RPC.Json.json json, ty, (xhtml->xhtml) xhtml_deco) {
         v = OpaSerialize.Json.unserialize_with_ty(json, ty) ? @fail
-        Reactive.value('a) r = @unsafe_cast(get_or_make(id,@unsafe_cast(v)))
-        xhtml_deco(XmlConvert.of_alpha_with_ty(ty,r.get()))
+        Reactive.value('a) r = @unsafe_cast(get_or_make(id,none,@unsafe_cast(v)))
+        x = xhtml_deco(XmlConvert.of_alpha_with_ty(ty,r.get()))
+        Log.notice("html_func", "{Debug.dump(x)} / {Debug.dump(r.get())}")
+        x
     }
 
     // The function is not inside render with a client directive on purpose
@@ -315,46 +326,44 @@ module Reactive {
         )
     }
 
-    function bind(dom dom, Dom.event.kind e, (Dom.event -> void) f) {
+    client function bind(dom dom, Dom.event.kind e, (Dom.event -> void) f) {
         Scheduler.push(
             { function() Dom.bind(dom, e, f) |> ignore }
         )
     }
 
-    private exposed function network(name){
-        Network.network('a) Network.cloud(name)
-    }
+    ('a,string->Reactive.value('a)) function make_sync(init, network_name) {
 
-    (Reactive.value('a)->(string->Reactive.value('a))) function sync(value)(network_name) {
+        Network.network('a) network = Network.cloud(network_name)
 
-        Network.network('a) network = network(network_name)
+        id = Random.base64_url(6);
+        reactive = make_on_server(id, some(network), init)
 
-        Network.add_callback({ function(n) value.set(n) }, network);
+        //Network.add_callback({ function(n) reactive.set(n) }, network);
 
         function set(n) {
             Network.broadcast(n, network);
         }
 
-        { value with ~set }
-
+        { reactive with ~set }
     }
 
-    @xmlizer(Reactive.value('a)) function to_xml(('a->xhtml) _alpha_to_xml, r) {
+    @xmlizer(Reactive.value('a)) function xhtml to_xml(Reactive.value('a) r) {
         render(identity)(r)
     }
 
     module List {
 
-        client (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function make(init, itemFunc, emptyFunc) {
+        (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function _make(init, itemFunc, emptyFunc) {
 
-            cb_map = Mutable.make(IntMap.empty)
-            new_id = Fresh.client(identity)
+            cb_map = Mutable.make(StringMap.empty)
             list_length = Mutable.make(0)
 
             function observe(cb) {
+                id = Random.base64_url(6)
                 CoreList.iteri( { function(i, v) cb.added(v, i) }, init)
                 list_length.set(CoreList.length(init))
-                cb_map.set(Map.add(new_id(), cb, cb_map.get()))
+                cb_map.set(Map.add(id, cb, cb_map.get()))
             }
 
             cursor = { ~observe }
@@ -388,14 +397,28 @@ module Reactive {
                 cb(_.removed(v, index))
             }
 
-            Reactive.list('a) self = { ~cursor, ~itemFunc, ~emptyFunc, ~length, ~add, ~push, ~move, ~change, ~remove,
-                                       sync:function(_){@fail("The reactive list is already in sync mode")}
-            }
+            { ~cursor, ~itemFunc, ~emptyFunc, ~length, ~add, ~push, ~move, ~change, ~remove }
 
-            self_sync = sync(self)
+        }
 
-            { self with sync:self_sync }
+        /**
+          WIP
+        */
+        client function make_on_client(init, itemFunc, emptyFunc) {
+            _make(init, itemFunc, emptyFunc)
+        }
 
+        server function make_on_server(init, itemFunc, emptyFunc) {
+            _make(init, itemFunc, emptyFunc)
+        }
+        /**
+            Create a new Reactive value
+        */
+        (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function make(init, itemFunc, emptyFunc) {
+            @sliced_expr({
+                client : make_on_client(init, itemFunc, emptyFunc),
+                server : make_on_server(init, itemFunc, emptyFunc)
+            })
         }
 
         Reactive.list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a) function clone(reactive, item_fun, empty_fun) {
@@ -411,7 +434,8 @@ module Reactive {
                 empty_func = empty_func_getter()
                 Spark.render_f(function () {
                     Spark.list(cursor, function (item) {
-                        Spark.labelBranch(item._id, function () {
+                        // TODO: handle case when item has no _id field:
+                        Spark.labelBranch(@unsafe_cast(item)._id, function () {
                             Spark.isolate({ function() item_func(item) } @>> xts);
                         })
                     }, (empty_func @>> xts))
@@ -422,9 +446,11 @@ module Reactive {
             <span class={[class]} onready={replace} />
         }
 
-        (Reactive.list('a)->(string->Reactive.list('a))) function sync(list)(network_name) {
+        (list('a), ('a->xhtml), (->xhtml), string -> Reactive.list('a)) function make_sync(init, itemFunc, emptyFunc, network_name) {
 
-            Network.network(Cursor.network_message('a)) network = network(network_name)
+            Network.network(Cursor.network_message('a)) network = Network.cloud(network_name)
+
+            Reactive.list('a) list = make(list('a) init, itemFunc, emptyFunc)
 
             client function on_message(msg) {
                 match(msg) {
@@ -460,7 +486,7 @@ module Reactive {
             { list with ~add, ~push, ~move, ~change, ~remove}
         }
 
-        @xmlizer(Reactive.list('a)) function to_xml(_alpha_to_xml, r) {
+        @xmlizer(Reactive.list('a)) function xhtml to_xml(Reactive.list('a) r) {
             render({ function() r.cursor }, { function() r.itemFunc }, { function() r.emptyFunc })
         }
     }
