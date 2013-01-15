@@ -382,7 +382,7 @@ let ty directive exprs tys =
       Q.TypeArrow ([cpl], cpl)
 
   | `xmlizer ->
-      let xml = Ty.named_type Opacapi.Types.xml [] in
+      let xml = Ty.named_type Opacapi.Types.xhtml [] in
       let xmlizer = Q.TypeArrow (tys, xml) in
       Q.TypeArrow ([xmlizer], xmlizer)
 
