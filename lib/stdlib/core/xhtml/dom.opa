@@ -1280,9 +1280,9 @@ Dom = {{
         void
   )
 
-  remove_attribute_unsafe(dom:dom, name:string): void =
+  remove_attribute(dom:dom, name:string): void =
   (
-        do %% BslDom.remove_attribute_unsafe %%(of_selection(dom), name)
+        do %% BslDom.remove_attribute %%(of_selection(dom), name)
         void
   )
 
