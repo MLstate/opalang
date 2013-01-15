@@ -3,6 +3,9 @@ Updated APIs:
   * Crypto:
     - added SHA-512 functions
 
+  * Dom:
+    - added remove_attribute_unsafe
+
   * WBootstrap
     - extended table body lines type
     - added data-toggle and data-target functions
