@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -346,6 +346,10 @@ Rule =
    * characters is accepted.
    */
   alphanum_string = parser v=(Rule.alphanum_char+) -> Text.to_string(v)
+
+  base64_char = parser v=([a-zA-Z0-9+\\]) -> Text.to_string(v)
+
+  base64_string = parser v=(Rule.base64_char+) -> Text.to_string(v)
 
   /**
    * A parser for identifiers, i.e. a non-empty list of
