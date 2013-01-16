@@ -13,6 +13,7 @@ Updated APIs:
     - added base64_char and base64_string parser
 
   * WBootstrap
+    - extended table elt type
     - extended table body lines type
     - added data-toggle and data-target functions
 

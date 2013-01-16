@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -85,7 +85,9 @@ type WBootstrap.Navigation.page_nav_elt = {
 
 // Table
 
-type WBootstrap.Table.elt = xhtml
+type WBootstrap.Table.elt =
+  {xhtml:xhtml}
+/ {xhtml:xhtml decorator:(xhtml -> xhtml)}
 
 type WBootstrap.Table.elts = list(WBootstrap.Table.elt)
 
@@ -97,8 +99,8 @@ type WBootstrap.Table.decoration =
 type WBootstrap.Table.decorations = list(WBootstrap.Table.decoration)
 
 type WBootstrap.Table.line =
-  list(xhtml)
-/ {elts:list(xhtml) handles:list(handle_assoc(xhtml_event))}
+  list(WBootstrap.Table.elt)
+/ {elts:WBootstrap.Table.elts handles:list(handle_assoc(xhtml_event))}
 
 type WBootstrap.Table.lines = list(WBootstrap.Table.line)
 
@@ -450,7 +452,9 @@ WBootstrap = {{
     @private gen_head(elts:WBootstrap.Table.elts) =
       <thead><tr>{
         @toplevel.List.map(e ->
-          <th>{e}</th>
+          match e
+          ~{xhtml decorator} -> <th>{xhtml}</th> |> decorator(_)
+          ~{xhtml} -> <th>{xhtml}</th>
         , elts)
       }</tr></thead>
 
@@ -458,10 +462,12 @@ WBootstrap = {{
       <tbody>{
         @toplevel.List.map(
           line ->
-            build_line(line:list(xhtml)) =
+            build_line(line) =
               <tr>{
-              @toplevel.List.map(
-                  e -> <td>{e}</td>
+                @toplevel.List.map(e ->
+                  match e
+                  ~{xhtml decorator} -> <td>{xhtml}</td> |> decorator(_)
+                  ~{xhtml} -> <td>{xhtml}</td>
                 , line)
               }</tr>
             match line
