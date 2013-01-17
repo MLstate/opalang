@@ -44,6 +44,7 @@ WebSession = {{
             | {String = id} -> Channel.register({other = id}, ~{client})
             | j -> Log.error("WebSession", "Bad register : {j}")
             , to_register)
+          body = Iter.cons(Binary.of_string(body), Iter.empty)
           {some = {winfo with
              http_request.request = %%BslNet.Requestdef.request_with%%(request, url, body)
           }}

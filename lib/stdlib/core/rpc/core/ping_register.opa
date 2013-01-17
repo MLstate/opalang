@@ -337,6 +337,7 @@ PingRegister = {{
                   ]} ->
         client = client(true)
         do Entry.pang(client, nb, winfo)
+        body = Iter.cons(Binary.of_string(body), Iter.empty)
         (request, cont) = %%BslNet.Requestdef.request_with_cont%%(request, uri, body, Entry.return(client, nb, _))
         {some = {winfo with http_request.request = request ~cont}}
       | {Int = nb} ->
