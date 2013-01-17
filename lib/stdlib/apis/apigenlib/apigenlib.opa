@@ -77,7 +77,7 @@ type ApigenLib.general_value =
 type ApigenLib.simple_seq = list((string,ApigenLib.general_value))
 
 private (binary -> string) bindump = %% BslPervasives.bindump %%
-private (string -> string) memdump = %% BslPervasives.memdump %%
+//private (string -> string) memdump = %% BslPervasives.memdump %%
 
 module ApigenOauth(OAuth.parameters params) {
 
@@ -1308,7 +1308,7 @@ function dbg(where) {
   function gettag_unknown(list(xmlns) content) { {some:content} }
 
   function gettag_label(list(xmlns) _content) { {some:{}} }
-  function gettag_empty(list(xmlns) content) { {some:true} }
+  function gettag_empty(list(xmlns) _content) { {some:true} }
 
   function gettag_value(get, list(xmlns) content) {
     match (content) {
