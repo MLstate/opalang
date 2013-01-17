@@ -17,15 +17,27 @@
  * @destination public
  * @stability Work in progress
  */
+import stdlib.core.wbxml
 import stdlib.apis.common
 import stdlib.apis.oauth
 import stdlib.io.socket
+import stdlib.crypto
 
 type Apigen.expected_type =
     {BOOL}
  or {INT}
  or {OBJECT}
  or {LIST}
+
+type Apigen.content =
+    {xml_document xmldoc}
+ or {xmlns xmlns}
+ or {xhtml xhtml}
+ or {string plain}
+ or {binary binary}
+ or {(string,string) unknown}
+ or {(string,binary) unknown_binary}
+ or {none}
 
 type Apigen.failure =
     {string bad_path}
@@ -35,6 +47,11 @@ type Apigen.failure =
  or {string post_process}
  or {string socket}
  or {string pack}
+ or {string bad_xml}
+ or {string bad_wbxml}
+ or {Apigen.content bad_content}
+ or {string error}
+ or {xhtml error_html}
 
 type Apigen.outcome('a) = outcome('a,Apigen.failure)
 
@@ -43,7 +60,24 @@ type ApigenAuth.credentials = {
   string access_secret
 }
 
+type ApigenLib.auth =
+    {string user, string password}
+ or {none}
+
+type ApigenLib.general_value =
+    {string String}
+ or {int Int}
+ or {bool Bool}
+ or {float Float}
+ or {binary Binary}
+ or {Date.date Datetime}
+ or {xmlns Verbatim}
+ or {Empty}
+
+type ApigenLib.simple_seq = list((string,ApigenLib.general_value))
+
 private (binary -> string) bindump = %% BslPervasives.bindump %%
+private (string -> string) memdump = %% BslPervasives.memdump %%
 
 module ApigenOauth(OAuth.parameters params) {
 
@@ -95,8 +129,22 @@ module ApigenLib {
     "{Date.to_formatted_string(fmt, d)}{tz}"
   }
 
+  function date_to_string2(Date.date d) {
+    "{Date.to_formatted_string(fmt, d)}{Date.to_formatted_string(tzfmt, d)}"
+  }
+
   private function generic_build_path(path, options) {
     if (options == []) path else "{path}?{API_libs.form_urlencode(options)}"
+  }
+
+  function authentication(http_options, ApigenLib.auth auth) {
+    match (auth) {
+    case ~{user, password}:
+      auth = Crypto.Base64.encode(binary_of_string("{user}:{password}"))
+      {http_options with custom_headers:List.append(http_options.custom_headers,["Authorization: Basic {auth}"])};
+      //{http_options with headers:List.append(http_options.headers,[("Authorization","Basic {auth}")])};
+    default: http_options;
+    }
   }
 
   /**
@@ -161,25 +209,132 @@ module ApigenLib {
   /**
    * Make a HTTP POST on [path] at [base] with string [data]
    */
-  function POST(base, path, options, content, parse_fun) {
-    //API_libs_private.apijlog("POST {base}{path}\n{content}\n")
+  function POST_GENERIC(string base, string path, list((string,string)) options,
+                        ApigenLib.auth auth, WebClient.Post.options(string) http_options, parse_fun) {
+                        //ApigenLib.auth auth, WebClient.options(binary) http_options, parse_fun) {
+    //API_libs_private.apijlog("POST {base}{path}\n{http_options.content}\n")
     final_path = generic_build_path("{base}{path}", options)
     match (Uri.of_string(final_path)) {
     case {none}: {failure:{bad_path:final_path}};
     case {some:uri}:
-      match (WebClient.Post.try_post(uri,content)) {
-      case {success:res}: parse_fun(res)
+      //http_options = {http_options with method:"POST"}
+      http_options = authentication(http_options, auth)
+jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
+      match (WebClient.Post.try_post_with_options(uri,http_options)) {
+      //match (WebClient.request(uri,http_options)) {
+      case {success:res}: jlog("res:{{res with content:"Binary"}}"); parse_fun(res)
       case {failure:f}: {failure:{network:f}}
       }
     }
   }
 
   /**
+   * Make a HTTP POST on [path] at [base] with string [content]
+   */
+  function POST(base, path, options, content, auth, parse_fun) {
+    POST_GENERIC(base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
+    //POST_GENERIC(base, path, options, auth, {WebClient.default_options with content:{some:content}}, parse_fun)
+  }
+
+  /**
    * Make a HTTP POST on [path] at [base] with form [data]
    */
-  function POST_FORM(base, path, options, data, parse_fun) {
+  function POST_FORM(base, path, options, data, auth, parse_fun) {
     content = API_libs.form_urlencode(data)
-    POST(base, path, options, content, parse_fun)
+    POST_GENERIC(base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
+    //content = binary_of_string(API_libs.form_urlencode(data))
+    //POST_GENERIC(base, path, options, auth, {WebClient.default_options with content:{some:content}}, parse_fun)
+  }
+
+  /**
+   * Make a HTTP POST on [path] at [base] with string [xmlns]
+   */
+  function POST_XML(base, path, options, auth, custom_headers, xmlns, parse_fun) {
+    http_options = {WebClient.Post.default_options with mimetype:"text/xml", ~custom_headers, content:{some:xmlns}}
+    POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+    //headers = [("Content-Type","text/xml")|custom_headers]
+    //http_options = {WebClient.default_options with ~headers, content:{some:xmlns}}
+    //POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+  }
+
+  /**
+   * Make a HTTP POST on [path] at [base] with string [xmlns]
+   */
+  function POST_WBXML(base, path, options, auth, custom_headers, wbxml, parse_fun) {
+    http_options = {WebClient.Post.default_options with mimetype:"application/vnd.ms-sync.wbxml",
+                                                        ~custom_headers,
+                                                        content:{some:wbxml}}
+    POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+    //headers = [("Content-Type","application/vnd.ms-sync.wbxml")|custom_headers]
+    //http_options = {WebClient.default_options with ~headers, content:{some:wbxml}}
+    //POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+  }
+
+  /** Generic http operation */
+  private function WebClient.Generic.options default_options(op) {
+    { operation       : op,
+      auth            : {none},
+      custom_headers  : [],
+      custom_agent    : {none},
+      redirect        : {none},
+      timeout_sec     : {some:36.0},
+      ssl_key         : {none},
+      ssl_policy      : {none}
+    }
+  }
+
+  private function void try_generic_with_options_async(string op, Uri.uri location, string content,
+                                                       WebClient.Generic.options options,
+                                                       (WebClient.result(string) -> void) on_result) {
+    generic_options = { options with
+                          operation      : op,
+                          custom_headers : ["Content-Length: {String.length(content)}"]++options.custom_headers
+                      }
+    function on_success(x) { on_result({success:x}) }
+    function on_failure(x) { on_result({failure:x}) }
+    WebClient.Generic.try_request_with_options_async(location, op, generic_options, {some:content}, on_success, on_failure)
+  }
+
+  private function WebClient.result(string) try_generic_with_options(string op, Uri.uri location,
+                                                                     string content, WebClient.Generic.options options) {
+    @callcc(function (k) {
+              function on_result(x) { Continuation.return(k, x) }
+              try_generic_with_options_async(op, location, content, options, on_result)
+            })
+  }
+
+  private function WebClient.result(string) try_generic(string op, Uri.uri location, string content) {
+    try_generic_with_options(op, location, content, default_options(op))
+  }
+
+  /**
+   * Make a HTTP OPTIONS on [path] at [base] with form [data]
+   */
+  function try_options(location, content) { try_generic("OPTIONS", location, content) }
+  function try_options_with_options(location, content, options) {
+    try_generic_with_options("OPTIONS", location, content, options)
+  }
+
+  /**
+   * Make a HTTP OPTIONS on [path] at [base] with string [data]
+   */
+  function OPTIONS(base, path, options, http_options, content, parse_fun) {
+    //API_libs_private.apijlog("OPTIONS {base}{path}\n{content}\n")
+    final_path = generic_build_path("{base}{path}", options)
+    match (Uri.of_string(final_path)) {
+    case {none}: {failure:{bad_path:final_path}};
+    case {some:uri}:
+      match (try_options_with_options(uri,content, http_options)) {
+      case {success:res}: parse_fun(res)
+      case {failure:f}: {failure:{network:f}}
+      }
+    }
+  }
+
+  function OPTIONS_XML(base, path, options, content, parse_fun) {
+    http_options = {default_options("OPTIONS") with custom_headers:["Content-Type: text/xml"]}
+    //content = "<?xml version=\"1.0\"?>\n"^Xmlns.to_string(xmlns)
+    OPTIONS(base, path, options, http_options, content, parse_fun)
   }
 
   /** Generic HTTP parameters, sreq=required string, bopt=optional bool etc. */
@@ -293,6 +448,66 @@ module ApigenLib {
       check_errors(res.content, error_field, {INT}, expect_int)
     else
       expect_int(API_libs_private.parse_json(res.content))
+  }
+
+  function build_xml(WebClient.success res) {
+    //jlog(Ansi.print({yellow},"res:{res}"))
+    if (String.has_prefix("<!DOCTYPE html",res.content))
+      {success:{xhtml:Xhtml.of_string(res.content)}}
+    else
+      match (Xmlns.try_parse_document(res.content)) {
+      case {some:xmldoc}: {success:{xmldoc:xmldoc}};
+      case {none}: {failure:{bad_xml:res.content}};
+      }
+  }
+
+  function build_wbxml(WebClient.success res, WBXml.context context) {
+    match (WBXml.to_xmlns(context, %%bslBinary.of_encoding%%(res.content,"binary"))) {
+    case {success:(_ctxt,xmlns)}: {success:xmlns};
+    case {~failure}: {failure:{bad_wbxml:failure}};
+    }
+  }
+
+  function outcome(Apigen.content,Apigen.failure) build_from_content_type(WebClient.success(string) res,
+                                                                          option(WBXml.context) context) {
+    //jlog(Ansi.print({yellow},"res:{res}"))
+    content_type = Option.default("unknown/unknown",find_header("content-type",res.headers))
+    match (List.map(String.trim,String.explode(";",content_type))) {
+    case ["text/plain"|_]:
+      {success:{plain:res.content}};
+      //{success:{plain:%%bslBinary.to_encoding%%(res.content,"binary")}};
+    case ["text/html"|_]:
+      {success:{xhtml:Xhtml.of_string(res.content)}};
+      //{success:{xhtml:Xhtml.of_string(%%bslBinary.to_encoding%%(res.content,"binary"))}};
+    case ["text/xml"|_]:
+      match (Xmlns.try_parse_document(res.content)) {
+      //match (Xmlns.try_parse_document(%%bslBinary.to_encoding%%(res.content,"binary"))) {
+      case {some:xmldoc}: {success:{xmldoc:xmldoc}};
+      case {none}: {failure:{bad_xml:res.content}};
+      //case {none}: {failure:{bad_xml:%%bslBinary.to_encoding%%(res.content,"binary")}};
+      }
+    case ["application/vnd.ms-sync.wbxml"|_]:
+      match (context) {
+      case {some:context}:
+//jlog("res.content:\n{memdump(res.content)}")
+        match (WBXml.to_xmlns({context with debug:1}, %%bslBinary.of_encoding%%(res.content,"binary"))) {
+        //match (WBXml.to_xmlns({context with debug:2}, res.content)) {
+        case {success:(_ctxt,xmlns)}:
+          List.iter(function (header) {
+                      //jlog("header: \"{header}\"")
+                      if (String.has_prefix("x-ms-aserror:",header))
+                        jlog("x-ms-aserror: \"{Ansi.print({red},String.sub(13,String.length(header)-13,header))}\"")
+                    },res.headers)
+          {success:xmlns};
+        case {~failure}: {failure:{bad_wbxml:failure}};
+        }
+      case {none}: {failure:{error:"No WBXml context"}};
+      }
+    default:
+      //jlog("content_type:\"{content_type}\"")
+      {failure:{bad_content:{unknown:(content_type,res.content)}}};
+      //{failure:{bad_content:{unknown_binary:(content_type,res.content)}}};
+    }
   }
 
 }
@@ -492,6 +707,7 @@ type ApigenLib.read_packet = Socket.connection, int, Mailbox.t -> outcome((Mailb
 type ApigenLib.connection = {
   string name,
   ApigenLib.conf conf,
+  bool retain, // total mass
   option(Socket.t) conn,
   SocketPool.t pool,
   ApigenLib.read_packet read_packet
@@ -499,18 +715,18 @@ type ApigenLib.connection = {
 
 private
 type ApigenLib.sr =
-     {(ApigenLib.connection) recv} // Expect reply
-  or {(ApigenLib.connection,int) recvraw} // Expect raw reply
-  or {(ApigenLib.connection,binary) send} // Send and forget
-  or {(ApigenLib.connection,binary) sendrecv} // Send and expect reply
+     {recv} // Expect reply
+  or {int recvraw} // Expect raw reply
+  or {binary send} // Send and forget
+  or {binary sendrecv} // Send and expect reply
   or {stop} // Stop the cell
 
 private
 type ApigenLib.srr =
-     {Apigen.outcome(void) sendresult}
-  or {Apigen.outcome(binary) sndrcvresult}
-  or {Apigen.outcome(binary) rcvresult}
-  or {Apigen.outcome(binary) rcvrawresult}
+     {ApigenLib.connection sendresult}
+  or {(ApigenLib.connection,binary) sndrcvresult}
+  or {(ApigenLib.connection,binary) rcvresult}
+  or {(ApigenLib.connection,binary) rcvrawresult}
   or {stopresult}
   or {Apigen.failure failure}
 
@@ -536,11 +752,12 @@ module ApilibConnection(Socket.host default_host) {
    * @param conf The configuration of the connection to open.
    * @param secure Optional SSL secure_type value.
    * @param preamble Optional function called on socket before SSL handshake.
+   * @param retain Retain allocated sockets between calls.
    * @return A connection object (not connected).
    */
-  function ApigenLib.connection init(family_name, name, secure, preamble) {
+  function ApigenLib.connection init(family_name, name, secure, preamble, retain) {
     conf = Conf.get_default(family_name, name)
-    ~{ name, conf, conn:{none},
+    ~{ name, conf, retain, conn:{none},
        pool:SocketPool.make_secure(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose},secure,preamble),
        read_packet:read_packet_prefixed(default_length)
      }
@@ -558,27 +775,63 @@ module ApilibConnection(Socket.host default_host) {
   }
 
   /**
-   * Connect to the server (actualy makes a physical connection).
+   * Ensure that a socket is allocated to the connection.
+   * @param conn The connection object.
+   */
+  function Apigen.outcome(ApigenLib.connection) allocate(ApigenLib.connection conn) {
+    match (conn.conn) {
+    case {some:_}: {success:conn};
+    case {none}:
+      match (SocketPool.get(conn.pool)) {
+      case ~{failure}: {failure:{socket:failure}};
+      case {success:c}: {success:{conn with conn:{some:c}}};
+      }
+    }
+  }
+
+  /**
+   * Release an allocated socket.
+   * @param conn The connection object.
+   */
+  function ApigenLib.connection release(ApigenLib.connection conn) {
+    match (conn.conn) {
+    case {some:c}: SocketPool.release(conn.pool,c); {conn with conn:none};
+    case {none}: conn;
+    }
+  }
+
+  /**
+   * Connect to the server (actually makes a physical connection).
    * @param conn The connection object.
    * @param host The socket host definition (host, port).
    * @returns Updated connection object with the physical connection installed.
    */
   function Apigen.outcome(ApigenLib.connection) connect(ApigenLib.connection conn, Socket.host host) {
+    conn = release(conn);
     Log.info(conn, "connect","addr={host.f1} port={host.f2}")
     SocketPool.reconnect(conn.pool,(host.f1,host.f2))
     {success:conn}
   }
 
   /**
-   * Check if the connection is ready
+   * Check if the connection is ready.
+   * Note that this will break the connection if it is already allocated.
    * @param m The connection to check
-   * @return
+   * @returns connection object with the same allocated state as on call.
    */
   function Apigen.outcome(ApigenLib.connection) check(ApigenLib.connection conn) {
+    allocated = Option.is_some(conn.conn)
+    conn = release(conn)
     match (SocketPool.get(conn.pool)) {
     case ~{failure}: {failure:{socket:failure}}
     case {success:c}:
-      SocketPool.release(conn.pool, c)
+      conn =
+        if (allocated)
+          {conn with conn:{some:c}}
+        else {
+          SocketPool.release(conn.pool, c)
+          conn
+        }
       {success:conn}
     }
   }
@@ -587,18 +840,29 @@ module ApilibConnection(Socket.host default_host) {
    * Close the physical connection.
    */
   function ApigenLib.connection close(ApigenLib.connection conn) {
+    conn = release(conn)
     Log.info(conn, "close","{SocketPool.gethost(conn.pool)}")
     SocketPool.stop(conn.pool)
     conn
   }
 
-  private function Apigen.outcome(void) send_no_reply_(ApigenLib.connection c, binary msg, bool _reply_expected) {
+  private function set_mbox(c, mbox) {
+    // We MUST update the mailbox in the connection before release.
+    c =
+      match ((mbox,c.conn)) {
+      case ({some:mbox},{some:conn}): {c with conn:{some:{conn with ~mbox}}};
+      default: c;
+      }
+    if (c.retain) c else release(c)
+  }
+
+  private function ApigenLib.srr send_no_reply(ApigenLib.connection c, binary msg) {
     match (c.conn) {
     case {some:conn}:
       len = Binary.length(msg)
       Log.debug(c, "send", "\n{bindump(msg)}")
       match (Socket.binary_write_len_with_err_cont(conn.conn,c.conf.timeout,msg,len)) {
-      case {success:cnt}: if (cnt==len) {success:void} else {failure:{socket:"Write failure"}}
+      case {success:cnt}: if (cnt==len) {sendresult:set_mbox(c,none)} else {failure:{socket:"Write failure"}}
       case {~failure}: {failure:{socket:failure}};
       }
     case {none}:
@@ -607,111 +871,81 @@ module ApilibConnection(Socket.host default_host) {
     }
   }
 
-  private function Apigen.outcome(void) send_no_reply(ApigenLib.connection c, binary msg) { send_no_reply_(c,msg,false) }
-
-  private function (option(Mailbox.t),Apigen.outcome(binary)) send_with_reply(ApigenLib.connection c, binary msg) {
+  private function ApigenLib.srr send_with_reply(ApigenLib.connection c, binary msg) {
     match (c.conn) {
     case {some:conn}:
-       match (send_no_reply_(c,msg,true)) {
-       case {success:_}:
+       match (send_no_reply(c,msg)) {
+       case {sendresult:c}:
          match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox)) {
          case {success:(mailbox,reply)}:
            Log.debug(c, "receive", "\n{bindump(reply)}")
-           ({some:mailbox},{success:reply})
+           {sndrcvresult:(set_mbox(c,{some:mailbox}),reply)}
          case {~failure}:
            Log.info(c, "receive","failure={failure}")
            _ = Mailbox.reset(conn.mbox)
-           ({none},{failure:{socket:failure}})
+           {failure:{socket:failure}}
          }
        case {~failure}:
          Log.info(c, "receive","failure={failure}")
          _ = Mailbox.reset(conn.mbox)
-         ({none},{~failure});
+         {~failure};
+       default: @fail("bad sendresult");
        }
     case {none}:
       Log.error(c, "receive","No socket")
-      ({none},{failure:{socket:"No socket"}})
+      {failure:{socket:"No socket"}}
     }
   }
 
-  private function (option(Mailbox.t),Apigen.outcome(binary)) get_reply(ApigenLib.connection c) {
+  private function ApigenLib.srr get_reply(ApigenLib.connection c) {
     match (c.conn) {
     case {some:conn}:
     match (c.read_packet(conn.conn, c.conf.timeout, conn.mbox)) {
     case {success:(mailbox,reply)}:
       Log.debug(c, "receive", "\n{bindump(reply)}")
-      ({some:mailbox},{success:reply})
+      {rcvresult:(set_mbox(c,{some:mailbox}),reply)}
     case {~failure}:
       Log.info(c, "receive","failure={failure}")
       _ = Mailbox.reset(conn.mbox)
-      ({none},{failure:{socket:failure}})
+      {failure:{socket:failure}}
     }
     case {none}:
       Log.error(c, "receive","No socket")
-      ({none},{failure:{socket:"No socket"}})
+      {failure:{socket:"No socket"}}
     }
   }
 
-  private function (option(Mailbox.t),Apigen.outcome(binary)) get_raw(ApigenLib.connection c, int no_bytes) {
+  private function ApigenLib.srr get_raw(ApigenLib.connection c, int no_bytes) {
     match (c.conn) {
     case {some:conn}:
     match (read_raw(conn.conn, c.conf.timeout, conn.mbox, no_bytes)) {
     case {success:(mailbox,reply)}:
       Log.debug(c, "receive", "\n{bindump(reply)}")
-      ({some:mailbox},{success:reply})
+      {rcvrawresult:(set_mbox(c,{some:mailbox}),reply)}
     case {~failure}:
       Log.info(c, "receive","failure={failure}")
       _ = Mailbox.reset(conn.mbox)
-      ({none},{failure:{socket:failure}})
+      {failure:{socket:failure}}
     }
     case {none}:
       Log.error(c, "receive","No socket")
-      ({none},{failure:{socket:"No socket"}})
+      {failure:{socket:"No socket"}}
     }
   }
 
-  private function sr_snr(ApigenLib.connection c, binary msg) {
-    sr = send_no_reply(c,msg)
-    ({none},{sendresult:sr})
-  }
-
-  private function sr_swr(ApigenLib.connection c, binary msg) {
-    (mbox,swr) = send_with_reply(c,msg)
-    (mbox,{sndrcvresult:swr})
-  }
-
-  private function sr_gr(ApigenLib.connection c) {
-    (mbox,gr) = get_reply(c)
-    (mbox,{rcvresult:gr})
-  }
-
-  private function sr_graw(ApigenLib.connection c, int no_bytes) {
-    (mbox,gr) = get_raw(c, no_bytes)
-    (mbox,{rcvrawresult:gr})
-  }
-
   private function ApigenLib.srr srpool(ApigenLib.connection c, ApigenLib.sr msg) {
-    match (SocketPool.get(c.pool)) {
-    case {success:connection}:
-      conn = {some:connection}
-      (mbox,result) =
-        match (msg) {
-        case {recv:c}: sr_gr({c with ~conn})
-        case {recvraw:(c,no_bytes)}: sr_graw({c with ~conn},no_bytes)
-        case {send:(c,msg)}: sr_snr({c with ~conn},msg)
-        case {sendrecv:(c,msg)}: sr_swr({c with ~conn},msg)
-        case {stop}: Log.debug(c, "srpool","stop"); @fail
-        }
-      connection =
-        match (mbox) {
-        case {some:mbox}: {connection with ~mbox}
-        case {none}: connection
-        }
-      SocketPool.release(c.pool,connection)
-      result
+    match (allocate(c)) {
+    case {success:c}:
+      match (msg) {
+      case {recv}: get_reply(c)
+      case {recvraw:no_bytes}: get_raw(c,no_bytes)
+      case {send:msg}: send_no_reply(c,msg)
+      case {sendrecv:msg}: send_with_reply(c,msg)
+      case {stop}: Log.debug(c, "srpool","stop"); @fail
+      }
     case {~failure}:
       Log.error(c, "srpool","Can't get pool {failure}")
-      {failure:{socket:failure}}
+      {~failure}
     }
   }
 
@@ -725,11 +959,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param msg The binary message.
    * @returns Success void or a failure code.
    */
-  function Apigen.outcome(void) snd(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
+  function Apigen.outcome(ApigenLib.connection) snd(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{send:((c,msg))})) {
-      case {~sendresult}: sendresult;
+      match (srpool(c,{send:msg})) {
+      case {~sendresult}: {success:sendresult};
       case {~failure}: {~failure};
       default: @fail
       }
@@ -747,11 +981,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param msg The binary message.
    * @returns Success of a reply message or a failure code.
    */
-  function Apigen.outcome(binary) sndrcv(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
+  function Apigen.outcome((ApigenLib.connection,binary)) sndrcv(Apigen.outcome(ApigenLib.connection) conn, binary msg) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{sendrecv:((c,msg))})) {
-      case {~sndrcvresult}: sndrcvresult;
+      match (srpool(c,{sendrecv:msg})) {
+      case {~sndrcvresult}: {success:sndrcvresult};
       case {~failure}: {~failure};
       default: @fail;
       }
@@ -768,11 +1002,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param conn The connection object outcome.
    * @returns Success of a reply message or a failure code.
    */
-  function Apigen.outcome(binary) rcv(Apigen.outcome(ApigenLib.connection) conn) {
+  function Apigen.outcome((ApigenLib.connection,binary)) rcv(Apigen.outcome(ApigenLib.connection) conn) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{recv:c})) {
-      case {~rcvresult}: rcvresult;
+      match (srpool(c,{recv})) {
+      case {~rcvresult}: {success:rcvresult};
       case {~failure}: {~failure};
       default: @fail;
       }
@@ -790,11 +1024,11 @@ module ApilibConnection(Socket.host default_host) {
    * @param no_bytes The number of bytes to read.
    * @returns Success of a reply message or a failure code.
    */
-  function Apigen.outcome(binary) rcvraw(Apigen.outcome(ApigenLib.connection) conn, int no_bytes) {
+  function Apigen.outcome((ApigenLib.connection,binary)) rcvraw(Apigen.outcome(ApigenLib.connection) conn, int no_bytes) {
     match (conn) {
     case {success:c}:
-      match (srpool(c,{recvraw:(c,no_bytes)})) {
-      case {~rcvrawresult}: rcvrawresult;
+      match (srpool(c,{recvraw:no_bytes})) {
+      case {~rcvrawresult}: {success:rcvrawresult};
       case {~failure}: {~failure};
       default: @fail;
       }
@@ -842,11 +1076,334 @@ module ApilibConnection(Socket.host default_host) {
   }
 
   function outcome((Mailbox.t,binary),string) read_raw(Socket.connection conn, int timeout, Mailbox.t mailbox, int no_bytes) {
-    jlog("read_raw: no_bytes={no_bytes}")
+    //jlog("read_raw: no_bytes={no_bytes}")
     match (Socket.read_fixed(conn, timeout, no_bytes, mailbox)) {
     case {success:mailbox}: Mailbox.sub(mailbox, no_bytes);
     case {~failure}: {~failure};
     }
   }
 
+}
+
+type ApigenLib.parsed_xml_rule = { list(string) pp, string value }
+
+type ApigenLib.parsed_xml_path_element = { string tag, list(ApigenLib.parsed_xml_rule) rules }
+
+type ApigenLib.parsed_xml_path = list(ApigenLib.parsed_xml_path_element)
+
+type ApigenLib.xml_extractor('a) = ApigenLib.parsed_xml_path, xmlns -> outcome(list('a),string)
+
+module ApigenLibXml {
+
+function dbg(where) {
+  parser {
+    Rule.debug_parse_string(function (s) {
+      dots = if (String.length(s) > 20) { "..." } else ""
+      s = String.sub(0,Int.min(20,String.length(s)),s)
+      s = String.escape_non_utf8_special(s)
+      jlog("{where}: {s}{dots}")
+    }): void
+  }
+}
+
+  path_string = parser { case /*dbg("pstr")*/ "\"" str=((!"\"" .)*) "\"": Text.to_string(str) }
+
+  path_id = parser { case /*dbg("id")*/ id=([A-Za-z0-9_\-]+): Text.to_string(id); }
+
+  dot = parser { case ".": void; }
+
+  Parser.general_parser(list(string)) plain_tag = Rule.parse_list_sep(false, path_id, dot)
+
+  Parser.general_parser(ApigenLib.parsed_xml_rule) path_rule = parser {
+    //case pp=path_parser Rule.ws "=" Rule.ws value=path_string Rule.ws: ~{pp, value};
+    case /*dbg("pr")*/ pp=plain_tag Rule.ws "=" Rule.ws value=path_string Rule.ws: ~{pp, value};
+  }
+
+  comma = parser { case ",": void; }
+
+  Parser.general_parser(list(ApigenLib.parsed_xml_rule)) rules = Rule.parse_list_sep(false, path_rule, comma)
+
+  Parser.general_parser(list(ApigenLib.parsed_xml_rule)) path_filter = parser {
+    case /*dbg("pf")*/ "[" Rule.ws ~rules Rule.ws "]": rules;
+  }
+
+  Parser.general_parser(ApigenLib.parsed_xml_path_element) path_tag = parser {
+    //case tag=path_id Rule.ws: ~{tag};
+    case /*dbg("pt")*/ tag=path_id Rule.ws rules=path_filter?:
+      match (option(list(ApigenLib.parsed_xml_rule)) rules) {
+      case {some:rules}: ~{tag, rules};
+      case {none}: ~{tag, rules:[]};
+      };
+  }
+
+  Parser.general_parser(ApigenLib.parsed_xml_path_element) pp0 = parser { case /*dbg("pp0")*/ "." Rule.ws ~path_tag: path_tag }
+
+  Parser.general_parser(list(ApigenLib.parsed_xml_path_element)) tag = parser { t=path_tag Rule.ws ~pp0*: [t|pp0]; }
+
+  Parser.general_parser(ApigenLib.parsed_xml_path) path_parser = parser {
+    case /*dbg("pp")*/ Rule.ws ~tag: tag;
+  }
+
+  function parse_path(string path) {
+    match (Parser.try_parse(path_parser,path)) {
+    case {some:pathdef}: {some:pathdef};
+    case {none}: {none};
+    }
+  }
+
+  function matches_rules(rules, xmlns) {
+//jlog("{i}) {Ansi.print({cyan},"matches_rules")}: rules={Ansi.print({red},"{rules}")}")
+//jlog("{i}) {Ansi.print({cyan},"matches_rules")}: xmlns={Ansi.print({blue},Xmlns.to_string(xmlns))}")
+//res =
+    List.exists(function (~{pp, value}) {
+                  pp = List.map(function (tag) { ~{tag, rules:[]} },pp)
+                  match (get_xml_string(pp, xmlns)) {
+                  case {success:strs}: List.mem(value,strs);
+                  default: false;
+                  }
+                },rules)
+//jlog("{i}) {Ansi.print({cyan},"matches_rules")}: res={Ansi.print({yellow},"{res}")}")
+//res
+  }
+
+  function matches_content(rules, list(xmlns) content) {
+    rules == [] || List.exists(matches_rules(rules, _),content)
+  }
+
+//  cnt = Mutable.make(0)
+
+  function outcome(list(xmlns),string) get_xml_elements(ApigenLib.parsed_xml_path pp, xmlns xmlns) {
+//i = cnt.get(); cnt.set(i+1);
+//jlog("{i}) get_xml_elements: pp={Ansi.print({magenta},"{pp}")} xmlns={Ansi.print({blue},Xmlns.to_string(xmlns))}")
+    match (pp) {
+      case []: {success:[xmlns]};
+      case [{tag:pptag, ~rules}|next_pp]:
+//jlog("{i}) rules:{Ansi.print({red},"{rules}")}")
+        match (xmlns) {
+        case {~text}: {failure:text};
+        case {args:_, ~content, namespace:_, specific_attributes:_, xmlns:_, ~tag}:
+//jlog("{i}) tag={Ansi.print({yellow},tag)} pptag={Ansi.print({cyan},pptag)}")
+          if (pptag == tag) {
+            recursive function list(xmlns) aux(list(xmlns) l) {
+              match (l) {
+              case []: list(xmlns) [];
+              case [xmlns xmlns|l]:
+//jlog("{i}) next_pp={Ansi.print({magenta},"{next_pp}")}")
+//jlog("{i}) xmlns={Ansi.print({blue},Xmlns.to_string(xmlns))}")
+                match (get_xml_elements(ApigenLib.parsed_xml_path next_pp, xmlns xmlns)) {
+                case {success:list(xmlns) res}:
+//jlog("{i}) res={Ansi.print({green},String.concat("\n",List.map(Xmlns.to_string,res)))}")
+                      List.append(res,aux(l))
+                default: aux(l);
+                }
+              }
+            }
+            if (matches_content(rules, content))
+              {success:aux(content)}
+            else
+              {success:[]}
+         } else
+           {failure:"expected {pptag} got {tag}"};
+        case {content_unsafe:_}: {failure:"content_unsafe"};
+        case {fragment:_}: {failure:"fragment"};
+        case {xml_dialect:_}: {failure:"xml_dialect"};
+        }
+    }
+  }
+
+  function find_xml_element(ApigenLib.parsed_xml_path pp, list(xmlns) xmlnss) {
+    recursive function aux(xmlnss) {
+      match (xmlnss) {
+      case []: {failure:"not found"};
+      case [xmlns|xmlnss]:
+        match (get_xml_elements(pp,xmlns)) {
+        case {~success}: {~success};
+        default: aux(xmlnss);
+        }
+      }
+    }
+    aux(xmlnss)
+  }
+
+  function string_of_xml_element(xmlns) {
+    match (xmlns) {
+    case {~text}
+    case {args:_, content:[{~text}], namespace:_, specific_attributes:_, xmlns:_, tag:_}: {success:text};
+    default: {failure:"element {xmlns} is not text"};
+    }
+  }
+
+  function outcome(list('b),'e) Outcome_fold_backwards(('a, outcome(list('b),'e) -> outcome(list('b),'e)) f,
+                                                       outcome(list('a),'e) l,
+                                                       outcome(list('b),'e) acc) {
+    match (l) {
+    case {success:l}: List.fold_backwards(f,l,acc);
+    case {~failure}: {~failure};
+    }
+  }
+
+  function outcome(list('b),'e) Outcome_map(('a -> outcome('b,'e)) f, outcome(list('a),'e) l) {
+    Outcome_fold_backwards(function (a, l) {
+                             match (l) {
+                             case {success:l}:
+                               match (f(a)) {
+                               case {success:b}: {success:[b|l]};
+                               case {~failure}: {~failure};
+                               }
+                             case {~failure}: {~failure};
+                             }
+                           }, l, {success:[]})
+  }
+
+  function outcome(list(string), string) get_xml_string(ApigenLib.parsed_xml_path pp, xmlns xmlns) {
+    Outcome_map(string_of_xml_element,get_xml_elements(pp,xmlns))
+  }
+
+  function outcome(list(string), string) find_xml_string(ApigenLib.parsed_xml_path pp, list(xmlns) xmlnss) {
+    Outcome_map(string_of_xml_element,find_xml_element(pp,xmlnss))
+  }
+
+  function get_xml_bool(pp, xmlns) {
+    Outcome_map(function (str) {
+      match (String.to_lower(str)) {
+      case "true": {success:true};
+      case "false": {success:false};
+      default: {failure:"{str} is not bool"};
+      }
+    },get_xml_string(pp, xmlns))
+  }
+
+  function get_xml_int(pp, xmlns) {
+    Outcome_map(function (str) {
+      match (Int.of_string_opt(str)) {
+      case {some:i}: {success:i};
+      default: {failure:"{str} is not int"};
+      }
+    },get_xml_string(pp,xmlns))
+  }
+
+  function list(xmlns) make_simple_sequence(string namespace, ApigenLib.simple_seq seq) {
+    List.map(function ((tag,gv)) {
+               list(xmlns) content =
+                 match (gv) {
+                 case {~String}: [{text:String}];
+                 case {Int:i}: [{text:Int.to_string(i)}];
+                 case {Bool:b}: [{text:Bool.to_string(b)}];
+                 case {Float:f}: [{text:Float.to_string(f)}];
+                 case {Binary:bin}:
+                   [{args:[], content:[{text:%%bslBinary.to_encoding%%(bin,"binary")}],
+                     ~namespace, specific_attributes:none, xmlns:[], tag:"Opaque"}];
+                 case {Datetime:d}: [{text:ApigenLib.date_to_string2(d)}];
+                 case {~Verbatim}: [Verbatim];
+                 case {Empty}: [];
+                 }
+               {args:[], ~content, ~namespace, specific_attributes:none, xmlns:[], ~tag}
+             },seq)
+  }
+
+  function list(xmlns) xmlnsl0() { [] }
+
+  function list(xmlns) xmlnsl(xmlns xmlns) { [xmlns] }
+
+  function gettag_unknown(list(xmlns) content) { {some:content} }
+
+  function gettag_label(list(xmlns) _content) { {some:{}} }
+  function gettag_empty(list(xmlns) content) { {some:true} }
+
+  function gettag_value(get, list(xmlns) content) {
+    match (content) {
+    case [{~text}|_]: get(text);
+    default: none;
+    }
+  }
+
+  gettag_string = gettag_value(some,_)
+  gettag_binary = gettag_value(function (s) { {some:%%bslBinary.of_encoding%%(s,"binary")} },_)
+  gettag_int = gettag_value(Int.of_string_opt,_)
+  gettag_bool = gettag_value(Bool.of_string,_)
+  gettag_float = gettag_value(Float.of_string_opt,_)
+
+  function is_tag(tag, xmlns) {
+    match (xmlns) {
+    case {args:_, content:_, namespace:_, specific_attributes:_, tag:xtag, xmlns:_}: tag == xtag;
+    default: false;
+    }
+  }
+
+  function get_xmlns_tag(tag, list(xmlns) content, strictness) {
+    match (strictness) {
+    case {first}: match (List.nth(0,content)) { case {some:e}: {some:[e]}; default: none; };
+    case {first_match}: match (List.find(is_tag(tag,_),content)) { case {some:e}: {some:[e]}; default: none; };
+    case {all_matches}: {some:List.filter(is_tag(tag,_),content)};
+    case {all}: {some:content};
+    }
+  }
+
+  function get_rec(list(xmlns) content, dflt, set) {
+    //jlog("get_rec: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    List.fold(function (xmlns, record) {
+                match (record) {
+                case {some:record}:
+                  match (xmlns) {
+                  case {args:_, ~content, namespace:_, specific_attributes:_, ~tag, xmlns:_}:
+                    match (set(tag, record, content)) {
+                    case {some:record}: {some:record};
+                    case {none}: {some:record};
+                    };
+                  default: {some:record};
+                  }
+                case {none}: none;
+                }
+              },content,{some:dflt})
+  }
+
+  function option('a) get_alt(list(xmlns) content, (string, list(xmlns) -> option('a)) set) {
+    //jlog("get_alt: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    recursive function aux(content) {
+      match (content) {
+      case [xmlns|content]:
+        match (xmlns) {
+        case {args:_, content:tcontent, namespace:_, specific_attributes:_, ~tag, xmlns:_}:
+          //jlog("get_alt: tag={tag}")
+          match (set(tag, tcontent)) {
+          case {some:res}: {some:res};
+          case {none}: aux(content);
+          }
+        default: aux(content);
+        }
+      case []: none;
+      }
+    }
+    aux(content)
+  }
+
+  function get_option(list(xmlns) content, get) {
+    //jlog("get_option: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    match (get(content)) {
+    case {some:v}: {some:{some:v}};
+    case {none}: {some:{none}};
+    }
+  }
+
+  function get_list(list(xmlns) content, get) {
+    //jlog("get_list: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    {some:List.filter_map(function (xmlns) { get([xmlns]) },content)}
+  }
+
+  function dorec(r, get, set, content) {
+    //jlog("dorec: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    match (get(content)) {
+    case {some:value}: {some:set(r, value)};
+    case {none}: none;
+    }
+  }
+
+  function doalt(get, mk, content) {
+    //jlog("doalt: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    match (get(content)) {
+    case {some:value}: {some:mk(value)};
+    case {none}: none;
+    }
+  }
+    
 }
