@@ -71,6 +71,8 @@ type ApigenLib.general_value =
  or {float Float}
  or {binary Binary}
  or {Date.date Datetime}
+ or {string Base64}
+ or {bool Numbool}
  or {xmlns Verbatim}
  or {Empty}
 
@@ -129,9 +131,10 @@ module ApigenLib {
     "{Date.to_formatted_string(fmt, d)}{tz}"
   }
 
-  function date_to_string2(Date.date d) {
-    "{Date.to_formatted_string(fmt, d)}{Date.to_formatted_string(tzfmt, d)}"
-  }
+  private fmtp2 = Date.generate_printer("%FT%T%z")
+  function date_to_string2(Date.date d) { Date.to_formatted_string(fmtp2, d) }
+  private fmts2 = Date.generate_scanner("%FT%T%z")
+  function date_of_string2(string s) { Date.of_formatted_string(fmts2, s) }
 
   private function generic_build_path(path, options) {
     if (options == []) path else "{path}?{API_libs.form_urlencode(options)}"
@@ -1294,6 +1297,8 @@ function dbg(where) {
                    [{args:[], content:[{text:%%bslBinary.to_encoding%%(bin,"binary")}],
                      ~namespace, specific_attributes:none, xmlns:[], tag:"Opaque"}];
                  case {Datetime:d}: [{text:ApigenLib.date_to_string2(d)}];
+                 case {Base64:s}: [{text:Crypto.Base64.encode(binary_of_string(s))}];
+                 case {Numbool:b}: [{text:if (b) "1" else "0"}];
                  case {~Verbatim}: [Verbatim];
                  case {Empty}: [];
                  }
@@ -1319,6 +1324,15 @@ function dbg(where) {
 
   gettag_string = gettag_value(some,_)
   gettag_binary = gettag_value(function (s) { {some:%%bslBinary.of_encoding%%(s,"binary")} },_)
+  gettag_base64 = gettag_value(function (s) { {some:string_of_binary(Crypto.Base64.decode(s))} },_)
+  gettag_numbool = gettag_value(function (s) {
+    match (Int.of_string_opt(s)) {
+    case {some:0}: {some:false};
+    case {some:_}: {some:true};
+    case {none}: {none};
+    }
+  },_)
+  gettag_datetime = gettag_value(function (s) { ApigenLib.date_of_string2(s) },_)
   gettag_int = gettag_value(Int.of_string_opt,_)
   gettag_bool = gettag_value(Bool.of_string,_)
   gettag_float = gettag_value(Float.of_string_opt,_)
@@ -1366,6 +1380,15 @@ function dbg(where) {
         case {args:_, content:tcontent, namespace:_, specific_attributes:_, ~tag, xmlns:_}:
           //jlog("get_alt: tag={tag}")
           match (set(tag, tcontent)) {
+          case {some:res}: {some:res};
+          case {none}: aux(content);
+          }
+        case {~text}:
+          // This is complete nonsense but it allows us to treat
+          // alts as types in the gettag_ routines.
+          // TODO: fix the asymmetric treatment of tags in alts.
+          //jlog("get_alt: tag text: {text}")
+          match (set(text, [{~text}])) {
           case {some:res}: {some:res};
           case {none}: aux(content);
           }

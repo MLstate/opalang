@@ -564,7 +564,7 @@ module WBXml {
     ctxt = start(ctxt)
     match (of_xmlns0(ctxt, xmlns)) {
     case {success:ctxt}:
-      debug(ctxt,1,"WBXml.of_xmlns","wbxml=\n{Ansi.print({green},bindump(ctxt.buf))}")
+      debug(ctxt,3,"WBXml.of_xmlns","wbxml=\n{Ansi.print({green},bindump(ctxt.buf))}")
       {success:ctxt};
     case {~failure}:
       debug(ctxt,1,"WBXml.of_xmlns","failure=\"{Ansi.print({red},failure)}\"")
@@ -916,7 +916,7 @@ module WBXml {
       {success:(ctxt,{none})}
     } else {
       ctxt = {ctxt with ~buf, pos:0}
-      debug(ctxt,1,"WBXml.to_xmlns","wbxml=\n{Ansi.print({green},String.trim(bindump(ctxt.buf)))}")
+      debug(ctxt,3,"WBXml.to_xmlns","wbxml=\n{Ansi.print({green},String.trim(bindump(ctxt.buf)))}")
       match
         (match (get_header(ctxt)) {
          case {success:ctxt}: get_tag(ctxt);
