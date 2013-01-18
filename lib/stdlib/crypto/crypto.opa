@@ -37,6 +37,11 @@ type Crypto.salted = {
   salt : binary;
 }
 
+/**
+ * Type of a running hash computation.
+ */
+type Crypto.hash = external
+
 Crypto = {{
 
   /**
@@ -45,6 +50,18 @@ Crypto = {{
    * @return A cryptographically strong pseudo-random binary data.
    */
   random(length) = %%BslCrypto.secure_random%%(length)
+
+  /**
+   * Adds [data] to the running hash computation.
+   * @param hash The hash to update.
+   * @param data
+   */
+  add(hash, data) = %%BslCrypto.add%%(hash, data)
+
+  /**
+   * Terminates the hash computation and returns the digest.
+   */
+  digest(hash) = %%BslCrypto.digest%%(hash)
 
   /**
    * This module supports the encoding and decoding of
@@ -143,6 +160,50 @@ Crypto = {{
      */
     ripemd160(key, data) = digest("ripemd160", key, data)
 
+    /**
+     * Creates a HMAC computation
+     * @param H is the name of cryptographic hash function
+     * @param K is a secret key
+     * @return A new hash computation
+     */
+    @private
+    create(H, K) = %% BslCrypto.create_hmac %%(H, K)
+
+    /**
+     * Creates a new HMAC-MD5 computation.
+     * @param key is a secret key
+     * @return A new computation
+     */
+    create_md5(key) = create("md5", key)
+
+    /**
+     * Creates a new HMAC-SHA1 computation.
+     * @param key is a secret key
+     * @return A new computation
+     */
+    create_sha1(key) = create("sha1", key)
+
+    /**
+     * Creates a new HMAC-SHA256 computation.
+     * @param key is a secret key
+     * @return A new computation
+     */
+    create_sha256(key) = create("sha256", key)
+
+    /**
+     * Creates a new HMAC-SHA512 computation.
+     * @param key is a secret key
+     * @return A new computation
+     */
+    create_sha512(key) = create("sha512", key)
+
+    /**
+     * Creates a new HMAC-RIPEM160 computation.
+     * @param key is a secret key
+     * @return A new computation
+     */
+    create_ripemd160(key) = create("ripemd160", key)
+
   }}
 
   /**
@@ -201,6 +262,44 @@ Crypto = {{
      * @return the calculated digest
      */
     ripemd160(data) = digest("ripemd160", data)
+
+    /**
+     * Creates a Hash computation
+     * @param H is the name of cryptographic hash function
+     * @return A new hash computation
+     */
+    @private
+    create(H) = %% BslCrypto.create_hash %%(H)
+
+    /**
+     * Creates a new MD5 computation.
+     * @return A new computation
+     */
+    create_md5() = create("md5")
+
+    /**
+     * Creates a new SHA1 computation.
+     * @return A new computation
+     */
+    create_sha1() = create("sha1")
+
+    /**
+     * Creates a new SHA256 computation.
+     * @return A new computation
+     */
+    create_sha256() = create("sha256")
+
+    /**
+     * Creates a new SHA512 computation.
+     * @return A new computation
+     */
+    create_sha512() = create("sha512")
+
+    /**
+     * Creates a new RIPEM160 computation.
+     * @return A new computation
+     */
+    create_ripemd160() = create("ripemd160")
 
   }}
 
