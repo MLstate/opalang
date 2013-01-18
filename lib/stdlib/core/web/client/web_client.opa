@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -209,7 +209,6 @@ type WebClient.options('content) = {
 /**
  * {1 Interface}
  */
-
 WebClient =
 {{
 
@@ -226,9 +225,9 @@ WebClient =
   }
 
   /**
-   * The default function to place a request.
+   * As [WebClient.request] but deals with iterator.
    */
-  request(uri:Uri.uri, options:WebClient.options(binary)):WebClient.result(binary) =
+  request_iter(uri:Uri.uri, options:WebClient.options(iter(binary))):WebClient.result(iter(binary)) =
     aux(~{host port path https}) =
       %%BslNet.Http_client.raw_request%%(
         host, port, path, options.method, https,
@@ -248,11 +247,26 @@ WebClient =
       | _ -> // Relative
         aux({host="localhost" port=80 path=Uri.to_string(uri) https=false})
 
+  /**
+   * Same as [WebClient.request_iter] but the result is give to the [callback].
+   */
+  request_iter_async(uri, options, callback) =
+    Scheduler.push(-> callback(request_iter(uri, options)))
+
+  /**
+   * The default function to place a request.
+   */
+  request(uri:Uri.uri, options:WebClient.options(binary)):WebClient.result(binary) =
+    options = {options with content = Option.map(Iter.cons(_, Iter.empty), options.content)}
+    match request_iter(uri, options)
+    | ~{success} -> {success = {success with content = Binary.of_iter(success.content)}}
+    | ~{failure} -> ~{failure}
+
    /**
-    * Same as [WebClient.request] but the result is give to the [callback].
+    * Same as [WebClient.request_iter] but the result is give to the [callback].
     */
-   request_async(uri, options, callback) =
-     Scheduler.push(-> callback(request(uri, options)))
+  request_async(uri, options, callback) =
+    Scheduler.push(-> callback(request(uri, options)))
 
    /**
     * {2 WebClient.Get}
