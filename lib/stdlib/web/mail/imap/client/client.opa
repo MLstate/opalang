@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -12,7 +12,7 @@
 
 import-plugin mail
 
-type Email.imap_command =
+type Imap.command =
     { ImapSelect : string }
   / { ImapExamine : string }
   / { ImapNoop }
@@ -29,7 +29,7 @@ type Email.imap_command =
   / { ImapAppend : (string, string, string, string) }
   / { ImapExpunge }
 
-//type Email.imap_status = {
+//type Imap.status = {
 //  flags : string
 //  exists : int
 //  recent : int
@@ -37,7 +37,7 @@ type Email.imap_command =
 //  rwstatus : string
 //}
 
-type Email.imap_result =
+type Imap.result =
     { Ok : string }
   / { No : string }
   / { Bad : string }
@@ -55,7 +55,7 @@ type Email.imap_result =
 
 Imap = {{
 
-  command = %% BslMail.ImapClient.command %% : int , string, option(SSL.secure_type), string , string, list(Email.imap_command), (list(Email.imap_result) -> void) -> void
+  command = %% BslMail.ImapClient.command %% : int , string, option(SSL.secure_type), string , string, list(Imap.command), (list(Imap.result) -> void) -> void
 
 }}
 
