@@ -60,22 +60,10 @@ type HttpRequest.multipart = iter({part:HttpRequest.part headers:HttpRequest.hea
  * A part of multipart request is :
  * - [~{name value}] : A simple part named [name] and contains [value]
  * - [~{name filename content}] : This part is an uploaded file.
- *   [content] is a dynamic closure, during the file uploading it
- *   returns [~{partial}] when uploading is finished returns the file
- *   [~{content}].
  */
 type HttpRequest.part =
   {name : string; value : string} /
-  {name : string; filename : string; content : -> HttpRequest.partcontent}
-
-/**
- * Type returned by the [content] fields of [HttpRequest.part] :
- * -[~{partial}] : Corresponding to the size of received data
- * -[~{content}] : Content of uploaded data.
- */
-type HttpRequest.partcontent =
-  {partial : int} /
-  {content : binary}
+  {name : string; filename : string; content : iter(binary)}
 
 /**
  * {1 Interface}
@@ -206,34 +194,69 @@ HttpRequest = {{
     headers_parser =
       parser hlist=header_parser* -> hlist:HttpRequest.headers
 
+
+
     @private Multipart = {{
 
       form_data(request, boundary) : HttpRequest.multipart =
-        body = get_bin_body(request)
+        body = get_iter_body(request)
         boundary = Binary.of_string("--{boundary}")
-        rec aux(parts) =
-          match parts with
-          | [] | [_] -> {none}
-          | [t|q] ->
-            i = Binary.indexOf(t, crlf2, 0)
-            headers = Binary.get_string(t, 0, i)
-            body = Binary.get_binary(t, i+4, Binary.length(t)-i-6)
-            match Parser.try_parse(headers_parser, headers)
+        blen = Binary.length(boundary)
+        rec body_as_value(data, iter:iter(binary), i) =
+          match Binary.indexOf(data, boundary, i) with
+          | -1 ->
+            match iter.next() with
+            | {none} -> @fail
+            | {some=(data2, iter)} ->
+              dlen = Binary.length(data)
+              do Binary.add_binary(data, data2)
+              body_as_value(data, iter, dlen - blen)
+            end
+          | s -> (Binary.get_string(data, i, s - i), data, iter, s+blen)
+          end
+        /* Skip the first boundary */
+        rec start(data, iter, i, skipped)
+        : option(({part:HttpRequest.part headers:HttpRequest.headers}, HttpRequest.multipart)) =
+          dlen = Binary.length(data)
+          if (dlen + skipped > i + blen) then
+            part(data, iter, blen + i - skipped)
+          else match iter.next() with
+            | {none} -> {none}
+            | {some = (data, iter)} ->
+              start(data, iter, 0, -(dlen + skipped))
+        /* Analyze a part, starts with data[i] */
+        and part(data, iter, i)
+        : option(({part:HttpRequest.part headers:HttpRequest.headers}, HttpRequest.multipart)) =
+          /* Search for headers */
+          match Binary.indexOf(data, crlf2, i) with
+          | -1 ->
+            /* Headers separator not found */
+            match iter.next() with
             | {none} ->
-              do Log.error("Multipart", "cannot read headers : '{headers}'")
-              aux(q)
+              do Log.error("Multipart", "Bad disposition of datas")
+              {none}
+            | {some = (data2, iter)} ->
+              do Binary.add_binary(data, data2)
+              part(data, iter, i)
+            end
+          | s ->
+            /* Headers separator found at data[s] */
+            headers = Binary.get_string(data, i, s)
+            match Parser.try_parse(headers_parser, headers) with
+            | {none} ->
+              do Log.error("Multipart", "cannot parse part headers : '{headers}'")
+              {none}
             | {some=headers} ->
               match List.find((x -> x.name == "content-disposition"), headers)
               | {none} ->
                 do Log.error("Multipart", "content-disposition is not found")
-                aux(q)
+                {none}
               | {some=disp} ->
                 match Parser.try_parse(
                   parser
                   | [ ]* "form-data;" [ ]* x={
                     file(filename, name) =
-                      {part=~{name filename content=-> {content=body}}
-                       ~headers}
+                      part_file(headers, filename, name, data, iter, s + 4)
                     quoted = parser [\"] s=((![\"].)*) [\"] -> Text.to_string(s)
                     parser
                     | "name="name=quoted[;] [ ]* "filename="filename=quoted[;]? ->
@@ -241,17 +264,51 @@ HttpRequest = {{
                     | "filename="filename=quoted[;] [ ]* "name="name=quoted[;]? ->
                       file(filename, name)
                     | "name="name=(.*) ->
-                      {part={name=Text.to_string(name) value=Binary.to_string(body)}
-                      ~headers}
-                  } -> x, disp.value    )
+                      (value, data, iter, s) = body_as_value(data, iter, s + 4)
+                      {some = ({~headers part={name=Text.to_string(name) ~value}},
+                               {next = -> start(data, iter, s, 0)})}
+                  } -> x, disp.value)
                 | {none} ->
                   do Log.error("Multipart", "cannot parse content-disposition")
-                  aux(q)
-                | {some=current} -> {some = (current, {next = -> aux(q)})}
-                end
+                  {none}
+                | {some=current} -> current
               end
             end
-        {next = -> aux(List.tail(Binary.explode(body, boundary)))}
+          end
+
+        /* Analyze a part file, starts with data[i] */
+        and part_file(headers, filename, name, data, iter:iter(binary), i)
+        : option(({part:HttpRequest.part headers:HttpRequest.headers}, HttpRequest.multipart)) =
+          barrier = Barrier.make()
+          /* This function compute the content iterator, then release the
+             barrier to compute the next step of multipart iterator. */
+          rec aux(data:binary, iter:iter(binary), i) : option((binary, iter(binary)))=
+            match Binary.indexOf(data, boundary, i) with
+            | -1 ->
+              /* Boundary not found */
+              match iter.next() with
+              | {none} ->
+                do Log.error("Multipart", "end of file is not found")
+                @fail
+              | {some=(data2, iter)} ->
+                dlen = Binary.length(data)
+                chunk = Binary.get_binary(data, i, dlen - i - blen)
+                do Binary.add_binary(data, data2)
+                {some = (chunk, {next = -> aux(data, iter, dlen - blen)}:iter(binary))}
+              end
+            | s ->
+              /* Boundary found, end of current file iterator then next part */
+              do Barrier.release(barrier, (data, iter, s + blen))
+              {some = (Binary.get_binary(data, i, s - i), {next = -> {none}}:iter(binary))}
+            end
+          {some = (~{headers
+             part=~{name filename content={next = -> aux(data, iter, i)}}},
+            {next = ->
+              (data, iter, i) = Barrier.wait(barrier)
+              start(data, iter, i, 0)
+            })}
+
+        {next = -> start(Binary.create(0), body, 0, 0)}
 
     }}
 
