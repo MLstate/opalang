@@ -1,4 +1,4 @@
-import stdlib.core.iter
+
 package stdlib.core.db
 
 @abstract type DbSet.t('a, 'engine) = {

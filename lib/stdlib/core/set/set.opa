@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -14,7 +14,7 @@
     @authors ?
 **/
 
-import stdlib.core.{iter,map}
+import stdlib.core.{map}
 
 /**
  * Sets and utilities to manipulate them.
