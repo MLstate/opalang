@@ -1,5 +1,5 @@
 /*
-    Copyright © 2012 MLstate
+    Copyright © 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -51,6 +51,7 @@ type Reactive.value('a) = {
     (->'a) get_silently,
     ('a->{}) set_silently,
     ((xhtml->xhtml)->xhtml) render,
+    (('a->xhtml)->xhtml) render_value,
     OpaType.ty ty
 }
 
@@ -183,14 +184,19 @@ module Reactive {
         }
 
         Reactive.value('a) self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
-                function render(_){ <></> }
+                function render(_){ <></> },
+                function render_value(_){ <></> }
         }
 
         function self_render(html_fun) {
            render(html_fun)(self)
         }
 
-        self = { self with render:self_render }
+        function self_render_value(value_fun) {
+           render_value(value_fun)(self)
+        }
+
+        self = { self with render:self_render, render_value:self_render_value }
 
         Hashtbl.add(client_side_reactive_table, id, @unsafe_cast(self));
 
@@ -266,14 +272,19 @@ module Reactive {
         }
 
         self = {~id, ~get, ~set, ~get_silently, ~set_silently, ~ty,
-                function render(_){ <></> }
+                function render(_){ <></> },
+                function render_value(_){ <></> },
         }
 
         function self_render(html_fun) {
            render(html_fun)(self)
         }
 
-        { self with render:self_render }
+        function self_render_value(value_fun) {
+           render_value(value_fun)(self)
+        }
+
+        { self with render:self_render, render_value:self_render_value }
     }
 
     /**
@@ -295,6 +306,13 @@ module Reactive {
         Reactive.value('a) r = @unsafe_cast(get_or_make(id,none,@unsafe_cast(v)))
         x = xhtml_deco(XmlConvert.of_alpha_with_ty(ty,r.get()))
         Log.notice("html_func", "{Debug.dump(x)} / {Debug.dump(r.get())}")
+        x
+    }
+
+    client function default_value_func(string id, RPC.Json.json json, ty, ('a->xhtml) xhtml_deco) {
+        v = OpaSerialize.Json.unserialize_with_ty(json, ty) ? @fail
+        Reactive.value('a) r = @unsafe_cast(get_or_make(id,none,@unsafe_cast(v)))
+        x = xhtml_deco(r.get())
         x
     }
 
@@ -323,6 +341,16 @@ module Reactive {
             // this is why we store the type in r.ty and serialize by hand:
             json = OpaSerialize.partial_serialize(v, r.ty)
             @public_env(function() { default_html_func(r.id, json, r.ty, html_fun) })
+        )
+    }
+
+    function render_value(value_fun)(r) {
+        placeholder(
+            v = r.get_silently()
+            // Impossible to public_env with unknown 'a (cf EI)
+            // this is why we store the type in r.ty and serialize by hand:
+            json = OpaSerialize.partial_serialize(v, r.ty)
+            @public_env(function() { default_value_func(r.id, json, r.ty, value_fun) })
         )
     }
 
