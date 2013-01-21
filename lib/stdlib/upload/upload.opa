@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -114,14 +114,7 @@ Upload = {{
          /* A hack for forall, TODO make it proprely */
          mimetype = @unsafe_cast(fold_headers)("text/plain", find_mime)
          field_name = name
-         full_content =
-           rec aux() =
-             match content() with
-             | {partial=_} ->
-                 do Scheduler.wait(500)
-                 aux()
-             | ~{content} -> content
-            aux()
+         full_content = Binary.of_iter(content)
           file = ~{filename field_name mimetype content=full_content}
           { form_data with
               uploaded_files=Map.add(name, file, form_data.uploaded_files) }
