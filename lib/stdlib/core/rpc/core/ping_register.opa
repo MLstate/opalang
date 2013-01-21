@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -314,7 +314,7 @@ PingRegister = {{
   parser_(winfo) =
     request = winfo.http_request.request
     jbody() =
-      json = Json.of_string(Binary.to_string(%%BslNet.Requestdef.get_bin_body%%(request)))
+      json = Json.of_string(Binary.to_string(Binary.of_iter(%%BslNet.Requestdef.get_bin_body%%(request))))
       do if Option.is_none(json) then werror(winfo, "bad formatted json")
       json
     client(active) =

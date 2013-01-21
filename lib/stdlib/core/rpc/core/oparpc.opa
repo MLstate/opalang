@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -473,7 +473,7 @@ OpaRPC_Server =
     /* Duplication
      * can not use [HttpRequest.Generic.get_body] because HttpRequest.request depends on the package [stdlib.rpc.core] */
     get_requested_post_content(request) =
-      Binary.to_string(%%BslNet.Requestdef.get_bin_body%%(request))
+      Binary.to_string(Binary.of_iter(%%BslNet.Requestdef.get_bin_body%%(request)))
 
     parser_(winfo) =
       parser

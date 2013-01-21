@@ -149,8 +149,11 @@ HttpRequest = {{
     get_body(x: HttpRequest.request): string =
       Binary.to_string(get_bin_body(x))
 
-    get_bin_body(x):binary =
+    get_iter_body(x: HttpRequest.request): iter(binary) =
       %%BslNet.Requestdef.get_bin_body%%(get_low_level_request(x))
+
+    get_bin_body(x: HttpRequest.request): binary =
+      Binary.of_iter(get_iter_body(x))
 
     /**
      * Returns the form-data of a POST request.
@@ -330,6 +333,11 @@ HttpRequest = {{
    * Returns the body of the incomming request as binary.
    */
   get_bin_body() = apply(Generic.get_bin_body)
+
+  /**
+   * Returns the body of the incomming request as a binary iterator.
+   */
+  get_iter_body() = apply(Generic.get_iter_body)
 
   /**
    * Returns the form-data of the incomming POST request.

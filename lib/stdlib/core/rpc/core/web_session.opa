@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -31,7 +31,7 @@ WebSession = {{
       | {none} -> failure()
       | {some = x} -> f(x)
     request = winfo.http_request.request
-    jbody() = Json.of_string(Binary.to_string(%%BslNet.Requestdef.get_bin_body%%(request)))
+    jbody() = Json.of_string(Binary.to_string(Binary.of_iter(%%BslNet.Requestdef.get_bin_body%%(request))))
     parser
     | "register"   ->
         ThreadContext.Client.get_opt({current}) ?|> client ->
