@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -689,6 +689,18 @@ Binary = {{
    */
   equals(bin1, bin2) = ordering(bin1, bin2) == {eq}
 
+  /**
+   * Turns a binary iterator to binary
+   * @param iter A binary iterator
+   */
+  of_iter(iter:iter(binary)) =
+    (l, bins) =
+      Iter.fold((b, (l, acc) ->
+        (length(b) + l, [b|acc])
+      ), iter, (0, []))
+    bin = Binary.create(l)
+    do List.rev_iter(Binary.add_binary(bin, _), bins)
+    bin
 
 }}
 
