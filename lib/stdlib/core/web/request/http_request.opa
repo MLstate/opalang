@@ -233,7 +233,8 @@ HttpRequest = {{
             /* Headers separator not found */
             match iter.next() with
             | {none} ->
-              do Log.error("Multipart", "Bad disposition of datas")
+              do if not(Binary.get_string(data, i, 2) == "--") then
+                Log.error("Multipart", "Unexpected disposition of datas ")
               {none}
             | {some = (data2, iter)} ->
               do Binary.add_binary(data, data2)
@@ -241,7 +242,7 @@ HttpRequest = {{
             end
           | s ->
             /* Headers separator found at data[s] */
-            headers = Binary.get_string(data, i, s)
+            headers = Binary.get_string(data, i+2/*crlf*/, s-i)
             match Parser.try_parse(headers_parser, headers) with
             | {none} ->
               do Log.error("Multipart", "cannot parse part headers : '{headers}'")
@@ -249,14 +250,14 @@ HttpRequest = {{
             | {some=headers} ->
               match List.find((x -> x.name == "content-disposition"), headers)
               | {none} ->
-                do Log.error("Multipart", "content-disposition is not found")
+                do Log.error("Multipart", "content-disposition is not found {headers}")
                 {none}
               | {some=disp} ->
                 match Parser.try_parse(
                   parser
                   | [ ]* "form-data;" [ ]* x={
                     file(filename, name) =
-                      part_file(headers, filename, name, data, iter, s + 4)
+                      part_file(headers, filename, name, data, iter, s+4/*crlf*2*/)
                     quoted = parser [\"] s=((![\"].)*) [\"] -> Text.to_string(s)
                     parser
                     | "name="name=quoted[;] [ ]* "filename="filename=quoted[;]? ->
@@ -264,7 +265,7 @@ HttpRequest = {{
                     | "filename="filename=quoted[;] [ ]* "name="name=quoted[;]? ->
                       file(filename, name)
                     | "name="name=(.*) ->
-                      (value, data, iter, s) = body_as_value(data, iter, s + 4)
+                      (value, data, iter, s) = body_as_value(data, iter, s+4/*crlf*2*/)
                       {some = ({~headers part={name=Text.to_string(name) ~value}},
                                {next = -> start(data, iter, s, 0)})}
                   } -> x, disp.value)
@@ -298,14 +299,14 @@ HttpRequest = {{
               end
             | s ->
               /* Boundary found, end of current file iterator then next part */
-              do Barrier.release(barrier, (data, iter, s + blen))
-              {some = (Binary.get_binary(data, i, s - i), {next = -> {none}}:iter(binary))}
+              do Barrier.release(barrier, (data, iter, s+blen))
+              {some = (Binary.get_binary(data, i, s-i-2/*crlf*/), {next = -> {none}}:iter(binary))}
             end
           {some = (~{headers
              part=~{name filename content={next = -> aux(data, iter, i)}}},
             {next = ->
               (data, iter, i) = Barrier.wait(barrier)
-              start(data, iter, i, 0)
+              start(data, iter, i, blen)
             })}
 
         {next = -> start(Binary.create(0), body, 0, 0)}
