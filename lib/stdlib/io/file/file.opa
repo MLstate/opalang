@@ -43,6 +43,20 @@ type File.onchange = {persistent:bool}
 File = {{
 
   /**
+   * As [File.d_write] but the result is returned to the callback.
+   */
+  unlink_async(path, callback) =
+    %%BslFile.unlink%%(path, callback)
+
+  /**
+   * Unlink file at [path].
+   * @param path The path to file to unlink.
+   * @return An Unix error if occurs
+   */
+  unlink(path) =
+    @callcc(k -> unlink_async(path, Continuation.return(k, _)))
+
+  /**
    * Read the content of a file
    *
    * @param path The path of the file
