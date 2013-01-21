@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -35,12 +35,108 @@ type File.watcher = external
 type File.onchange = {persistent:bool}
 
 /**
+ * The type of file descriptors
+ */
+type File.descriptor = external
+
+/**
+ * Unix.error
+ */
+type Unix.error = external
+
+/**
   * A module for very basic file access
   *
   * Be aware that this package access local file
   * and could be inaccessible or not working with some cloud configuration
   */
 File = {{
+
+  /**
+   * As [File.open] but the result is returned to the callback.
+   */
+  open_async(path, flags, mode, callback) =
+    %%BslFileDesc.open%%(path, flags, mode, callback)
+
+  /**
+   * Open the file at [path] with [flags]. The [mode] is used to create the file
+   * if [flags] indicates that the file should be created.
+   * @param path The path to file.
+   * @param flags the openning flags
+   * @param mode An optional mode that be used to create the file.
+   * @return A file descriptor.
+   */
+  open(path, flags, mode) =
+    match @callcc(k ->
+      open_async(path, flags, mode,
+        (err, fd -> Continuation.return(k, (err, fd)))
+      )
+    ) with
+    | (_, {some = fd}) -> fd
+    | ({some = er}, _) -> @fail("{er}")
+    | _ -> @fail("File.open")
+
+  /**
+   * As [File.close] but the result is returned to the callback.
+   */
+  close_async(fd, callback) =
+    %%BslFileDesc.close%%(fd, callback)
+
+  /**
+   * Close a file descriptor
+   * @param fd The file descriptor to close.
+   * @return An error if it occurs.
+   */
+  close(fd) =
+    @callcc(k -> close_async(fd, Continuation.return(k, _)))
+
+  /**
+   * As [File.d_read] but the result is returned to the callback.
+   */
+  d_read_async(fd, length, pos, callback) =
+    %%BslFileDesc.read%%(fd, length, pos, callback)
+
+  /**
+   * Read [length] bytes along the file descriptor [fd] at position [pos] (or
+   * the current position if it is not specified).
+   * @param fd The file descriptor to read.
+   * @param length The number of bytes to read.
+   * @param pos An optional position on the file descriptor.
+   * @return A binary which contains read bytes.
+   */
+  d_read(fd, length, pos) =
+    match @callcc(k ->
+      d_read_async(fd, length, pos,
+        (err, b -> Continuation.return(k, (err, b)))
+      )
+    ) with
+    | (_, {some = fd}) -> fd
+    | ({some = er}, _) -> @fail("{er}")
+    | _ -> @fail("File.read")
+
+  /**
+   * As [File.d_write] but the result is returned to the callback.
+   */
+  d_write_async(fd, binary, pos, callback) =
+    %%BslFileDesc.write%%(fd, binary, pos, callback)
+
+  /**
+   * Read [length] bytes along the file descriptor [fd] at position [pos] (or
+   * the current position if it is not specified).
+   * @param fd The file descriptor to write.
+   * @param binary The binary data to write.
+   * @param pos An optional position on the file descriptor.
+   * @return The number of written bytes.
+   */
+  d_write(fd, binary, pos) =
+    match @callcc(k ->
+      d_write_async(fd, binary, pos,
+        (err, br -> Continuation.return(k, (err, br)))
+      )
+    ) with
+    | (_, {some = fd}) -> fd
+    | ({some = er}, _) -> @fail("{er}")
+    | _ -> @fail("File.d_write")
 
   /**
    * As [File.d_write] but the result is returned to the callback.
