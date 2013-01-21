@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -208,11 +208,14 @@ struct
       | Some (private_env, ast), true ->
         Some (
           private_env,
-          (* (x = udot(id, "some")) ? js_some(ast) : js_none *)
+          (* (x = udot(id, "some"))!=null ? js_some(ast) : js_none *)
           JsCons.Expr.cond
-            (JsCons.Expr.assign_ident x
-               (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
-                  [id; JsCons.Expr.string "some"]))
+            (JsCons.Expr.strict_neq
+               (JsCons.Expr.assign_ident x
+                  (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
+                     [id; JsCons.Expr.string "some"]))
+               (JsCons.Expr.null ())
+            )
             (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.some [ast])
             Imp_Common.ClientLib.none
         )
@@ -243,11 +246,13 @@ struct
       | None, false ->
         Some (
           private_env,
-          (* (x = udot(id, "some")) ? x : null *)
+          (* udot(id, "some") *)
           JsCons.Expr.cond
-            (JsCons.Expr.assign_ident x
-               (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
-                  [id; JsCons.Expr.string "some"]))
+            (JsCons.Expr.neq
+               (JsCons.Expr.assign_ident x
+                  (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
+                     [id; JsCons.Expr.string "some"]))
+               (JsCons.Expr.null ()))
             (JsCons.Expr.ident x)
             (JsCons.Expr.null ())
         )
@@ -265,14 +270,17 @@ struct
       | Some (private_env, ast), false ->
         Some (
           private_env,
-          (* (x = udot(id, "some") ? ast : null *)
+          (* ( (x = udot(id, "some")) != null ? ast : null *)
           JsCons.Expr.cond
-            (JsCons.Expr.assign_ident x
-               (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
-                  [id; JsCons.Expr.string "some"]))
+            (JsCons.Expr.neq
+               (JsCons.Expr.assign_ident x
+                  (JsCons.Expr.call ~pure:true Imp_Common.ClientLib.udot
+                     [id; JsCons.Expr.string "some"]))
+               (JsCons.Expr.null ()))
             ast
             (JsCons.Expr.null ())
-        ) in
+        )
+    in
     if env.options.Qml2jsOptions.check_bsl_types then
       call_option_typer in_option key id private_env res
     else
