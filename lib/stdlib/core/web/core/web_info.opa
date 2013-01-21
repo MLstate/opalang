@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -74,7 +74,7 @@ WebInfo = {{
       winfo.cont(
         WebCoreExport.default_make_response(
           {volatile}, winfo.http_request.request, status,
-            "text/plain", binary_of_string(msg))
+            "text/plain", {next= -> {some=(binary_of_string(msg), {next=->{none}})}})
       )
 }}
 

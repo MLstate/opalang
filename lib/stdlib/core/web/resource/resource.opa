@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -393,6 +393,15 @@ json(t: RPC.Json.json) =
  */
 binary(content: binary, mimetype: string) =
   { rc_content = {binary = content; mimetype = mimetype};
+    rc_status = {success}
+    rc_headers = [{lastm = {modified_on = Date.now()}}]
+  } : resource
+
+/**
+ * Build a resource from a binary iterator.
+ */
+iter(iter, mimetype: string) =
+  { rc_content = {~iter; mimetype = mimetype};
     rc_status = {success}
     rc_headers = [{lastm = {modified_on = Date.now()}}]
   } : resource

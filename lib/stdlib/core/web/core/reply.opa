@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -260,7 +260,7 @@ make_response_with_headers(
   status : web_response,
   headers : list(Resource.http_header),
   mime_type : string,
-  content : binary
+  content : iter(binary)
 ) : WebInfo.private.native_response =
 (
      cache_control = // Ugly and redundant, here for legacy reasons
@@ -292,7 +292,7 @@ default_make_response(
   request: WebInfo.private.native_request,
   status: web_response,
   mime_type: string,
-  content: binary
+  content: iter(binary)
 )          : WebInfo.private.native_response =
 (
      make_response_modified_since = %% BslNet.Http_server.make_response_modified_since %%

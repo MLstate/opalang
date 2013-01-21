@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -58,6 +58,7 @@ type resource_private_content =
   / {ico:binary}
   / {txt:string}
   / {binary:binary; mimetype:string}
+  / {iter:iter(binary); mimetype:string}
   / {source:string; mimetype:string}
   / {css:string}
   / {js:string}
@@ -857,22 +858,24 @@ export_resource(external_css_files: list(string),
                 base_url: option(string),
                 _make_response: (
                     web_cache_control, WebInfo.private.native_request,
-                    web_response, string, binary
+                    web_response, string, iter(binary)
                       -> WebInfo.private.native_response
                   ),
                 make_response_with_headers: (
                     WebInfo.private.native_request, web_response,
-                    list(Resource.http_header), string, binary
+                    list(Resource.http_header), string, iter(binary)
                     -> WebInfo.private.native_response
                   )
                 ) =
+    iter_of_bin(b):iter(binary) = {next= -> {some=(b, {next=->{none}})}}
+
     /**
      * Produce a "ok" HTTP response with the contents of a request.
      *
      * Used for plain text answers.
      */
     make_plain_response_with_headers(mime_type: string, content:string, status, req:WebInfo.private.native_request, headers) =
-       make_response_with_headers(req, status, headers, mime_type, binary_of_string(content))
+       make_response_with_headers(req, status, headers, mime_type, iter_of_bin(binary_of_string(content)))
 
 //    _make_plain_response(mime_type: string, content:string, status, req:WebInfo.private.native_request, lastm) =
 //       _make_response(lastm, req, status, mime_type, content)
@@ -883,6 +886,14 @@ export_resource(external_css_files: list(string),
      * Used for binary answers.
      */
     make_bin_response_with_headers(mime_type: string, content:binary, status, req:WebInfo.private.native_request, headers) =
+       make_response_with_headers(req, status, headers, mime_type, iter_of_bin(content))
+
+    /**
+     * Produce an HTTP response with the contents of a request.
+     *
+     * Used for binary answers.
+     */
+    make_iter_response_with_headers(mime_type: string, content:iter(binary), status, req:WebInfo.private.native_request, headers) =
        make_response_with_headers(req, status, headers, mime_type, content)
 
 //    _make_bin_response(mime_type: string, content:binary, status, req:WebInfo.private.native_request, lastm) =
@@ -894,7 +905,8 @@ export_resource(external_css_files: list(string),
      * Used for UTF-8 answers.
      */
     make_utf_response_with_headers(t, s, status, req, headers) =
-      make_response_with_headers(req, status, headers, t ^ "; charset=utf-8", binary_of_string(s))
+      i = binary_of_string(s)
+      make_response_with_headers(req, status, headers, t ^ "; charset=utf-8", iter_of_bin(i))
 
 //    _make_utf_response(t, s, status, req, lastm) =
 //      _make_response(lastm, req, status, t ^ "; charset=utf-8", s)
@@ -907,6 +919,7 @@ export_resource(external_css_files: list(string),
       status = resource_pr.rc_status
 
       // Various content handler
+      handle_iter(out,mime_str)(r) = winfo.cont(make_iter_response_with_headers(force_mimetype ? mime_str,out, status, r, resource_pr.rc_headers))
       handle_bin(out,mime_str)(r) = winfo.cont(make_bin_response_with_headers(force_mimetype ? mime_str,out, status, r, resource_pr.rc_headers))
       handle_utf(out,mime_str)(r) = winfo.cont(make_utf_response_with_headers(force_mimetype ? mime_str, out, status,r, resource_pr.rc_headers))
       handle_utf_no_cache(out,mime_str)(r) =
@@ -1003,6 +1016,7 @@ export_resource(external_css_files: list(string),
       | {~gif}  -> handle_bin(gif,"image/gif")
       | {~ico}  -> handle_bin(ico,"image/x-icon")
       | {~mimetype ~binary} -> handle_bin(binary,mimetype)
+      | {~mimetype ~iter} -> handle_iter(iter,mimetype)
 
       | {~js}   -> handle_utf(js ,"application/x-javascript")
       | {css=c} -> handle_utf(c  ,"text/css")

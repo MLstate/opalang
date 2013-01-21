@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -397,6 +397,8 @@ Server_private = {{
                       dispatcher, bogus_ontransfer)
       make_server
 
+  @private iter_of_bin(b):iter(binary) = {next= -> {some=(b, {next=->{none}})}}
+
   @private generate_dynamic_content(filename, default_dir, minifier, value:string, replace, mimetype) =
    (
     debug = {true} //FIXME always debugging ? opt.is_set(debug_opt)
@@ -417,9 +419,11 @@ Server_private = {{
          else  Log.warning("Server","The file '{filename}' already exists. I will use it instead of the server version.")
       do file_of_string(filename, binary_of_string(value))
       do Log.info("Server","You can edit file {filename} while the server is running.\n")
-      (cont -> WebCoreExport.default_make_response({volatile}, cont, {success}, mimetype, file_content(filename)))//Always reload
+      (cont ->
+         content = iter_of_bin(file_content(filename))
+         WebCoreExport.default_make_response({volatile}, cont, {success}, mimetype, content))//Always reload
     else
-      generated = binary_of_string(minifier(value))
+      generated = iter_of_bin(binary_of_string(minifier(value)))
       (cont -> WebCoreExport.default_make_response({permanent}, cont, {success}, mimetype, generated))//Reload only when necessary
    )
 
