@@ -163,7 +163,7 @@ struct
   type 'expr sqlquery = {
     sql_fds : (string * string) list;
     sql_tbs : string list;
-    sql_ops : ('expr, [`expr of 'expr | `bind of string]) query;
+    sql_ops : ('expr, [`expr of 'expr | `bind of string]) query option;
   }
 
   type 'expr query_options = {
@@ -391,12 +391,15 @@ struct
     );
     pp fmt " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt sql_tbs;
-    pp fmt " WHERE ";
-    let pp_qexpr fmt = function
-      | `expr e -> pp fmt "%a" pp_expr e
-      | `bind s -> Format.pp_print_string fmt s
-    in
-    (pp_query pp_expr pp_qexpr) fmt sql_ops
+    match sql_ops with
+    | None -> ()
+    | Some sql_ops ->
+        pp fmt " WHERE ";
+        let pp_qexpr fmt = function
+          | `expr e -> pp fmt "%a" pp_expr e
+          | `bind s -> Format.pp_print_string fmt s
+        in
+        (pp_query pp_expr pp_qexpr) fmt sql_ops
 
   let pp_path_elt pp_expr f =
     function
@@ -621,7 +624,9 @@ struct
         in
         TU.wrap
           (fun (sql_ops, o) -> SQLQuery ({sql_fds; sql_tbs; sql_ops}, o))
-          (TU.sub_2 (sub_db_query sub_e sub_eq sub_ty) (sub_db_query_options sub_e sub_ty)
+          (TU.sub_2
+             (TU.sub_option (sub_db_query sub_e sub_eq sub_ty))
+             (sub_db_query_options sub_e sub_ty)
              (sql_ops, o)
           )
 
