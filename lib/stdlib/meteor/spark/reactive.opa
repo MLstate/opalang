@@ -71,7 +71,11 @@ type Reactive.list('a) = {
     ('a, int, int -> void) move,
     (->int) length,
     ('a, int -> void) change,
-    ('a, int -> void) remove
+    ('a, int -> void) remove,
+    (->list('a)) get,
+    (list('a)->void) set,
+    (->bool) is_empty,
+    ('a->bool) mem,
 }
 
 private CoreList = List
@@ -385,47 +389,81 @@ module Reactive {
         (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function _make(init, itemFunc, emptyFunc) {
 
             cb_map = Mutable.make(StringMap.empty)
-            list_length = Mutable.make(0)
+            list = Hashtbl.create(10)
 
-            function observe(cb) {
+            recursive function observe(cb) {
                 id = Random.base64_url(6)
-                CoreList.iteri( { function(i, v) cb.added(v, i) }, init)
-                list_length.set(CoreList.length(init))
+                CoreList.iteri(function(i, v) {add(v, i)}, init)
                 cb_map.set(Map.add(id, cb, cb_map.get()))
             }
 
-            cursor = { ~observe }
+            and cursor = { ~observe }
 
-            function cb(f) {
+            and function cb(f) {
                 Map.iter({ function(_,cb) f(cb) }, cb_map.get())
             }
 
-            function length() {
-                list_length.get()
+            // function iter('a) iter() {
+            //   llarray = Hashtbl.bindings(list);
+            //   LowLevelArray.iter({ function(v) Context.invalidate(v.value)}, keys)
+            // }
+
+            and function length() {
+                Hashtbl.size(list)
             }
 
-            function add(v, index) {
+            and function add(v, index) {
                 cb(_.added(v, index))
-                list_length.set(list_length.get()+1)
+                Hashtbl.add(list, index, v)
             }
 
-            function push(v) {
+            and function push(v) {
                 add(v, length())
             }
 
-            function move(v, from, to) {
+            and function move(v, from, to) {
                 cb(_.moved(v, from, to))
+                //Hashtbl.remove(list, from)
+                Hashtbl.replace(list, to, v)
             }
 
-            function change(v, index) {
+            and function change(v, index) {
                 cb(_.changed(v, index))
+                Hashtbl.replace(list, index, v)
             }
 
-            function remove(v, index) {
+            and function remove(v, index) {
                 cb(_.removed(v, index))
+                //Hashtbl.remove(list, index)
             }
 
-            { ~cursor, ~itemFunc, ~emptyFunc, ~length, ~add, ~push, ~move, ~change, ~remove }
+            and function get() {
+              llarray = Hashtbl.bindings(list);
+              LowLevelArray.fold(function(b, acc) {
+                [b.value|acc]
+              }, llarray, [])
+            }
+
+            and function set(list('a) l) {
+              llarray = Hashtbl.bindings(list);
+              LowLevelArray.iter(function(b) {
+                remove(b.value, b.key)
+              }, llarray)
+              CoreList.iter(push, l)
+            }
+
+            and function is_empty() {
+              Hashtbl.is_empty(list)
+            }
+
+            and function mem(x) {
+              llarray = Hashtbl.bindings(list);
+              LowLevelArray.fold(function(b, acc) {
+                b.value == x || acc
+              }, llarray, false)
+            }
+
+            { ~cursor, ~itemFunc, ~emptyFunc, ~length, ~get, ~set, ~is_empty, ~mem, ~add, ~push, ~move, ~change, ~remove }
 
         }
 
