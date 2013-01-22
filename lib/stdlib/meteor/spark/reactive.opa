@@ -41,7 +41,7 @@ type Cursor.t('a) = {
 type Cursor.network_message('a) =
     { ('a, int) added }
 or  { ('a, int) changed }
-or  { ('a, int) removed }
+or  { 'a removed }
 or  { ('a, int, int) moved }
 
 type Reactive.value('a) = {
@@ -71,7 +71,7 @@ type Reactive.list('a) = {
     ('a, int, int -> void) move,
     (->int) length,
     ('a, int -> void) change,
-    ('a, int -> void) remove,
+    ('a -> void) remove,
     (->list('a)) get,
     (list('a)->void) set,
     (->bool) is_empty,
@@ -389,11 +389,12 @@ module Reactive {
         (list('a), ('a->xhtml), (->xhtml) -> Reactive.list('a)) function _make(init, itemFunc, emptyFunc) {
 
             cb_map = Mutable.make(StringMap.empty)
-            list = Hashtbl.create(10)
+            list = Mutable.make([])
 
             recursive function observe(cb) {
                 id = Random.base64_url(6)
                 CoreList.iteri(function(i, v) {add(v, i)}, init)
+                // TODO: call a special add that don't add one by one (we could do list.set(init))
                 cb_map.set(Map.add(id, cb, cb_map.get()))
             }
 
@@ -409,58 +410,62 @@ module Reactive {
             // }
 
             and function length() {
-                Hashtbl.size(list)
+                CoreList.length(list.get()) // TODO put back the length ref for better performance
             }
 
-            and function add(v, index) {
-                cb(_.added(v, index))
-                Hashtbl.add(list, index, v)
+            and function add(v, beforeIndex) {
+                cb(_.added(v, beforeIndex))
+                l = CoreList.insert_at(v, beforeIndex, list.get())
+                list.set(l)
             }
 
             and function push(v) {
-                add(v, length())
+                add(v, 0)
             }
 
             and function move(v, from, to) {
                 cb(_.moved(v, from, to))
-                //Hashtbl.remove(list, from)
-                Hashtbl.replace(list, to, v)
+                l = CoreList.remove_at(from, list.get())
+                l = CoreList.insert_at(v, to, l)
+                list.set(l)
             }
 
             and function change(v, index) {
                 cb(_.changed(v, index))
-                Hashtbl.replace(list, index, v)
+                l = CoreList.remove_at(index, list.get())
+                l = CoreList.insert_at(v, index, l) // TODO add a better List.replace in the stdlib
+                list.set(l)
             }
 
-            and function remove(v, index) {
-                cb(_.removed(v, index))
-                //Hashtbl.remove(list, index)
+            and function remove(v) {
+                l = list.get()
+                match(CoreList.index(v, l)){
+                case {some:index}:
+                    cb(_.removed(v, index))
+                    l = CoreList.remove_at(index, l)
+                    list.set(l)
+                case {none}: Log.error("Meteor.spark", "Impossible to remove a value from a Reactive.list: unbound value {v}")
+                }
+
             }
 
             and function get() {
-              llarray = Hashtbl.bindings(list);
-              LowLevelArray.fold(function(b, acc) {
-                [b.value|acc]
-              }, llarray, [])
+                list.get()
             }
 
             and function set(list('a) l) {
-              llarray = Hashtbl.bindings(list);
-              LowLevelArray.iter(function(b) {
-                remove(b.value, b.key)
-              }, llarray)
+              CoreList.iter(function(b) {
+                remove(b)
+              }, list.get()) // TODO: call a special remove that don't update the list ref (it's not necessary here)
               CoreList.iter(push, l)
             }
 
             and function is_empty() {
-              Hashtbl.is_empty(list)
+              list.get() == []
             }
 
             and function mem(x) {
-              llarray = Hashtbl.bindings(list);
-              LowLevelArray.fold(function(b, acc) {
-                b.value == x || acc
-              }, llarray, false)
+              CoreList.mem(x, list.get())
             }
 
             { ~cursor, ~itemFunc, ~emptyFunc, ~length, ~get, ~set, ~is_empty, ~mem, ~add, ~push, ~move, ~change, ~remove }
@@ -523,7 +528,7 @@ module Reactive {
                 case { added : (v, index) }: list.add(v, index)
                 case { moved : (v, from, to) }: list.move(v, from, to)
                 case { changed : (v, index) }: list.change(v, index)
-                case { removed : (v, index) }: list.remove(v, index)
+                case { removed : v }: list.remove(v)
                 }
             }
 
@@ -545,8 +550,8 @@ module Reactive {
                 Network.broadcast({ changed : (v, index) }, network);
             }
 
-            client function remove(v, index) {
-                Network.broadcast({ removed : (v, index) }, network);
+            client function remove(v) {
+                Network.broadcast({ removed : v }, network);
             }
 
             { list with ~add, ~push, ~move, ~change, ~remove}
