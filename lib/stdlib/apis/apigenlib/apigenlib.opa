@@ -81,6 +81,11 @@ type ApigenLib.simple_seq = list((string,ApigenLib.general_value))
 private (binary -> string) bindump = %% BslPervasives.bindump %%
 //private (string -> string) memdump = %% BslPervasives.memdump %%
 
+function Ansi_print(colour, str) {
+  Ansi.print(colour,str)
+  //_ = colour; str
+}
+
 module ApigenOauth(OAuth.parameters params) {
 
   function alOAuth(http_method) { OAuth({params with ~http_method}) }
@@ -222,7 +227,7 @@ module ApigenLib {
     case {some:uri}:
       //http_options = {http_options with method:"POST"}
       http_options = authentication(http_options, auth)
-jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
+      jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
       match (WebClient.Post.try_post_with_options(uri,http_options)) {
       //match (WebClient.request(uri,http_options)) {
       case {success:res}: jlog("res:{{res with content:"Binary"}}"); parse_fun(res)
@@ -454,7 +459,7 @@ jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
   }
 
   function build_xml(WebClient.success res) {
-    //jlog(Ansi.print({yellow},"res:{res}"))
+    //jlog(Ansi_print({yellow},"res:{res}"))
     if (String.has_prefix("<!DOCTYPE html",res.content))
       {success:{xhtml:Xhtml.of_string(res.content)}}
     else
@@ -473,7 +478,7 @@ jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
 
   function outcome(Apigen.content,Apigen.failure) build_from_content_type(WebClient.success(string) res,
                                                                           option(WBXml.context) context) {
-    //jlog(Ansi.print({yellow},"res:{res}"))
+    //jlog(Ansi_print({yellow},"res:{res}"))
     content_type = Option.default("unknown/unknown",find_header("content-type",res.headers))
     match (List.map(String.trim,String.explode(";",content_type))) {
     case ["text/plain"|_]:
@@ -492,14 +497,14 @@ jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
     case ["application/vnd.ms-sync.wbxml"|_]:
       match (context) {
       case {some:context}:
-//jlog("res.content:\n{memdump(res.content)}")
+        //jlog("res.content:\n{memdump(res.content)}")
         match (WBXml.to_xmlns({context with debug:1}, %%bslBinary.of_encoding%%(res.content,"binary"))) {
         //match (WBXml.to_xmlns({context with debug:2}, res.content)) {
         case {success:(_ctxt,xmlns)}:
           List.iter(function (header) {
                       //jlog("header: \"{header}\"")
                       if (String.has_prefix("x-ms-aserror:",header))
-                        jlog("x-ms-aserror: \"{Ansi.print({red},String.sub(13,String.length(header)-13,header))}\"")
+                        jlog("x-ms-aserror: \"{Ansi_print({red},String.sub(13,String.length(header)-13,header))}\"")
                     },res.headers)
           {success:xmlns};
         case {~failure}: {failure:{bad_wbxml:failure}};
@@ -1155,8 +1160,8 @@ function dbg(where) {
   }
 
   function matches_rules(rules, xmlns) {
-//jlog("{i}) {Ansi.print({cyan},"matches_rules")}: rules={Ansi.print({red},"{rules}")}")
-//jlog("{i}) {Ansi.print({cyan},"matches_rules")}: xmlns={Ansi.print({blue},Xmlns.to_string(xmlns))}")
+//jlog("{i}) {Ansi_print({cyan},"matches_rules")}: rules={Ansi_print({red},"{rules}")}")
+//jlog("{i}) {Ansi_print({cyan},"matches_rules")}: xmlns={Ansi_print({blue},Xmlns.to_string(xmlns))}")
 //res =
     List.exists(function (~{pp, value}) {
                   pp = List.map(function (tag) { ~{tag, rules:[]} },pp)
@@ -1165,7 +1170,7 @@ function dbg(where) {
                   default: false;
                   }
                 },rules)
-//jlog("{i}) {Ansi.print({cyan},"matches_rules")}: res={Ansi.print({yellow},"{res}")}")
+//jlog("{i}) {Ansi_print({cyan},"matches_rules")}: res={Ansi_print({yellow},"{res}")}")
 //res
   }
 
@@ -1177,25 +1182,25 @@ function dbg(where) {
 
   function outcome(list(xmlns),string) get_xml_elements(ApigenLib.parsed_xml_path pp, xmlns xmlns) {
 //i = cnt.get(); cnt.set(i+1);
-//jlog("{i}) get_xml_elements: pp={Ansi.print({magenta},"{pp}")} xmlns={Ansi.print({blue},Xmlns.to_string(xmlns))}")
+//jlog("{i}) get_xml_elements: pp={Ansi_print({magenta},"{pp}")} xmlns={Ansi_print({blue},Xmlns.to_string(xmlns))}")
     match (pp) {
       case []: {success:[xmlns]};
       case [{tag:pptag, ~rules}|next_pp]:
-//jlog("{i}) rules:{Ansi.print({red},"{rules}")}")
+//jlog("{i}) rules:{Ansi_print({red},"{rules}")}")
         match (xmlns) {
         case {~text}: {failure:text};
         case {args:_, ~content, namespace:_, specific_attributes:_, xmlns:_, ~tag}:
-//jlog("{i}) tag={Ansi.print({yellow},tag)} pptag={Ansi.print({cyan},pptag)}")
+//jlog("{i}) tag={Ansi_print({yellow},tag)} pptag={Ansi_print({cyan},pptag)}")
           if (pptag == tag) {
             recursive function list(xmlns) aux(list(xmlns) l) {
               match (l) {
               case []: list(xmlns) [];
               case [xmlns xmlns|l]:
-//jlog("{i}) next_pp={Ansi.print({magenta},"{next_pp}")}")
-//jlog("{i}) xmlns={Ansi.print({blue},Xmlns.to_string(xmlns))}")
+//jlog("{i}) next_pp={Ansi_print({magenta},"{next_pp}")}")
+//jlog("{i}) xmlns={Ansi_print({blue},Xmlns.to_string(xmlns))}")
                 match (get_xml_elements(ApigenLib.parsed_xml_path next_pp, xmlns xmlns)) {
                 case {success:list(xmlns) res}:
-//jlog("{i}) res={Ansi.print({green},String.concat("\n",List.map(Xmlns.to_string,res)))}")
+//jlog("{i}) res={Ansi_print({green},String.concat("\n",List.map(Xmlns.to_string,res)))}")
                       List.append(res,aux(l))
                 default: aux(l);
                 }
@@ -1316,12 +1321,12 @@ function dbg(where) {
   function gettag_empty(list(xmlns) _content) { {some:true} }
 
   function gettag_value(get, list(xmlns) content) {
+    //jlog("gettag_value: content={pxml(content)}")
     match (content) {
     case [{~text}|_]: get(text);
     default: none;
     }
   }
-
   gettag_string = gettag_value(some,_)
   gettag_binary = gettag_value(function (s) { {some:%%bslBinary.of_encoding%%(s,"binary")} },_)
   gettag_base64 = gettag_value(function (s) { {some:string_of_binary(Crypto.Base64.decode(s))} },_)
@@ -1336,6 +1341,40 @@ function dbg(where) {
   gettag_int = gettag_value(Int.of_string_opt,_)
   gettag_bool = gettag_value(Bool.of_string,_)
   gettag_float = gettag_value(Float.of_string_opt,_)
+
+  function gettag_empty2(tag, list(xmlns) content) {
+    //jlog("gettag_empty2: content={pxml(content)}")
+    match (find_tag(tag,content)) {
+    case {some:_}: {some:true};
+    case {none}: none;
+    }
+  }
+
+  function gettag_value2(get, tag, list(xmlns) content) {
+    //jlog("gettag_value2: content={pxml(content)}")
+    match (find_tag(tag,content)) {
+    case {some:xmlns}:
+      match (xmlns) {
+      case {args:_, content:[{~text}|_], namespace:_, specific_attributes:_, tag:_, xmlns:_}: get(text);
+      default: none;
+      }
+    case {none}: none;
+    }
+  }
+  gettag_string2 = gettag_value2(some,_,_)
+  gettag_binary2 = gettag_value2(function (s) { {some:%%bslBinary.of_encoding%%(s,"binary")} },_,_)
+  gettag_base642 = gettag_value2(function (s) { {some:string_of_binary(Crypto.Base64.decode(s))} },_,_)
+  gettag_numbool2 = gettag_value2(function (s) {
+    match (Int.of_string_opt(s)) {
+    case {some:0}: {some:false};
+    case {some:_}: {some:true};
+    case {none}: {none};
+    }
+  },_,_)
+  gettag_datetime2 = gettag_value2(function (s) { ApigenLib.date_of_string2(s) },_,_)
+  gettag_int2 = gettag_value2(Int.of_string_opt,_,_)
+  gettag_bool2 = gettag_value2(Bool.of_string,_,_)
+  gettag_float2 = gettag_value2(Float.of_string_opt,_,_)
 
   function is_tag(tag, xmlns) {
     match (xmlns) {
@@ -1354,7 +1393,7 @@ function dbg(where) {
   }
 
   function get_rec(list(xmlns) content, dflt, set) {
-    //jlog("get_rec: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    //jlog("get_rec: content={pxml(content)}")
     List.fold(function (xmlns, record) {
                 match (record) {
                 case {some:record}:
@@ -1371,8 +1410,108 @@ function dbg(where) {
               },content,{some:dflt})
   }
 
+  function getset(etag, get, set) {
+    (etag,
+     function (record, content) {
+       match (get(content)) {
+       case {some:v}: {some:set(record, v)};
+       case {none}: none;
+       }
+     })
+  }
+
+  function string ptag(string tag) { Ansi_print({blue},tag) }
+  function string pxml(list(xmlns) content) { Ansi_print({cyan},String.concat("\n",List.map(Xmlns.to_string,content))) }
+
+  function find_tag(ttag, content) {
+    List.find(function (xmlns) {
+      match (xmlns) {
+      case {args:_, content:_, namespace:_, specific_attributes:_, ~tag, xmlns:_}:
+        if (tag == ttag) {
+          //jlog("found {ptag(ttag)}");
+          true;
+        } else false;
+      default: false;
+      }
+    },content)
+  }
+
+  function (option('a),list('a)) find_and_remove('a -> bool p, list('a) l) {
+    recursive function aux(l) {
+      match (l) {
+      case [e|l]:
+        if (p(e))
+          ({some:e},l)
+        else {
+          (res,l) = aux(l)
+          (res,[e|l])
+        };
+      case []: (none,[]);
+      }
+    }
+    aux(l)
+  }
+
+  function (list(xmlns),list(xmlns)) get_matching_tags(string etag, list(xmlns) content) {
+    List.partition(function (xmlns) {
+                     match (xmlns) {
+                     case {args:_, content:_, namespace:_, specific_attributes:_, ~tag, xmlns:_}: tag == etag;
+                     default: false;
+                     }
+                   },content)
+  }
+
+  function string pxmltags(list(xmlns) content) {
+    String.concat(",",List.map(function (xmlns) {
+               match (xmlns) {
+               case {args:_, content:_, namespace:_, specific_attributes:_, ~tag, xmlns:_}: ptag(tag);
+               default: Ansi_print({red},"<other>");
+               }
+             },content))
+  }
+
+  function get_rec2(list(xmlns) content, ttag, 'a dflt, list(tuple_2(string,('a, list(xmlns) -> option('a)))) getsets) {
+    //jlog("get_rec2: ttag={ptag(ttag)} content={pxml(content)}")
+    //p_getsets = String.concat(",",List.map(function (getset) { Ansi_print({magenta},getset.f1) },getsets))
+    match (find_tag(ttag,content)) {
+    case {some:xmlns}:
+      match (xmlns) {
+      case {args:_, ~content, namespace:_, specific_attributes:_, tag:_, xmlns:_}:
+        res =
+          List.fold(function ((etag,getset), record_content) {
+                      //jlog("get_rec2: {Ansi_print({yellow},"xmlns")}={pxml([xmlns])}")
+                      match (record_content) {
+                      case {some:(record,content)}:
+                        function aux(matching_content,content) {
+                          //jlog("get_rec2: etag={ptag(etag)} matching_content={pxmltags(matching_content)} content={pxmltags(content)} getsets={p_getsets}")
+                          match (getset(record,matching_content)) {
+                          case {some:record}:
+                            //jlog("got {ptag(etag)} from {pxml(matching_content)}");
+                            {some:(record,content)};
+                          case {none}:
+                            //jlog("didn't get {ptag(etag)} from {pxml(matching_content)}");
+                            {some:(record,content)};
+                          }
+                        }
+                        match (get_matching_tags(etag, content)) {
+                        case ([],content): aux(content,content);
+                        case (matching_content,content): aux(matching_content,content);
+                        }
+                      case {none}: none;
+                      }
+                    },getsets,{some:(dflt,content)})
+        match (res) {
+        case {some:(record,_)}: {some:record};
+        case {none}: none;
+        }
+      default: {some:dflt};
+      }
+    default: /*jlog("{ptag(ttag)} not found");*/ {none};
+    }
+  }
+
   function option('a) get_alt(list(xmlns) content, (string, list(xmlns) -> option('a)) set) {
-    //jlog("get_alt: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    //jlog("get_alt: content={pxml(content)}")
     recursive function aux(content) {
       match (content) {
       case [xmlns|content]:
@@ -1400,21 +1539,78 @@ function dbg(where) {
     aux(content)
   }
 
+  function option('a) get_alt2(list(xmlns) content, /*_ttag,*/ sets) {
+    //jlog("get_alt2: ttag={ptag(ttag)} content={pxml(content)} sets={String.concat(",",List.map(function (set) { set.f1 },sets))}")
+    recursive function option('a) aux(sets) {
+      match (sets) {
+      case [(stag,set)|sets]:
+        match (content) { // scan this???
+        case [{args:_, content:tcontent, namespace:_, specific_attributes:_, ~tag, xmlns:_}|_]:
+          if (stag == tag) {
+            //jlog("get_alt2: stag={ptag(stag)} tag={ptag(tag)} content={pxml(content)}")
+            match (set(content)) {
+            case {some:res}:
+              //jlog("got {Ansi_print({yellow},tag)} {res}");
+              {some:res};
+            case {none}: aux(sets);
+            }
+          } else {
+            match (tcontent) {
+            case [{~text}|_]:
+              if (stag == text) {
+                match (set([{~text}])) {
+                case {some:res}:
+                  //jlog("get_alt2: stag={ptag(stag)} tag text: {ptag(text)}")
+                  {some:res};
+                case {none}: aux(sets);
+                }
+              } else aux(sets);
+            default: aux(sets);
+            }
+          };
+        case [{~text}|_]:
+          // This is complete nonsense but it allows us to treat
+          // alts as types in the gettag_ routines.
+          // TODO: fix the asymmetric treatment of tags in alts.
+          if (stag == text) {
+            match (set([{~text}])) {
+            case {some:res}:
+              //jlog("get_alt2: stag={ptag(stag)} tag text: {ptag(text)}")
+              {some:res};
+            case {none}: aux(sets);
+            }
+          } else aux(sets);
+        default: aux(sets);
+        };
+      case _: none;
+      }
+    }
+    aux(sets);
+  }
+
   function get_option(list(xmlns) content, get) {
-    //jlog("get_option: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    //jlog("get_option: content={pxml(content)}")
     match (get(content)) {
     case {some:v}: {some:{some:v}};
     case {none}: {some:{none}};
     }
   }
 
+  function get_option2(list(xmlns) content, get) {
+    //jlog("get_option: content={pxml(content)}")
+    match (get(content)) {
+    case {some:v}: {some:{some:v}};
+    case {none}: {none};
+    }
+  }
+
   function get_list(list(xmlns) content, get) {
-    //jlog("get_list: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    //jlog("get_list: content={pxml(content)}")
     {some:List.filter_map(function (xmlns) { get([xmlns]) },content)}
   }
 
   function dorec(r, get, set, content) {
-    //jlog("dorec: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    //jlog("dorec: content={pxml(content)}")
     match (get(content)) {
     case {some:value}: {some:set(r, value)};
     case {none}: none;
@@ -1422,7 +1618,7 @@ function dbg(where) {
   }
 
   function doalt(get, mk, content) {
-    //jlog("doalt: content={String.concat("\n",List.map(Xmlns.to_string,content))}")
+    //jlog("doalt: content={pxml(content)}")
     match (get(content)) {
     case {some:value}: {some:mk(value)};
     case {none}: none;
