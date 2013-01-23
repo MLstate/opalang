@@ -456,7 +456,6 @@ Postgres = {{
         | {some=failure} -> {failure=(conn,failure)}
         | {none} -> {success=conn}}
     x = Pg.reply({success=conn.conn})
-    do jlog("{x}")
     match x with
     | {success=(c,{Authentication={Ok}})} ->
       loop({conn with conn=c}, acc, f)

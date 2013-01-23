@@ -153,9 +153,9 @@ struct
     | Some (`foreign _) -> assert false
     | Some (`type_ (name,_)) -> Format.pp_print_string fmt name
     | None ->
-        match ty with
+        match QmlTypesUtils.Inspect.follow_alias_noopt_private env.gamma ty with
         | Q.TypeConst Q.TyFloat  -> Format.fprintf fmt "FLOAT8"
-        | Q.TypeConst Q.TyInt    -> Format.fprintf fmt "INT"
+        | Q.TypeConst Q.TyInt    -> Format.fprintf fmt "INT8"
         | Q.TypeConst Q.TyString -> Format.fprintf fmt "TEXT"
         | _ ->
             Format.eprintf "Not_found path [%a]:%a\n%!"
@@ -250,7 +250,7 @@ struct
 
   let execute_statement
       ({gamma; annotmap; q_prepared; _} as env)
-      node query =
+      node (uniq, query) =
     let qid, _ = try QueryMap.find query q_prepared with
         Not_found -> OManager.i_error "Can't found prepared statement"
     in
@@ -280,9 +280,10 @@ struct
             ) (annotmap, []) sql_ops
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
+    let build = if uniq then Api.Db.build_uniq else Api.Db.build_dbset in
     let annotmap, build =
       OpaMapToIdent.typed_val ~label ~ty:[node.S.ty]
-        Api.Db.build_dbset annotmap gamma
+        build annotmap gamma
     in
     let annotmap, dbset = C.apply gamma annotmap build [database; qid; args] in
     {env with annotmap}, dbset
@@ -488,9 +489,10 @@ struct
     in
     {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds = []}
 
-  let resolve_sqlaccess env node query =
+  let resolve_sqlaccess env node (uniq, query) =
+    (* TODO  - Prepare for uniq ? *)
     let env = prepared_statement_for_query env query in
-    execute_statement env node query
+    execute_statement env node (uniq, query)
 
   let path ~context
       ({gamma; schema; _} as env)
@@ -502,17 +504,16 @@ struct
         begin
           match kind, node.S.kind with
           | QD.Default, S.SqlAccess query ->
-              resolve_sqlaccess env node query
+              resolve_sqlaccess env node (false, query)
           | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, _) ->
-              let query =
+              let uniq, query =
                 match query with
                 | None ->
-                    (query_to_sqlquery tbl None, QD.default_query_options)
-                | Some (false, (q, o)) ->
-                    (query_to_sqlquery tbl (Some q), o)
-                | _ -> assert false
+                    false, (query_to_sqlquery tbl None, QD.default_query_options)
+                | Some (uniq, (q, o)) ->
+                    uniq, (query_to_sqlquery tbl (Some q), o)
               in
-              resolve_sqlaccess env node query
+              resolve_sqlaccess env node (uniq, query)
           | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, _) ->
               let query =
                 match query with
