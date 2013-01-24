@@ -76,7 +76,7 @@ type ApigenLib.general_value =
  or {xmlns Verbatim}
  or {Empty}
 
-type ApigenLib.simple_seq = list((string,ApigenLib.general_value))
+type ApigenLibXml.simple_seq = list((string,ApigenLib.general_value))
 
 private (binary -> string) bindump = %% BslPervasives.bindump %%
 //private (string -> string) memdump = %% BslPervasives.memdump %%
@@ -1290,7 +1290,9 @@ function dbg(where) {
     },get_xml_string(pp,xmlns))
   }
 
-  function list(xmlns) make_simple_sequence(string namespace, ApigenLib.simple_seq seq) {
+  ApigenLibXml.simple_seq simple_seq_default = []
+
+  function list(xmlns) make_simple_sequence(string namespace, ApigenLibXml.simple_seq seq) {
     List.map(function ((tag,gv)) {
                list(xmlns) content =
                  match (gv) {
@@ -1316,6 +1318,9 @@ function dbg(where) {
   function list(xmlns) xmlnsl(xmlns xmlns) { [xmlns] }
 
   function gettag_unknown(list(xmlns) content) { {some:content} }
+
+  // TODO: we could scan the xml and rebuild a simple sequence but how do we know the types?
+  function gettag_simple_seq(list(xmlns) _content) { {some:ApigenLibXml.simple_seq []} }
 
   function gettag_label(list(xmlns) _content) { {some:{}} }
   function gettag_empty(list(xmlns) _content) { {some:true} }
