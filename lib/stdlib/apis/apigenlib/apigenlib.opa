@@ -136,9 +136,11 @@ module ApigenLib {
     "{Date.to_formatted_string(fmt, d)}{tz}"
   }
 
-  private fmtp2 = Date.generate_printer("%FT%T%z")
+  // YYYY-MM-DDTHH:MM:SS.MSSZ
+  private date2fmtstr = "%FT%T.%xZ"
+  private fmtp2 = Date.generate_printer(date2fmtstr)
   function date_to_string2(Date.date d) { Date.to_formatted_string(fmtp2, d) }
-  private fmts2 = Date.generate_scanner("%FT%T%z")
+  private fmts2 = Date.generate_scanner(date2fmtstr)
   function date_of_string2(string s) { Date.of_formatted_string(fmts2, s) }
 
   private function generic_build_path(path, options) {
