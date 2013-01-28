@@ -255,7 +255,7 @@ Postgres = {{
     | ~{Int16}    -> {Int=Int16 size={S}}
     | ~{Int64}    -> ~{Int64}
     | ~{Bool}     -> ~{Bool}
-    | {String=s}   -> {Cstring = s}
+    | {String=s}   -> {Binary = Binary.of_string(s)}
     | ~{Real}     -> {Float32 = Real}
     | ~{Float}    -> ~{Float}
     | ~{Bytea}    -> {Binary = Bytea}
@@ -299,7 +299,12 @@ Postgres = {{
    / @return The serialized reprensentation of [data]
    */
   serialize(data:Postgres.data): binary =
-    Outcome.get(Pack.Encode.pack([pack(data)]))
+    match pack(data) with
+    | ~{Binary} -> Binary
+    | pdata ->
+      x = Binary.create(Pack.Encode.packlen([pdata]))
+      _ = Pack.Encode.pack_u(x, false, false, {S}, pdata)
+      x
 
   /**
    * Returns the name of the database
