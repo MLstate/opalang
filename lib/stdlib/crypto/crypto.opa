@@ -417,6 +417,11 @@ Crypto = {{
     new_key = %% BslCrypto.rsa_new_key %% : int -> Crypto.RSA.key
 
     /**
+     * Read a RSA key from a PEM file.
+     */
+    read_key = %% BslCrypto.read_rsa_key %% : string, option(string), option(string) -> Crypto.RSA.key
+
+    /**
      * Encrypt a binary data with a certain RSA key.
      */
     encrypt = %% BslCrypto.rsa_encrypt %% : Crypto.RSA.key, binary -> option(binary)
