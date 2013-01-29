@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -134,14 +134,14 @@ Iter = {{
    * Lazy
    */
   filter_map(f, iter: iter) : iter =
-    rec aux() =
+    rec aux(iter:iter) =
       match iter.next()
       | {none} -> {none}
       | {some = res} ->
         match f(res.f1) with
-        | {none} -> aux()
-        | {some=r2} -> {some = (r2, filter_map(f, res.f2))}
-    { next() = aux() }
+        | {none} -> aux(res.f2)
+        | {some=r2} -> {some = (r2, {next() = aux(res.f2)})}
+    { next() = aux(iter) }
 
   fold(f, i:iter, acc) =
      match i.next() : option
