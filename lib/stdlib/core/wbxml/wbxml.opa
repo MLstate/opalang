@@ -482,16 +482,19 @@ module WBXml {
 
   function of_xmlns0(ctxt, xmlns xmlns) {
 //jlog("of_xmlns0: xmlns={Xmlns.to_string(xmlns)}\n{String.replace("\n","\\n","{xmlns}")}")
+    function do_text(text) {
+      if (String.contains(text,"\000"))
+        {failure:"String contains null \"{sanitize(text)}\""}
+      else
+        match (StringMap.get(text, ctxt.st)) {
+        case {some:idx}: {success:str_t(ctxt, idx)};
+        case {none}: {success:str_i(ctxt, text)};
+        }
+    }
     match (xmlns) {
       case {text:""}: {success:ctxt};
       case {~text}: // *MUST NOT* have null characters
-        if (String.contains(text,"\000"))
-          {failure:"String contains null \"{sanitize(text)}\""}
-        else
-          match (StringMap.get(text, ctxt.st)) {
-          case {some:idx}: {success:str_t(ctxt, idx)};
-          case {none}: {success:str_i(ctxt, text)};
-          }
+        do_text(text);
       case {args:[], content:[], ~namespace, specific_attributes:_, xmlns:nsxml, ~tag}:
         match (start_tag(ctxt, tag, namespace, nsxml, [], [])) {
         case {success:ctxt}:
@@ -501,6 +504,8 @@ module WBXml {
         }
       case {args:[], content:[{~text}], namespace:_, specific_attributes:_, xmlns:[], tag:"Opaque"}:
         {success:opaque(ctxt, text)};
+      case {args:[], content:[{~text}], namespace:_, specific_attributes:_, xmlns:[], tag:"WbxmlInlineText"}:
+        do_text(text);
       case {~args, content:[{fragment:content}], ~namespace, specific_attributes:_, xmlns:nsxml, ~tag}
       case {~args, ~content, ~namespace, specific_attributes:_, xmlns:nsxml, ~tag}:
         match (start_tag(ctxt, tag, namespace, nsxml, args, content)) {
