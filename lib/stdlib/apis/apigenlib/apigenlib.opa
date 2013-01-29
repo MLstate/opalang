@@ -520,6 +520,22 @@ module ApigenLib {
     }
   }
 
+  function outcome('a,Apigen.failure) build_from_ct_process_xml(WebClient.success(string) res,
+                                                                option(WBXml.context) context,
+                                                                (list(xmlns) -> option('a)) process) {
+    match (build_from_content_type(res, context)) {
+    case {success:~{xmlns}}:
+      match (process([xmlns])) {
+      case {some:'a result}: {success:result};
+      case {none}: {failure:{bad_xml:Xmlns.to_string(xmlns)}};
+      };
+    //case {success:~{xmldoc}}: ???
+    case {success:~{xhtml}}: {failure:{error_html:xhtml}};
+    case {success:bad_content}: {failure:~{bad_content}};
+    case ~{failure}: ~{failure};
+    }
+  }
+
 }
 
 /**
