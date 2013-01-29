@@ -1562,14 +1562,16 @@ function dbg(where) {
     aux(content)
   }
 
+  function bool matchns(string ns1, string ns2) { ns1 == "" || ns2 == "" || ns1 == ns2 }
+
   function option('a) get_alt2(list(xmlns) content, /*_ttag,*/ sets) {
     //jlog("get_alt2: ttag={ptag(ttag)} content={pxml(content)} sets={String.concat(",",List.map(function (set) { set.f1 },sets))}")
     recursive function option('a) aux(sets) {
       match (sets) {
-      case [(stag,set)|sets]:
+      case [(sns,stag,set)|sets]:
         match (content) { // scan this???
-        case [{args:_, content:tcontent, namespace:_, specific_attributes:_, ~tag, xmlns:_}|_]:
-          if (stag == tag) {
+        case [~{args:_, content:tcontent, namespace, specific_attributes:_, tag, xmlns:_}|_]:
+          if (stag == tag && matchns(namespace,sns)) {
             //jlog("get_alt2: stag={ptag(stag)} tag={ptag(tag)} content={pxml(content)}")
             match (set(content)) {
             case {some:res}:
