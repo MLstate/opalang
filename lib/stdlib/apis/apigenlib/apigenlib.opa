@@ -1373,6 +1373,14 @@ function dbg(where) {
     }
   }
 
+  function gettag_xmlns2(tag, list(xmlns) content) {
+    //jlog("gettag_xmlns2: content={pxml(content)}")
+    match (find_tag(tag,content)) {
+    case {some:xmlns}: {some:xmlns};
+    case {none}: none;
+    }
+  }
+
   function gettag_value2(get, tag, list(xmlns) content) {
     //jlog("gettag_value2: content={pxml(content)}")
     match (find_tag(tag,content)) {
@@ -1530,6 +1538,28 @@ function dbg(where) {
       default: {some:dflt};
       }
     default: /*jlog("{ptag(ttag)} not found");*/ {none};
+    }
+  }
+
+  function get_rec2_raw(option(xmlns) xmlns, gettag) {
+    match (xmlns) {
+    case {some:xmlns}: gettag([xmlns]);
+    case {none}: {none};
+    }
+  }
+
+  function get_tags(option(xmlns) xmlns, ttag) {
+    match (xmlns) {
+    case {some:{args:_, ~content, namespace:_, specific_attributes:_, ~tag, xmlns:_}}:
+      if (ttag == tag)
+        List.filter_map(function (xmlns) {
+                          match (xmlns) {
+                          case {args:_, content:_, namespace:_, specific_attributes:_, ~tag, xmlns:_}: {some:tag};
+                          default: {none};
+                          }
+                        },content)
+      else []
+    default: [];
     }
   }
 
