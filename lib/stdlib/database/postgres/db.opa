@@ -236,11 +236,16 @@ query: {query}
     check_error("UpdateInsert({command})", c)
   }
 
+  function sum_to_enum('a value){
+    OpaValue.Record.get_uniq_field_name(value) ? @fail
+  }
+
 }
 
 @opacapi DbPostgres_open = DbPostgres.open
 @opacapi DbPostgres_build_dbset = DbPostgres.build_dbset
 @opacapi DbPostgres_build_uniq = DbPostgres.build_uniq
 @opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
+@opacapi DbPostgres_sum_to_enum = DbPostgres.sum_to_enum
 
 

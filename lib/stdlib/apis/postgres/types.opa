@@ -891,6 +891,8 @@ PostgresTypes = {{
         (match opatype with
          | {Null} -> dflt
          | {Date=dt} -> {some=@unsafe_cast(dt)}
+         | {Int=dt} -> {some=@unsafe_cast(dt)}
+         | {Int64=dt} -> {some=@unsafe_cast(Int64.to_int(dt))}
          | opatype -> error("expected date, got {opatype}"))
       | {TyName_args=[]; TyName_ident="Postgres.time"} ->
         (match opatype with

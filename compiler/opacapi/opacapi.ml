@@ -181,6 +181,7 @@ struct
   let build_dbset = !! "build_dbset"
   let build_uniq = !! "build_uniq"
   let update_or_insert = !! "update_or_insert"
+  let sum_to_enum = !! "sum_to_enum"
 end
 
 module DbMongoSet =
