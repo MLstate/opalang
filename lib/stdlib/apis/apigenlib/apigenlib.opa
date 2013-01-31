@@ -1563,6 +1563,19 @@ function dbg(where) {
     }
   }
 
+  // We sometimes need to fool the decode routines into using
+  // the same decode logic under different tags.
+  // TODO: Proper aliasing of tags without code duplication.
+  function rename_tag(option(xmlns) xmlns, oldtag, newtag) {
+    match (xmlns) {
+    case {some:~{args, content, namespace, specific_attributes, ~tag, xmlns:xmlns_}}:
+      if (tag == oldtag)
+        {some:~{args, content, namespace, specific_attributes, tag:newtag, xmlns:xmlns_}}
+      else xmlns;
+    default: xmlns;
+    }
+  }
+
   function option('a) get_alt(list(xmlns) content, (string, list(xmlns) -> option('a)) set) {
     //jlog("get_alt: content={pxml(content)}")
     recursive function aux(content) {
