@@ -434,4 +434,18 @@ Crypto = {{
 
   }}
 
+  Cipher = {{
+
+    generic_encrypt = %% BslCrypto.cipher_encrypt %% : string, binary, binary -> option(binary)
+    generic_decrypt = %% BslCrypto.cipher_decrypt %% : string, binary, binary -> option(binary)
+
+    aes128_encrypt = generic_encrypt("aes128", _, _)
+    aes128_decrypt = generic_decrypt("aes128", _, _)
+    aes192_encrypt = generic_encrypt("aes192", _, _)
+    aes192_decrypt = generic_decrypt("aes192", _, _)
+    aes256_encrypt = generic_encrypt("aes256", _, _)
+    aes256_decrypt = generic_decrypt("aes256", _, _)
+
+  }}
+
 }}
