@@ -161,7 +161,7 @@ struct
     | QExists of bool
 
   type 'expr sqlquery = {
-    sql_fds : (string * string) list;
+    sql_fds : (string list) list;
     sql_tbs : string list;
     sql_ops : ('expr, [`expr of 'expr | `bind of string]) query option;
   }
@@ -382,12 +382,8 @@ struct
      | [] -> pp fmt "* "
      | _ ->
          (BaseFormat.pp_list ","
-            (fun fmt (db, field) ->
-               (match db with "" -> ()
-                | _ -> pp fmt "%s." db);
-               pp fmt "%s" field
-            ))
-           fmt sql_fds
+            (BaseFormat.pp_list "." Format.pp_print_string)
+         ) fmt sql_fds
     );
     pp fmt " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt sql_tbs;

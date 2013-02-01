@@ -302,9 +302,7 @@ sqlquery_fields <- (=list1(sqlquery_field, Opa_parser.record_fields_separator)):
 (**
    {7 Path SQL querying }
 *)
-sqlfield <-
-/ spacing Opa_lexer.field_identifier_nosp:tb "." Opa_lexer.field_identifier_nosp:s {{tb, s}}
-/ spacing Opa_lexer.field_identifier_nosp:s {{"", s}}
+sqlfield <- (=list1(Opa_lexer.field_identifier_nosp,".")):l {{ l }}
 
 sqlfields <- (=list1(sqlfield, Opa_lexer.comma))
 

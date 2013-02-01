@@ -256,12 +256,7 @@ struct
     (match q.QD.sql_fds with
      | [] -> pp "* "
      | _ ->
-         (BaseFormat.pp_list ","
-            (fun fmt (db, field) ->
-               (match db with "" -> ()
-                | _ -> Format.fprintf fmt "%s." db);
-               Format.fprintf fmt "%s" field
-            ))
+         BaseFormat.pp_list "," (BaseFormat.pp_list "." Format.pp_print_string)
            fmt q.QD.sql_fds
     );
     pp " FROM ";
@@ -661,7 +656,27 @@ struct
           C.apply gamma annotmap update_or_insert [database; procname; args] in
         {env with annotmap}, res
 
-  let query_to_sqlquery tbl query =
+  let query_to_sqlquery tbl query select =
+    let sql_fds =
+      match select with
+      | QD.SNil  |QD.SId _ | QD.SSlice _->
+          OManager.error "This kind of projection is not yet implemented by PG driver"
+      | QD.SStar -> []
+      | QD.SFlds flds ->
+          List.map
+            (fun (field, s) ->
+               begin match s with
+               | QD.SStar | QD.SNil -> ()
+               | _ -> OManager.error "This kind of projection is not yet implemented by PG driver"
+               end;
+               tbl::
+                 (List.map
+                    (function `string s -> s
+                     | _ -> OManager.error "This kind of projection is not yet implemented by PG driver"
+                    ) field
+                 )
+            ) flds
+    in
     let rec aux q =
       let binop q0 q1 rb = rb (aux q0) (aux q1) in
       match q with
@@ -681,7 +696,7 @@ struct
           QD.QFlds flds
       | QD.QExists b -> QD.QExists b
     in
-    {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds = []}
+    {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds}
 
   let resolve_sqlaccess env node (kpath, query) =
     (* TODO  - Prepare for uniq ? *)
@@ -699,9 +714,9 @@ struct
           let setaccess_to_sqlacces tbl query =
             match query with
             | None ->
-                `dbset, (query_to_sqlquery tbl None, QD.default_query_options)
+                `dbset, (query_to_sqlquery tbl None select, QD.default_query_options)
             | Some (uniq, (q, o)) ->
-                (if uniq then `uniq else `dbset), (query_to_sqlquery tbl (Some q), o)
+                (if uniq then `uniq else `dbset), (query_to_sqlquery tbl (Some q) select, o)
           in
           match kind, node.S.kind with
           | QD.Default, S.SqlAccess query ->

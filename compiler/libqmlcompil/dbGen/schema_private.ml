@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012, 2013 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -912,7 +912,10 @@ let fields_of_sqldata gamma schema node {Db. sql_fds=_; sql_tbs; sql_ops=_} =
 let type_of_sqldata gamma schema node ({Db. sql_fds; sql_tbs=_; sql_ops=_} as query) =
   let fields = fields_of_sqldata gamma schema node query in
   let fields = List.filter
-    (fun (f, _) -> List.exists (fun (_dname, f1) -> String.equal f f1) sql_fds)
+    (fun (f, _) -> List.exists
+       (function
+          [f1] -> String.equal f f1
+        | _ -> OManager.error "Deep dot are not yet implemented in SQL queries") sql_fds)
     fields
   in Q.TypeRecord (Q.TyRow (fields, None))
 
@@ -1217,16 +1220,11 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
   | (Db.Query (query, _))::epath, C.Multi ->
       let partial = not (is_uniq t node query) in
       aux_multi epath partial
-  | (Db.SQLQuery ({Db. sql_fds; sql_tbs=_; sql_ops=_} as sqlquery, _))::epath, _ ->
+  | (Db.SQLQuery (sqlquery, _))::epath, _ ->
       assert (epath = []); (*TODO ?*)
-      let fields = fields_of_sqldata gamma t node sqlquery in
-      let fields = List.filter
-        (fun (f, _) -> List.exists (fun (_dname, f1) -> String.equal f f1) sql_fds)
-        fields
-      in
+      let dataty = type_of_sqldata gamma t node sqlquery in
       let partial = true in
       let rebuildt = (fun t -> if partial then C.Db.set t else t) in
-      let dataty = Q.TypeRecord (Q.TyRow (fields, None)) in
       rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
   | (Db.ExprKey _)::epath, C.Multi ->
       aux_multi epath false
