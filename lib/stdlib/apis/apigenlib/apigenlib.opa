@@ -74,6 +74,7 @@ type ApigenLib.general_value =
  or {string Base64}
  or {bool Numbool}
  or {xmlns Verbatim}
+ or {list(ApigenLib.general_value) List}
  or {Empty}
 
 type ApigenLibXml.simple_seq = list((string,ApigenLib.general_value))
@@ -1312,22 +1313,25 @@ function dbg(where) {
 
   function list(xmlns) make_simple_sequence(string namespace, ApigenLibXml.simple_seq seq) {
     List.map(function ((tag,gv)) {
-               list(xmlns) content =
+               function mk(content) { {args:[], ~content, ~namespace, specific_attributes:none, xmlns:[], ~tag} }
+               recursive function do_gv(gv) {
                  match (gv) {
-                 case {~String}: [{text:String}];
-                 case {Int:i}: [{text:Int.to_string(i)}];
-                 case {Bool:b}: [{text:Bool.to_string(b)}];
-                 case {Float:f}: [{text:Float.to_string(f)}];
+                 case {~String}: mk([{text:String}]);
+                 case {Int:i}: mk([{text:Int.to_string(i)}]);
+                 case {Bool:b}: mk([{text:Bool.to_string(b)}]);
+                 case {Float:f}: mk([{text:Float.to_string(f)}]);
                  case {Binary:bin}:
-                   [{args:[], content:[{text:%%bslBinary.to_encoding%%(bin,"binary")}],
-                     ~namespace, specific_attributes:none, xmlns:[], tag:"Opaque"}];
-                 case {Datetime:d}: [{text:ApigenLib.date_to_string2(d)}];
-                 case {Base64:s}: [{text:Crypto.Base64.encode(binary_of_string(s))}];
-                 case {Numbool:b}: [{text:if (b) "1" else "0"}];
-                 case {~Verbatim}: [Verbatim];
-                 case {Empty}: [];
+                   mk([{args:[], content:[{text:%%bslBinary.to_encoding%%(bin,"binary")}],
+                     ~namespace, specific_attributes:none, xmlns:[], tag:"Opaque"}]);
+                 case {Datetime:d}: mk([{text:ApigenLib.date_to_string2(d)}]);
+                 case {Base64:s}: mk([{text:Crypto.Base64.encode(binary_of_string(s))}]);
+                 case {Numbool:b}: mk([{text:if (b) "1" else "0"}]);
+                 case {~Verbatim}: Verbatim;
+                 case {List:gvs}: mk(List.map(do_gv,gvs));
+                 case {Empty}: mk([]);
                  }
-               {args:[], ~content, ~namespace, specific_attributes:none, xmlns:[], ~tag}
+               }
+               do_gv(gv)
              },seq)
   }
 
