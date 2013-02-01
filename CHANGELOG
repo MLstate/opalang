@@ -2,6 +2,8 @@ Updated APIs:
 
   * Crypto:
     - added SHA-512 functions
+    - added read_rsa_key function to read RSA key from a file
+    - added Cipher module, with AES support
 
   * Dom:
     - added remove_attribute
@@ -17,10 +19,20 @@ Updated APIs:
     - extended table body lines type
     - added data-toggle and data-target functions
 
+  * Spark
+    - added render_value function to Reactive.value, in order to render the value directly
+    - more functions to Reactive.list
+
 Bug fixes:
+
+  * Iter:
+    - fixed a bug with filter_map
 
   * Plugins:
     - Some bootstrap plugins are not cleaned because of a reflow problem
+
+  * Spark
+    - remove at the proper index in Reactive.list
 
 2012.12.10, Version 1.1.0 (stable), v4051
 
