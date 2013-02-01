@@ -125,7 +125,7 @@ HttpRequest = {{
       raw_list   = %% BslNet.Http_server.get_header_names %%: WebInfo.private.native_request -> list(string)
       raw_values = %% BslNet.Http_server.get_header_values %%: WebInfo.private.native_request -> (string -> option(string))
       {headers    = raw_list(request)
-       header_get = raw_values(request)}
+       header_get = s -> raw_values(request)(String.lowercase(s)) }
 
     get_host(x: HttpRequest.request): option(string) =
       get_headers(x).header_get("Host")
