@@ -667,25 +667,35 @@ PostgresTypes = {{
     @fail(str)
 
   @private
+  dot_default(fld, dflt) =
+    Option.map(OpaValue.Record.unsafe_dot(_, fld), dflt)
+
+  @private
   field_parser(label, ty, rcons, dflt) =
+    do jlog(Debug.dump(dflt))
+    fld = OpaValue.Record.field_of_name_unsafe(label)
     map(p) =
       p = @unsafe_cast(p)
-      fld = OpaValue.Record.field_of_name_unsafe(label)
       parser
-      | x={Rule.or(p, Rule.succeed_opt(Option.map(OpaValue.Record.unsafe_dot(_, fld), dflt)))} ->
-
+      | x={Rule.or(p, Rule.succeed_opt(dot_default(fld, dflt)))} ->
+        do jlog("Parse ({ty} {label}) {Debug.dump(x)}")
         OpaValue.Record.add_field(rcons, fld, @unsafe_cast(x))
+    char_parser = parser | [\\] c=[\\\"] -> c | [\"][\"] -> '\"' | c=. -> c
+    string_parser =
+      aux_parser = parser !([\"]![\"]) c=char_parser -> c
+      parser [\"] s=aux_parser* [\"] -> Text.to_string(Text.lcconcat(s))
     match ty with
     | {TyConst={TyInt={}}} -> map(Rule.integer)
     | {TyConst={TyFloat={}}} -> map(Rule.float)
-    | {TyConst={TyString={}}} ->
-      char = parser
-        | [\\] c=[\\\"] -> c
-        | c=. -> c
-      map(parser [\"] s=((![\"]char)*) [\"] -> Text.to_string(s))
+    | {TyConst={TyString={}}} -> map(parser s=((![,)].)*) -> Text.to_string(s))
     | {TyName_args=tys; TyName_ident=tyid} ->
-        field_parser(label, OpaType.type_of_name(tyid, tys), rcons, dflt)
-    | _ -> do jlog("Fail to find parser") Rule.fail
+      field_parser(label, OpaType.type_of_name(tyid, tys), rcons, dflt)
+    | {TyRecord_row=row ...} ->
+      map(parser text=string_parser ->
+        composite_to_opa(row, ~{text}, dot_default(fld, dflt)) ? @fail)
+    | _ ->
+      map(parser text=string_parser ->
+        OpaSerialize.unserialize(text, ty) ? dflt ? @fail)
 
   /**
    * Try to unserialize a postgres composite value to an Opa record described by
@@ -693,6 +703,7 @@ PostgresTypes = {{
    */
   @private
   composite_to_opa(row:OpaType.fields, pgdata, dflt) =
+    do jlog("composite_to_opa {row} {pgdata}")
     match pgdata with
     | ~{text} ->
       rec composite_parser(row, rcons) = (
@@ -733,10 +744,10 @@ PostgresTypes = {{
 
     error(str) = error_no_retry("{error_msg(str)}", {none})
 
-    make_option(vopt:option('a)): option('b) =
-      match vopt with
-      | {some=v} -> {some=@unsafe_cast({some=v})}
-      | {none} -> {some=@unsafe_cast({none})}
+    // make_option(vopt:option('a)): option('b) =
+    //   match vopt with
+    //   | {some=v} -> {some=@unsafe_cast({some=v})}
+    //   | {none} -> {some=@unsafe_cast({none})}
 
     rec element_to_rec(row:Postgres.oparow, fields:OpaType.fields, dflt:option('a)): option('a) =
       match fields with
@@ -939,10 +950,10 @@ PostgresTypes = {{
          | {String="true"} | {String="t"} -> {some=@unsafe_cast(true)}
          | {String="false"} | {String="f"} -> {some=@unsafe_cast(false)}
          | opatype -> error("expected bool, got {opatype}"))
-      | {TyName_args=[ty]; TyName_ident="option"} ->
-        (match opatype with
-         | {Null} -> {some=@unsafe_cast({none})}
-         | _ -> make_option(opatype_to_opa(opatype, ty, none)))
+      // | {TyName_args=[ty]; TyName_ident="option"} ->
+      //   (match opatype with
+      //    | {Null} -> {some=@unsafe_cast({none})}
+      //    | _ -> make_option(opatype_to_opa(opatype, ty, none)))
       | {TyName_args=[ty]; TyName_ident="list"} -> opatype_to_list(opatype, ty, dflt, 1)
       | {TyName_args=[]; TyName_ident="Postgres.date"}
       | {TyName_args=[]; TyName_ident="Date.date"} ->
