@@ -1,0 +1,67 @@
+(*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of Opa.
+
+    Opa is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
+*)
+
+(**
+   * Simple library, intended to have some of the properties of both
+   * String and Buffer.  No automatic resize but it can be done manually.
+**)
+
+(** This type is concrete **)
+type buf = { mutable str : string; mutable i : int; }
+
+(** Global flag for resize **)
+type resize_mode = RM_stdout | RM_stderr | RM_custom of (string -> unit) | RM_failwith | RM_exit | RM_noresize
+val auto_resize : resize_mode ref
+
+(** Common to String and Buffer **)
+type t = buf
+val length : buf -> int
+val create : int -> buf
+val sub : buf -> int -> int -> string
+
+(** Compatibility with String *)
+val make : int -> char -> buf
+val get : buf -> int -> char
+val unsafe_get : buf -> int -> char
+val set : buf -> int -> char -> unit
+val unsafe_set : buf -> int -> char -> unit
+val copy : buf -> buf
+
+(** Compatibility with Buffer **)
+val nth : buf -> int -> char
+val clear : buf -> unit
+val reset : buf -> unit
+val add_char : buf -> char -> unit
+val add_string : buf -> string -> unit
+val add_substring : buf -> string -> int -> int -> unit
+val contents : buf -> string
+
+(** Specifics **)
+val empty : unit -> buf
+val append : buf -> string -> int -> unit
+val add_buf : buf -> buf -> unit
+val of_string : string -> buf
+val to_string : buf -> string
+val resize : buf -> int -> unit
+val extend : buf -> int -> unit
+val real_length : buf -> int
+val spare : buf -> int
+
+(** to handle a pool of buffer with GC cooperation
+    create a shallow copy of buffer and attach a finalisation taking original buffer updated on it *)
+val mark_as_used : unused:(buf -> unit) -> buf -> buf

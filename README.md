@@ -1,15 +1,17 @@
 # Opa #
 
-
 ## Overview ##
 
-Opa is a new generation of cloud development platform. It is a new programming
-language, a new web server, a new database and a new distributed execution
-engine, all of them tightly integrated to provide a great experience for cloud
-developers.
+Opa is an advanced framework for JavaScript, made of two parts:
 
-This repository contains all the sources of the Opa compiler and libraries.
+* A compiler from the Opa language, which features JavaScript-like syntax but introduces many enhancements;
+* A JavaScript library, which is used at runtime.
 
+This repository contains all the sources of both the Opa compiler and the Opa library.
+
+## Getting Started ##
+
+Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-started).
 
 ## Quick build instructions ##
 
@@ -17,93 +19,78 @@ This repository contains all the sources of the Opa compiler and libraries.
     $ make
     $ sudo make install
 
-should get you there `./configure` should report any missing dependencies and
+should get you there. `./configure` should report any missing dependencies and
 point you to the packages you may install to fix them (although those may depend
-on your distribution). make needs to be GNU make.
+on your distribution). `make` needs to be GNU make.
 
-The main dependency of Opa is OCaml 3.12. In case your distribution doesn't
-provide a recent enough version, or if you miss some other dependencies, you can
-use the `installation_helper.sh` script, which automates the download and
+The main dependencies of Opa is OCaml 4.00 and Node.js >= 0.6. In case your distribution doesn't provide a recent enough version, or if you miss some other dependencies, you can use the `installation_helper.sh` script, which automates the download and
 installation of our dependencies. Try
 
-    $ dependencies/installation_helper.sh --help
+    $ tools/dependencies/installation_helper.sh --help
+
+#### Amazon Image
+
+We provide a ready to use [Amazon Image for Opa](https://github.com/MLstate/opalang/wiki/Amazon-Image-for-Opa).
 
 ## Directory layout ##
 
 * \_build: compilation target directory
-* build: build scripts and auxiliary Makefiles
+* compiler: compiler source files
+* doc: documentation source files, guidelines, and miscellaneous copyright information
+* lib: Opa standard library, plugins and binding system library source files
+* ocamllib: OCaml libraries and runtime source files
+* tools: various tools
+
+Details of the lib directory:
+
+* stdlib: the Opa standard library
+* plugins: additional Opa library modules
+* opabsl: the Opa binding system library, for binding various backends (currently node and OCaml)
+* experimental: some experimental Opa libraries
+
+Details of the doc directory:
+
 * copyright: some copyright information used in our binary package, which
   includes external software (as obtained from the dependency installation
-  helper).
-* dependencies: contains the dependency installation helper
+  helper)
+* `*-LICENSE`: licenses used by the Opa project
+
+Details of the tools directory:
+
+* build: build scripts and auxiliary Makefiles
+* dependencies: contains the dependency installation helper and various patches
 * dissemination: contains helper programs to run on the cloud (transitional)
 * installer: auxiliary files used to build binary packages
-* plugins: additional Opa library modules (work in progress)
-* stdlib: the Opa standard library
-* tools: contains external checking tools; see Credits below
-* utils: some auxiliary, independent tools like bash completion, syntax
-  highlighting for popular editors, etc.
+* tools: contains external checking tools
+* bash: bash completion scripts
+* editors: various helper tools for popular editors
+* utils: packaging scripts, and various auxiliary tools
 
-The other directories contain the source of the Opa libraries, compiler, and
-tools.
-
-Files at the root of the repository:
+Other files usage:
 
 * `*.mllib`: ocamlbuild target declaration for building an ocaml lib
 * `*.itarget`: ocamlbuild target declaration for building a set of targets
-* `install_release.sh`: builds a full Opa runtime in order to make a binary
-  package
-* `platform_helper.sh`: some helpers to guarantee script compatibility, mostly
+* `tools/platform_helper.sh`: some helpers to guarantee script compatibility, mostly
   between Linux and MacOS
-* `make_package.sh`: builds various kinds of binary packages from the file
-  hierarchy created by `install_release.sh`
-
+* `tools/utils/install_release.sh`: builds a full Opa runtime in order to make a binary package
+* `tools/utils/make_package.sh`: builds various kinds of binary packages from the file
+  hierarchy created by `tools/utils/install_release.sh`
 
 ## The build system ##
 
-The build system is based on OCamlbuild; the included `build/Makefile.bld`
+The build system is based on OCamlbuild; the included `tools/build/Makefile.bld`
 dynamically builds an ocamlbuild plugin and generates targets based on files
-`build_libs`, `build_tools` and `build_rules.ml`.
+`tools/build/build_libs`, `tools/build/build_tools` and `tools/build/build_rules.ml`.
 
-See `build/Makefile.bld` and `build_rules.ml` for more information. All generated
-files are put in `_build`, following the same hierarchy as the source directory.
+See `tools/build/Makefile.bld` and `tools/build/build_rules.ml` for more information. All generated files are put in `_build`, following the same hierarchy as the source directory.
 
-## License & Credits ##
-
-Opa is Copyright 2011, MLstate; it is distributed under the terms of the GNU
-Affero General Public License, version 3. See file LICENSE for details.
-
-The repository opalang is currently versioning 2 external tools in tools/
-used only during the build process of Opa :
-
-* The Closure Compiler (see tools/jschecker/README for copyright information)
-* JsDoc Toolkit (see tools/jsdoc-toolkit/README.txt for copyright information)
-
-The Closure Compiler is used as a checker for the Javascript part of the sources
-of Opa, and JsDoc Toolkit is used for generating html documentation pages from this
-Javascript code.
-
-The use of these tools is transitional, and will soon be made optional.
-
-Part of the jslang library, has been closely inspired by ocamljs/jslib:
-
-* ocamljs/jslib, © 2007-2009 2007-9 Skydeck, Inc, distributed under LGPL v2
-
-Files jslang/jsAst.ml and jslang/jsPrint.ml are extended versions of the modules
-found in ocamljs, specialized for Opa specific needs.
-We would like to thank the authors of the ocamljs/jslib.
-
-Opa also includes external libraries :
-
-* Bootstrap, from Twitter - http://twitter.github.com/bootstrap
-
-* Font Awesome - http://fortawesome.github.com/Font-Awesome
+You can find more information about the build system in tools/build/README.
 
 Contact
 -------
 
-All bug reports, feedback, comments, contributions or remarks are welcome,
-either on our website: [http://opalang.org](http://opalang.org)
+All bug reports, feedback, comments, contributions or remarks are welcome: [http://opalang.org](http://opalang.org).
 
-or by email, to:
-                              support@opalang.org
+In particular, users are welcome to:
+* subscribe on the mailing list at [OWASP](https://lists.owasp.org/listinfo/opa);
+* participate in the forum at [opalang](http://forum.opalang.org).

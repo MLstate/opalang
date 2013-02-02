@@ -1,9 +1,0 @@
-# -*- conf -*- (for emacs)
-
-<**/*.{ml,mli,byte,native}>: use_libbase, use_libtrx, use_ssl, thread, use_unix, use_zip, use_str
-
-<pingRegister.{ml,mli}>: use_libnet, use_libruntime, use_appruntime
-
-# pp debug
-<qmlClosureRuntime.{ml,mli}>: with_mlstate_debug
-<pingRegister.{ml}>: with_mlstate_debug

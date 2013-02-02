@@ -1,0 +1,79 @@
+# -*- conf -*- (for emacs)
+
+<**/*.{ml,mli}>: use_buildinfos, use_libbase, use_compilerlib, use_opacapi
+
+# specific tags, compilation
+# writing every dependence help to understand how we should refactor this
+# TODO : what is so special in opalib that preserve us to have all this in qml ?
+# (libqmlcompil is jalous of opalib)
+# it help as well to see what depends still on liboldqml.
+# Please, keep it so until the refactoring is finished
+
+<checkopacapi.{ml,byte}>: use_opalang, use_opabsl_for_compiler, use_libbsl, use_libqmlcompil, use_compilerlib, use_pplib, use_qmloptions
+
+<compilationUtils.ml>: use_opalib
+<pass_FunActionEnvSerialize.{ml,mli}>: use_libqmlcompil, use_opalang, use_opalib, use_jslang, use_qmlpasses
+<pass_FunActionJsCallGeneration.{ml,mli}>: use_libqmlcompil, use_opalang, use_opalib, use_qml2js
+<opa_InsertRemote.{ml,mli}>: use_libqmlcompil, use_opalib, use_qmlpasses, use_jslang
+<pass_MongoAccessGeneration.{ml,mli}>: use_libqmlcompil, use_opalang, use_qmlpasses
+<pass_DropBoxCodeGeneration.{ml,mli}>: use_libqmlcompil, use_opalang, use_qmlpasses
+<pass_RegisterFields.{ml,mli}>: use_libqmlcompil
+<opa_SlicedReorder.{ml,mli}>: use_libqmlcompil, use_opalib
+<pass_AddCSS.{ml,mli}>: use_libqmlcompil, use_opalib, use_opalang
+
+<opa_ResolveJsIdent.{ml,mli}>: use_libqmlcompil, use_opalib, use_qml2js
+<opa_Roots.{ml,mli}>: use_libqmlcompil, use_opalib, use_opalang, use_opapasses
+
+<pass_PluginCompilation.{ml,mli}>: use_libbsl, use_passlib, use_opalib, use_jslang
+<pass_EnrichMagic.{ml,mli}>:use_libqmlcompil, use_opalang, use_qmlslicer, use_qmlpasses
+<pass_InitializeBslValues.{ml,mli}>: use_libqmlcompil, use_opalang
+<pass_Retyping.{ml,mli}>: use_libqmlcompil
+<pass_Typing.{ml,mli}>: use_libqmlcompil, use_opalang
+<pass_TypeDefinition.{ml,mli}>: use_libqmlcompil
+<pass_EndOfSeparateCompilation.{ml,mli}>: use_libqmlcompil, use_opalib, use_qmlslicer
+<pass_CheckPatternMatching.{ml,mli}>: use_libqmlcompil, use_opalib
+<pass_CodingDirectives.{ml,mli}>: use_compilerlib, use_libqmlcompil, use_opalang
+<pass_MacroExpansion.{ml,mli}>: use_libqmlcompil, use_passlib, use_opalib, use_opalang
+<pass_OpaDocApi.{ml,mli}>: use_libqmlcompil, use_opalib, use_opalang, use_opapasses, use_qmlpasses, with_mlstate_debug
+<pass_JavascriptCompilation.{ml,mli}>: use_libqmlcompil, use_libbsl, use_opalib, use_qml2js, use_opalang, use_jslang, use_qmljsimp, use_pplib
+<pass_RegisterAppSrcCode.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
+<pass_TreatNoClientCalls.{ml,mli}>: use_libqmlcompil, use_opapasses, use_opalang
+<pass_DbEngineImportation.{ml,mli}>: use_libqmlcompil, use_opalang
+
+<reordering.{ml,mli}>: use_graph, use_libqmlcompil, use_opalib
+
+<pass_AddStdlibFiles.{ml,mli}>: use_compilerlib, use_opalib
+
+<pass_BslLoading.{ml,mli}>: use_libbsl, use_opalib, use_opabsl_for_compiler, use_qmljsimp, use_qml2js, use_opalang, use_libqmlcompil
+
+<s3Warnings.{ml,mli}>: use_compilerlib, use_libqmlcompil, use_qmlpasses, use_opapasses, use_qmljsimp, use_qmlslicer, use_opalang
+
+# thing about it
+<passes.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlfakecompiler, use_qml2js, use_libbsl, use_opalang, use_opapasses, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_qmlpasses, use_passlib
+
+# main
+<main_utils.{ml,mli}>: use_libqmlcompil, use_opalang, use_opalib, use_opapasses, use_libbsl
+<opa_parse.ml>: use_opalib, use_opalang, use_opapasses
+
+# s3 main
+<s3Passes.{ml,mli}>: use_pplib, use_libqmlcompil, use_opalib, use_qmlslicer, use_passlib, use_opapasses, use_opalang, use_libbsl, use_qmlfakecompiler, use_ocamllang, use_qmlpasses, use_qml2js, use_jslang
+<{compiler,gen_opa_manpage}.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_passlib, use_libbsl, use_qml2js
+<syntaxHelper.ml>: use_opalib, use_opalang, use_opapasses, use_libqmlcompil, use_passlib
+
+# linking
+<{opa_parse,checkopacapi,gen_opa_manpage,syntaxHelper}.{byte,native}>: thread, use_dynlink, use_graph, use_str, use_unix, use_nums, use_zip, use_buildinfos, use_libbase, use_ulex, use_libtrx, use_libqmlcompil, use_libbsl, use_opalib, use_opalang, use_opapasses, use_qmlfakecompiler, use_qmljsimp, use_qml2js, use_opabsl_for_compiler, use_qmlslicer, use_jslang, use_qmlcpsrewriter, use_ocamllang, use_passlib, use_compilerlib, use_pplib, use_qmlpasses, use_opacapi, use_qmloptions
+
+<opa_InsertRemote.ml>: with_mlstate_debug
+<main_utils.ml>: with_mlstate_debug
+<passes.ml>: with_mlstate_debug
+
+# Temporary dependencies introduced by the refactoring
+# needed to remove the dependency of opalang on opalib
+# (bringing MapToIdent in opalang)
+<{opa_SlicedReorder,opa_InsertRemote,opa_InsertFunInfos,opa_ResolveJsIdent}.ml{,i}>: use_opalang
+
+# ppdebug
+<pass_AddStdlibFiles.ml>: with_mlstate_debug
+<pass_InitializeBslValues.ml>: with_mlstate_debug
+<pass_CheckPatternMatching.ml>: with_mlstate_debug
+<pass_BslLoading.ml>: with_mlstate_debug

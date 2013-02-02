@@ -1,0 +1,3 @@
+# -*- conf -*- (for emacs)
+
+<{optionalOpacapi.ml,opacapi.ml}>: use_compilerlib

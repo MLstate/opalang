@@ -1,0 +1,329 @@
+(*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of Opa.
+
+    Opa is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
+*)
+(**
+   Utilities for lexing Opa.
+
+   Provides useful productions:
+   - [hexa]
+   - [spacing]
+   - [opacomment]
+   - [csscomment]
+   - [char]
+   - [string]
+   - [int], [strint]
+   - [float], [strfloat]
+   - [ml_identifier], [ml_identifier_nosp]
+   - [keywords]
+*)
+
+{{
+   open Parser_utils
+   module Char = Base.Char
+}}
+
+#
+# One hexadecimal digit, lower or higher-case accepted
+#
+/* hexadecimal digit */
+hexa <- [0-9A-Fa-f]:c {{ c }}
+hexa_digit <- [0-9]:c {{ Char.code c - Char.code '0' }}
+            / [A-F]:c {{ Char.code c - Char.code 'A' + 10 }}
+            / [a-f]:c {{ Char.code c - Char.code 'a' + 10 }}
+hexa4 <- hexa_digit:h1 hexa_digit:h2 hexa_digit:h3 hexa_digit:h4 {{
+           ((h1 lsl 4 + h2) lsl 4 + h3) lsl 4 + h4
+         }}
+hexa8 <- hexa4:h1 hexa4:h2 {{ h1 lsl 16 + h2 }}
+
+#
+# Whitespace management
+#
+#
+maybe_whitespace    <- [ \t]* $
+whitespace    <- [ \t]+ $
+newline       <- ("\r\n" $ / [\r\n] $)
+strict_space  <- whitespace $ / newline $
+/* spacing */
+space         <- strict_space $
+/* spacing */
+spaces        <- space* $
+/* spacing */
+spacing       <- (space $ / opacomment$)* $
+/* strict spacing */
+strict_spacing<- (strict_space$ / opacomment$)+ $
+
+spacing_nonl <- (whitespace$ / opacomment$)* $
+
+#
+# Opa Comments
+#
+#
+
+(* opacomment_slash can succeed without parsing a final newline, because
+ * it happens if your final line is a comment and your file doesn't end with
+ * a newline *)
+opacomment_slash <- "/" (!newline . $)* $
+opacomment_star  <- "*"
+                    (!"*/" ("/" opacomment_star / . $))*
+                    (=or_eof("*/")):b {{ if not b then error_comment (pos_only _filename _pos_beg _pos_end) }}
+/* spacing */
+opacomment       <- "/" (opacomment_star / opacomment_slash)
+
+#
+# Characters and strings
+# @TODO Support Unicode
+#
+stringnosp <-
+        [\"] stringchar*:sl (=or_eof([\"])):b
+          {{ if not b then error_string (pos_only _filename _pos_beg _pos_end) else String.concat "" sl }}
+/* string literal */
+string <- stringnosp
+/* char literal */
+char <-  [\'] char_char [\'] {{ __2 }}
+
+
+stringcharspecial <-
+        / [{] {{ Char.code '{' }} / [}] {{ Char.code '}' }}
+        / [n] {{ Char.code '\n' }} / [r] {{ Char.code '\r' }} / [t] {{ Char.code '\t' }}
+        / [\'] {{ Char.code '\'' }} / [\"] {{ Char.code '\"' }}  / [\\] {{ Char.code '\\' }}
+        / (=deco([0-9]+)):p {{ let (i,pos) = p in
+                               try Tgrammar.int_of_chars i
+                               with
+                                 | Failure "int_of_string" -> error_char_overflow pos
+                             }}
+        / 'u' hexa4:i {{ i }}
+        / 'U' hexa8:i {{ i }}
+         / (=careful_deco(.)):p {{ error_char_escape (undecorate p) (label p) }}
+
+; stringchar <-
+          [\\] stringcharspecial {{ Cactutf.cons __2 }}
+        / (![\\\"{] utf8char)+:l {{ BaseString.concat_map "" Cactutf.cons l }}
+
+char_char <-
+          [\\] stringcharspecial {{ __2 }}
+        / utf8char
+
+utf8char <- [\000-\127]:i1 {{ Cactutf.one_byte (Char.code i1) }}
+          / [\192-\223]:i1 .:i2 {{ Cactutf.two_bytes  (Char.code i1) (Char.code i2) }}
+          / [\224-\239]:i1 .:i2 .:i3 {{ Cactutf.three_bytes (Char.code i1) (Char.code i2) (Char.code i3) }}
+          / [\240-\255]:i1 .:i2 .:i3 .:i4 {{ Cactutf.four_bytes (Char.code i1) (Char.code i2) (Char.code i3) (Char.code i4) }}
+
+#
+# Numbers
+#
+/* integer */
+decimal_number <- [0-9][0-9_]* $
+binary_number <- [01][01_]* $
+octal_number <- [0-7][0-7_]* $
+hexadecimal_number <- hexa (hexa/[_])* $
+
+strint   <- [-]? ([0] [bB] binary_number $
+                 /[0] [oO] octal_number $
+                 /[0] [xX] hexadecimal_number $
+                 /decimal_number $) $_
+/* float */
+exponent <- 'e'~ '-'? decimal_number $
+strfloat <-
+   / [-]? decimal_number [.] decimal_number? exponent? $_
+   / [-]? [.] decimal_number exponent? $_
+   / [-]? decimal_number exponent $_
+
+
+strint   <- [-]? ([0] [bB] binary_number $
+                 /[0] [oO] octal_number $
+                 /[0] [xX] hexadecimal_number $
+                 /decimal_number $) $_
+
+/* float */
+exponent <- 'e'~ '-'? decimal_number $
+strfloat <-
+   / [-]? decimal_number [.] decimal_number? exponent? $_
+   / [-]? [.] decimal_number exponent? $_
+   / [-]? decimal_number exponent $_
+
+int      <- Opa_parser.pos:pos strint:s   {{ try int_of_string s with Failure "int_of_string" -> error_int_overflow pos }}
+bint      <- Opa_parser.pos:pos strint:s   {{ Big_int.big_int_of_int64 (Int64.of_string s) }}
+float    <- strfloat {{ float_of_string __1 }}
+
+int3     <- ([2]([5][0-5] $_ / [0-4][0-9] $_) $_ / [0-1][0-9][0-9] $_ / [0-9][0-9]? $_):s {{ s }}
+
+
+#
+# CSS Comments
+#
+/* css comment */
+csscomment         <- "/*" (!"*/" .)* "*/" $
+spacing_csscomment <- (spaces $ / csscomment)* $
+
+#
+# Symbols
+#
+
+larrow    <- spacing larrow_nosp $
+rarrow    <- spacing rarrow_nosp $
+lbrace    <- spacing lbrace_nosp $
+rbrace    <- spacing rbrace_nosp $
+lbracket  <- spacing lbracket_nosp $
+rbracket  <- spacing rbracket_nosp $
+colon     <- spacing colon_nosp $
+gtcolon   <- spacing colon_nosp '>' $
+comma     <- spacing comma_nosp $
+semic     <- spacing semic_nosp $
+slash     <- spacing slash_nosp $
+lpar      <- spacing lpar_nosp $
+rpar      <- spacing rpar_nosp $
+bquote    <- spacing bquote_nosp $
+quote     <- spacing quote_nosp $
+ampersand <- spacing ampersand_nosp $
+underscore<- spacing underscore_nosp $
+alias     <- spacing alias_nosp $
+dots      <- spacing dots_nosp $
+assign    <- spacing assign_nosp $
+sharp     <- spacing sharp_nosp $
+
+larrow_nosp    <- "<-" $
+rarrow_nosp    <- "->" $
+lbrace_nosp    <- '{'  $
+rbrace_nosp    <- '}'  $
+lbracket_nosp  <- '['  $
+rbracket_nosp  <- ']'  $
+colon_nosp     <- ':'  $
+comma_nosp     <- ','  $
+semic_nosp     <- ';'  $
+slash_nosp     <- '/'  $
+lpar_nosp      <- '('  $
+rpar_nosp      <- ')'  $
+bquote_nosp    <- '`'  $
+quote_nosp     <- '\'' $
+ampersand_nosp <- '&'  $
+underscore_nosp<- '_'  $
+alias_nosp     <- "as" $
+or_nosp     <- "or" $
+dots_nosp      <- "..."$
+assign_nosp    <- '='  ![=] $
+sharp_nosp <- '#' $
+
+#
+# Identifiers
+#
+
+/* value identifier */
+ml_identifier      <- spacing ml_identifier_nosp {{ __2 }}
+ml_identifier_nosp <- not_a_keyword field_identifier_nosp {{ __2 }}
+
+field_identifier <- spacing field_identifier_nosp {{ __2 }}
+field_identifier_nosp <-  ml_identifier_first_letter ml_following_letter* $_
+                       /  arbitrary_identifier_nosp
+
+/* type identifier */
+type_identifier <- spacing type_identifier_nosp {{ __2 }}
+type_identifier_nosp <- not_a_keyword ml_identifier_first_letter (ml_following_letter $/ '.' $)* $_
+                      / arbitrary_identifier_nosp
+
+arbitrary_identifier <- spacing arbitrary_identifier_nosp {{ __2 }}
+arbitrary_identifier_nosp <- bquote_nosp ((![`\n] .)* $_) bquote_nosp {{ __2 }}
+
+ml_identifier_first_letter <- [a-zA-Z_]
+ml_following_letter <- [a-zA-Z0-9_]
+
+not_a_keyword      <- !(keyword end_of_ident_nosp)
+
+#
+# Keywords
+#
+
+(* Don't replace string keyword by the corresponding rule, trx compile
+   time is multiply *)
+keyword <- (
+  Opa_parser.declaration_directive0_keyword $_
+  / "function" / "module"
+  / "with" / "type" / "abstract" / "extend"
+
+  / "recursive" / "and"
+
+  / "match" / "if" / "as" / "case" / "default" / "else"
+
+  / "database"
+  / "parser"
+  / "_"
+  / "css"
+
+  / "server" / "client" / "exposed" / "protected" (* see directive without @ *)
+)
+
+(* Keywords : Bindings *)
+OR     <- (=Opa_lexer.exact_keyword("or"))
+FUNCTION <- (=Opa_lexer.exact_keyword("function"))
+MODULE <- (=Opa_lexer.exact_keyword("module"))
+WITH <- (=Opa_lexer.exact_keyword("with"))
+EXTEND <- (=Opa_lexer.exact_keyword("extend"))
+TYPE <- (=Opa_lexer.exact_keyword("type"))
+
+(* Keywords : Recursive bindings *)
+REC <- (=Opa_lexer.exact_keyword("recursive"))
+AND <- (=Opa_lexer.exact_keyword("and"))
+
+(* Keywords : Matching *)
+MATCH <- (=Opa_lexer.exact_keyword("match"))
+IF <- (=Opa_lexer.exact_keyword("if"))
+AS <- (=Opa_lexer.exact_keyword("as"))
+CASE <- (=Opa_lexer.exact_keyword("case"))
+DEFAULT <- (=Opa_lexer.exact_keyword("default"))
+ELSE <- (=Opa_lexer.exact_keyword("else"))
+
+(* Keywords : Database *)
+DATABASE <- (=Opa_lexer.exact_keyword("database"))
+PARSER <- (=Opa_lexer.exact_keyword("parser"))
+UNDERSCORE <- (=Opa_lexer.exact_keyword("_"))
+CSS <- (=Opa_lexer.exact_keyword("css"))
+
+
+#
+# Not keywords but useful anyway
+#
+
+end_of_ident_nosp <- !ml_following_letter $
+let exact_ident string = spacing not_a_keyword string:s end_of_ident_nosp {{ s }};
+let exact_keyword string = spacing string:s end_of_ident_nosp {{ s }};
+  # not_a_keyword really useful ?
+let exact_symbol string = spacing string:s ![%.+\-^*/<>=@|&!] {{ s }};
+
+VOID = exact_ident "void";
+OPEN = exact_ident "open";
+BAR = exact_symbol "|";
+
+END = exact_ident "end";
+BEGIN = exact_ident "begin";
+BYPASS <- "%%";
+AT = exact_symbol "@";
+
+#
+# Utils
+#
+(* used to make precise error message on unterminated string, for instance *)
+let or_eof rule = rule {{ true }}
+                / !.   {{ false }}
+#
+# Labelling stuff
+#
+
+let careful_deco rule = rule
+{{ decorate _filename __1 _pos_beg _pos_end }}
+
+;let deco rule = spacing (=careful_deco(rule)) {{ __2 }}
+
+;offset <- "" {{ _pos_beg }}

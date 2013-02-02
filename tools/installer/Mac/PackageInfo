@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pkg-info version="1.0" install-location="/opt/mlstate">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Opa</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.mlstate.opa.pkg</string>
+	<key>CFBundleName</key>
+	<string>Opa</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>IFMajorVersion</key>
+	<integer>0</integer>
+	<key>IFMinorVersion</key>
+	<integer>2</integer>
+	<key>IFPkgFlagAllowBackRev</key>
+	<false/>
+	<key>IFPkgFlagAuthorizationAction</key>
+	<string>RootAuthorization</string>
+	<key>IFPkgFlagDefaultLocation</key>
+	<string>/opt/mlstate</string>
+	<key>IFPkgFlagFollowLinks</key>
+	<true/>
+	<key>IFPkgFlagInstallFat</key>
+	<false/>
+	<key>IFPkgFlagInstalledSize</key>
+	<integer>0</integer>
+	<key>IFPkgFlagIsRequired</key>
+	<false/>
+	<key>IFPkgFlagOverwritePermissions</key>
+	<false/>
+	<key>IFPkgFlagRelocatable</key>
+	<false/>
+	<key>IFPkgFlagRestartAction</key>
+	<string>None</string>
+	<key>IFPkgFlagRootVolumeOnly</key>
+	<false/>
+	<key>IFPkgFlagUpdateInstalledLanguages</key>
+	<false/>
+	<key>IFPkgFormatVersion</key>
+	<real>0.1000000014901161</real>
+        <key>IFRequirementDicts</key>
+        <array>
+                <dict>
+                        <key>MessageKey</key>
+                        <string>To develop with Opa, you will first need to install Command Line Tools for Xcode. Xcode is distributed for free on the Mac App Store. Once installed, you have to open Xcode and go to Preferences > Downloads > Components > Command Line Tools. You can also download Command Line Tools directly from Apple's website, at https://developer.apple.com/downloads. More instructions at https://github.com/MLstate/opalang/wiki/Getting-Opa.</string>
+                        <key>SpecArgument</key>
+                        <string>/usr/bin/as</string>
+                        <key>SpecType</key>
+                        <string>file</string>
+                        <key>TestObject</key>
+                        <true/>
+                        <key>TestOperator</key>
+                        <string>eq</string>
+                        <key>TitleKey</key>
+                        <string>Missing XCode</string>
+                </dict>
+        </array>
+</dict>
+</pkg-info>

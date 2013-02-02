@@ -1,0 +1,138 @@
+(*
+    Copyright © 2011, 2012 MLstate
+
+    This file is part of Opa.
+
+    Opa is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
+*)
+{{
+  open Parser_utils
+}}
+
+(**
+   {6 Auxiliary functions}
+*)
+let deco v = (=Opa_parser.deco(v));
+pos <- Opa_parser.pos
+spacing <- Opa_lexer.spacing
+ml_identifier <- Opa_parser.ml_identifier
+deco_ml_identifier <- Opa_parser.deco_ml_identifier
+
+(**
+   {6 Main grammar}
+*)
+
+lbrace   <- Opa_lexer.lbrace  $
+rbrace   <- Opa_lexer.rbrace  $
+
+;Expression = deco(Expression_aux)
+Expression_aux <-
+  Opa_parser.match_case? ParserSeq:e (Opa_parser.match_case ParserSeq:e {{e}})*:l
+  ((=deco(Opa_parser.match_default_case)):d ParserCode:e {{d, e}})?:o
+  {{
+     let l =
+       match o with
+       | None -> l
+       | Some (d, o) ->
+           let item = {
+             Trx_ast.item_name=None;
+             Trx_ast.item_prefix=`NORMAL;
+             Trx_ast.item_primary=(Trx_ast.Any, label d);
+             Trx_ast.item_suffix=`STAR
+           } in
+           l@[{Trx_ast.seq_items=[item, label d]; Trx_ast.seq_code=Some o}, label d] in
+     Trx_ast.Expr (e::l)
+  }}
+
+;SubExpression = deco(SubExpression_aux)
+SubExpression_aux <- Expression_aux
+
+
+ExpressionAsFunction <-  Opa_lexer.PARSER lbrace Expression:expr rbrace {{ expr }}
+
+Item = deco(Item_aux)
+Item_aux <-
+/ SubruleName?:name Prefix:prefix Primary:primary Suffix:suffix
+  {{ {Trx_ast.item_name=name; Trx_ast.item_prefix=prefix; Trx_ast.item_primary=primary; Trx_ast.item_suffix=suffix} }}
+/ [~] AutobindIdentifierCall:e Suffix:suffix
+  (* the only place when ~ is allowed is when saying ~p or ~X.p*, but not ~{X.p}, not ~[abc], etc. *)
+  {{ let name,((_,label) as e) = e in
+    {Trx_ast.item_name=Some name; Trx_ast.item_prefix=`NORMAL; Trx_ast.item_primary=(Trx_ast.Rule e), label; Trx_ast.item_suffix=suffix} }}
+
+ParserSeq = deco(ParserSeq_aux)
+ParserSeq_aux <- pos:pos Item+:items ParserCode?:pc {{ {Trx_ast.seq_items=items; Trx_ast.seq_code=pc} }}
+
+ParserCode <- Opa_parser.match_prod:e {{ e }}
+
+SubruleName <- ml_identifier:v EQUAL {{ v }}
+
+PrefixElement <- AND {{ `AND }}
+               / NOT {{ `NOT }}
+
+SuffixElement <- QUESTION {{ `QUESTION }}
+               / STAR     {{ `STAR }}
+               / PLUS     {{ `PLUS }}
+
+Prefix <- PrefixElement?:v {{ Option.default `NORMAL v }}
+Suffix <- SuffixElement?:v {{ Option.default `NORMAL v }}
+
+Primary = deco(Primary_aux)
+Primary_aux <-
+        / Opa_parser.opa_in_braces:e                {{ Trx_ast.Code e }}
+        / IdentifierCall:e                          {{ Trx_ast.Rule e }}
+        / OPEN SubExpression:exp CLOSE                 {{ Trx_ast.Parens exp }}
+        / Literal:lit TILDE?:cs                     {{ Trx_ast.Literal(lit, cs=None) }}
+        / String_expr.string_with_opa:e             {{ Trx_ast.DynamicLiteral e }}
+        / Class:cls                                 {{ Trx_ast.Class cls }}
+        / DOT                                       {{ Trx_ast.Any }}
+
+Class <- '[' (! ']' Range:r {{ r }})*:cls ']' {{ cls }}
+
+Range <- RangeChar:c1 '-' RangeChar:c2 {{ `RANGE(c1, c2) }}
+       / RangeChar:c                   {{ `ONE(c) }}
+
+RangeChar <- "\\[" {{ Char.code '[' }}
+           / "\\]" {{ Char.code ']' }}
+           / "\\-" {{ Char.code '-' }}
+           / Char
+Char <- Opa_lexer.char_char
+
+(**
+   {6 Lexical analysis}
+*)
+
+/** parser subrule call */
+IdentifierCall <-
+       / (=deco(Opa_parser.ident_call_dot))
+       / deco_ml_identifier:n !EQUAL {{ let s,a = n in (ident s a : parsing_expr) }}
+
+/** parser subrule call with autobind */
+AutobindIdentifierCall <- IdentifierCall:e {{( get_meaningful_called_ident e, e : string * (string,'b) SurfaceAst.expr) }}
+
+(* forbid braces [{...}] in literals, if a literal contains braces then we want to interpret
+   it as an embedded Opa expression. Literal braces need escaping. *)
+Literal <- ['] (!['{}] Char {{ __2 }})* ['] {{ BaseString.concat_map "" Cactutf.cons __2 }}
+         / ["] (!["{}] Char {{ __2 }})* ["] {{ BaseString.concat_map "" Cactutf.cons __2 }}
+
+AND <- spacing [&]
+NOT <- spacing [!]
+QUESTION <- spacing [?]
+STAR <- spacing [*]
+PLUS <- spacing [+]
+OPEN <- [(] (* no spacing to avoid f(x) being parsed (which would mean f (~x -> x) which is not usually what the user meant) *)
+CLOSE <- spacing [)]
+DOT <- spacing [.]
+TILDE <- [~] (* no spacing before this one not to mix "mlk"~ t and "mlk" ~f *)
+EQUAL <- spacing [=]
+COMMA <- spacing [,]
+SEMI <- spacing [;]

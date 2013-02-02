@@ -1,0 +1,51 @@
+# -*- conf -*- (for emacs)
+
+<**/*.{ml,mli,byte,native}>: use_str, use_graph, use_buildinfos, use_libbase, use_compilerlib, use_libtrx, use_libqmlcompil, use_passlib
+<**/*.native>: use_pplib
+
+<*.trx>: trx_cache
+
+
+# specific tags
+<bslTypes.ml>: use_langlang, use_opacapi
+<bslError.ml>: use_passlib
+<bslLib.ml>: use_libtrx, rectypes, use_jslang
+<bslRegisterLib.{ml,mli}>: use_libtrx, use_buildinfos, use_ocamllang, use_jslang
+<bslRegisterLib.ml>: use_pplib
+<bslInitChecker.ml>:use_opalang
+<bslTypesGeneration.ml>: use_ocamllang
+<bslPluginInterface.ml>: use_ocamllang, use_jslang
+<bslInterface.ml>: use_jslang
+<bslOcaml.ml>: use_ocamllang
+<bslRegisterParser.{ml,mli,byte,native}>: use_libtrx
+<bslTinyShell.{ml,mli,byte,native}>: use_libtrx
+<bslregister.*>: use_jslang
+<bslregister.{byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
+<portingBsl.{ml,byte,native}>: use_ulex, use_libbsl, use_dynlink, use_zip, use_nums
+<bslGeneration.{ml,mli}>: use_ulex, use_dynlink, use_zip, use_nums, use_jslang
+<bslMarshalPlugin.*>: use_jslang
+
+# subdirs
+<validator>: traverse
+<tests>: ignore
+
+# applications, linking
+<*.{byte,native}>:use_buildinfos, use_ulex, use_libtrx, use_dynlink, use_unix, thread, use_graph, use_libbsl, use_passlib, use_zip, use_nums, use_opalang, use_ocamllang, use_langlang, use_jslang, use_opacapi
+
+# ppdebug (pl. be very specific with the use of ppdebug)
+<bslLib.ml*>        : with_mlstate_debug
+<bslTypes.ml>       : with_mlstate_debug
+<bslLoaderTable.ml> : with_mlstate_debug
+<bslTags.ml>        : with_mlstate_debug
+<bslregister.ml>    : with_mlstate_debug
+<bslRegisterLib.ml> : with_mlstate_debug
+<bslPluginTable.ml> : with_mlstate_debug
+<bslbrowser.ml>     : with_mlstate_debug
+<bslOcaml.ml>       : with_mlstate_debug
+<bslConf.ml>        : with_mlstate_debug
+
+<bslJsParse.ml*>: use_jslang
+<bslJs.ml*>: use_jslang
+<bslDirectives.ml*>: use_jslang
+<imp_*.ml*>: use_jslang
+<imp_*.ml*>: with_mlstate_debug

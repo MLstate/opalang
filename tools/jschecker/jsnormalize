@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 
-CC_DIR="$OPAGENERAL/tools/jschecker"
+###
+# Copyright © 2011, 2012 MLstate
+#
+# This file is part of Opa.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+###
+
+CC_DIR="$OPALANG/tools/jschecker"
 CC="$CC_DIR/compiler.jar"
 
 CC_OPT='--formatting PRETTY_PRINT'
@@ -11,7 +23,7 @@ ADVANCED_OPTIMIZATIONS='ADVANCED_OPTIMIZATIONS'
 
 FILES=''
 
-EXTERNALS="$CC_DIR/externals.js"
+EXTERNALS="$CC_DIR/externs.js"
 WITH_EXTERNALS=false
 TARGET='/dev/stdout'
 
@@ -20,9 +32,9 @@ help() {
 $0: normalize and beautify js files.
 
 This script is meant to be runned from anywhere on js files.
-It is just a wrapper to the google closure compiler:
+It is just a wrapper to the Google Closure Compiler:
 
-google closure compiler
+Google Closure Compiler
   http://code.google.com/closure/compiler/
 
 Use:
@@ -34,15 +46,19 @@ Options:
   -c                        turn on simple optimizations
   -cc                       turn on advanced optimizations
   -o *                      produce resulting js in a file rather than stdout
-  -- *                      give all remaining options to the google closure compiler
+  -- *                      give all remaining options to the Google Closure Compiler
 EOF
 }
+
+if [ "$#" -lt 1 ]; then
+    help
+    exit 0
+fi
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
 
-        # h
-        --help|-help|help)
+        -h|--help|-help|help)
             help
             exit 0
             ;;
@@ -87,10 +103,10 @@ fi
 
 if [ ! -f "$CC" ] ; then
     cat <<EOF
-Cannot find the closure compiler.
-OPAGENERAL is set to : '$OPAGENERAL'
+Cannot find the Closure Compiler.
+OPALANG is set to : '$OPALANG'
 searched at:
- OPAGENERAL/tools/jschecker/compiler.jar
+ OPALANG/tools/jschecker/compiler.jar
 EOF
     exit 1
 fi

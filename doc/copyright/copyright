@@ -1,0 +1,71 @@
+Unless something else is mentioned, Opa is
+Copyright © 2011, 2012 MLstate. All Rights Reserved.
+
+This package was put together by MLstate <packaging@opalang.org> from
+the sources available at <https://github.com/MLstate/opalang>.
+
+
+  Opa is free software: you can redistribute it and/or modify it under the
+  terms of the GNU Affero General Public License, version 3, as published by
+  the Free Software Foundation.
+
+  Opa is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General
+  Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public
+  License along with Opa. If not, see <http://www.gnu.org/licenses/>.
+
+
+The complete text of the GNU Affero General Public License can be
+found in file <AGPL-LICENSE>, along with this one.
+
+Opa library and tools are released under the MIT license.
+The complete text of the MIT license can be found in filr <MIT-LICENSE>.
+
+
+This package also includes pieces of the following software:
+
+- OCaml, http://caml.inria.fr/ocaml/
+    © 1995-2010 INRIA
+    Q Public license v1.0 (compiler)
+    LGPL v2 with static linking exception (library)
+
+- ocamlgraph, http://ocamlgraph.lri.fr
+    © 2004-2008 Sylvain Conchon, Jean-Christophe Filliâtre, Julien Signoles
+    LGPL v2.1 with static linking exception
+
+- jsmin, http://javascript.crockford.com/jsmin.html
+    © 2007 Eugene Ossintsev
+    © 2002 Douglas Crockford
+    Expat License (MIT-like)
+
+- jQuery, http://jquery.com/
+    © 2009 John Resig
+    Expat License (MIT-like) or GPL v2
+
+- ulex, http://www.cduce.org/
+    © 2005 Alain Frisch
+    Expat License (MIT-like)
+
+- Twitter Bootstrap, http://twitter.github.com/bootstrap
+    Copyright 2012 Twitter, Inc.
+
+- Font Awesome, http://fortawesome.github.com/Font-Awesome
+
+- Meteor Spark, MIT License
+  Copyright (C) 2011-2012 Meteor Development Group
+  https://github.com/meteor/meteor/wiki/Spark
+
+- Alea, MIT License
+  Copyright (C) 2010 Johannes Baagøe <baagoe@baagoe.org>
+  http://baagoe.org/en/w/index.php/Better_random_numbers_for_javascript
+
+- Underscore.js 1.3.3, MIT License
+  Copyright (C) 2009-2012 Jeremy Ashkenas, DocumentCloud Inc.
+  Portions of Underscore are inspired or borrowed from Prototype, Oliver Steele's Functional, and John Resig's Micro-Templating.
+  For all details and documentation: http://documentcloud.github.com/underscore
+
+Detailed copyright information of all these included packages lie in
+file <other_licenses>.

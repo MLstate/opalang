@@ -1,0 +1,78 @@
+# -*- conf -*- (this is for emacs)
+#
+# All tools that either can be built from the current repo ("internal"), or should be
+# available installed (from your $PATH) ("external")
+#
+# syntax:
+# <internal|external>	tool_name	build_target	[install_dir]
+#
+# tool_name is the common name of your tool, as it is installed and referred to.
+# the build_target is the name of the exe as understood by ocamlbuild.
+# install dir is relative to the installation prefix, default is "bin/"
+#
+# processed by Makefile.bld
+
+# from opageneral itself
+internal ppdebug		compiler/pplib/ppml.native
+internal ppdebug-opa          	compiler/pplib/ppopa.native
+internal ppjs                 	compiler/pplib/ppjs.native
+
+# from libqml
+internal mlstate_platform	ocamllib/libbase/gen_platform
+internal trx                  	tools/teerex/trx_ocaml.native
+internal trx_interpreter      	tools/teerex/trx_interpreter.native
+internal opa-plugin-builder-bin compiler/libbsl/bslregister.native		lib/opa/bin
+internal opa-plugin-browser-bin compiler/libbsl/bslbrowser.native 		lib/opa/bin
+internal bslbrowser           	compiler/libbsl/bslbrowser
+internal passdesign           	compiler/passlib/passdesign.native
+internal opatrack             	compiler/passlib/opatrack.sh
+internal opadep               	compiler/compilerlib/opadep.sh
+internal filepos              	ocamllib/libbase/testfilepos.native
+internal jsstat               	compiler/jslang/jsstat.native
+internal globalizer             compiler/jslang/globalizer.native
+
+# from qml2llvm
+internal qmljs      		compiler/qmlcompilers/qmljs_exe.native
+internal qmlJsImpClientLib.js	compiler/qmljsimp/qmlJsImpClientLib.js		lib/opa/static
+internal clientLibLib.js      	compiler/qml2js/clientLibLib.js 		lib/opa/static
+internal qmlCpsClientLib.js     compiler/qmlcps/qmlCpsClientLib.js 		lib/opa/static
+internal qmlNoCpsClientLib.js   compiler/qmlcps/qmlNoCpsClientLib.js 		lib/opa/static
+internal odep 			tools/odep.native
+internal odeplink 		tools/odeplink.native
+
+# from opa
+internal opa2opa		compiler/opalang/opa2opa.native
+internal ofile                	tools/ofile.native
+internal opa-translate        	compiler/opa/syntaxHelper.native
+internal checkopacapi          	compiler/opa/checkopacapi.native
+
+# The name of opa raw executable, following unix guidelines (e.g. firefox distrib)
+# when there is a wraper used to call a raw exe
+internal opa-bin              	 compiler/main.native			lib/opa/bin
+internal opx2js-bin            	 compiler/opx2js/opx2js.native			lib/opa/bin
+
+internal opa_bash_completion  	 tools/bash/bash_completion 			share/opa
+
+# for now, these can't be built cleanly from opageneral
+internal serverLib.cmi        	 lib/plugins/opabsl/serverLib.cmi 			lib/opa/static
+
+# for helping developpers of plugins we can distribute the source of the interface
+internal bslServerLib.ml     	 ocamllib/libbase/bslServerLib.ml		lib/opa/static
+
+# javascript checker
+internal jschecker.jar			tools/jschecker/compiler.jar			share/opa/jschecker
+internal jschecker_cpsclientlib.js 	compiler/qmlcps/qmlCpsClientLib.externs.js 	share/opa/jschecker
+internal jschecker_clientlib.js 	compiler/qml2js/clientLib.externs.js 		share/opa/jschecker
+internal jschecker_clientliblib.js 	compiler/qml2js/clientLibLib.externs.js 	share/opa/jschecker
+internal jschecker_externals.js 	tools/jschecker/externs.js 			share/opa/jschecker
+internal jschecker_jquery.js 		lib/plugins/opabsl/jsbsl/jquery.externs.js 	share/opa/jschecker
+
+# mimetype database
+internal mimetype_database.xml	ocamllib/libbase/mimetype_database.xml		share/opa
+
+# dissemination
+internal opa-cloud		tools/dissemination/spawn.sh
+
+# manpages
+internal gen_opa_manpage        compiler/opa/gen_opa_manpage.native
+internal genman          	tools/manpages/genman.native

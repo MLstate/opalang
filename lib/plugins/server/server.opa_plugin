@@ -1,0 +1,27 @@
+bslScheduler.js
+bslScheduler.nodejs
+option.nodejs
+cookies.nodejs
+bslNet.nodejs
+bslJson.js
+bslJson.nodejs
+bslServer_event.nodejs
+bslI18n.js
+bslMisc.nodejs
+
+actor.js
+actor.nodejs
+session.js
+session.nodejs
+bslActor.nodejs
+bslActor.js
+
+# these are kept as symlinks since .. doesn't work
+externs.js
+qmlCpsClientLib.externs.js
+clientLib.externs.js
+clientLibLib.externs.js
+
+opabsl.externs.js
+
+jquery.externs.js

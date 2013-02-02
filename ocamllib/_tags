@@ -1,0 +1,8 @@
+# -*- conf -*- (for emacs)
+#
+# OCAMLLIB TAGS
+#
+
+<{libbase,libjsminify}>: traverse
+
+<libbase.{*a}>: use_stubs

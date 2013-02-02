@@ -1,9 +1,0 @@
-# TODO, rename OcamlAst
-ocamllang/Ocaml
-# TODO, rename OcamlParse
-ocamllang/Ocaml_parser
-ocamllang/OcamlPrint
-ocamllang/OcamlTrack
-ocamllang/OcamlUtils
-ocamllang/OcamlWalk
-# TODO, missing modules of lang design

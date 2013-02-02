@@ -1,3 +1,12 @@
+# -*- conf -*- (for emacs)
+#
+# TOOLS TAGS
+#
+
+<dependencies>: -include, -traverse
+
+<build>: include
+
 # Odep
 <odep*.{ml,byte,native}>: thread, use_str, use_unix, use_graph, use_zip, use_libbase, use_ulex
 
@@ -9,10 +18,11 @@
 # linking
 <ofile.{byte,native}>: use_unix, use_str, thread, use_ulex, use_libbase, use_zip
 
-# TODO(Rudy, you are on the git blame)
-# this look like weird. Correct the code, and reactivate the warning
-<ofile.ml>: warn_error_z
-
 ###
 # jschecker
 <jschecker>: traverse
+<opa-create/**>: traverse
+
+<teerex/**>: traverse
+<dissemination>: traverse
+<utils>: traverse

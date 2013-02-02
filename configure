@@ -16,17 +16,12 @@ opalang configure script. Options:
         -ocamlopt <path>	the ocaml compiler to use
         -ocamlfind <path>	use the given ocamlfind to locate libraries
         -no-ocamlfind		don't use ocamlfind
-        -camlidl		enable features based on camlidl
-        -dbm        		enable features based on dbm
         -help			shows this message
 EOF
 # --no-<lib> if available
 }
 
 cd "$OPA_SOURCE_DIR"
-
-NO_CAMLIDL=1
-NO_DBM=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -35,6 +30,11 @@ while [ $# -gt 0 ]; do
             shift
             PREFIX=$1
             ;;
+	-libdir)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument" >&2; exit 1; fi
+            shift
+	    LIBDIR=$1
+	    ;;
         -release)
             IS_RELEASE=1
             ;;
@@ -59,18 +59,6 @@ while [ $# -gt 0 ]; do
         -no-ocamlfind)
             NO_OCAMLFIND=1
             ;;
-        -camlidl)
-            NO_CAMLIDL=0
-            ;;
-        -dbm)
-            NO_DBM=0
-            ;;
-        -no-camlidl)
-            NO_CAMLIDL=1
-            ;;
-        -no-dbm)
-            NO_DBM=1
-            ;;
         -h|-help|--help)
             help
             exit 0;;
@@ -86,30 +74,34 @@ done
 : ${PREFIX:=${MLSTATELIBS:-}}
 : ${PREFIX:=/usr/local}
 : ${IS_RELEASE:=}
+: ${LIBDIR:=$PREFIX}
 
-CONFIG_LOG=$PWD/config.log
+CONFIG_PATH=$PWD/tools/build
+CONFIG_LOG=$CONFIG_PATH/config.log
 
-echo -n >$CONFIG_LOG
+echo -n > $CONFIG_LOG
 
-echo-check() { echo -n "Checking $*... " >&2 ; echo "# CHECK-START: $*" >>$CONFIG_LOG; }
+echo-check() { echo -n "Checking $*... " >&2 ; echo "# CHECK-START: $*" >> $CONFIG_LOG; }
 echo-ok() {
     local opts=; if [ "X$1" = "X-n" ]; then shift; opts="-n"; fi
-    echo $opts "[1m$*[0m" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >>$CONFIG_LOG;
+    echo $opts "[1m$*[0m" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >> $CONFIG_LOG;
 }
-echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >>$CONFIG_LOG; }
-echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >>$CONFIG_LOG; }
-echo-skip() { echo "[1m[33m$*[0m" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >>$CONFIG_LOG; }
+echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >> $CONFIG_LOG; }
+echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >> $CONFIG_LOG; }
+echo-skip() { echo "[1m[33m$*[0m" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >> $CONFIG_LOG; }
 
 # check OS
 echo-check your OS
 EXT_LIB="a"
 EXT_OBJ="o"
 EXT_SHARED="so"
+EXT_EXE=".exe"
 case $(uname) in
     CYGWIN*)
         echo-ok Windows/cygwin
         EXT_LIB="lib"
         EXT_SHARED="dll"
+        EXT_EXE=".exe"
         IS_WINDOWS=1;;
     Darwin*)
         echo-ok MacOS
@@ -142,7 +134,7 @@ lastresort_hint() {
 
 If you have trouble meeting the required dependencies with your distribution,
 you may want to have a look at the script installation_helper.sh in the
-dependencies/ directory to build them from source.
+tools/dependencies/ directory to build them from source.
 
 EOF
 }
@@ -154,7 +146,7 @@ if [ -n "${IS_MAC:-}" ]; then
     if which gsed > /dev/null 2>&1; then echo-ok ok
     else
         echo-err Not found
-        echo "gsed is needed to build OPA."
+        echo "gsed is needed to build Opa."
         if which port >/dev/null 2>&1; then
             echo -e " You should run:\n\tsudo port install gsed"
         # else #todo# [add useful suggestion here]
@@ -165,14 +157,14 @@ if [ -n "${IS_MAC:-}" ]; then
     if which gtail gmktemp gsort greadlink >/dev/null 2>&1; then echo-ok ok
     else
         echo-err Not found
-        echo "GNU coreutils are needed to build OPA."
+        echo "GNU coreutils are needed to build Opa."
         if which port >/dev/null 2>&1; then
             echo -e " You should run:\n\tsudo port install coreutils"
         # else #todo# [add useful suggestion here]
         fi
         exit 1
     fi >&2
-    . ./platform_helper.sh
+    . ${OPALANG_DIR:-"."}/tools/platform_helper.sh
 fi
 
 if [ -n "${IS_FREEBSD:-}" ]; then
@@ -191,10 +183,10 @@ if OCAMLOPT=${OCAMLOPT:-$(which ocamlopt.opt)} || OCAMLOPT=${OCAMLOPT:-$(which o
 then echo-ok $OCAMLOPT
 else
     echo-err Not found
-    echo "Ocaml 3.12 or newer is required. It's usually found in package 'ocaml'."
+    echo "Ocaml 4.00 or newer is required. It's usually found in package 'ocaml'."
     false
 fi
-OCAMLOPT_DIR=$(dirname $(which $OCAMLOPT))
+OCAMLOPT_DIR=$(dirname $OCAMLOPT)
 
 
 echo-check ocamlbuild
@@ -214,6 +206,7 @@ fi
 
 echo-check ocamldir
 : ${OCAMLLIB:=$($OCAMLOPT -where)}
+OCAMLLIB=$(echo "$OCAMLLIB" | sed -e "s/\\\\/\//g")
 echo-ok $OCAMLLIB
 
 export OCAMLLIB
@@ -223,11 +216,11 @@ OCAML_VERSION=$($OCAMLOPT -version)
 OCAML_VERSION_MAJOR=${OCAML_VERSION%%.*}
 OCAML_VERSION_MIDDLE=${OCAML_VERSION%.*}
 OCAML_VERSION_MIDDLE=${OCAML_VERSION_MIDDLE#*.}
-if [ $OCAML_VERSION_MAJOR -eq 3 ] && [ $OCAML_VERSION_MIDDLE -ge 12 ]; then
+if [ $OCAML_VERSION_MAJOR -ge 4 ]; then
     echo-ok $OCAML_VERSION
 else
     echo-err $OCAML_VERSION
-    echo "Ocaml 3.12 or newer is required"
+    echo "Ocaml 4.00 or newer is required"
     false
 fi
 
@@ -236,7 +229,7 @@ check-ocaml () {
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
     trap "rm -rf /tmp/${DIR#/tmp/}" EXIT
     cd $DIR
-    cat >test.ml <<EOF
+    cat > test.ml <<EOF
 let p = Unix.getpid()
 let _ = Printf.printf "%s, %s %dbit" Sys.ocaml_version Sys.os_type Sys.word_size
 let _ =
@@ -244,7 +237,7 @@ let _ =
 EOF
 
     echo "# $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native" >> $CONFIG_LOG
-    R=0; $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native >test.log 2>&1 || R=$?
+    R=0; $OCAMLBUILD $OCAMLBUILD_FLAGS -tag use_unix test.native > test.log 2>&1 || R=$?
 
     cat test.log >> $CONFIG_LOG
 
@@ -291,6 +284,11 @@ else
     false
 fi
 
+if [ -n "${IS_WINDOWS:-}" ]; then
+    CAMLP4O=$(cygpath -m $CAMLP4O || echo $CAMLP4O)
+    CAMLP4ORF=$(cygpath -m $CAMLP4ORF || echo $CAMLP4ORF)
+fi
+
 # check tools:
 # (*) stuff marked with * could maybe be optional and restrict the build correspondingly
 
@@ -313,24 +311,26 @@ else
     exit 1
 fi
 
-# - checking camlidl *
-echo-check for camlidl
-if [ "X$NO_CAMLIDL" = "X1" ]; then
-    HAS_CAMLIDL=
-    CAMLIDL=
-    echo-ok Disabled
-elif
-    [ -e $OCAMLLIB/libcamlidl.a ] &&
-    CAMLIDL=${CAMLIDL:-$OCAMLOPT_DIR)/camlidl} && [ -x "$CAMLIDL" ] ||
-    CAMLIDL=$(which camlidl)
-then
-    HAS_CAMLIDL=1
-    echo-ok $CAMLIDL
+# - checking for nodejs
+echo-check for nodejs
+if which node &>/dev/null; then
+    echo-ok found
 else
-    HAS_CAMLIDL=
-    echo-skip "Not found (but optional)"
+    echo-err Not found
+    exit 1
 fi
 
+# - checking for nodejs version
+echo-check for nodejs version
+NODE_VERSION=$(node --version)
+NODE_MIN_VERSION="v0.6"
+if [[ $NODE_VERSION > $NODE_MIN_VERSION ]]; then
+    echo-ok $NODE_VERSION
+else
+    echo-err $NODE_VERSION
+    echo "Node $NODE_MIN_VERSION or newer is required"
+    exit 1
+fi
 
 # check C libs:
 #   we depend on libssl, libzip and others, but through
@@ -346,7 +346,7 @@ check-c-lib () (
     local LIBDIR=$(dirname "$LIB")
     local INCLUDE_DIR
     for d in {"$OCAMLLIB/..","$OCAMLLIB",/usr/lib,/usr/local/lib}{/$LIBDIR,}; do
-        if [ -e $d/lib$LIBNAME.a ]; then
+        if [ -e $d/lib$LIBNAME.a ] || [ -e $d/lib$LIBNAME.dylib ] ; then
             LD_DIR=$(readlink -f $d)
             INCLUDE_DIR=$LD_DIR/
             INCLUDE_DIR=${INCLUDE_DIR%/lib/*}/include
@@ -361,7 +361,7 @@ check-c-lib () (
         return 1
     fi >&2
 
-    echo-ok -n "$LD_DIR/lib$LIBNAME.a, "
+    echo-ok -n "$LD_DIR/lib$LIBNAME..., "
 
     # Now checking compile, link & run
     local DIR=$(mktemp -d /tmp/opa-configure.XXXXX)
@@ -394,27 +394,6 @@ check-c-lib () (
     echo "$LIBNAME $LD_DIR $INCLUDE_DIR"
 )
 
-HAS_LIBNATPMP=
-LIBNATPMP=("")
-HAS_MINIUPNPC=
-MINIUPNPC=("")
-if [ -n "$HAS_CAMLIDL" ]; then
-# - checking libnatpmp *
-    echo-check libnatpmp
-    if LIBNATPMP=($(check-c-lib -opt libnatpmp/natpmp netinet/in.h arpa/inet.h libnatpmp/getgateway.h libnatpmp/natpmp.h)); then
-        HAS_LIBNATPMP=1
-    else
-        LIBNATPMP=("")
-    fi
-
-# - checking miniupnpc *
-    echo-check miniupnpc
-    if MINIUPNPC=($(check-c-lib -opt miniupnpc/miniupnpc miniupnpc/miniwget.h miniupnpc/miniupnpc.h miniupnpc/upnpcommands.h)); then
-        HAS_MINIUPNPC=1
-    else
-        MINIUPNPC=("")
-    fi
-fi
 
 # check ocaml libs:
 #   probably, first try with ocamlfind then fallback to
@@ -505,10 +484,10 @@ check-cmxa () {
 locate-ocaml-lib () {
     local OPTIONAL=""
     if [ "$1" = "-opt" ]; then OPTIONAL=1; shift; fi
-    if [ "$1" = "-crypto" ]; then
-	CHECK=check-cryptokit; shift
+    if [ "$1" = "-custom-check" ]; then
+       CHECK=$2; shift; shift;
     else
-	CHECK=check-ocaml-lib
+       CHECK=check-ocaml-lib
     fi
     local MODULE=$1; shift # one module that the lib contains, to check
     [ $# -gt 0 ] # remaining args: possible lib names (may be usual_dir/libname)
@@ -525,6 +504,7 @@ locate-ocaml-lib () {
         if [ -n "$OCAMLFIND" ] &&
            LIBDIR=$("$OCAMLFIND" query "$LIB" 2>/dev/null)
         then
+            LIBDIR=$(echo $LIBDIR | sed s/\\r//g)
             LIB=$(check-cmxa $LIBDIR $LIB "${LIB_NAMES[@]}") || return 1
             echo-ok -n "ocamlfind:$LIBDIR, "
         elif [ -d "$OCAMLLIB"/"$USUAL_DIR" ]
@@ -560,24 +540,9 @@ lib-not-found () {
     LIBS_NOT_FOUND[${#LIBS_NOT_FOUND[@]}]="$lib (might be found in package $package)"
 }
 
-check-cryptokit () {
-    if !(check-ocaml-lib $1 $2 $3 "let _ = Cryptokit.MAC.hmac_sha256 \"OPA\""); then
-	echo-err "You need cryptokit >= 1.4"
-    fi
-}
-
-locate-and-check-cryptokit () {
-    locate-ocaml-lib -crypto "Cryptokit" "cryptokit"
-}
-
-# - checking ocaml-ssl
-if ! CONFIG_LIB_OCAMLSSL=$(locate-ocaml-lib "Ssl" "ssl")
-then lib-not-found "ocaml_ssl" "libssl-ocaml-dev"
-fi
-
-# - checking cryptokit
-if ! CONFIG_LIB_CRYPTOKIT=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_nums" locate-and-check-cryptokit)
-then lib-not-found "cryptokit" "libcryptokit-ocaml-dev"
+# - checking ulex
+if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
+then lib-not-found "ulex" "ocaml-ulex"
 fi
 
 # - checking camlzip
@@ -586,28 +551,9 @@ then lib-not-found "camlzip" "libzip-ocaml-dev"
 fi
 
 # - checking ocamlgraph
-if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph/graph")
+if ! CONFIG_LIB_OCAMLGRAPH=$(locate-ocaml-lib "Graph" "ocamlgraph" "graph")
 then lib-not-found "ocamlgraph" "libocamlgraph-ocaml-dev"
 fi
-
-# - checking ulex
-if ! CONFIG_LIB_ULEX=$(locate-ocaml-lib "Ulexing" "ulex" "ulexing")
-then lib-not-found "ulex" "ocaml-ulex"
-fi
-
-# - checking dbm
-: ${NO_DBM:=""}
-if [ "X$NO_DBM" = "X1" ]; then
-    HAS_DBM=
-else
-    HAS_DBM="1"
-    if ! CONFIG_LIB_DBM=$(locate-ocaml-lib -opt "Dbm" "dbm")
-        then HAS_DBM=
-    fi
-fi
-
-# # - checking camlimages *
-# CONFIG_LIB_CAMLIMAGES=$(EXTRA_TAGS="$EXTRA_TAGS -tag use_graphics" locate-ocaml-lib "Jpeg" "camlimages") || true
 
 if [ ${#LIBS_NOT_FOUND[@]} -ne 0 ]; then
     echo
@@ -645,30 +591,16 @@ camlopt() {
     fi
 }
 
-ALL_TAGS_LIST="camlidl libnatpmp miniupnpc dbm"
-TAGS_LIST=""
-for tag in $ALL_TAGS_LIST; do
-    hasvar=HAS_$(tr '[:lower:]' '[:upper:]' <<<"$tag")
-    if [ -n "${!hasvar}" ]; then TAGS_LIST="$TAGS_LIST\"$tag\"; "; fi
-done
-
 # See config.mli for the documentation and spec of these variables
-cat >config.ml <<EOF
+cat > $CONFIG_PATH/config.ml <<EOF
 let prefix = "$PREFIX"
+let lib_dir = "$LIBDIR"
 let ocamllib = "$OCAMLLIB"
 let ocamlopt = "$OCAMLOPT"
 let ocamlbuild = "$OCAMLBUILD"
 let ocamlbuild_flags = "$OCAMLBUILD_FLAGS"
 let camlp4o = "$CAMLP4O"
 let camlp4orf = "$CAMLP4ORF"
-
-let camlidl = $(camlopt "$HAS_CAMLIDL" '"'"$CAMLIDL"'"')
-let libnatpmp = $(camlopt "$HAS_LIBNATPMP" "$(camlstrtuple "${LIBNATPMP[@]}")")
-let miniupnpc = $(camlopt "$HAS_MINIUPNPC" "$(camlstrtuple "${MINIUPNPC[@]}")")
-let has_dbm = $(camlbool "$HAS_DBM")
-
-let available = [ $TAGS_LIST]
-let all_tags = [ $(for t in $ALL_TAGS_LIST; do echo -n "\"$t\"; "; done)]
 
 let is_release = $(camlbool "$IS_RELEASE")
 type os = Linux | Mac | Win32 | Cygwin | FreeBSD
@@ -686,8 +618,6 @@ let makebinary =
    fi)
 
 module Libdir = struct
-  let ssl = $(dir_opt "$CONFIG_LIB_OCAMLSSL")
-  let cryptokit = $(dir_opt "$CONFIG_LIB_CRYPTOKIT")
   let camlzip_name = "$(basename "$CONFIG_LIB_CAMLZIP")"
   let camlzip = $(dir_opt "$CONFIG_LIB_CAMLZIP")
   let graph = $(dir_opt "$CONFIG_LIB_OCAMLGRAPH")
@@ -697,11 +627,15 @@ end
 let ext_lib = "$EXT_LIB"
 let ext_obj = "$EXT_OBJ"
 let ext_shared = "$EXT_SHARED"
+let ext_exe = "$EXT_EXE"
+
+let more_server_include_dir = []
 
 EOF
 
-cat >config.sh <<EOF
+cat > $CONFIG_PATH/config.sh <<EOF
 PREFIX="$PREFIX"
+LIBDIR="$LIBDIR"
 OCAMLLIB="$OCAMLLIB"
 OCAMLOPT="$OCAMLOPT"
 OCAMLBUILD="$OCAMLBUILD"
@@ -709,14 +643,8 @@ OCAMLBUILD_FLAGS="$OCAMLBUILD_FLAGS"
 CAMLP4O="$CAMLP4O"
 CAMLP4ORF="$CAMLP4ORF"
 OCAML_WORD_SIZE="$OCAML_WORD_SIZE"
+OCAML_VERSION_MAJOR="$OCAML_VERSION_MAJOR"
 
-HAS_CAMLIDL="$HAS_CAMLIDL"
-CAMLIDL="$CAMLIDL"
-HAS_LIBNATPMP="$HAS_LIBNATPMP"
-LIBNATPMP=(${LIBNATPMP[@]})
-HAS_MINIUPNPC="$HAS_MINIUPNPC"
-MINIUPNPC=(${MINIUPNPC[@]})
-HAS_DBM="$HAS_DBM"
 IS_RELEASE="$IS_RELEASE"
 IS_LINUX="${IS_LINUX:-}"
 IS_WINDOWS="${IS_WINDOWS:-}"
@@ -729,8 +657,6 @@ OS=$(if [ -n "${IS_LINUX:-}" ]; then echo '"Linux"'
      else echo "Error: OS inconsistency" >&2; exit 2
      fi)
 
-LIB_OCAMLSSL_DIR="$(dirname "$CONFIG_LIB_OCAMLSSL")"
-LIB_CRYPTOKIT_DIR="$(dirname "$CONFIG_LIB_CRYPTOKIT")"
 LIB_CAMLZIP_NAME="$(basename "$CONFIG_LIB_CAMLZIP")"
 LIB_CAMLZIP_DIR="$(dirname "$CONFIG_LIB_CAMLZIP")"
 LIB_OCAMLGRAPH_DIR="$(dirname "$CONFIG_LIB_OCAMLGRAPH")"
@@ -739,14 +665,16 @@ LIB_ULEX_DIR="$(dirname "$CONFIG_LIB_ULEX")"
 EXT_LIB="$EXT_LIB"
 EXT_OBJ="$EXT_OBJ"
 EXT_SHARED="$EXT_SHARED"
+EXT_EXE="$EXT_EXE"
 EOF
 
-sed 's/=["(]\(.*\)[)"]$/ := \1/' config.sh > config.make
+sed 's/=["(]\(.*\)[)"]$/ := \1/' $CONFIG_PATH/config.sh > $CONFIG_PATH/config.make
 if [ -n "${IS_MAC:-}" ]; then
-    echo "INSTALL := gcp -u -L" >>config.make
-fi
-if [ -n "${IS_FREEBSD:-}" ]; then
-    echo "INSTALL := cp" >>config.make
+    echo "INSTALL := gcp -u -L" >> $CONFIG_PATH/config.make
+elif [ -n "${IS_FREEBSD:-}" ]; then
+    echo "INSTALL := cp" >> $CONFIG_PATH/config.make
+elif [ -n "${IS_LINUX:-}" ]; then
+    echo "INSTALL := cp -u -L" >> $CONFIG_PATH/config.make
 fi
 
 {

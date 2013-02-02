@@ -1,0 +1,34 @@
+# -*- conf -*- (for emacs)
+
+<{qmlMainParser,typer_hmx,typer_w,dbGen,effects}>: traverse
+
+<**/*.{ml,mli,byte,native}>: use_str, use_libbase, use_compilerlib, use_libtrx, use_passlib, use_buildinfos
+
+<qmlDependencies.ml>: use_opacapi
+<qmlDirectives.ml>: use_opacapi
+<qmlAst.ml>: use_opacapi
+<qmlAstCons.ml>: use_opacapi
+<typer_w/w_CoreTypes.ml>: use_opacapi
+
+<qmlAst.ml> : with_mlstate_debug
+<qmlPrinters.ml> : with_mlstate_debug
+<qmlMonomorph.ml> : with_mlstate_debug
+<qmlMagic.ml> : with_mlstate_debug
+<qmlDirectives.ml> : with_mlstate_debug
+<qmlBlender.ml> : with_mlstate_debug
+<qmlAnnotMap.ml> : with_mlstate_debug
+<qmlMakeTyper.ml> : with_mlstate_debug
+<qmlTypesUtils.ml>: with_mlstate_debug
+<qmlDependencies.ml> : with_mlstate_debug, use_graph
+<qmlTyper.ml> : with_mlstate_debug
+<qmlDbGen.ml> : with_mlstate_debug, use_opacapi
+<typer_w.ml> : with_mlstate_debug
+<typer_w/w_TypingEnv.ml> : with_mlstate_debug
+<typer_w/w_Infer.ml> : with_mlstate_debug
+<typer_w/w_Unify.ml> : with_mlstate_debug
+<qmlEffects.ml>: with_mlstate_debug
+<qmlMoreTypes.ml>: with_mlstate_debug
+<qmlPatternAnalysis.ml>: with_mlstate_debug
+<qmlAstUtils.ml>: with_mlstate_debug
+
+<qml2opa.{byte,native}>: thread, use_unix, use_ulex

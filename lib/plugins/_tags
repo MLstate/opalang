@@ -1,0 +1,15 @@
+# -*- conf -*- (for emacs)
+
+<browser_canvas>: traverse
+<crypto>: traverse
+<gcharts>: traverse
+<iconv>: traverse
+<mail>: traverse
+<mongo>: traverse
+<opabsl>: traverse, static
+<server>: traverse
+<socket>: traverse
+<unix>: traverse
+
+<bootstrap-*>: traverse
+<meteor-*>: traverse

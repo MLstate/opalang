@@ -1,75 +1,113 @@
-#!/usr/bin/make
+#!/usr/bin/env make
 
 # [ Warning ] don't use make to solve dependencies !!
 #
 # we rely on ocamlbuild which already handles them ; every rule should
 # call it only once (no recursion)
 #
-# More info in build/Makefile.bld
+# More info in tools/build/Makefile.bld and tools/build/README
 
-include config.make
+.PHONY: all
+all: node
 
-INSTALL ?= cp -u -L
+OPALANG_DIR ?= .
+
 MAKE ?= $_
-export MAKE
+OCAMLBUILD_OPT ?= -j 6
 
 ifndef NO_REBUILD_OPA_PACKAGES
-OPAOPT += "--rebuild"
+OPAOPT += --rebuild
 endif
 
-ifneq ($(HAS_CAMLIDL)$(HAS_LIBNATPMP)$(HAS_MINIUPNPC),111)
-export DISABLED_LIBS = libnattraversal
+ifdef DEBUG_OCAMLBUILD
+OCAMLBUILD_OPT += -classic-display
 endif
 
-.PHONY: default
-default: all
-
-include build/Makefile.bld
+# Always register qmljs opabsl plugin rule
+MYOCAMLBUILD_OPT = opabsl.qmljs.stamp
 
 export
+
+CONFIG_DIR ?= $(OPALANG_DIR)/tools/build
+include $(CONFIG_DIR)/config.make
+
+BUILD_TOOLS_DIR = $(OPALANG_DIR)/tools/build
+include $(BUILD_TOOLS_DIR)/Makefile.bld
 
 ##
 ## STANDARD TARGETS
 ##
 
-.PHONY: all
-all: $(MYOCAMLBUILD) manpages
-	$(OCAMLBUILD) $(call target-tools,$(ALL_TOOLS)) opa-packages.stamp
+# ALL_TOOLS is built by Makefile.bld from build_tools files
+.PHONY: node
+node: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(ALL_TOOLS))
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
 
-.PHONY: build
-build: all
-
-.PHONY: runtime-libs
-runtime-libs: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) runtime-libs.stamp
+.PHONY: node-runtime-libs
+node-runtime-libs: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) js-runtime-libs.stamp
 
 .PHONY: $(BUILD_DIR)/bin/opa
 $(BUILD_DIR)/bin/opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-packages.stamp $(target-tool-opa-bin)
+	$(OCAMLBUILD) plugins.qmljs.stamp opa-node-packages.stamp $(target-tool-opa-bin)
 	@$(copy-tool-opa-bin)
-	@utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../..
+	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(realpath $(BUILD_DIR)) --ocaml-prefix $(OCAMLLIB)/../../..
 
 .PHONY: opa
 opa: $(BUILD_DIR)/bin/opa
 
-.PHONY: opa-packages
-opa-packages: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) opa-packages.stamp
+.PHONY: opa-node-packages
+opa-node-packages: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) plugins.qmljs.stamp opa-node-packages.stamp
 
 .PHONY: stdlib
-stdlib: opa-packages
+stdlib: opa-node-packages
 
-DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opa-db-server opa-db-tool opa-cloud opatop opa-translate
+.PHONY: opa-tools
+opa-tools: $(MYOCAMLBUILD) opa-create
+	@echo "Tools build"
+
+DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opx2js-bin # opa-cloud opa-db-server opa-db-tool opatop opa-translate
 
 .PHONY: distrib
 distrib: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,$(DISTRIB_TOOLS)) opa-packages.stamp
+	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(DISTRIB_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(DISTRIB_TOOLS))
+	@mkdir -p $(BUILD_DIR)/bin
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
+
+##
+## MANPAGES - done in install_release.sh
+##
 
 .PHONY: manpages
 manpages: $(MYOCAMLBUILD)
-	$(MAKE) -C manpages OCAMLBUILD="$(OCAMLBUILD)" BLDDIR=../$(BUILD_DIR)
+ifndef NO_MANPAGES
+	@$(MAKE) -f $(OPALANG_DIR)/tools/manpages/Makefile
+else
+	@echo "Not building manpages"
+endif
+
+##
+## OPA-CREATE
+##
+
+target-tool-opa-create = $(OPALANG_DIR)/tools/opa-create/src/opa-create.exe
+
+.PHONY: opa-create
+opa-create: $(MYOCAMLBUILD)
+	$(OCAMLBUILD) $(target-tool-opa-create)
+	@mkdir -p $(BUILD_DIR)/bin
+	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
+	@chmod 755 $(BUILD_DIR)/bin/opa-create
+
+.PHONY: install-opa-create
+install-opa-create:
+	@mkdir -p $(PREFIX)/bin
+	$(INSTALL) $(BUILD_DIR)/bin/opa-create $(INSTALL_DIR)/bin/opa-create
+	@chmod 755 $(INSTALL_DIR)/bin/opa-create
 
 ##
 ## INSTALLATION
@@ -78,26 +116,35 @@ manpages: $(MYOCAMLBUILD)
 .PHONY: install*
 
 STDLIB_DIR = $(INSTALL_DIR)/lib/opa/stdlib
-define install-package
-@printf "Installing into $(STDLIB_DIR)/$*.opx[K\r"
-@mkdir -p "$(STDLIB_DIR)/$*.opx/_build"
-@find "$(BUILD_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_DIR)/$*.opx/" \;
-@$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.a "$(STDLIB_DIR)/$*.opx/_build/"
-@$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.cmi "$(STDLIB_DIR)/$*.opx/_build/"
-@$(INSTALL) $(BUILD_DIR)/$*.opx/_build/*.cmxa "$(STDLIB_DIR)/$*.opx/_build/"
+
+NODE_STDLIB_SUFFIX_DIR=stdlib.qmljs
+STDLIB_NODE_DIR=$(STDLIB_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
+BUILD_NODE_DIR=$(BUILD_DIR)/$(NODE_STDLIB_SUFFIX_DIR)
+define install-node-package
+@mkdir -p "$(STDLIB_NODE_DIR)/$*.opx/_build"
+@find "$(BUILD_NODE_DIR)/$*.opx" -maxdepth 1 ! -type d -exec $(INSTALL) {} "$(STDLIB_NODE_DIR)/$*.opx/" \;
+@$(INSTALL) $(BUILD_NODE_DIR)/$*.opx/*.js "$(STDLIB_NODE_DIR)/$*.opx/"
 endef
 
-define install-plugin
+PLUGINS_DIR=lib/plugins
+define install-node-plugin
 @printf "Installing into $(STDLIB_DIR)/$*.opp^[[K\r"
 @mkdir -p "$(STDLIB_DIR)/$*.opp"
-@$(INSTALL) $(BUILD_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
-@$(INSTALL) $(BUILD_DIR)/$*.opp/*MLRuntime.* "$(STDLIB_DIR)/$*.opp/";
+@$(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*.bypass "$(STDLIB_DIR)/$*.opp/";
+@$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/*NodeJsPackage.js "$(STDLIB_DIR)/$*.opp/")
+@$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json), $(INSTALL) $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/package.json "$(STDLIB_DIR)/$*.opp/")
 endef
 
 
+# List all packages and plugins in stdlib
+# caches are needed because too slow on cygwin/msys
 
-OPA_PACKAGES := $(shell cd stdlib && ./all_packages.sh)
-OPA_PLUGINS  := $(shell cd stdlib && ./all_plugins.sh)
+OPA_PACKAGES_CACHE = _build/OPA_PACKAGES.cache
+OPA_PACKAGES := $(shell mkdir -p _build; if [ ! -f $(OPA_PACKAGES_CACHE) ] || [ ! $(IS_WINDOWS) ]; then $(OPALANG_DIR)/lib/stdlib/all_packages.sh $(OPALANG_DIR)/lib/stdlib/node.exclude $(OPALANG_DIR)/lib/stdlib > $(OPA_PACKAGES_CACHE); fi; cat $(OPA_PACKAGES_CACHE))
+
+OPA_PLUGINS_CACHE = _build/OPA_PLUGINS.cache
+OPA_PLUGINS  := $(shell if [ ! -f $(OPA_PLUGINS_CACHE) ] || [ ! $(IS_WINDOWS) ]; then $(OPALANG_DIR)/lib/stdlib/all_plugins.sh $(OPALANG_DIR)/lib/stdlib > $(OPA_PLUGINS_CACHE); fi; cat $(OPA_PLUGINS_CACHE) && echo opabsl)
+
 
 # Rules installing everything that has been compiled
 #
@@ -111,41 +158,34 @@ OPA_PLUGINS  := $(shell cd stdlib && ./all_plugins.sh)
 # This doesn't install the other libs though, use target install-libs
 # for that
 
-install-packageopt-%:
-	$(if $(wildcard $(BUILD_DIR)/$*.opx/_build/*),$(install-package))
+install-node-packageopt-%:
+	$(if $(wildcard $(BUILD_NODE_DIR)/$*.opx/*.js),$(install-node-package))
 
-install-package-%:
-	$(install-package)
+install-node-package-%:
+	$(install-node-package)
 
-install-packages: $(addprefix install-packageopt-,$(OPA_PACKAGES))
+install-node-packages: $(addprefix install-node-packageopt-,$(OPA_PACKAGES))
+	@printf "Installation to $(STDLIB_NODE_DIR) done.[K\n"
+
+install-node-pluginopt-%:
+	$(if $(wildcard $(BUILD_DIR)/$(PLUGINS_DIR)/$*.opp/),$(install-node-plugin))
+
+install-node-plugin-%:
+	$(install-node-plugin)
+
+install-node-plugins: $(addprefix install-node-pluginopt-,$(OPA_PLUGINS))
 	@printf "Installation to $(STDLIB_DIR) done.[K\n"
-
-install-all-packages: $(addprefix install-package-,$(OPA_PACKAGES))
-	@printf "Installation to $(STDLIB_DIR) done.[K\n"
-
-install-pluginopt-%:
-	$(if $(wildcard $(BUILD_DIR)/$*.opp/),$(install-plugin))
-
-install-plugin-%:
-	$(install-plugin)
-
-install-plugins: $(addprefix install-pluginopt-,$(OPA_PLUGINS))
-	@printf "Installation to $(STDLIB_DIR) done.[K\n"
-
-install-all-plugins: $(addprefix install-plugin-,$(OPA_PLUGINS))
-	@printf "Installation to $(STDLIB_DIR) done.[K\n"
-
-
 
 install-bin:
 	@printf "Installing into $(INSTALL_DIR)/bin[K\r"
 	@mkdir -p $(INSTALL_DIR)/bin
 	@$(if $(wildcard $(BUILD_DIR)/bin/*),$(INSTALL) -r $(BUILD_DIR)/bin/* $(INSTALL_DIR)/bin)
-	@utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
+	@$(OPALANG_DIR)/tools/utils/install.sh --quiet --dir $(INSTALL_DIR) --ocamllib $(OCAMLLIB) --ocamlopt $(OCAMLOPT)
 	@printf "Installation to $(INSTALL_DIR)/bin done.[K\n"
 
 install-lib:
 	@printf "Installing into $(INSTALL_DIR)/lib/opa[K\r"
+	@rm -f $(BUILD_DIR)/lib/opa/static/opabslMLRuntime.cmi
 	@mkdir -p $(INSTALL_DIR)/lib/opa
 	@$(if $(wildcard $(BUILD_DIR)/lib/opa/*),$(INSTALL) -r $(BUILD_DIR)/lib/opa/* $(INSTALL_DIR)/lib/opa/)
 	@printf "Installation to $(INSTALL_DIR)/lib/opa done.[K\n"
@@ -160,11 +200,15 @@ install-man:
 	@printf "Installing into $(INSTALL_DIR)/share/man[K\r"
 	@if [ -d $(BUILD_DIR)/man/man1 ]; then \
 	  mkdir -p $(INSTALL_DIR)/share/man/man1; \
-	  $(INSTALL) -r $(BUILD_DIR)/man/man1/*.1 $(INSTALL_DIR)/share/man/man1; \
 	fi
+	@$(if $(wildcard $(BUILD_DIR)/man/man1/*.1.gz),$(INSTALL) -r $(BUILD_DIR)/man/man1/*.1.gz $(INSTALL_DIR)/share/man/man1)
 	@printf "Installation to $(INSTALL_DIR)/share/man done.[K\n"
 
-install: install-bin install-lib install-share install-plugins install-packages install-man
+install-node: install-bin install-lib install-share install-node-plugins install-node-packages install-man
+	@printf "Installation into $(INSTALL_DIR) done.[K\n"
+
+.PHONY: install
+install:: install-node
 	@printf "Installation into $(INSTALL_DIR) done.[K\n"
 
 .PHONY: uninstall
@@ -173,10 +217,11 @@ uninstall:
 	@[ ! -d $(INSTALL_DIR)/lib ] || [ -n "`ls -A $(INSTALL_DIR)/lib`" ] || rmdir $(INSTALL_DIR)/lib
 	rm -rf $(INSTALL_DIR)/share/opa
 	rm -rf $(INSTALL_DIR)/share/doc/opa
+	rm -rf $(INSTALL_DIR)/share/man/man1/opa*
 	@[ ! -d $(INSTALL_DIR)/share ] || [ -n "`ls -A $(INSTALL_DIR)/share`" ] || rmdir $(INSTALL_DIR)/share
 	$(foreach file,$(wildcard $(BUILD_DIR)/bin/*),rm -f $(INSTALL_DIR)/bin/$(notdir $(file));)
-	@utils/install.sh --uninstall --dir $(INSTALL_DIR)
-	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A  $(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
+	@$(OPALANG_DIR)/tools/utils/install.sh --uninstall --dir $(INSTALL_DIR)
+	@[ ! -d $(INSTALL_DIR)/bin ] || [ -n "`ls -A 	$(INSTALL_DIR)/bin`" ] || rmdir $(INSTALL_DIR)/bin
 	@printf "Uninstall done.[K\n"
 
 # Install our ocamlbuild-generation engine
@@ -187,28 +232,21 @@ install-bld:
 	@echo "set -u" >> $(INSTALL_DIR)/bin/bld
 	@chmod 755 $(INSTALL_DIR)/bin/bld
 	@echo "BLDDIR=$(PREFIX)/share/opa/bld $(PREFIX)/share/opa/bld/gen_myocamlbuild.sh" >> $(INSTALL_DIR)/bin/bld
-	@echo "_build/myocamlbuild -no-plugin -j 6 \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
+	@echo "_build/myocamlbuild$(EXT_EXE) -no-plugin $(OCAMLBUILD_OPT) \"\$$@\"" >> $(INSTALL_DIR)/bin/bld
 	@mkdir -p $(INSTALL_DIR)/share/opa/bld
-	@$(INSTALL) build/gen_myocamlbuild.sh build/myocamlbuild_*fix.ml config.sh config.mli config.ml\
+	@$(INSTALL) $(BUILD_TOOLS_DIR)/gen_myocamlbuild.sh $(BUILD_TOOLS_DIR)/myocamlbuild_*fix.ml $(CONFIG_DIR)/config.sh $(CONFIG_DIR)/config.mli $(CONFIG_DIR)/config.ml\
 	  $(INSTALL_DIR)/share/opa/bld
 
-# Install an opa wrapper with different stdlib and options (for some backwards-compatibility)
-install-qmlflat: # depends on opabsl_for_compiler, but we don't want to run ocamlbuild twice
-	@mkdir -p $(INSTALL_DIR)/bin $(INSTALL_DIR)/share/opa/mlstatebsl
-	@$(INSTALL) $(BUILD_DIR)/opabsl/mlstatebsl/opabslgen_*.opa $(INSTALL_DIR)/share/opa/mlstatebsl
-	@echo "#!/usr/bin/env bash" > $(INSTALL_DIR)/bin/qmlflat
-	@echo "set -e" >> $(INSTALL_DIR)/bin/qmlflat
-	@echo "set -u" >> $(INSTALL_DIR)/bin/qmlflat
-	@chmod 755 $(INSTALL_DIR)/bin/qmlflat
-	@echo 'exec opa --parser classic --no-stdlib --no-server --no-cps --no-closure --no-ei --no-constant-sharing --no-undot --separated off --value-restriction disabled --no-warn duplicateL0  --no-warn typer.warncoerce --no-warn unused --no-discard-of-unused-stdlib --no-warn pattern $$(if ! grep -qE "(^| )--no-stdlib( |$$)" <<<"$$*"; then echo $(shell sed "s%^[^# ]\+%$(PREFIX)/share/opa/mlstatebsl/opabslgen_&%; t OK; d; :OK" opabsl/mlstatebsl/bsl-sources); fi) "$$@"' \
-	>> $(INSTALL_DIR)/bin/qmlflat
+maxmem: $(OPALANG_DIR)/tools/maxmem.c
+	gcc $(OPALANG_DIR)/tools/maxmem.c -o $(OPALANG_DIR)/tools/maxmem
 
 # installs some dev tools on top of the normal install; these should not change often
-install-all: install install-bld install-qmlflat utils/maxmem
-	@$(INSTALL) platform_helper.sh $(INSTALL_DIR)/bin/
-	@$(INSTALL) utils/maxmem $(INSTALL_DIR)/bin/
-	@rm utils/maxmem
-	@$(INSTALL) utils/plotmem $(INSTALL_DIR)/bin/
+install-all:: install install-bld maxmem
+	@$(INSTALL) $(OPALANG_DIR)/tools/platform_helper.sh $(INSTALL_DIR)/bin/
+	@$(INSTALL) $(OPALANG_DIR)/tools/maxmem $(INSTALL_DIR)/bin/
+	@rm $(OPALANG_DIR)/tools/maxmem
+	@$(INSTALL) $(OPALANG_DIR)/tools/plotmem $(INSTALL_DIR)/bin/
+	@printf "All Installation into $(INSTALL_DIR) done.[K\n"
 
 ##
 ## DOCUMENTATION
@@ -232,27 +270,4 @@ doc.odocl:
 
 .PHONY: packages-api
 packages-api: $(MYOCAMLBUILD)
-	OPAOPT="$(OPAOPT) --rebuild --api --parser classic" $(OCAMLBUILD) opa-packages.stamp
-
-.PHONY: book
-book:
-	$(MAKE) -C doc/book
-
-.PHONY: examples
-examples: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(call target-tools,opa-bin opa-plugin-builder-bin) opa-packages.stamp
-	$(call copy-tools,opa-bin opa-plugin-builder-bin)
-	MLSTATELIBS=$(realpath $(BUILD_DIR)) \
-	OPA="$(realpath $(BUILD_DIR))/lib/opa/bin/opa-bin -I $(realpath $(BUILD_DIR))" \
-	OPA_PLUGIN_BUILDER=$(realpath $(BUILD_DIR))/lib/opa/bin/opa-plugin-builder-bin \
-	$(MAKE) -C doc/book examples
-
-.PHONY: book-clean
-book-clean:
-	$(MAKE) -C doc/book clean
-
-#see also target clean in included Makefile build/Makefile.bld
-clean:: book-clean
-
-.PHONY: doc
-doc: doc.html
+	OPAOPT="$(OPAOPT) --api --parser classic" $(OCAMLBUILD) plugins.qmljs.stamp opa-node-packages.stamp

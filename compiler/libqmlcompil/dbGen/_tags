@@ -1,0 +1,16 @@
+# -*- conf -*- (for emacs)
+
+<*.{ml,byte,native}>: use_graph
+
+<dbGenHelpers.ml>: use_opacapi
+<dbGenByPass.ml>: use_opacapi
+<dbGen_common.ml>: use_opacapi
+<schema_private.ml>: use_opacapi
+<schema_io.ml>: use_opacapi
+
+# ppdebug
+<dbGen_common.ml>   : with_mlstate_debug
+<schema_private.ml> : with_mlstate_debug
+<dbGen_private.ml>  : with_mlstate_debug
+<dbGenByPass.ml>    : with_mlstate_debug
+<dbGenHelpers.ml>   : with_mlstate_debug

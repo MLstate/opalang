@@ -1,0 +1,11 @@
+compiler/passes/SurfaceAstPassesTypes
+compiler/passes/SurfaceAstPasses
+compiler/passes/SurfaceAstRenaming
+compiler/passes/SurfaceAstDependencies
+compiler/passes/SurfaceAstTrx
+compiler/passes/SurfaceAstXmlPattern
+compiler/passes/SurfaceAstStaticInclude
+compiler/passes/pass_CheckOptionsConsistency
+compiler/passes/I18nAndComputedString
+compiler/passes/pass_ServerDeclaration
+compiler/passes/pass_CompileTimeDirective

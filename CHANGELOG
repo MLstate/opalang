@@ -1,10 +1,738 @@
 Updated APIs:
 
+  * Crypto:
+    - added SHA-512 functions
+    - added read_rsa_key function to read RSA key from a file
+    - added Cipher module, with AES support
+
+  * Dom:
+    - added remove_attribute
+
+  * Plugins
+    - Bootsrap.Modal: removed aria-labelledby and tabindex
+
+  * Rule:
+    - added base64_char and base64_string parser
+
+  * WBootstrap
+    - extended table elt type
+    - extended table body lines type
+    - added data-toggle and data-target functions
+
+  * Spark
+    - added render_value function to Reactive.value, in order to render the value directly
+    - more functions to Reactive.list
+
+Bug fixes:
+
+  * Iter:
+    - fixed a bug with filter_map
+
+  * Plugins:
+    - Some bootstrap plugins are not cleaned because of a reflow problem
+
+  * Spark
+    - remove at the proper index in Reactive.list
+
+2012.12.10, Version 1.1.0 (stable), v4051
+
+New features:
+
+  * Tools:
+    - opa export
+      Builds a usable node.js package from an Opa package
+
+  * Stdlib:
+    - (stdlib.io.socket) Added SocketPool
+    - (stdlib.apis.mongo) Added GridFS
+    - (stdlib.core.web.client) Added XHR
+
+  * Compiler:
+    - Added --backtrace compiler option to record bactrace of exception
+    - Added --bundle bundle.tgz to produce an archive wich contains the JavaScript applications and runtime dependencies
+    - Opa compiled packages (opx) are fully compatible with npm
+    - New slice.exposed.implicit warning. Warns when an RPC entry point is generated from a lifted lambda with a non empty environment
+
+  * Database:
+    - Database syntax for GridFS
+    - Added --db-prefix option to change the mongo database prefix
+      Credit:Requested by Tristant Sloughter http://www.mail-archive.com/opa@lists.owasp.org/msg00317.html
+
+  * Plugins:
+    - New syntax (JavaScript compatible by using javadoc tags)
+
+Updated APIs:
+
+  * Crypto:
+    - Added basic Crypto.RSA module (new_key, encrypt, decrypt)
+    - Added Crypto.Salt module
+    - Changed Crypto.HMAC functions takes key as binary instead of string
+      Credit:Reported by Alok Menghrajani: http://forum.opalang.org/0_368
+
+  * Session:
+    - ability to set the domain URL in AJAX requests
+
+  * Bootstrap:
+    - upgraded to Bootstrap 2.2.1
+    - added stdlib.themes.bootstrap.v2.1.0 for compatibility
+    - embed button, collapse, dropdown, modal, popover, tab, tooltip, transition Bootstrap JS plugins into stdlib.widgets.bootstrap (v2.2.1)
+
+  * Mail:
+    - removed package stdlib.web.mail.imap.client because it is not implemented yet
+
+  * Binary:
+    - Added comparison function (order, ordering, compare, equals)
+
+  * WebClient:
+    - Added WebClient.request to handles more generic request (binary as example)
+
+Improvements:
+
+  * Compiler:
+    - Value restriction error only on type variables appearing in abstracted types
+    - Parser: remove 'found a binding as condition' message
+    - Slicer: indicate client functions when warning about inapropriate client function call on server
+
+  * Runtime:
+    - @fail directive print backtrace if --backtrace compiler option is used
+    - Print backtrace of uncaught exception
+
+  * Stdlib:
+    - Display caller position when Option.get fails
+    - Added List.random_elt
+    - UserContext error are throwed as an exception to the caller thread
+    - also print the error number for default error page
+
+  * Plugins:
+    - option('a) are projected as null or 'a to JavaScript bypasses instead of backend representation
+    - allow '-' character in plugin names
+    - Automatically detects dependencies to node packages, produce a correct package.json
+    - JavaScript plugins are optimized by default (cleaning, renaming, simplication, ...)
+
+  * Source:
+    - minimal requirements: OCaml 4
+    - much less dependencies (cryptokit, iconv, ...)
+    - distclean target will also clean *.native file in opalang directory
+    - updated and improved installation_helper.sh
+    - warn when configure file has changed before compilation
+    - more reliable check of node module dependencies
+
+
+Bug fixes:
+
+  * Compiler:
+    - Functions inherit slicer annotations from their enclosed functor
+    - Fix RPC entry point of lifted lambdas
+    - Value restriction also checks row and columns variables
+    - Don't clean (server side) functions which are both implemented to optimize the closure serialization
+    - @js_ident on client side
+    - Infinite loop when renaming JavaScript plugins (try catch)
+    - JavaScript renaming of overlapped var
+    - Parser: simple update parser has priority over update parser ('<--' vs '<-')
+    - patterns and records cannot have two fields with the same name
+    - Typing of dbset access when the request can only returns 0 or 1 result
+    - Fixed a parsing bug when THEN expression of IF expression are a list of bindings
+    - Bad runtime type instantiation with some lifted lambdas
+
+  * Runtime:
+    - Some requests hangs (unwanted scheduling)
+      Credit:Bug reported by Alok Menghrajani: http://forum.opalang.org/1_318
+    - JS Launcher: also add non standard plugins path in NODE_PATH
+    - JS Launcher: use the real npm global location in NODE_PATH
+
+  * Mongo:
+    - Corrupted data when reading binary data
+      Credit:Bug reported by Alok Menghrajani http://forum.opalang.org/1_324
+    - fixed a problem with percent encode / decode in BSON format
+
+  * Stdlib:
+    - SmtpClient: fix related to binary data sending
+    - Binary.of_string of non filled binary
+    - Cryto functions take care of non trimed binary
+      Credit:Bug Reported by Alok Menghrajani: http://forum.opalang.org/2_413
+
+Removals:
+
+  * Source:
+    - removed native backend from GitHub
+    - removed manual, refcard, cheat-sheet of the doc folder
+
+  * CLI:
+    - removed 'opa bundle'
+
+2012.10.08, Version 1.0.7 (stable), v3523
+
+New features:
+
+  * Database:
+    - New Dropbox database backend (experimental)
+    - Opa-based mongo driver, stdlib.apis.mongo avialable for node.js backend
+      removed stdlib.apis.mongo.node and stdlib.apis.mongo.common
+
+  * Xhtml boolean attributes ("checked", "selected"...) now accept boolean values:
+    <input type="checkbox" checked={true}> produces <input type="checkbox" checked="checked">
+    <input type="checkbox" checked={false}> produces <input type="checkbox">
+
+Updated APIs:
+
+  * File:
+    - depreacted `content` and `content_opt`, replaced by `read` and `read_opt`
+    - added `write` and `mkdir` function
+
+  * System;
+    - added which function
+
+  * Int:
+    - added succ and pred function
+
+  * File:
+    - added fold_dir_rec function
+
+  * ServerArg:
+    - filter function only filters on real arguments, not exectuable name anymore
+
+  * Rule:
+    - added Rule.pipe
+
+  * Crypto:
+    - Refactoring of crypto functions:
+      - Now the crypto functions takes and returns binaries datas instead of (invalid) string
+      - Added Crypto.HMAC.{md5, sha1, sha256, ripemd160}, Crypto.Hash.{sha256, ripemd160}
+      - Removed Crypto.Hash.{hmac_*, sha2}
+      - Removed deprecated function expoted to the global namespace.
+
+  * Binary:
+    - Added standard binary <-> string conversion,
+      - Binary.of_{hex, base64, raw} (string -> binary)
+      - Binary.to_{hex, base64, raw} (binary -> string)
+    - Added String.byte_length
+
+Improvements:
+
+  * Runtime:
+    - Scheduler: schedule sometimes to the node scheduler, for more server availability
+
+  * Compiler:
+    - incomplete pattern matching are now errors and not only warnings
+    - Added option -j for parallel compilation
+    - JsImp: Share duplicated javascript code
+    - JsImp: Remove inlined declarations
+    - JsImp: Clean declarations which are private and unused
+    - JsServer: Better 'require' graph (avoid useless require to speedup initialisation)
+
+  * Other:
+    - changed the package names for debian, self-extractible and mac
+    - Added is_module and opacapi info in the doc API JSON file (generated with --api)
+    - removed the warning about system lang not found (en by default)
+
+Bug fixes:
+
+  * Plugins:
+    - In some cases with bypasses wich returns void the bypass could be not called
+
+  * Stdlib:
+    - Server: Decode urls for bundled ressources
+    - JsAst: Rename also ident define as a JS key (more compact Js client)
+    - Values which has been serialized by server on the client toplevel could be misnamed
+    - Mongo and utf8 multibyte characters
+      Credit:Bug reported by Alok Menghrajani (http://forum.opalang.org/0_313)
+
+  * Compiler:
+    - The aysnchronous toplevel declaration was broken,
+      Credit:Bug reported by Philip Müller (https://github.com/MLstate/opalang/issues/84)
+
+  * Runtime:
+    - Fix spawn
+    - Fix Int_of_string
+      Credit:Pull request of Arthur Azevedo de Amorim (https://github.com/MLstate/opalang/pull/85)
+
+  * Other:
+    - Some fixes for exotic compiler options (no-cps, no-server, ...)
+
+2012.09.10, Version 1.0.6 (stable), v3375
+
+New features:
+
+  * Tools:
+    - opa bundle: added a new CLI to `opa` to bundle the JS, depends and stdlib of an app
+      for an easy deployment on a clean server.
+      `opa bundle TARGET` will create a self contained TARGET.opa-bundle and tar-gzip it.
+    - opa create has a new mvc-small template, the two others has been also updated
+
+  * Stdlib:
+    - stdlib.io.file: file watcher, readdir
+    - stdlib.system: explicit asynchronous shell commands
+    - Added Iter.cache
+
+  * Plugins:
+    - New syntax to plugins registering
+
+Improvements:
+
+  * Compiler:
+    - Optimized pattern matching of the server code (propagates type annotation)
+    - Optimized JavaScript cps runtime
+    - Simplification of toplevel wait of cps values
+    - Reduction of the size of the runtime JavaScript client AST
+    - Increased sharing of runtime gamma
+    - Avoid useless cps eta expansion
+    - Improved JavaScript inlining
+    - Avoid useless require to speedup the launch time
+    - Improved cleaning of JavaScript client code
+    - Allow a value with forall type can be coerced to a specialized type
+
+  * Other:
+    - addition of `extend` keyword to extend records with new fields
+    - improved the launch script on Mac: download and open node installer if necessary
+    - opa-create is not compiled during installation anymore
+    - various improvements for opa create
+    - we do not check node max version anymore
+    - use installed mongod if exists in PATH
+
+Updated APIs:
+
+  * Bootstrap:
+    - upgraded to Bootstrap 2.1.0
+    - removed support of bootstrap 2.0.2 and 2.0.3
+    - removed support for import stdlib.themes.bootstrap.v1.X.X, but added v2.0.4
+
+  * Crypto:
+    - change interface of Crypto.Base64.encode* to binary -> string
+    - change interface of Crypto.Base64.decode* to string -> binary
+
+Bug fixes:
+
+  * Compiler:
+    - Reset plugins loader between several compilation unit
+    - Separates client and server side projection of bypasses
+
+  * Stdlib:
+    - Database: Dbset iterator are now cached.
+    - SmtpClient: fixed mail send when using default_options only
+    - OpaSerialize: Opa record deserialization from smaller json record
+    - Server: Don't decode urls
+    - Crypto.Base64
+
+  * Other:
+    - Fix import plugin extraction script on FreeBSD (thanks Jeremy Messenger <mezz.freebsd@gmail.com>)
+    - opa-create now takes the remaining arguments given to `opa create`
+    - Dom: Xhtml attributes and namespaces
+    - 32bits compilation
+    - Mac Package signed for Gatekeeper
+
+
+2012.07.30, Version 1.0.5 (stable), v2988
+
+New features:
+  * Stdlib :
+    - Added Binary module
+    - Added Pack module
+
+Improvements:
+
+  * Compiler :
+    - Improved type error messages (by adding type witnesses)
+    - Improved syntax error messages
+    - Character } is treated as reserved in html environment (avoid an ambiguity of the syntax)
+    - Reduce the javascript size by reduces size of some generated idents
+    - Added the new 'pure' bsltag, allows some JS optimizations
+    - Do not copy standard Opa JS plugins and packages when building object
+    - Output a package.json descriptor for packages and plugins
+    - Add flag --package-version to specify version in package.json
+    - Opa now accepts .js and .nodejs files when compiling packages and
+      executables. Files should be in plugin format and used with standard
+      plugin syntax
+
+  * Node.js runtime:
+    - Launch script improved, with node version check and node module dependencies check
+    - Launch helper is now in tools/dependencies
+    - Speedup of the runtime (fibo : 3.75, hello siege: 1.70)
+    - Improve the function of logger and clean the server outputs
+    - Closure serialization (empty closure and published closure)
+    - Binaries manipulation
+
+  * Other:
+    - Better compliance with Lintian
+    - Reorganization of the project source code in order to be clearer and comply to license change (ocamllib and compiler: AGPL, lib and tools: MIT)
+    - opa-plugin-builder and opa-plugin-brower now have their manpages
+    - add plugins to opacapi checker
+    - less files installed
+
+Bug fixes:
+
+  * File manipulation on node backend
+  * installation_helper.sh install PATH fixed
+  * Added explicit dependency to simplesmtp (was expecting to be in nodemailer)
+  * serve "application/xhtml+xml" to webkit browser (fix especially svg)
+  * Opa applications stop if no server
+  * Server runtime options
+  * Opa timer delay the first call to the callback
+  * Javascript inlining
+  * Safari hangs when mixing asynchronous and synchronous request
+  * Wrong renaming of variables in JS catch statements
+  * Obj. dependency directory placed in same path as main file
+
+Documentation:
+
+  * Manual examples are now separate repositories: https://github.com/MLstate/
+  * Git submodules used for manual examples
+  * Chapter 7 "Hello, database" translated in Chinese. Thanks to Li Wenbo <li.wenbo@whu.edu.cn>
+
+Removed:
+  * Process management functions (e.g. fork) that were not implemented in the
+    NodeJS backend were removed
+
+
+2012.07.03, Version 1.0.4 (stable), v2403
+
+Bug fixes:
+- install.sh is not installed in /usr by debian package anymore
+
+Improvements:
+- Reduced the generated JS code size
+- Split final JS object in several parts
+- Load standard library packages dynamically
+- Detection of node and node_modules dependencies at launch
+
+
+2012.06.26, Version 1.0.3 (stable), v2309
+
+Dropped OCaml back-end from the release package
+- Reduced the package size from more than 66%
+
+Removed node and node_modules inclusion from the release package
+- You have to install node and npm yourself
+- You will need to install node modules: mongodb, formidable, nodemailer, imap
+
+2012.06.25, Version 1.0.2 (stable), v2276
+
+Bug fixes:
+- Debian package installer when OCaml was already present
+
+Improvements:
+- iconv, formbuilder and xls for node.js backend
+
+
+2012.06.21, Version 1.0.1 (stable), v2258
+
+New features:
+- opa create myapp now available for node.js backend
+
+Improvements:
+- SSL for node.js backend
+
+Bug fixes:
+- MongoDB fields decoding
+
+
+2012.06.20, Version 1.0.0 (stable), v2242
+
+New features:
+
+- Node.js backend by default
+
+Updated APIs:
+
   * Bootstrap
+    - upgraded to Bootstrap 2.0.4
+    - import stdlib.themes.bootstrap does not import responsive CSS anymore
+    - see Boostrap module description for more info
+
+
+2012.06.12, Version 0.9.4 (stable), v1900
+
+New features:
+
+  * Tools
+    - 'opa create myapp' to generate a full Opa project
+
+  * Stdlib
+    - Map.filter
+    - Uri.of_relative and Uri.default_relative
+    - Support of Gravatar API
+
+Improvements:
+
+  * switch to --db-local option and ~/.opa/mongo directory by default
+  * Use of curl on Mac OS to download mongoDB archive
+  * Option to include the version on @deprecated directive
+  * Auto conversion from iterator to xml
+  * Formbuilder markup compatible with Bootstrap
+
+Bug fixes:
+
+  * Compilation of libiconv on FeeBSD, thanks Jeremy Messenger!
+  * mongoDB archive URL for Mac OS
+  * Bootstrap white glyphicons
+  * IMAP Client for Gmail
+
+
+2012.05.31, Version 0.9.3 (stable), v1869
+
+New supported platform:
+
+  * FreeBSD
+    - Opa commited to FreeBSD port trees: http://www.freshports.org/lang/opa/
+      Thanks to Jeremy Messenger <mezz.freebsd@gmail.com>
+
+
+New features:
+
+  * Doc
+    - 5 first chapters translated in Chinese.
+      Thanks to Li Wenbo <li.wenbo@whu.edu.cn> for this major contribution!
+      Online preview: http://cn.doc.opalang.org
+
+  * Syntax
+    - Possibility to use underscore inside numbers
+    - In js-like syntax, block braces of inserts can be used as delimiting a anonymous block function.
+      e.g.            <div onready={ {function(_) code} }></>
+      and             <div onready={ function(_){ code} }></>
+      can be written  <div onready={ function(_) code   }></>
+    - Projection database syntax
+    - Allows several match case with the same production
+
+  * IMAP Client
+
+  * SMTP Client
+    - plain authentication
+
+  * HTTP Server
+    - PUT and DELETE methods are now handled
+
+  * Iconv
+    - binded libiconv with the help of iconv-ocaml
+    - added an Iconv module consequently
+
+  * The directive @atomic(expr) now checks that the compiler is able to emit an atomic expression computation
+    (i.e. containing no scheduling point)
+
+  * New package stdlib.core.concurrency that provides (on server side only):
+     - generic Mutex mecanism
+     - exclusive section
+     - and reference with exclusive access
+
+  * Database
+    - Mongo is the default database backend
+    - Sub-path on database set and map
+    - Projection
+    - Options for update (ifexists)
+    - Remove and Remove all operators on database list
+    - Slice Projection
+    - Added hole expression and indexed expression on sub-path
+    - Exists query
+
+
+Improvements:
+
+  * Easier to define several server register: it now accepts a single registrable or a list of registrable
+
+  * Better support of html5 void elements: for those elements, the close tag is now optional
+    Note: html5 void elements can't be closed with a frag tag (</>).
+
+  * Easier to change the doctype. For example, to use html5 doctype:
+    Server.start(Server.http, [{register: { doctype : { html5 }}}, {title:"html5", ~page} ])
+
+  * utf-8 charset meta tag automatically added for doctype html5
+
+  * namespace on html tag only for doctype xhtml1_1
+
+  * Scheduling policy updated to improve concurrency level
+
+  * possibility to disable manpages generation with NO_MANPAGES
+
+  * do not generate dyn_css link or script tag if useless
+
+  * The 'with' construction generate more efficient code (less scheduling points)
+
+  * Better check of wrong cyclic type definition
+
+  * Faster parsing of Mime Multipart message
+
+  * Added a max pang attemps
+
+  * Html escaping, faster (x2) and introduces almost no html entities for utf8 encoded html resources
+
+Bug fixes:
+
+  * Memory leaks of buffer pools (http and mongodb)
+
+  * File descriptor leaks in case of error while answering http request
+
+  * Url decoding on multibyte utf8 characters
+
+  * UriParser
+    - fixed bug when parsing ' ' character in path
+    - accept key without value (including equal sign)
+
+  * Mime
+    - fixed a bug in Mime headers parsing
+    - various fixes
+
+  * Mongodb buffer sharing is now always safe
+
+  * Database
+    - Reference and value on mongo path
+    - Update of sum path
+    - Encode special mongo character on mongo fields
+    - Db.remove on path embedded in mongo database set and map
+
+  * Server
+    - Case insensitive http header parser
+
+  * Syntax
+    - Added 'default' case on Opa trx parser
+
+  * RPC
+    - Generation of client skeleton in some polymorphic case
+    - Serialized funaction as server cell
+
+  * Session
+    - The error callback was not called in some use of Session.try_send
+
+Updated APIs:
+
+  * Server
+    - {register:...} now accepts a list of registrable instead of a list of string
+      Use Server.register_from_extension to register a list of string.
+
+  * Resource
+    - allow custom response headers (name, value)
+
+  * SMTP Client
+    - return the raw message sent on success (Ok)
+
+  * Cache
+    - removed deprecated Negociator API (misspelled)
+    - added reset function to reset cache entirely
+
+  * Mime
+    - Mime.get_text and Mime.get_attachments now takes an additional decoding function
+    - Mime.Header.decode_value also takes a decoding function
+
+  * Bootstrap
+    - upgraded to Bootstrap 2.0.3
+    - ability to import Bootstrap CSS with or without responsiveness
+    - merged WBootstrap Badge and Label importance type
+
+  * Queue
+    - stdlib.queue moved to stdlib.core.queue
+    - add many folding function
+
+  * Set
+    - add 'mapping' functions that can map to different kind of set
+
+  * List
+    - add 'rev_iter'
+
+  * Random add 'bool'
+
+  * Parser
+    - Parser.alphanum, Parser.ident and Parser.bool added
+
+  * Scheduler
+    - New functions for advance users, providing fine-tuning of scheduling policy:
+      set_max_compute_successive, new set_nb_step_apply, point, yield, switch.
+
+  * ThreadContext
+    - add Client.using
+
+  * OpaValue
+    - Generator of default value (OpaValue.default)
+
+  * Json
+    - Added sort function
+
+
+2012.04.06, Version 0.9.2 (stable), v1591
+
+New supported platform:
+
+ * Windows 64bits
+   - the platform is now supported via our binary installer while still considered as unstable
+     Congratulations to shadinger (https://github.com/shadinger) for the major contribution!
+
+Bug fixes:
+
+  * Windows
+    - line error location
+
+  * Mime
+    - fixed a bug in q-parser and qp-parser
+    - fixed inline plain/text detection
+
+  * UriParser
+    - fixed bug when parsing '+' character in query
+    - accept empty values for query parameters
+
+  * Json
+    - serialisation: emit an error when an integers serialisation could be out of range for the client
+
+  * Mongo
+    - ref and val path on database set
+    - sum type updating
+    - composed path
+    - always resize buffer when it's full
+    - detection of primary key query
+    - update with _id
+    - use 64bits package for autoinstall
+
+  * Separate compilation
+    - Fix packages ordering issues with compiler packages
+
+Updated APIs:
+
+  * `+` : can be used to concatenate two strings
+
+  * Bootstrap CSS
     - upgraded to v2.0.2
     - fixes for Bootstrap and Opa icons inclusion
     - changed the import names
     - added Font Awesome icons
+
+  * Bootstrap Widgets
+    - upgrade bootstrap widgets to match v2.0 of bootstrap
+    - the previous implementation (compatible with <= v1.4.0) is moved in stdlib.widgets.deprecated.bootrap
+
+  * Mongo low-level drivers
+    - added authentication parameters and command line options
+
+  * HttpRequest
+    - added a get_form_data to retieves POST data (application/x-www-form-urlencoded )
+
+  * Date
+    - support %z in scanner format (returns GMT date)
+
+Other features:
+
+  * Windows
+    - the installer is now completly standalone, nothing else need to be installed
+
+  * Html response, size reduction
+    - add option --xhtml-enable-inlined-event, that can choose to inline event handler code in the html
+    - automatic dom ids are shorter
+
+  * Dom ids: accept minus char inside ids
+
+  * Slicer
+    - new warning classes that prevent using inadapted slicer directives
+    - new compile-time option '--slicer-check' that activate predefined configuration for theses warning classes
+
+  * Mongo
+    - added authentication options for @mongo database
+    - added reference path on database set/map
+    - use the default command line options if non-specific command line
+    - use cursors
+    - 'tilda' syntactic sugar for update request
+
+  * Db3
+    - added reference path on the root
+
+  * bslClient
+    - better handling of DOM appendChild under an HTML5 element in IE (fallback to jQuery)
+
+  * Editor
+    - start support of Sublime Text 2 with a plugin available at https://github.com/OpaOnWindowsNow/OpaSublimeText/downloads
 
 
 2012.03.09, Version 0.9.1 (stable), v1466

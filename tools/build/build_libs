@@ -1,0 +1,39 @@
+# -*- conf -*- (this is for emacs)
+#
+# All libs that either can be built from a .mllib ("internal"), or should be
+# available installed (normally from $MLSTATELIBS) ("external")
+#
+# syntax:
+# <internal|external>	lib_name	[directory]
+#
+# lib_name is the basename of the .mllib/.cmxa file, the directory
+# contains the shared interfaces.
+# if omitted, [directory] is the same as lib_name.
+
+internal libbase	  	      ocamllib/libbase
+internal libjsminify		      ocamllib/libjsminify
+
+internal js_passes	  	      compiler/js_passes
+internal buildinfos		      compiler/buildinfos
+internal compilerlib	  	      compiler/compilerlib
+internal jslang		      	      compiler/jslang
+internal libbsl		      	      compiler/libbsl
+internal libqmlcompil	  	      compiler/libqmlcompil
+internal libtrx		      	      compiler/libtrx
+internal ocamllang	  	      compiler/ocamllang
+internal opacapi	  	      compiler/opacapi
+internal opalang	  	      compiler/opalang
+internal opalib		      	      compiler/opalib
+internal opapasses	  	      compiler/passes
+internal passlib	  	      compiler/passlib
+internal pplib		      	      compiler/pplib
+internal qml2js		      	      compiler/qml2js
+internal qmloptions	  	      compiler/qmloptions
+internal qmlcpsrewriter	      	      compiler/qmlcps
+internal qmljsimp	  	      compiler/qmljsimp
+internal qmlpasses	  	      compiler/qmlpasses
+internal qmlslicer	  	      compiler/qmlslicer
+internal libopa			      compiler/opa
+internal opa 	  	      	      compiler/opa
+
+internal opabsl_for_compiler	      lib/plugins/opabsl.opp

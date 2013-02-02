@@ -1,0 +1,174 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of Opa.
+
+    Opa is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
+*)
+{{ open Parser_utils }}
+(** Importing definitions from the lexer/parser *)
+
+spacing <- Opa_lexer.spacing
+just_hexa <- Opa_lexer.hexa
+;let deco rule = (=Opa_parser.careful_deco(rule));
+pos <- Opa_parser.pos
+
+
+(** Css parser (ie. for css = css ... declarations) *)
+;hexa = deco just_hexa
+
+;tag = deco just_tag;
+just_tag <- '-'? [a-zA-Z_] [a-zA-Z0-9_\-]* $_
+          / '*' $_
+
+name_or_expr <- Xml.name_no_sp:s {{ string2 s }}
+              / Opa_parser.opa_in_braces_nosp:e {{ e }}
+
+;event_name = deco just_event_name;
+just_event_name <- "hover" / "active" / "visited" / "link" / "first-child" {{ "first_child" (** - not allowed in record field name *) }}
+
+event <- event_name:s {{ coerce_name_expr (wrap_e (unc2 simple_record) s) Opacapi.Types.Css.event }}
+
+tag_or_expr <-
+  / tag:t {{ string2 t }}
+  / Opa_parser.opa_in_braces_nosp:e {{ e }}
+  / event
+
+item_type <- ("." {{ "class" }} / "#" {{ "id" }})?:o {{ Option.default "tag" o }}
+
+selector_item <-
+  / item_type:item tag_or_expr:e {{ coerce_name_expr (record [(item,e)]) Opacapi.Types.Css.selector_item }}
+  / ":" event:e {{ coerce_name_expr (record [("event",e)]) Opacapi.Types.Css.selector_item  }}
+
+selector_conjunction <- selector_item_plus:l {{ unc2 list_expr_of_expr_list l }}
+;selector_item_plus = deco just_selector_item_plus;
+just_selector_item_plus <- selector_item+:l {{ l }}
+
+selector_path <- spacing (=deco(just_selector_path)):l {{ unc2 list_expr_of_expr_list l }}
+just_selector_path <- selector_conjunction:v (spacing selector_conjunction:v {{v}})*:l spacing {{ v :: l }}
+
+;paths <- (=deco(just_paths)):l {{ unc2 list_expr_of_expr_list l }}
+just_paths <- selector_path:v (Opa_lexer.comma selector_path:v {{v}})*:l {{ v :: l }}
+
+just_prop_name <- [a-z]+ ([-] [a-z]+)* $_
+;prop_name <- (=deco(just_prop_name)):s {{ string2 s }}
+
+percentage <- (=deco(Opa_lexer.int)):i spacing "%" spacing {{ coerce_name_expr (int2 i) Opacapi.Types.Css.percentage }}
+
+unit <- ("em"/"ex"/"px"/"inch"/"cm"/"mm"/"pt"/"pc")?
+
+length <-
+   (=deco(Opa_lexer.float)):f spacing unit:unit
+    {{ let u = Option.default "nounitF" unit in
+         coerce_name_expr (record [(u,float2 f)]) Opacapi.Types.Css.length
+     }}
+ / (=deco(Opa_lexer.int)):i spacing unit:unit
+    {{ let u = Option.default "nounitI" unit in
+         coerce_name_expr (record [(u,floatint2 i)]) Opacapi.Types.Css.length
+     }}
+
+;color_name =  deco just_color_name;
+just_color_name <-
+    "aliceblue" / "antiquewhite" / "aquamarine" / "aqua" / "azure" / "beige" / "bisque" / "black" /
+    "blanchedalmond" / "blueviolet" / "blue" / "brown" / "burlywood" / "cadetblue" / "chartreuse" /
+    "chocolate" / "coral" / "cornflowerblue" / "cornsilk" / "crimson" / "cyan" / "darkblue" /
+    "darkcyan" / "darkgoldenrod" / "darkgray" / "darkgreen" / "darkkhaki" / "darkmagenta" /
+    "darkolivegreen" / "darkorange" / "darkorchid" / "darkred" / "darksalmon" / "darkseagreen" /
+    "darkslateblue" / "darkslategray" / "darkturquoise" / "darkviolet" / "deeppink" / "deepskyblue" /
+    "dimgray" / "dodgerblue" / "firebrick" / "floralwhite" / "forestgreen" / "fuchsia" / "gainsboro" /
+    "ghostwhite" / "goldenrod" / "gold" / "gray" / "greenyellow" / "green" / "honeydew" / "hotpink" /
+    "indianred" / "indigo" / "ivory" / "khaki" / "lavenderblush" / "lavender" / "lawngreen" / "lemonchiffon" /
+    "lightblue" / "lightcoral" / "lightcyan" / "lightgoldenrodyellow" / "lightgrey" / "lightgreen" /
+    "lightpink" / "lightsalmon" / "lightseagreen" / "lightskyblue" / "lightslategray" / "lightsteelblue" /
+    "lightyellow" / "limegreen" / "lime" / "linen" / "magenta" / "maroon" / "mediumaquamarine" / "mediumblue" /
+    "mediumorchid" / "mediumpurple" / "mediumseagreen" / "mediumslateblue" / "mediumspringgreen" /
+    "mediumturquoise" / "mediumvioletred" / "midnightblue" / "mintcream" / "mistyrose" / "moccasin" /
+    "navajowhite" / "navy" / "oldlace" / "olivedrab" / "olive" / "orangered" / "orange" / "orchid" /
+    "palegoldenrod" / "palegreen" / "paleturquoise" / "palevioletred" / "papayawhip" / "peachpuff" / "peru" /
+    "pink" / "plum" / "powderblue" / "purple" / "red" / "rosybrown" / "royalblue" / "saddlebrown" / "salmon" /
+    "sandybrown" / "seagreen" / "seashell" / "sienna" / "silver" / "skyblue" / "slateblue" / "slategray" /
+    "snow" / "springgreen" / "steelblue" / "tan" / "teal" / "thistle" / "tomato" / "turquoise" / "violet" /
+    "wheat" / "whitesmoke" / "white" / "yellowgreen" / "yellow" /
+    "transparent"
+
+(* FIXME: really need factorisation *)
+/** css color **/
+color <- color_name:c {{ dot (ident "Color" (label c)) (undecorate c) }}
+       / "#" hexa:h1 hexa:h2 hexa:h3 hexa:h4 hexa:h5 hexa:h6 hexa:h7 hexa:h8 {{ color_hexa h1 h2 h3 h4 h5 h6 h7 h8 }}
+       / "#" hexa:h1 hexa:h2 hexa:h3 hexa:h4 hexa:h5 hexa:h6 {{ color_hexa h1 h2 h3 h4 h5 h6 ('f',label h6) ('f',label h6) }}
+       / "#" hexa:h1 hexa:h2 hexa:h3 hexa:h4 {{ color_hexa h1 h1 h2 h2 h3 h3 h4 h4 }}
+       / "#" hexa:h1 hexa:h2 hexa:h3 {{ color_hexa h1 h1 h2 h2 h3 h3 ('f',label h3) ('f',label h3) }}
+       / "rgb" Opa_lexer.lpar Opa_parser.expr:e1 Opa_lexer.comma Opa_parser.expr:e2 Opa_lexer.comma Opa_parser.expr:e3 Opa_lexer.rpar {{ rgb e1 e2 e3 }}
+       / "rgba" Opa_lexer.lpar Opa_parser.expr:e1 Opa_lexer.comma Opa_parser.expr:e2 Opa_lexer.comma Opa_parser.expr:e3 Opa_lexer.comma Opa_parser.expr:e4 Opa_lexer.rpar {{ rgba e1 e2 e3 e4 }}
+
+special <- [(),""']
+
+url_content <-  ( ([\\] special {{ String.make 1 __2 }})
+                / (![\\] !special .)+ $_)+ {{ String.concat "" __1 }}
+/** css url **/
+css_url <-  "url" Opa_lexer.lpar (=deco(
+                      ["] url_content:s ["] {{ s }}
+                    / ['] url_content:s ['] {{ s }}
+                    /     url_content:s     {{ s }} 
+                  )):p spacing Opa_lexer.rpar {{ 
+                   let f = (Dot ((Ident "Url", nlabel p), "make"), nlabel p) in
+                   apply f (string2 p) }}
+/** css property value **/
+prop_value_expr_opa <-
+  ( percentage:v {{ ("percentage", v) }}
+  / length:v     {{ ("length", v) }}
+  / color:v      {{ ("color",v) }}
+  / css_url:v    {{ ("url", v) }}
+  ):v
+  {{ coerce_name_expr (record [v]) Opacapi.Types.Css.prop_value_item }}
+
+prop_value_name <- [a-zA-Z]+ ('-' [a-zA-Z]+)* $_
+
+prop_value_aux3 <- (=deco(spacing prop_value_name (Opa_lexer.comma spacing prop_value_name)* $_)):s
+                   {{ coerce_name_expr (record [("property",string2 s)]) Opacapi.Types.Css.prop_value_item }}
+
+prop_value_item <-
+  / Opa_parser.opa_in_braces:e {{ coerce_name_expr e Opacapi.Types.Css.prop_value_item }}
+  / prop_value_expr_opa
+  / prop_value_aux3
+
+prop_value <- prop_value_item:v (spacing prop_value_item:v {{v}})*:l {{ list_expr_of_expr_list_unsafe (v :: l) }}
+
+;prop = deco just_prop;
+;just_prop <- prop_name:a Opa_lexer.colon spacing prop_value:b {{ (a,b) }}
+
+  props <- prop:p (Opa_lexer.semic spacing props?:v {{v}})?:props
+           {{ let ((k,v),pos) = p in
+              let props =
+                match props with
+                  | None
+                  | Some None -> stringmap_empty pos
+                  | Some (Some v) -> v in
+                stringmap_add pos k v props
+            }}
+props_aux <-
+      / Opa_lexer.lbrace spacing props:v Opa_lexer.rbrace {{ v }}
+      / Opa_lexer.lbrace pos:pos Opa_lexer.rbrace {{ stringmap_empty pos }}
+
+/** css block **/
+bloc_css <- paths:paths props_aux:props bloc_css?:o
+      {{ let pos = label paths in
+         let bloc_css = Option.default (cssentrymap_empty pos) o in
+           map_add_merge pos paths props bloc_css
+       }}
+
+css_map <- Opa_lexer.CSS spacing bloc_css:v spacing {{ v }}
+
+/** global css definition **/
+css <- (=deco(Opa_lexer.CSS)):p Opa_lexer.assign css_map:v
+       {{ NewVal ([(patident "css" (label p),list_expr_of_expr_list_unsafe [v])],false) }}

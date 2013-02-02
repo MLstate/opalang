@@ -1,0 +1,82 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of Opa.
+
+    Opa is free software: you can redistribute it and/or modify it under the
+    terms of the GNU Affero General Public License, version 3, as published by
+    the Free Software Foundation.
+
+    Opa is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+    more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Opa. If not, see <http://www.gnu.org/licenses/>.
+*)
+read default.trx global (spacing)
+
+spacing <- (Default.space $ / Default.mlcomment)* $
+
+KEYWORDS <- 
+/ 'assert'
+/ '~' / '}' / '||' / '|]' / '|' / '{<' / '{'
+/ 'with' / 'while' / 'when' / 'virtual' / 'val' / 'type' / 'try'
+/ 'true' / 'to' / 'then' / 'struct' / 'sig' / 'rec'
+/ 'private' / 'or' / 'open' / 'of' / 'object' / 'new'
+/ 'mutable' / 'module' / 'mod' / 'method' / 'match' / 'lxor' / 'lsr'
+/ 'lsl' / 'lor' / 'let' / 'lazy' / 'land' / 'initializer' / 'inherit'
+/ 'include' / 'in' / 'if' / 'functor' / 'function' / 'fun' / 'for'
+/ 'false' / 'external' / 'exception' / 'end' / 'else' / 'downto' / 'done'
+/ 'do' / 'constraint' / 'class' / 'begin' / 'asr' / 'as' / 'and'
+/ '`' / '_' / ']' / '[|' / '[>' / '[<' / '['
+/ '??' / '?' / '>}' / '>]' / '>' / '=' / '<-'
+/ '<' / ';;' / ';' / ':>' / ':=' / '::' / ':'
+/ '..' / '.' / '->' / '-.' / '-' / ',' / '+'
+/ '*' / ')' / '(' / "'" / '&&' / '&' / '#'
+
+SPECIALS <- 'mod' / 'lxor' / 'lsr' / 'lsl' / 'lor' / 'land'
+
+FUN <- 'fun' spacing $
+LET <- 'let' spacing $
+VAL <- 'val' spacing $
+IN <- 'in' spacing $
+REC <- 'rec' spacing $
+MATCH <- 'match' spacing $
+WITH <- 'with' spacing $
+TYPE <- 'type' spacing $
+AND <- "and" spacing $
+OF <- 'of' spacing $
+AS <- 'as' spacing $
+FUNCTION <- 'function' spacing $
+#FUNS <- (FUN / FUNCTION) $
+MODULE <- 'module' spacing $
+STRUCT <- 'struct' spacing $
+END <- 'end' spacing $
+SIG <- 'sig' spacing $
+BEGIN <- 'begin' spacing $
+OPEN <- 'open' spacing $
+REF <- 'ref' spacing $
+EXCEPTION <- 'exception' spacing $
+TRY <- 'try' spacing $
+RAISE <- 'raise' spacing $
+MUTABLE <- 'mutable' spacing $
+ASSERT <- 'assert' spacing $
+
+# Sucre ==============================
+CONSTRUCTOR_aux <- [a-zA-Z_0-9]
+CONSTRUCTOR <- ([A-Z] CONSTRUCTOR_aux* $_) spacing {{ __1 }}
+
+IF <- 'if' spacing $
+THEN <- 'then' spacing $
+ELSE <- 'else' spacing $
+TRUE <- 'true' spacing $
+FALSE <- 'false' spacing $
+ANDL <- '&&' spacing $
+ORL <- '||' spacing $
+GETREF <- ':=' spacing $
+CONS <- '::' spacing $
+WHEN <- 'when' spacing $
+
+

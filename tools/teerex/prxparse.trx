@@ -1,0 +1,32 @@
+(*
+    Copyright © 2011 MLstate
+
+    This file is part of Opa.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*)
+read default.trx global (spacing)
+
++file <- def* {{ Base.StringMap.from_list __1 }}
++def <- name define rule* Default.semi {{ __1, __3 }}
+define <- "::=" spacing
+name <- ([a-z][a-zA-Z0-9_]* $_) spacing {{ __1 }}
+operator <- ([<] [<>+\-/*]+ [>] $_) spacing {{ __1 }}
+#names <- name names {{ __1 :: __2 }}
+#	/ name {{ [__1] }}
+
+rule <- Default.bar pattern Default.rightarrow production {{ __2, __4 }}
+pattern <- (!Default.rightarrow .)+ $_
+production <- elem+ / Default.times {{ [] }}
+elem <- Default.stringquote spacing {{ `string __1 }}
+	/ Default.lbracket name Default.bracketexprcontent Default.rbracket {{ `production (__2, __3) }}
+	/ Default.parexpr spacing {{ `ocaml __1 }}
+	/ name {{ `var __1 }}
+	/ operator {{ `operator __1 }}
+	/ Default.underscore {{ `space }}
+
+spacing <- [ \t\r\n]*

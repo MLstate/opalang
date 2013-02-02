@@ -1,0 +1,61 @@
+# -*- conf -*- (for emacs)
+
+jsbsl/bsl-sources.jsconf
+# external, kept separate for licensing issues.
+jsbsl/md5.js
+jsbsl/base64.js
+jsbsl/jquery-1.7.2.min.js
+
+# Server specific bypass
+jsbsl/bslNativeLib.js
+jsbsl/bslBinary.js
+jsbsl/bslTimeServer.js
+jsbsl/bslPervasivesServer.js
+jsbsl/bslLogger.js
+
+# internal
+jsbsl/jsExtends.js
+jsbsl/bslSyslog.js
+jsbsl/bslPervasives.js
+jsbsl/bslString.js
+jsbsl/bslCactutf.js
+jsbsl/bslNumber.js
+jsbsl/bslTime.js
+jsbsl/bslReference.js
+jsbsl/bslBuffer.js
+jsbsl/jQueryExtends.js
+jsbsl/bslClientOnly.js
+jsbsl/bslAnchors.js
+jsbsl/bslClient.js
+jsbsl/lowLevelArray.js
+jsbsl/bslClosure.js
+jsbsl/bslCps.js
+jsbsl/bslValue.js
+jsbsl/bslDom.js
+jsbsl/bslDomSupport.js
+jsbsl/hashtable.js
+jsbsl/bslHashtbl.js
+
+# opasyntax (transitionnal)
+mlstatebsl/preprocess_formats.opa
+mlstatebsl/types.opa
+mlstatebsl/option.opa
+mlstatebsl/bool.opa
+mlstatebsl/pervasives.opa
+mlstatebsl/list.opa
+mlstatebsl/map.opa
+mlstatebsl/cps.opa
+
+# js validation files
+
+# these are kept as symlinks since .. doesn't work
+externs.js
+qmlCpsClientLib.externs.js
+clientLib.externs.js
+clientLibLib.externs.js
+
+jsbsl/jquery.externs.js
+jsbsl/jquery_ext_bslanchor.externs.js
+jsbsl/jquery_ext_jQueryExtends.externs.js
+jsbsl/selection_ext_bsldom.externs.js
+jsbsl/jquery_extra.externs.js
