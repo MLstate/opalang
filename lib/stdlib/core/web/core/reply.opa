@@ -118,7 +118,9 @@ type Resource.cookie_attributes =
   / { max_age:int }
   / { path:string }
   / { secure:void }
+  / { httpOnly:void }
   / { version:int }
+  / { expires:Date.date }
 
 type Resource.cookie_def = {
   name : string ;
@@ -246,7 +248,12 @@ WebCoreExport =
   | ~{max_age} -> "max-age={max_age}"
   | ~{path} -> "path=" ^ path
   | {secure} -> "secure"
+  | {httpOnly} -> "HttpOnly"
   | ~{version} -> "version={version}"
+  | ~{expires} ->
+    printer = Date.generate_printer("%a, %d %b-%Y-%T GMT")
+    date = Date.to_formatted_string(printer, expires)
+    "expires={date}"
 
 @private to_ll_headers(headers : list(Resource.http_header)) : list(WebInfo.private.native_http_header) =
   List.foldl(add_ll_header, headers, [])
