@@ -286,6 +286,12 @@ struct
   let add_xmlizer = !! "add_xmlizer"
 end
 
+module Option =
+struct
+  let (!!) s = !! ("Option_" ^ s)
+  let map = !! "map"
+end
+
 module Parser =
 struct
   let (!!) s = !! ("Parser_" ^ s)

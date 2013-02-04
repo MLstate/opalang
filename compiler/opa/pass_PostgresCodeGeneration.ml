@@ -30,6 +30,10 @@ struct
 
   module Db = Opacapi.DbPostgres
 
+  module Option = Opacapi.Option
+
+  module DbSet = Opacapi.DbSet
+
   let serialize = Opacapi.OpaSerialize.serialize
 
   module Types = Opacapi.Types
@@ -56,6 +60,8 @@ type env = {
   ty_init : [ `foreign of string | `type_ of ([`enum | `composite of string list] * string * string) | `blob ] StringListMap.t;
   (* List of queries which create table *)
   tb_init : string list;
+  (* tb_default *)
+  tb_default : Q.ty StringListMap.t;
   (* (id of prepared statement, string query) *)
   q_prepared : (string * string) QueryMap.t;
   (* (id of prepared statement, string query) *)
@@ -93,6 +99,7 @@ struct
   let make_env gamma annotmap schema = {
     tb_init = ["CREATE LANGUAGE plpgsql"];
     ty_init = StringListMap.empty;
+    tb_default = StringListMap.empty;
     q_prepared = QueryMap.empty;
     u_prepared = UpdateMap.empty;
     gamma; annotmap; schema;
@@ -138,62 +145,6 @@ struct
         | None ->
             Format.eprintf "%a %a\n%!" QmlPrint.pp#ty ty (Format.pp_list "," Format.pp_print_string) path;
             raise Not_found
-
-
-  let database
-      ({gamma; annotmap; ty_init; tb_init; q_prepared; u_prepared; _} as env)
-      name =
-    let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
-    let annotmap, name = C.string annotmap name in
-    let annotmap, tables =
-      List.fold_left
-        (fun (annotmap, tables) table ->
-           let annotmap, table = C.string annotmap table in
-           annotmap, table::tables
-        ) (annotmap, []) tb_init
-    in
-    let annotmap, tables =
-      StringListMap.fold
-        (fun _ kind (annotmap, tys) ->
-           match kind with
-           | `type_ (_, _, q) ->
-               let annotmap, q = C.string annotmap q in
-               annotmap, q::tys
-           | _ -> (annotmap, tys)
-        ) ty_init (annotmap, tables)
-    in
-    let annotmap, tables = C.list (annotmap, gamma) tables in
-    let annotmap, statements =
-      let annotmap, statements =
-        QueryMap.fold
-          (fun _prepared (qid, query) (annotmap, statements) ->
-             let annotmap, qid = C.string annotmap qid in
-             let annotmap, query = C.string annotmap query in
-             (* TODO: Optimized types *)
-             let annotmap, types = C.list (annotmap, gamma) [] in
-             let annotmap, statement =
-               C.record annotmap [
-                 "id", qid;
-                 "query", query;
-                 "types", types;
-               ]
-             in
-             annotmap, statement::statements
-          ) q_prepared (annotmap, []) in
-      C.list (annotmap, gamma) statements
-    in
-    let annotmap, queries =
-      let annotmap, queries =
-        UpdateMap.fold
-          (fun _ (_, query) (annotmap, queries) ->
-             let annotmap, query = C.string annotmap query in
-             annotmap, query::queries
-          ) u_prepared (annotmap, [])
-      in
-      C.list (annotmap, gamma) queries
-    in
-    let annotmap, pgdb = C.apply gamma annotmap open_ [name; tables; statements; queries] in
-    {env with annotmap}, pgdb
 
   let pp_type_as_pgtype ?(path=[]) env fmt ty =
     match StringListMap.find_opt path env.ty_init with
@@ -297,6 +248,7 @@ struct
     let annotmap, database =
       C.ident annotmap node.S.database.S.ident node.S.database.S.dbty in
     let annotmap, qid = C.string annotmap qid in
+    let env = {env with annotmap} in
     let ({annotmap; _} as env), args =
       match (fst query).QD.sql_ops with
       | None -> env, []
@@ -317,7 +269,7 @@ struct
              | QD.QOr  (q0, q1) ->
                  self (self acc q0) q1
              | x -> tra acc x
-            ) ({env with annotmap}, []) sql_ops
+            ) (env, []) sql_ops
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
     let annotmap, def = node.S.default annotmap in
@@ -493,7 +445,7 @@ struct
                           | Some n ->
                               aux (s::path) n)
                     ) flds
-              | _ -> assert false (* ? *)
+              | _ -> Format.eprintf "Not found %a : %a\n%!" (Format.pp_list "." Format.pp_print_string) path (StringListMap.pp ":::" (fun fmt k _ -> (Format.pp_list "." Format.pp_print_string) fmt k)) env.ty_init; assert false (* ? *)
         in
         let start = ref true in
         StringMap.pp ""
@@ -703,6 +655,51 @@ struct
     let env = prepared_statement_for_query env query in
     execute_statement env node (kpath, query)
 
+  let resolve_sqlupdate ~tbl env node query (upd, opt) =
+    let env, bindings, upd = preprocess_update ~tbl env upd in
+    let env = prepared_statement_for_update env ~tbl query (upd, opt) in
+    let env, e = execute_statement_for_update env ~tbl node query (upd, opt) in
+    let annotmap, e =
+      List.fold_left
+        (fun (annotmap, letin) binding ->
+           C.letin annotmap [binding] letin
+        ) (env.annotmap, e) bindings
+    in
+    {env with annotmap}, e
+
+  let post_projection gamma ~ty path annotmap =
+    match path with
+    | [] -> None
+    | _ -> Some (
+        let arg = Ident.next "x" in
+        let rec aux path =
+          match path with
+          | [] -> C.ident annotmap arg ty
+          | t::q ->
+              let annotmap, e = aux q in
+              C.dot gamma annotmap e t
+        in
+        let annotmap, dots = aux path in
+        C.lambda annotmap [(arg, ty)] dots
+      )
+
+  let apply_post_projection env postproj kpath expr =
+    match postproj env.annotmap with
+    | None -> (env, expr)
+    | Some (annotmap, f) ->
+        let annotmap, r =
+          match kpath with
+          | `uniq   -> C.apply env.gamma annotmap f [expr]
+          | `option ->
+              let annotmap, map =
+                OpaMapToIdent.typed_val ~label Api.Option.map annotmap env.gamma in
+              C.apply env.gamma annotmap map [f; expr]
+          | `dbset  ->
+              let annotmap, map =
+                OpaMapToIdent.typed_val ~label Api.DbSet.map annotmap env.gamma in
+              C.apply env.gamma annotmap map [f; expr]
+        in {env with annotmap}, r
+
   let path ~context
       ({gamma; schema; _} as env)
       (label, dbpath, kind, select)
@@ -717,6 +714,39 @@ struct
                 `dbset, (query_to_sqlquery tbl None select, QD.default_query_options)
             | Some (uniq, (q, o)) ->
                 (if uniq then `uniq else `dbset), (query_to_sqlquery tbl (Some q) select, o)
+          in
+          let string_path () =
+            List.map
+              (function | QD.FldKey str -> str | _ -> assert false)
+              (List.tl dbpath)
+          in
+          let plain_to_sqlaccess node =
+            let path = string_path () in
+            let ty =
+              let rec aux = function
+                  [] -> node.S.ty
+                | t::q -> Q.TypeRecord (Q.TyRow ([(t, aux q)], None))
+              in aux path
+            in
+            let node = {node with
+              S.ty;
+              default = fun ?select annotmap ->
+                (* TODO: fix select *)
+                let rec aux annotmap = function
+                  | [] -> node.S.default ?select annotmap
+                  | t::q ->
+                      let annotmap, e = aux annotmap q in
+                      C.record annotmap [(t, e)]
+                in aux annotmap path
+                       }
+            in
+            (fun env kpath expr ->
+               apply_post_projection env
+                 (post_projection env.gamma ~ty path)
+                 kpath expr
+            ),
+            node,
+            ({QD. sql_ops=None; sql_tbs=["_default"]; sql_fds=[path]}, QD.default_query_options)
           in
           match kind, node.S.kind with
           | QD.Default, S.SqlAccess query ->
@@ -734,126 +764,227 @@ struct
                 | None -> None
                 | Some (true, q) -> Some q
                 | _ -> assert false
-              in
-              let env, bindings, upd = preprocess_update ~tbl env upd in
-              let env = prepared_statement_for_update env ~tbl query (upd, opt) in
-              let env, e = execute_statement_for_update env ~tbl node query (upd, opt) in
-              let annotmap, e =
-                List.fold_left
-                  (fun (annotmap, letin) binding ->
-                     C.letin annotmap [binding] letin
-                  ) (env.annotmap, e) bindings
-              in
-              {env with annotmap}, e
+              in resolve_sqlupdate ~tbl env node query (upd, opt)
+
+          | QD.Default, S.Plain ->
+              let post, node, query = plain_to_sqlaccess node in
+              let env, access = resolve_sqlaccess env node (`uniq, query) in
+              post env `uniq access
+          | QD.Option, S.Plain ->
+              let post, node, query = plain_to_sqlaccess node in
+              let env, access = resolve_sqlaccess env node (`option, query) in
+              post env `option access
+          | QD.Update (upd, opt), S.Plain ->
+              let strpath = string_path () in
+              let annotmap, _0 = C.int env.annotmap 0 in
+              let upd = QD.UFlds [
+                [`string "_id"], QD.UExpr _0;
+                (List.map (fun s -> `string s) strpath), upd
+              ] in
+              let query = QD.QFlds [[`string "_id"], QD.QEq _0], QD.default_query_options in
+              resolve_sqlupdate ~tbl:"_default" {env with annotmap} node (Some query) (upd, opt)
           | _ -> assert false
         end
     | _ -> env, Q.Path (label, dbpath, kind, select)
 
-  let table
-      ({gamma; tb_init; _} as env)
-      path ty lidx =
-    Format.eprintf "Generating table %a with %a\n%!"
-      pp_table_name path
-      QmlPrint.pp#ty ty;
-    let rec type_from_ty env tpath ty =
-      match ty with
-      | Q.TypeRecord Q.TyRow (fields, _) ->
-          let tra env = List.fold_left
-            (fun env (s, t) -> type_from_ty env (s::tpath) t)
-            env fields
-          in
-          begin match tpath with
-          | [] -> tra env (*First level: don't create a composite type *)
-          | _ ->
-              let env = tra env in
-              let buffer = Buffer.create 256 in
-              let fmt = Format.formatter_of_buffer buffer in
-              let tpath = List.rev (tpath@path) in
-              let name = Format.sprintf "%a" pp_table_name tpath in
-              Format.fprintf fmt "CREATE TYPE %s AS (" name;
-              Format.pp_list ","
-                (fun fmt (s, t) ->
-                   Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(tpath@[s]) env) t;
-                ) fmt fields;
-              Format.fprintf fmt ")";
-              Format.pp_print_flush fmt ();
-              let q = Buffer.contents buffer in
-              let fields = List.map fst fields in
-              Format.eprintf "Added COMPOSITE at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
-              {env with ty_init = StringListMap.add tpath (`type_ (`composite fields, name, q)) env.ty_init}
-          end
-      | Q.TypeName (l, s) ->
-          if Option.is_some (get_pg_native_type gamma ty) then env
-          else
-            type_from_ty env tpath (QmlTypesUtils.Inspect.find_and_specialize gamma s l)
-      | Q.TypeSum (Q.TyCol (cols, _)) ->
-          let tpath = List.rev (tpath@path) in
-          begin try
+  let rec type_from_ty env path tpath ty =
+    match ty with
+    | Q.TypeRecord Q.TyRow (fields, _) ->
+        let tra env = List.fold_left
+          (fun env (s, t) -> type_from_ty env path (s::tpath) t)
+          env fields
+        in
+        begin match tpath with
+        | [] -> tra env (*First level: don't create a composite type *)
+        | _ ->
+            let env = tra env in
             let buffer = Buffer.create 256 in
             let fmt = Format.formatter_of_buffer buffer in
+            let tpath = List.rev (tpath@path) in
             let name = Format.sprintf "%a" pp_table_name tpath in
-            Format.fprintf fmt "CREATE TYPE %s AS ENUM (" name;
+            Format.fprintf fmt "CREATE TYPE %s AS (" name;
             Format.pp_list ","
-              (fun fmt flds ->
-                 match flds with
-                 | [(case, ty)] when QmlTypesUtils.Inspect.is_type_void gamma ty ->
-                     Format.fprintf fmt "'%s'" case;
-                 | _ -> raise Not_found
-              ) fmt cols;
+              (fun fmt (s, t) ->
+                 Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(tpath@[s]) env) t;
+              ) fmt fields;
             Format.fprintf fmt ")";
             Format.pp_print_flush fmt ();
             let q = Buffer.contents buffer in
-            Format.eprintf "Added ENUM at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
-            {env with ty_init = StringListMap.add tpath (`type_ (`enum, name, q)) env.ty_init}
-          with Not_found ->
-            Format.eprintf "Added BLOB at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
-            {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
-          end
-      | Q.TypeConst _ -> env
-      | _ -> OManager.i_error
-          "Type %a is not yet handled by postgres generator\n"
-            QmlPrint.pp#ty ty
-    in
-    let rec table_from_ty env ty =
-      match ty with
-      | Q.TypeRecord Q.TyRow (fields , None) ->
+            let fields = List.map fst fields in
+            Format.eprintf "Added COMPOSITE at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
+            {env with ty_init = StringListMap.add tpath (`type_ (`composite fields, name, q)) env.ty_init}
+        end
+    | Q.TypeName (l, s) ->
+        if Option.is_some (get_pg_native_type env.gamma ty) then env
+        else
+          type_from_ty env path tpath (QmlTypesUtils.Inspect.find_and_specialize env.gamma s l)
+    | Q.TypeSum (Q.TyCol (cols, _)) ->
+        let tpath = List.rev (tpath@path) in
+        begin try
           let buffer = Buffer.create 256 in
           let fmt = Format.formatter_of_buffer buffer in
-          Format.fprintf fmt "CREATE TABLE %a("
-            pp_table_name path;
-          let rec aux_field fmt (s, ty) =
-            Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(List.rev (s::path)) env) ty
-          in
-          let env = List.fold_left
-            (fun env (field, ty) ->
-               Format.fprintf fmt "%a, " aux_field (field, ty);
-               env
-            ) env fields
-          in
+          let name = Format.sprintf "%a" pp_table_name tpath in
+          Format.fprintf fmt "CREATE TYPE %s AS ENUM (" name;
           Format.pp_list ","
-            (fun fmt idx ->
-               Format.fprintf fmt " PRIMARY KEY(%a)"
-                 (Format.pp_list "," Format.pp_print_string) idx)
-            fmt lidx;
+            (fun fmt flds ->
+               match flds with
+               | [(case, ty)] when QmlTypesUtils.Inspect.is_type_void env.gamma ty ->
+                   Format.fprintf fmt "'%s'" case;
+               | _ -> raise Not_found
+            ) fmt cols;
           Format.fprintf fmt ")";
           Format.pp_print_flush fmt ();
-          {env with tb_init = (Buffer.contents buffer)::tb_init}
-      | Q.TypeRecord _ -> assert false
-      | Q.TypeName _ ->
-          table_from_ty env (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty)
-      | _ -> assert false
+          let q = Buffer.contents buffer in
+          Format.eprintf "Added ENUM at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
+          {env with ty_init = StringListMap.add tpath (`type_ (`enum, name, q)) env.ty_init}
+        with Not_found ->
+          Format.eprintf "Added BLOB at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
+          {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
+        end
+    | Q.TypeConst _ -> env
+    | _ -> OManager.i_error
+        "Type %a is not yet handled by postgres generator\n"
+          QmlPrint.pp#ty ty
+
+  let rec table_from_ty
+      ({gamma; tb_init; _} as env)
+      path ty lidx =
+    match ty with
+    | Q.TypeRecord Q.TyRow (fields , None) ->
+        let buffer = Buffer.create 256 in
+        let fmt = Format.formatter_of_buffer buffer in
+        Format.fprintf fmt "CREATE TABLE %a("
+          pp_table_name path;
+        let rec aux_field fmt (s, ty) =
+          Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(List.rev (s::path)) env) ty
+        in
+        let env = List.fold_left
+          (fun env (field, ty) ->
+             Format.fprintf fmt "%a, " aux_field (field, ty);
+             env
+          ) env fields
+        in
+        Format.pp_list ","
+          (fun fmt idx ->
+             Format.fprintf fmt " PRIMARY KEY(%a)"
+               (Format.pp_list "," Format.pp_print_string) idx)
+          fmt lidx;
+        Format.fprintf fmt ")";
+        Format.pp_print_flush fmt ();
+        Format.eprintf "TABLE FROM TY %s\n%!" (Buffer.contents buffer);
+        {env with tb_init = (Buffer.contents buffer)::tb_init}
+    | Q.TypeRecord _ -> assert false
+    | Q.TypeName _ ->
+        table_from_ty env path (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty) lidx
+    | _ -> assert false
+
+  let database env name =
+    (* Create the default table *)
+    let ({gamma; annotmap; ty_init; tb_init; q_prepared; u_prepared; _} as env) =
+      let mty =
+        StringListMap.fold
+          (fun path ty acc ->
+             Format.eprintf "PATH%a:%a\n%!" (Format.pp_list "." Format.pp_print_string) path QmlPrint.pp#ty ty;
+             let rec aux path (acc:[`sub of _ | `ty of _] StringMap.t)=
+               match path with
+               | [] -> acc
+               | [t] -> StringMap.add t (`ty ty) acc
+               | t::q ->
+                   match StringMap.find_opt t (acc:[`sub of _ | `ty of _] StringMap.t) with
+                   | None -> StringMap.add t (`sub (aux q StringMap.empty)) acc
+                   | Some (`sub sub) -> StringMap.add t (`sub (aux q sub)) acc
+                   | _ -> assert false
+             in aux path acc)
+          env.tb_default StringMap.empty
+      in
+      let mty = StringMap.add "_id" (`ty (Q.TypeConst Q.TyInt)) mty in
+      let rec aux mty =
+        let lty = StringMap.to_list mty in
+        Format.eprintf "HERE:%d\n%!" (List.length lty);
+        let lty = List.map
+          (fun (f, x) -> f, (match x with | `ty ty -> ty | `sub mty -> aux mty))
+          lty
+        in
+        Q.TypeRecord (Q.TyRow (lty, None))
+      in
+      let ty = aux mty in
+      table_from_ty env ["_default"] ty [["_id"]]
     in
-    table_from_ty (type_from_ty env [] ty) ty
+    let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
+    let annotmap, name = C.string annotmap name in
+    let annotmap, tables =
+      List.fold_left
+        (fun (annotmap, tables) table ->
+           let annotmap, table = C.string annotmap table in
+           annotmap, table::tables
+        ) (annotmap, []) tb_init
+    in
+    let annotmap, tables =
+      StringListMap.fold
+        (fun _ kind (annotmap, tys) ->
+           match kind with
+           | `type_ (_, _, q) ->
+               let annotmap, q = C.string annotmap q in
+               annotmap, q::tys
+           | _ -> (annotmap, tys)
+        ) ty_init (annotmap, tables)
+    in
+    let annotmap, tables = C.list (annotmap, gamma) tables in
+    let annotmap, statements =
+      let annotmap, statements =
+        QueryMap.fold
+          (fun _prepared (qid, query) (annotmap, statements) ->
+             let annotmap, qid = C.string annotmap qid in
+             let annotmap, query = C.string annotmap query in
+             (* TODO: Optimized types *)
+             let annotmap, types = C.list (annotmap, gamma) [] in
+             let annotmap, statement =
+               C.record annotmap [
+                 "id", qid;
+                 "query", query;
+                 "types", types;
+               ]
+             in
+             annotmap, statement::statements
+          ) q_prepared (annotmap, []) in
+      C.list (annotmap, gamma) statements
+    in
+    let annotmap, queries =
+      let annotmap, queries =
+        UpdateMap.fold
+          (fun _ (_, query) (annotmap, queries) ->
+             let annotmap, query = C.string annotmap query in
+             annotmap, query::queries
+          ) u_prepared (annotmap, [])
+      in
+      C.list (annotmap, gamma) queries
+    in
+    let annotmap, pgdb = C.apply gamma annotmap open_ [name; tables; statements; queries] in
+    {env with annotmap}, pgdb
+
+  let table_default env path ty =
+    let env = type_from_ty env path [] ty in
+    {env with tb_default = StringListMap.add path ty env.tb_default}
+
+  let table env path ty lidx =
+    Format.eprintf "Generating table %a with %a\n%!"
+      pp_table_name path
+      QmlPrint.pp#ty ty;
+    table_from_ty (type_from_ty env path [] ty) path ty lidx
 
 end
 
 let process_path env code =
   let fmap tra env = function
     | Q.Path (label, path, kind, select) as expr ->
-        let context = QmlError.Context.annoted_expr env.annotmap expr in
-        let env, result =
-          Generator.path ~context env (label, path, kind, select) in
-        tra env result
+        (try
+          let context = QmlError.Context.annoted_expr env.annotmap expr in
+          let env, result =
+            Generator.path ~context env (label, path, kind, select) in
+          tra env result
+        with e ->
+          OManager.serror "Error while generates postgres path: %a\n" QmlPrint.pp#expr expr;
+          raise e)
     | e -> tra env e
   in
   QmlAstWalk.CodeExpr.fold_map
@@ -897,7 +1028,8 @@ let init_declaration ({gamma; schema; _} as env) code =
                          Generator.table env rpath ty lidx, None
                      | (QD.Decl_set _lidx)::_ -> assert false
                      | (QD.Decl_fld str)::p -> aux (str::rpath) p
-                     | [] -> env, None
+                     | [] ->
+                         Generator.table_default env (List.rev rpath) ty , None
                      | _ -> assert false
                    in aux [] p
                | _ -> env, None

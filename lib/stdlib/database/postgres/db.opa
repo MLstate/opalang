@@ -257,5 +257,6 @@ query: {query}
 @opacapi DbPostgres_build_option = DbPostgres.build_option
 @opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
 @opacapi DbPostgres_sum_to_enum = DbPostgres.sum_to_enum
+@opacapi Option_map = Option.map
 
 
