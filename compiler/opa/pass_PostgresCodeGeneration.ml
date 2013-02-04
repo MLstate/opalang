@@ -75,8 +75,8 @@ module Generator =
 struct
 
   let pg_types = [
-    (Api.Types.binary,     "bytea",           "Bytea");
-    (Api.Types.bool,       "bool",            "Bool");
+    (Api.Types.binary,     "Bytea",           "bytea");
+    (Api.Types.bool,       "Bool",            "boolean");
   ]
 
   let get_pg_native_type gamma ty =
