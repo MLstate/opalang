@@ -82,6 +82,19 @@ struct
   let get_pg_native_type gamma ty =
     let rec aux t =
       match t with
+      | Q.TypeName ([a], s) when Q.TypeIdent.to_string s = Api.Types.list ->
+          let list_error () =
+            failwith
+              (Format.sprintf
+                 "list of %a are not yet handled by postgres generator"
+                 QmlPrint.pp#ty a)
+          in
+          begin match aux a with
+          | Some (_, "TEXT") -> Some ("StringArray1", "TEXT[]")
+          | Some (_, "FLOAT") -> Some ("FloatArray1", "FLOAT[]")
+          | Some (_, "INT8") -> Some ("IntArray1", "INT8[]")
+          | _ -> list_error ()
+          end
       | Q.TypeName (l, s) ->
           let st = Q.TypeIdent.to_string s in
           begin match List.find_opt (fun (x,_,_) -> x = st) pg_types with
@@ -172,7 +185,7 @@ struct
       | QD.QGte  e    -> pp " >= %a" (pp_expr []) e
       | QD.QLte  e    -> pp " <= %a" (pp_expr []) e
       | QD.QNe   e    -> pp " <> %a" (pp_expr []) e
-      | QD.QIn   e    -> pp " IN %a" (pp_expr []) e
+      | QD.QIn   e    -> pp " = ANY (%a)" (pp_expr []) e
       | QD.QMod  _    -> assert false
       | QD.QExists false   -> pp " = NULL"
       | QD.QExists true    -> pp " <> NULL"
