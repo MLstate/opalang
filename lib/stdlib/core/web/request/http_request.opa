@@ -89,9 +89,15 @@ HttpRequest = {{
     /**
      * Return the cookie associated to a request.
      */
-    get_cookie(x: HttpRequest.request) : option(string) =
+    get_cookie(x: HttpRequest.request, name) : option(string) =
         raw = %% BslNet.Requestdef.get_request_cookie %%
-        raw(x.request)
+        raw(x.request, name)
+
+    /**
+     * Return the internal cookie associated to a request.
+     */
+    get_internal_cookie(x: HttpRequest.request) : option(string) =
+      get_cookie(req, "ic")
 
     /**
      * Try to get the "Accept-Language" header of a connexion
@@ -352,7 +358,9 @@ HttpRequest = {{
 
   get_request() = apply(identity)
 
-  get_cookie() = apply2(Generic.get_cookie)
+  get_internal_cookie() = apply2(Generic.get_internal_cookie)
+
+  get_cookie(name) = apply2(Generic.get_cookie(_, name))
 
   /**
    * Retuns the user agent of the current client.

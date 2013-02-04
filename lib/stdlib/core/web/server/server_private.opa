@@ -288,7 +288,7 @@ Server_private = {{
           /* 2.1 - Parser which set the thread context */
           full_handler =
             build_thread_context(page) = {
-                key = {client = { client = %%BslNet.Requestdef.get_cookie%%(request.request) ~page} }
+                key = {client = { client = %%BslNet.Requestdef.get_request_cookie%%(request.request, "ic") ? "" ~page} }
                 request = {some = request}
                 constraint = {free}
                 details = none

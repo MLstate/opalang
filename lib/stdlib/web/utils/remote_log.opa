@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -40,7 +40,7 @@ RemoteLog = {{
     match get_remote_logs_params() with
     | {none} -> {none}
     | {some=(hostname,port,appkey)} ->
-     cookie = match HttpRequest.get_cookie() with
+     cookie = match HttpRequest.get_internal_cookie() with
      | {some=cookie} -> "&cookie={cookie}"
      | _ -> ""
      some("http://{hostname}:{port}/?appkey={appkey}{cookie}")
