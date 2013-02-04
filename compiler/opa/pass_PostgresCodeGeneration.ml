@@ -608,7 +608,53 @@ struct
           C.apply gamma annotmap update_or_insert [database; procname; args] in
         {env with annotmap}, res
 
-  let query_to_sqlquery tbl query select =
+  let post_projection gamma ~ty path annotmap =
+    match path with
+    | [] -> None
+    | _ -> Some (
+        let arg = Ident.next "x" in
+        let rec aux path =
+          match path with
+          | [] -> C.ident annotmap arg ty
+          | t::q ->
+              let annotmap, e = aux q in
+              C.dot gamma annotmap e t
+        in
+        let annotmap, dots = aux path in
+        C.lambda annotmap [(arg, ty)] dots
+      )
+
+  let apply_post_projection env postproj kpath expr =
+    match postproj env.annotmap with
+    | None -> (env, expr)
+    | Some (annotmap, f) ->
+        let annotmap, r =
+          match kpath with
+          | `uniq   -> C.apply env.gamma annotmap f [expr]
+          | `option ->
+              let annotmap, map =
+                OpaMapToIdent.typed_val ~label Api.Option.map annotmap env.gamma in
+              C.apply env.gamma annotmap map [f; expr]
+          | `dbset  ->
+              let annotmap, map =
+                OpaMapToIdent.typed_val ~label Api.DbSet.map annotmap env.gamma in
+              C.apply env.gamma annotmap map [f; expr]
+        in {env with annotmap}, r
+
+  let query_to_sqlquery ~ty tbl query select embed =
+    let postproj, select = match embed with
+      | None ->
+          (fun env _kpath expr -> (env, expr)), select
+      | Some x ->
+          let path = List.map (function QD.FldKey s -> s | _ -> assert false) x in
+          let fld = List.map (function QD.FldKey s -> `string s | _ -> assert false) x in
+          (fun env kpath expr ->
+             apply_post_projection env
+               (post_projection ~ty env.gamma path)
+               kpath expr
+          ),
+          QD.SFlds [(fld, select)]
+    in
     let sql_fds =
       match select with
       | QD.SNil  |QD.SId _ | QD.SSlice _->
@@ -648,7 +694,7 @@ struct
           QD.QFlds flds
       | QD.QExists b -> QD.QExists b
     in
-    {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds}
+    postproj, {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds}
 
   let resolve_sqlaccess env node (kpath, query) =
     (* TODO  - Prepare for uniq ? *)
@@ -667,39 +713,6 @@ struct
     in
     {env with annotmap}, e
 
-  let post_projection gamma ~ty path annotmap =
-    match path with
-    | [] -> None
-    | _ -> Some (
-        let arg = Ident.next "x" in
-        let rec aux path =
-          match path with
-          | [] -> C.ident annotmap arg ty
-          | t::q ->
-              let annotmap, e = aux q in
-              C.dot gamma annotmap e t
-        in
-        let annotmap, dots = aux path in
-        C.lambda annotmap [(arg, ty)] dots
-      )
-
-  let apply_post_projection env postproj kpath expr =
-    match postproj env.annotmap with
-    | None -> (env, expr)
-    | Some (annotmap, f) ->
-        let annotmap, r =
-          match kpath with
-          | `uniq   -> C.apply env.gamma annotmap f [expr]
-          | `option ->
-              let annotmap, map =
-                OpaMapToIdent.typed_val ~label Api.Option.map annotmap env.gamma in
-              C.apply env.gamma annotmap map [f; expr]
-          | `dbset  ->
-              let annotmap, map =
-                OpaMapToIdent.typed_val ~label Api.DbSet.map annotmap env.gamma in
-              C.apply env.gamma annotmap map [f; expr]
-        in {env with annotmap}, r
-
   let path ~context
       ({gamma; schema; _} as env)
       (label, dbpath, kind, select)
@@ -708,12 +721,15 @@ struct
     match node.S.database.S.options.QD.backend with
     | `postgres ->
         begin
-          let setaccess_to_sqlacces tbl query =
+          let setaccess_to_sqlacces tbl query embed =
+            let ty = node.S.ty in
             match query with
             | None ->
-                `dbset, (query_to_sqlquery tbl None select, QD.default_query_options)
+                let post, query = query_to_sqlquery ~ty tbl None select embed in
+                `dbset, post, (query, QD.default_query_options)
             | Some (uniq, (q, o)) ->
-                (if uniq then `uniq else `dbset), (query_to_sqlquery tbl (Some q) select, o)
+                let post, query = query_to_sqlquery ~ty tbl (Some q) select embed in
+                (if uniq then `uniq else `dbset), post, (query, o)
           in
           let string_path () =
             List.map
@@ -751,13 +767,15 @@ struct
           match kind, node.S.kind with
           | QD.Default, S.SqlAccess query ->
               resolve_sqlaccess env node (`dbset, query)
-          | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, _) ->
-              let kpath, query = setaccess_to_sqlacces tbl query in
-              resolve_sqlaccess env node (kpath, query)
-          | QD.Option, S.SetAccess (S.DbSet _, [tbl], query, _) ->
-              let kpath, query = setaccess_to_sqlacces tbl query in
+          | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
+              let kpath, post, query = setaccess_to_sqlacces tbl query embed in
+              let env, access = resolve_sqlaccess env node (kpath, query) in
+              post env kpath access
+          | QD.Option, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
+              let kpath, post, query = setaccess_to_sqlacces tbl query embed in
               assert (kpath = `uniq);
-              resolve_sqlaccess env node (`option, query)
+              let env, access = resolve_sqlaccess env node (`option, query) in
+              post env kpath access
           | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, _) ->
               let query =
                 match query with
