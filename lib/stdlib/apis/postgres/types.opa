@@ -137,10 +137,29 @@ PostgresTypes = {{
     | (1184,{some=timestamptz}) -> {Timestamptz=timestamptz}
     | _ -> {BadDate=s}
 
-  getTextByteA(s:string) : Postgres.opatype =
-    if String.has_prefix("\\x",s)
-    then {Bytea=Binary.of_hex(String.sub(2,String.length(s)-2,s))}
-    else @fail("TODO: bytea escape format: {s}")
+  getBinByteA(bin:binary) : Postgres.opatype =
+    if Binary.get_int8(bin, 0) == 92 && Binary.get_int8(bin, 0) == 120
+    then // bytea hex format
+      {Bytea=Binary.of_hex(Binary.get_string(bin,2,Binary.length(bin)-2))}
+    else // bytea escape format
+      len = Binary.length(bin)
+      res = Binary.create(len)
+      rec aux(i) =
+        if i == len then void else
+        o = Binary.get_int8(bin, i)
+        if o == 92 then // \\
+          if Binary.get_int8(bin, i+1) == 92 then
+            do Binary.add_int8(res, 92)
+            aux(i+2)
+          else // \xxx
+            o = Int.of_string(Binary.get_string(bin, i+1, 3))
+            do Binary.add_int8(res, o)
+            aux(i+4)
+        else
+          do Binary.add_int8(res, o)
+          aux(i+1)
+      do aux(0)
+      {Bytea = res}
 
   @private comma = parser "," -> void
   @private lp(ep) = parser | "\{" l=Rule.parse_list_sep(false, ep, comma) "}" -> l
@@ -281,10 +300,12 @@ PostgresTypes = {{
     else
       match rowdesc.format_code with
       | 0 ->
-        text = string_of_binary(data)
         match rowdesc.type_id with
+        | 17 -> add(getBinByteA(data))
+        | tid ->
+        text = string_of_binary(data)
+        match tid with
         | 16 -> add({Bool=(text=="t")})
-        | 17 -> add(getTextByteA(text))
         | 20 -> add({Int64=Int64.of_string(text)})
         | 21 -> add({Int16=Int.of_string(text)})
         | 23 | 26 -> add({Int=Int.of_string(text)})
@@ -303,6 +324,7 @@ PostgresTypes = {{
         | 1186 -> add(getTextInterval(text))
         | 1700 -> add(getTextNumeric(text))
         | id -> add({TypeId=(id,~{text})})
+        end
         end
       | 1 ->
         // TODO: we also need codes for binary data
