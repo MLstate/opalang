@@ -2,6 +2,7 @@
 
 <browser_canvas>: traverse
 <crypto>: traverse
+<dns>: traverse
 <gcharts>: traverse
 <iconv>: traverse
 <mail>: traverse
