@@ -97,7 +97,7 @@ HttpRequest = {{
      * Return the internal cookie associated to a request.
      */
     get_internal_cookie(x: HttpRequest.request) : option(string) =
-      get_cookie(req, "ic")
+      get_cookie(x, "ic")
 
     /**
      * Try to get the "Accept-Language" header of a connexion
