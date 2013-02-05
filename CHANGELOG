@@ -23,6 +23,13 @@ Updated APIs:
     - added render_value function to Reactive.value, in order to render the value directly
     - more functions to Reactive.list
 
+  * HttpRequest
+    - get_cookie now takes a cookie name as a parameter, and returns an optional cookie value
+    - get_internal_cookie returns the Opa internal cookie
+
+  * Resource
+    - added httpOnly and expires to Resource.cookie_attributes type
+
 Bug fixes:
 
   * Iter:
@@ -32,7 +39,11 @@ Bug fixes:
     - Some bootstrap plugins are not cleaned because of a reflow problem
 
   * Spark
-    - remove at the proper index in Reactive.list
+    - remove at the proper index in Reactive.list, push at the begining
+
+  * HttpRequest
+    - Duplicate cookies will all be set
+    - header_get is case insensitive
 
 2012.12.10, Version 1.1.0 (stable), v4051
 
