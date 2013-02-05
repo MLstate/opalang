@@ -75,6 +75,7 @@ type ApigenLib.general_value =
  or {bool Numbool}
  or {xmlns Verbatim}
  or {list(ApigenLib.general_value) List}
+ or {ApigenLibXml.simple_seq Nested}
  or {Empty}
 
 type ApigenLibXml.simple_seq = list((string,ApigenLib.general_value))
@@ -1327,6 +1328,7 @@ function dbg(where) {
                  case {Base64:s}: mk([{text:Crypto.Base64.encode(binary_of_string(s))}]);
                  case {Numbool:b}: mk([{text:if (b) "1" else "0"}]);
                  case {~Verbatim}: Verbatim;
+                 case {~Nested}: mk(make_simple_sequence(namespace, Nested));
                  case {List:gvs}: mk(List.map(do_gv,gvs));
                  case {Empty}: mk([]);
                  }
