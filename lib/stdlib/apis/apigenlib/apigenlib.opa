@@ -81,7 +81,7 @@ type ApigenLib.general_value =
 type ApigenLibXml.simple_seq = list((string,ApigenLib.general_value))
 
 private (binary -> string) bindump = %% BslPervasives.bindump %%
-//private (string -> string) memdump = %% BslPervasives.memdump %%
+private (string -> string) memdump = %% BslPervasives.memdump %%
 
 function Ansi_print(colour, str) {
   Ansi.print(colour,str)
@@ -120,6 +120,11 @@ module ApigenOauth(OAuth.parameters params) {
     generic(base, path, f, parse_fun)
   }
 
+}
+
+type ApigenLib.logpkg = {
+  int debug,
+  (string -> void) logfn
 }
 
 module ApigenLib {
@@ -218,24 +223,54 @@ module ApigenLib {
     }
   }
 
+  function bool islog(ApigenLib.logpkg logpkg, level) { logpkg.debug >= level }
+  function void dolog(ApigenLib.logpkg logpkg, string msg) { logpkg.logfn(msg) }
+
+  private POSTstr = Ansi_print({magenta},"POST")
+  private function hdrstr(string hdr) {
+    match (String.explode(":",hdr)) {
+    case [hdr,text]: "{Ansi_print({blue},hdr)}: {text}";
+    case [hdr|rest]: "{Ansi_print({blue},hdr)}: {String.concat(":",rest)}";
+    default: hdr;
+    }
+  }
+
   /**
    * Make a HTTP POST on [path] at [base] with string [data]
    */
-  function POST_GENERIC(string base, string path, list((string,string)) options,
+  function POST_GENERIC(ApigenLib.logpkg logpkg, string base, string path, list((string,string)) options,
                         ApigenLib.auth auth, WebClient.Post.options(string) http_options, parse_fun) {
                         //ApigenLib.auth auth, WebClient.options(binary) http_options, parse_fun) {
     //API_libs_private.apijlog("POST {base}{path}\n{http_options.content}\n")
     final_path = generic_build_path("{base}{path}", options)
     match (Uri.of_string(final_path)) {
-    case {none}: {failure:{bad_path:final_path}};
+    case {none}:
+      if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Bad path {final_path}")}")
+      {failure:{bad_path:final_path}};
     case {some:uri}:
       //http_options = {http_options with method:"POST"}
       http_options = authentication(http_options, auth)
-      jlog("uri:{uri}\nhttp_options:{{http_options with content:none}}")
+      if (logpkg.debug >= 10) {
+        if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {POSTstr} {uri}")
+        if (islog(logpkg,11)) {
+           dolog(logpkg,"ApigenLib:   {hdrstr("Content-Type: {http_options.mimetype}")}")
+           List.iter(function (hdr) { dolog(logpkg,"ApigenLib:   {hdrstr(hdr)}") },http_options.custom_headers)
+        }
+        if (Option.is_some(http_options.content) && islog(logpkg,12))
+          dolog(logpkg,"ApigenLib:  content=\n{memdump(Option.get(http_options.content))}")
+      }
       match (WebClient.Post.try_post_with_options(uri,http_options)) {
       //match (WebClient.request(uri,http_options)) {
-      case {success:res}: jlog("res:{{res with content:"Binary"}}"); parse_fun(res)
-      case {failure:f}: {failure:{network:f}}
+      case {success:res}:
+        if (logpkg.debug >= 10) {
+          if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({magenta},"{res.code}")}")
+          if (islog(logpkg,11)) List.iter(function (hdr) { dolog(logpkg,"ApigenLib:   {hdrstr(hdr)}") },res.headers)
+          if (islog(logpkg,12)) dolog(logpkg,"ApigenLib:  content=\n{memdump(res.content)}")
+        }
+        parse_fun(res)
+      case {failure:f}:
+        if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Network failure {f}")}")
+        {failure:{network:f}}
       }
     }
   }
@@ -243,17 +278,17 @@ module ApigenLib {
   /**
    * Make a HTTP POST on [path] at [base] with string [content]
    */
-  function POST(base, path, options, content, auth, parse_fun) {
-    POST_GENERIC(base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
+  function POST(ApigenLib.logpkg logpkg, base, path, options, content, auth, parse_fun) {
+    POST_GENERIC(logpkg, base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
     //POST_GENERIC(base, path, options, auth, {WebClient.default_options with content:{some:content}}, parse_fun)
   }
 
   /**
    * Make a HTTP POST on [path] at [base] with form [data]
    */
-  function POST_FORM(base, path, options, data, auth, parse_fun) {
+  function POST_FORM(ApigenLib.logpkg logpkg, base, path, options, data, auth, parse_fun) {
     content = API_libs.form_urlencode(data)
-    POST_GENERIC(base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
+    POST_GENERIC(logpkg, base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
     //content = binary_of_string(API_libs.form_urlencode(data))
     //POST_GENERIC(base, path, options, auth, {WebClient.default_options with content:{some:content}}, parse_fun)
   }
@@ -261,9 +296,9 @@ module ApigenLib {
   /**
    * Make a HTTP POST on [path] at [base] with string [xmlns]
    */
-  function POST_XML(base, path, options, auth, custom_headers, xmlns, parse_fun) {
+  function POST_XML(ApigenLib.logpkg logpkg, base, path, options, auth, custom_headers, xmlns, parse_fun) {
     http_options = {WebClient.Post.default_options with mimetype:"text/xml", ~custom_headers, content:{some:xmlns}}
-    POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+    POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
     //headers = [("Content-Type","text/xml")|custom_headers]
     //http_options = {WebClient.default_options with ~headers, content:{some:xmlns}}
     //POST_GENERIC(base, path, options, auth, http_options, parse_fun)
@@ -272,11 +307,11 @@ module ApigenLib {
   /**
    * Make a HTTP POST on [path] at [base] with string [xmlns]
    */
-  function POST_WBXML(base, path, options, auth, custom_headers, wbxml, parse_fun) {
+  function POST_WBXML(ApigenLib.logpkg logpkg, base, path, options, auth, custom_headers, wbxml, parse_fun) {
     http_options = {WebClient.Post.default_options with mimetype:"application/vnd.ms-sync.wbxml",
                                                         ~custom_headers,
                                                         content:{some:wbxml}}
-    POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+    POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
     //headers = [("Content-Type","application/vnd.ms-sync.wbxml")|custom_headers]
     //http_options = {WebClient.default_options with ~headers, content:{some:wbxml}}
     //POST_GENERIC(base, path, options, auth, http_options, parse_fun)
@@ -502,7 +537,7 @@ module ApigenLib {
       match (context) {
       case {some:context}:
         //jlog("res.content:\n{memdump(res.content)}")
-        match (WBXml.to_xmlns({context with debug:1}, %%bslBinary.of_encoding%%(res.content,"binary"))) {
+        match (WBXml.to_xmlns(context, %%bslBinary.of_encoding%%(res.content,"binary"))) {
         //match (WBXml.to_xmlns({context with debug:2}, res.content)) {
         case {success:(_ctxt,xmlns)}:
           List.iter(function (header) {
@@ -1457,8 +1492,62 @@ function dbg(where) {
      })
   }
 
-  function string ptag(string tag) { Ansi_print({blue},tag) }
-  function string pxml(list(xmlns) content) { Ansi_print({cyan},String.concat("\n",List.map(Xmlns.to_string,content))) }
+  function o2bp(Parser.general_parser('a) prsr)(string str) { Option.is_some(Parser.try_parse(prsr,str)) }
+  function o2bf((string -> option('a)) prsr)(string str) { Option.is_some(prsr(str)) }
+  function parsematch(mtchs, string str) {
+    recursive function aux(mtchs) {
+      match (mtchs) {
+      case [(prsr, res)|mtchs]: if (prsr(str)) {some:res} else aux(mtchs);
+      case []: none;
+      }
+    }
+    aux(mtchs)
+  }
+
+  pblack = Ansi_print({black},_)
+  pr = Ansi_print({red},_)
+  pg = Ansi_print({green},_)
+  py = Ansi_print({yellow},_)
+  pb = Ansi_print({blue},_)
+  pm = Ansi_print({magenta},_)
+  pc = Ansi_print({cyan},_)
+  pw = Ansi_print({white},_)
+  ptag = pb
+  function strcolour(string str) {
+    match (parsematch([(o2bp(Rule.integer),{yellow}),
+                       (o2bp(Rule.hexadecimal_number),{cyan}),
+                       (o2bp(Rule.float),{green}),
+                       (o2bp(Rule.bool),{magenta}),
+                       (o2bf(ApigenLib.date_of_string2),{magenta}),
+                      ],String.trim(str))) {
+    case {some:colour}: Ansi_print(colour,str);
+    default: Ansi_print({white},str);
+    }
+  }
+  function nstag(string namespace, string tag) { if (namespace == "") pb(tag) else "{pc(namespace^":")}{pb(tag)}" }
+  function string pstag(string namespace, string tag) { "{pb("<")}{nstag(namespace,tag)}{pb(">")}" }
+  function string petag(string namespace, string tag) { "{pb("</")}{nstag(namespace,tag)}{pb(">")}" }
+  function string psetag(string namespace, string tag) { "{pb("<")}{nstag(namespace,tag)}{pb("/>")}" }
+  function string pxml(list(xmlns) content) { pc(String.concat("\n",List.map(Xmlns.to_string,content))) }
+  function string fxml(list(xmlns) content) {
+    recursive function aux(string sp, xmlns xmlns) {
+      match (xmlns) {
+      case {args:_, content:[], ~namespace, specific_attributes:_, ~tag, xmlns:_}:
+        "{sp}{psetag(namespace,tag)}\n";
+      case {args:_, content:[~{text}], ~namespace, specific_attributes:_, ~tag, xmlns:_}:
+        "{sp}{pstag(namespace,tag)}{strcolour(text)}{petag(namespace,tag)}\n";
+      case {args:_, content:[~{content_unsafe}], ~namespace, specific_attributes:_, ~tag, xmlns:_}:
+        "{sp}{pstag(namespace,tag)}{strcolour(content_unsafe)}{petag(namespace,tag)}\n";
+      case {args:_, ~content, ~namespace, specific_attributes:_, ~tag, xmlns:_}:
+        content = String.concat("",List.map(function (s) { "{sp}{s}" },List.map(aux("  ",_),content)))
+        "{sp}{pstag(namespace,tag)}\n{content}{sp}{petag(namespace,tag)}\n";
+      case ~{text}: if (String.trim(text) == "") "" else "{sp}{strcolour(text)}\n";
+      case ~{content_unsafe}: "{sp}{strcolour(content_unsafe)}\n";
+      default: pr("{sp}<weird xml>\n");
+      }
+    }
+    String.concat("",List.map(aux("",_),content))
+  }
 
   function find_tag(ttag, content) {
     List.find(function (xmlns) {
