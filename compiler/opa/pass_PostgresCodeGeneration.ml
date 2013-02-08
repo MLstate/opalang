@@ -735,7 +735,6 @@ struct
     pp2 ")RETURNS VOID AS\n";
     pp2 "$$\n";
     pp2 "BEGIN\n";
-    pp2 "  LOOP\n";
     pp2 "    %a " (pp_update ~tbl pp_expr) u;
     begin match q with
     | Some (q, _) -> pp_postgres_genquery pp_expr fmt2 q;
@@ -749,7 +748,6 @@ struct
     pp2 "      %a;\n" (pp_insert env ~tbl pp_expr) u;
     pp2 "    EXCEPTION WHEN unique_violation THEN\n";
     pp2 "    END;\n";
-    pp2 "  END LOOP;\n";
     pp2 "END;\n";
     pp2 "$$\n";
     pp2 "LANGUAGE plpgsql;\n";
