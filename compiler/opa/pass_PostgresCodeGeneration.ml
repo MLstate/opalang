@@ -179,7 +179,16 @@ struct
     if is_pg_keyworkds s then Format.fprintf fmt "\"%s\"" s
     else Format.pp_print_string fmt s
 
-  let pp_pgfields = Format.pp_list "." pp_pgfield
+  let pp_pgfields ?(paren=true) fmt l = match paren, l with
+    | true, (t::q'::q) ->
+        Format.fprintf fmt "(%a).%a"
+          pp_pgfield t
+          (Format.pp_list "." pp_pgfield) (q'::q)
+    | _ -> (Format.pp_list "." pp_pgfield) fmt l
+
+  let pp_pgqfields fmt fields =
+    pp_pgfields ~paren:true fmt
+      (List.map (function | `string s -> s | _ -> assert false) fields)
 
   let pp_pgname = pp_pgfield
 
@@ -237,10 +246,6 @@ struct
         "Can't generates postgres access because : %s is not yet implemented"
         s
 
-  let pp_postgres_field =
-    Format.pp_list "."
-      (fun fmt -> function | `string s -> pp_pgfield fmt s | _ -> assert false)
-
   let pp_table_name = (Format.pp_list "_" Format.pp_print_string)
 
   let opa_to_data
@@ -278,14 +283,23 @@ struct
     | None ->
         match get_pg_native_type env.gamma ty with
         | Some (_, t) -> Format.pp_print_string fmt t
-        | None ->
-            Format.eprintf "At path %a\n%!" pp_pgfields path;
-            raise Not_found
+        | None -> raise Not_found
 
 
   (* ******************************************************)
   (* QUERYING *********************************************)
   (* ******************************************************)
+  let flatten_qfields flds =
+    let rec aux rpath acc flds =
+      List.fold_left
+        (fun acc (s, u) ->
+           let s = match s with [`string s] -> s | _ -> assert false in
+           match u with
+           | QD.QFlds flds -> aux (s::rpath) acc flds
+           | u -> (List.rev (s::rpath), u)::acc)
+        acc flds
+    in aux [] [] flds
+
   let preprocess_query ~tbl ({gamma; annotmap; ty_init; _} as env) q =
     let rec aux path (annotmap, bindings) q =
       match StringListMap.find_opt (List.rev path) ty_init with
@@ -376,18 +390,20 @@ struct
             aux q0
             aux q1
       | QD.QNot  _     -> assert false
-      | QD.QFlds [(f, q)] ->
-          pp "%a %a"
-            pp_postgres_field f
-            aux q
       | QD.QFlds flds  ->
-          pp "(%a)"
-            (Format.pp_list " AND "
-               (fun _fmt (f, q) ->
-                  pp "%a %a"
-                    pp_postgres_field f
-                    aux q
-               )) flds
+          match flatten_qfields flds with
+          | [f,q] ->
+              pp "%a %a"
+                (pp_pgfields ~paren:true) f
+                aux q
+          | flds ->
+              pp "(%a)"
+                (Format.pp_list " AND "
+                   (fun _fmt (f, q) ->
+                      pp "%a %a"
+                        (pp_pgfields ~paren:true) f
+                        aux q
+                   )) flds
     in
     match q with
     | QD.QFlds [] -> ()
@@ -403,7 +419,7 @@ struct
     (match q.QD.sql_fds with
      | [] -> pp "* "
      | _ ->
-         BaseFormat.pp_list "," (BaseFormat.pp_list "." Format.pp_print_string)
+         BaseFormat.pp_list "," (BaseFormat.pp_list "." pp_pgfield)
            fmt q.QD.sql_fds
     );
     pp " FROM ";
@@ -414,7 +430,7 @@ struct
         pp_postgres_genquery
           (fun _ fmt -> function
            | `expr _ -> incr pos; Format.fprintf fmt "$%d" !pos
-           | `bind s -> Format.pp_print_string fmt s
+           | `bind s -> pp_pgfield fmt s
           ) fmt sql_ops
 
   let prepared_statement_for_query =
@@ -559,7 +575,7 @@ struct
     let (annotmap, bindings), u = aux [tbl] (annotmap, []) u in
     {env with annotmap}, bindings, u
 
-  let flatten_fields flds =
+  let flatten_ufields flds =
     let rec aux rpath acc flds =
       List.fold_left
         (fun acc (s, u) ->
@@ -598,18 +614,18 @@ struct
     Format.fprintf fmt "UPDATE %a SET " pp_pgname tbl;
     match u with
     | QD.UFlds flds ->
-        let flds = flatten_fields flds in
+        let flds = flatten_ufields flds in
         Format.pp_list ","
           (fun fmt (p, u) ->
              match u with
              | QD.UIncr e ->
                  Format.fprintf fmt "%a = %a + %a"
-                   pp_pgfields p
-                   pp_pgfields p
+                   (pp_pgfields ~paren:false) p
+                   (pp_pgfields ~paren:false) p
                    (pp_expr (tbl::p)) e
              | QD.UExpr e ->
                  Format.fprintf fmt "%a = %a"
-                   pp_pgfields p
+                   (pp_pgfields ~paren:false) p
                    (pp_expr (tbl::p)) e
              | _ -> assert false
           ) fmt flds
@@ -652,7 +668,7 @@ struct
                           | Some n ->
                               aux (s::path) n)
                     ) flds
-              | _ -> Format.eprintf "Not found %a : %a\n%!" pp_pgfields path (StringListMap.pp ":::" (fun fmt k _ -> pp_pgfields fmt k)) env.ty_init; assert false (* ? *)
+              | _ -> assert false (* ? *)
         in
         let start = ref true in
         StringMap.pp ""
