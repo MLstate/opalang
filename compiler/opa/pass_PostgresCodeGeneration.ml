@@ -302,8 +302,13 @@ struct
                   ) annotmap flds
                 in C.record annotmap flds
             | _ -> assert false
-          in let annotmap, e = to_expr annotmap q in
-          (annotmap, bindings), QD.QEq (e:Q.expr)
+          in begin match q with
+          | QD.QEq _ | QD.QGt _ | QD.QLt _ | QD.QIn _
+          | QD.QGte _ | QD.QLte _ | QD.QNe _ -> (annotmap, bindings), q
+          | q ->
+              let annotmap, e = to_expr annotmap q in
+              (annotmap, bindings), QD.QEq (e:Q.expr)
+          end
       | Some `foreign _ -> assert false
       | _ -> (
           match q with
