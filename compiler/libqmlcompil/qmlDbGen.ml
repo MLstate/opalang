@@ -374,11 +374,28 @@ module Schema = struct
       in
       fun ?select annotmap ->
       let (annotmap2, expr) =
-        DbGen_private.Default.expr
-          ?select
-          annotmap
-          llschema
-          node
+        match kind with
+        | SqlAccess ({DbAst. sql_tbs; sql_fds; _}, _) ->
+            let annotmap2, fields = List.fold_left
+              (fun (annotmap2, acc) table ->
+                 let node = next llschema node (DbAst.FldKey table) in
+                 let node = SchemaGraphLib.SchemaGraph.unique_next llschema node in
+                 let sql_fds = List.map List.hd sql_fds in
+                 let annotmap2', def = DbGen_private.Default.expr annotmap llschema node in
+                 let annotmap2 = QmlAnnotMap.merge annotmap2 annotmap2' in
+                 match def with
+                 | QmlAst.Record (_, flds) ->
+                     (annotmap2, (List.filter (fun (s, _) -> List.mem s sql_fds) flds) :: acc)
+                 | _ -> assert false
+              ) (QmlAnnotMap.empty, []) sql_tbs
+            in
+            QmlAstCons.TypedExpr.record annotmap2 (List.flatten fields)
+        | _ ->
+            DbGen_private.Default.expr
+              ?select
+              annotmap
+              llschema
+              node
       in
       QmlAnnotMap.merge annotmap annotmap2, expr
     in
