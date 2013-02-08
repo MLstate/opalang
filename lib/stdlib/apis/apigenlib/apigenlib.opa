@@ -296,8 +296,13 @@ module ApigenLib {
   /**
    * Make a HTTP POST on [path] at [base] with string [xmlns]
    */
-  function POST_XML(ApigenLib.logpkg logpkg, base, path, options, auth, custom_headers, xmlns, parse_fun) {
+  function POST_XML(ApigenLib.logpkg logpkg, base, path, options, timeout, auth, custom_headers, xmlns, parse_fun) {
     http_options = {WebClient.Post.default_options with mimetype:"text/xml", ~custom_headers, content:{some:xmlns}}
+    http_options =
+      match (timeout) {
+      case {none}: http_options;
+      case timeout_sec: {http_options with ~timeout_sec};
+      }
     POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
     //headers = [("Content-Type","text/xml")|custom_headers]
     //http_options = {WebClient.default_options with ~headers, content:{some:xmlns}}
@@ -307,10 +312,15 @@ module ApigenLib {
   /**
    * Make a HTTP POST on [path] at [base] with string [xmlns]
    */
-  function POST_WBXML(ApigenLib.logpkg logpkg, base, path, options, auth, custom_headers, wbxml, parse_fun) {
+  function POST_WBXML(ApigenLib.logpkg logpkg, base, path, options, timeout, auth, custom_headers, wbxml, parse_fun) {
     http_options = {WebClient.Post.default_options with mimetype:"application/vnd.ms-sync.wbxml",
                                                         ~custom_headers,
                                                         content:{some:wbxml}}
+    http_options =
+      match (timeout) {
+      case {none}: http_options;
+      case timeout_sec: {http_options with ~timeout_sec};
+      }
     POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
     //headers = [("Content-Type","application/vnd.ms-sync.wbxml")|custom_headers]
     //http_options = {WebClient.default_options with ~headers, content:{some:wbxml}}
