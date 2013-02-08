@@ -453,7 +453,7 @@ struct
 
   let execute_statement
       ({gamma; annotmap; q_prepared; _} as env)
-      node (kpath, query) =
+      next node (kpath, query) =
     let qid, _ = try QueryMap.find query q_prepared with
         Not_found -> OManager.i_error "Can't found prepared statement"
     in
@@ -493,8 +493,36 @@ struct
             | _ -> env, args
           in
           match sql_tbs with
+          | [] -> assert false
           | [tbl] -> aux env [tbl] [] sql_ops
-          | _ -> OManager.i_error "Not yet implemented\n%!"
+          | _ ->
+              let table_from_field =
+                let map = List.fold_left
+                  (fun map tbl ->
+                     let ty =
+                       let dty = match (next tbl).S.kind with
+                         | S.SetAccess (S.DbSet ty, _, _, _) -> ty
+                         | _ -> assert false
+                       in
+                       QmlTypesUtils.Inspect.follow_alias_noopt_private gamma dty
+                     in
+                     match ty with
+                     | Q.TypeRecord (Q.TyRow (flds, _)) ->
+                         List.fold_left
+                           (fun map (f, _) -> StringMap.add f tbl map)
+                           map flds
+                     | _ -> assert false
+                  ) StringMap.empty sql_tbs
+                in fun field -> StringMap.find field map
+              in
+              match sql_ops with
+              | QD.QFlds flds ->
+                  List.fold_left
+                    (fun (env, args) (f, q) ->
+                       let s = match f with [`string s] -> s | _ -> assert false in
+                       aux env [table_from_field s; s] args q)
+                    (env, []) flds
+              | _ -> assert false
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
     let annotmap, def = node.S.default annotmap in
@@ -920,10 +948,10 @@ struct
     in
     postproj, {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds}
 
-  let resolve_sqlaccess env node (kpath, query) =
+  let resolve_sqlaccess env next node (kpath, query) =
     (* TODO  - Prepare for uniq ? *)
     let env = prepared_statement_for_query env query in
-    execute_statement env node (kpath, query)
+    execute_statement env next node (kpath, query)
 
   let resolve_sqlupdate ~tbl env node query embed (upd, opt) =
     let upd = match embed with
@@ -998,18 +1026,29 @@ struct
             node,
             ({QD. sql_ops=None; sql_tbs=["_default"]; sql_fds=[path]}, QD.default_query_options)
           in
+          let next s =
+            get_node ~context gamma schema (dbpath@[QD.FldKey s])
+          in
+          let next_for_sql s =
+            let rec aux = function
+              | t::_::[] -> t::QD.FldKey s::[]
+              | t::q -> t::(aux q)
+              | _ -> assert false
+            in
+            get_node ~context gamma schema (aux dbpath)
+          in
           match kind, node.S.kind with
           | QD.Default, S.SqlAccess query ->
-              resolve_sqlaccess env node (`dbset, query)
+              resolve_sqlaccess env next_for_sql node (`dbset, query)
           | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
               let env, bindings, kpath, post, query = setaccess_to_sqlacces tbl env query embed in
-              let env, access = resolve_sqlaccess env node (kpath, query) in
+              let env, access = resolve_sqlaccess env next node (kpath, query) in
               let env, access = letins bindings (env, access) in
               post env kpath access
           | QD.Option, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
               let env, bindings, kpath, post, query = setaccess_to_sqlacces tbl env query embed in
               assert (kpath = `uniq);
-              let env, access = resolve_sqlaccess env node (`option, query) in
+              let env, access = resolve_sqlaccess env next node (`option, query) in
               let env, access = letins bindings (env, access) in
               post env kpath access
 
@@ -1019,11 +1058,11 @@ struct
 
           | QD.Default, S.Plain ->
               let post, node, query = plain_to_sqlaccess node in
-              let env, access = resolve_sqlaccess env node (`uniq, query) in
+              let env, access = resolve_sqlaccess env next node (`uniq, query) in
               post env `uniq access
           | QD.Option, S.Plain ->
               let post, node, query = plain_to_sqlaccess node in
-              let env, access = resolve_sqlaccess env node (`option, query) in
+              let env, access = resolve_sqlaccess env next node (`option, query) in
               post env `option access
           | QD.Update (upd, opt), S.Plain ->
               let strpath = string_path () in
