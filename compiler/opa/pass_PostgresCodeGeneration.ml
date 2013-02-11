@@ -49,6 +49,8 @@ module UpdateMap = BaseMap.Make(
 )
 
 type env = {
+  ty_init : [ `foreign of string | `type_ of (string * string) ] StringListMap.t;
+  (* List of queries which create table *)
   tb_init : string list;
   (* (id of prepared statement, string query) *)
   q_prepared : (string * string) QueryMap.t;
@@ -64,6 +66,7 @@ struct
 
   let make_env gamma annotmap schema = {
     tb_init = ["CREATE LANGUAGE plpgsql"];
+    ty_init = StringListMap.empty;
     q_prepared = QueryMap.empty;
     u_prepared = UpdateMap.empty;
     gamma; annotmap; schema;
@@ -80,6 +83,8 @@ struct
   let pp_postgres_field =
     Format.pp_list "."
       (fun fmt -> function | `string s -> Format.pp_print_string fmt s | _ -> assert false)
+
+  let pp_table_name = (Format.pp_list "_" Format.pp_print_string)
 
   let opa_to_data gamma annotmap expr =
     let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr expr)) annotmap in
@@ -143,12 +148,20 @@ struct
     let annotmap, pgdb = C.apply gamma annotmap open_ [name; tables; statements; queries] in
     {env with annotmap}, pgdb
 
-  let pp_type_as_pgtype fmt ty =
-    match ty with
-    | Q.TypeConst Q.TyFloat  -> Format.fprintf fmt "FLOAT8"
-    | Q.TypeConst Q.TyInt    -> Format.fprintf fmt "INT"
-    | Q.TypeConst Q.TyString -> Format.fprintf fmt "TEXT"
-    | _ -> raise Not_found
+  let pp_type_as_pgtype ?(path=[]) env fmt ty =
+    match StringListMap.find_opt path env.ty_init with
+    | Some (`foreign _) -> assert false
+    | Some (`type_ (name,_)) -> Format.pp_print_string fmt name
+    | None ->
+        match QmlTypesUtils.Inspect.follow_alias_noopt_private env.gamma ty with
+        | Q.TypeConst Q.TyFloat  -> Format.fprintf fmt "FLOAT8"
+        | Q.TypeConst Q.TyInt    -> Format.fprintf fmt "INT8"
+        | Q.TypeConst Q.TyString -> Format.fprintf fmt "TEXT"
+        | _ ->
+            Format.eprintf "Not_found path [%a]:%a\n%!"
+              (Format.pp_list "," Format.pp_print_string) path
+              QmlPrint.pp#ty ty;
+            raise Not_found
 
   (* ******************************************************)
   (* QUERYING *********************************************)
@@ -370,7 +383,7 @@ struct
       let pp_elt fmt a =
         Format.fprintf fmt "%a %a"
           pp_annot a
-          pp_type_as_pgtype (QmlAnnotMap.find_ty a annotmap)
+          (pp_type_as_pgtype env) (QmlAnnotMap.find_ty a annotmap)
       in
       let max = AnnotSet.max_elt !aset in
       let set = AnnotSet.remove max !aset in
@@ -393,7 +406,7 @@ struct
         let buffer = Buffer.create 256 in
         let fmt = Format.formatter_of_buffer buffer in
         let uid = fresh_id () in
-        pp_postgres_insert_or_update annotmap ~name:uid ~tbl fmt query update;
+        pp_postgres_insert_or_update env ~name:uid ~tbl fmt query update;
         (* TODO OPTIONS *)
         ignore (update_options);
         Format.pp_print_flush fmt ();
@@ -517,15 +530,51 @@ struct
   let table
       ({gamma; tb_init; _} as env)
       path ty lidx =
-    let rec table_from_ty ty =
+    Format.eprintf "Generating table %a with %a\n%!"
+      pp_table_name path
+      QmlPrint.pp#ty ty;
+    let rec type_from_ty env tpath ty =
+      match ty with
+      | Q.TypeRecord Q.TyRow (fields, _) ->
+          let tra env = List.fold_left
+            (fun env (s, t) -> type_from_ty env (s::tpath) t)
+            env fields
+          in
+          begin match tpath with
+          | [] -> tra env (*First level: don't create a composite type *)
+          | _ ->
+              let env = tra env in
+              let buffer = Buffer.create 256 in
+              let fmt = Format.formatter_of_buffer buffer in
+              let tpath = List.rev (tpath@path) in
+              let name = Format.sprintf "%a" pp_table_name tpath in
+              Format.fprintf fmt "CREATE TYPE %s AS (" name;
+              Format.pp_list ","
+                (fun fmt (s, t) ->
+                   Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(tpath@[s]) env) t;
+                ) fmt fields;
+              Format.fprintf fmt ")";
+              Format.pp_print_flush fmt ();
+              let q = Buffer.contents buffer in
+              Format.eprintf "Added path [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
+              {env with ty_init = StringListMap.add tpath (`type_ (name, q)) env.ty_init}
+          end
+      | Q.TypeName _ ->
+          type_from_ty env tpath (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty)
+      | Q.TypeConst _ -> env
+      | _ -> OManager.i_error
+          "Type %a is not yet handled by postgres generator\n"
+            QmlPrint.pp#ty ty
+    in
+    let rec table_from_ty env ty =
       match ty with
       | Q.TypeRecord Q.TyRow (fields , None) ->
           let buffer = Buffer.create 256 in
           let fmt = Format.formatter_of_buffer buffer in
           Format.fprintf fmt "CREATE TABLE %a("
-            (Format.pp_list "_" Format.pp_print_string) path;
+            pp_table_name path;
           let rec aux_field fmt (s, ty) =
-            Format.fprintf fmt "%s %a" s pp_type_as_pgtype ty
+            Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(List.rev (s::path)) env) ty
           in
           let env = List.fold_left
             (fun env (field, ty) ->
@@ -543,10 +592,10 @@ struct
           {env with tb_init = (Buffer.contents buffer)::tb_init}
       | Q.TypeRecord _ -> assert false
       | Q.TypeName _ ->
-          table_from_ty (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty)
+          table_from_ty env (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty)
       | _ -> assert false
     in
-    table_from_ty ty
+    table_from_ty (type_from_ty env [] ty) ty
 
 end
 
