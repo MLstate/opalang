@@ -304,15 +304,15 @@ sqlquery_fields <- (=list1(sqlquery_field, Opa_parser.record_fields_separator)):
 *)
 sqlfield <- (=list1(Opa_lexer.field_identifier_nosp,".")):l {{ l }}
 
-sqlfields <- (=list1(sqlfield, Opa_lexer.comma))
+sqlfields <- (=list1(spacing sqlfield:s {{s}}, Opa_lexer.comma))
 
 sqltables <- (=list1(spacing Opa_lexer.field_identifier_nosp:s {{s}}, Opa_lexer.comma))
 
 ;/** SQL Query **/
 sqlquery1 <-
-  (=Opa_lexer.exact_keyword("SELECT")) spacing sqlfields:f spacing
-  (=Opa_lexer.exact_keyword("FROM")) spacing sqltables:t spacing
-  ((=Opa_lexer.exact_keyword("WHERE")) spacing sqlquery:q spacing {{q}})?:q
+  spacing (=Opa_lexer.exact_keyword("SELECT"~)) spacing sqlfields:f spacing
+          (=Opa_lexer.exact_keyword("FROM"~)) spacing sqltables:t spacing
+          ((=Opa_lexer.exact_keyword("WHERE"~)) spacing sqlquery:q spacing {{q}})?:q
   {{
      {QmlAst.Db.sql_ops = q; sql_fds = f; sql_tbs = t}
   }}
