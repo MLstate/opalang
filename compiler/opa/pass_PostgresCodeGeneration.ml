@@ -114,14 +114,47 @@ struct
       {env with annotmap; prepared}
 
   let execute_statement
-      ({annotmap; prepared; _} as env)
-      query =
+      ({gamma; annotmap; prepared; _} as env)
+      node query =
     let qid, _ = try QueryMap.find query prepared with
         Not_found -> OManager.i_error "Can't found prepared statement"
     in
+    let annotmap, database =
+      C.ident annotmap node.S.database.S.ident node.S.database.S.dbty in
     let annotmap, qid = C.string annotmap qid in
-    {env with annotmap}, qid
-
+    let annotmap, args = (* see type Pack.u *)
+      QmlAstWalk.DbWalk.Query.fold
+        (fun ((annotmap, args) as acc) -> function
+         | QD.QEq     (`expr e)
+         | QD.QGt     (`expr e)
+         | QD.QLt     (`expr e)
+         | QD.QGte    (`expr e)
+         | QD.QLte    (`expr e)
+         | QD.QNe     (`expr e)
+         | QD.QIn     (`expr e) ->
+             let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr e)) annotmap in
+             begin match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+             | Q.TypeConst c ->
+                 let fld = match c with
+                   | Q.TyNull   -> assert false
+                   | Q.TyFloat  -> "Float"
+                   | Q.TyInt    -> "Int"
+                   | Q.TyString -> "Cstring"
+                 in
+                 let annotmap, arg = C.record annotmap [fld, e] in
+                 annotmap, arg::args
+             | ty -> OManager.i_error "expression of type @{<bright>%a@} in sql query are not yet implemented or unexpected" QmlPrint.pp#ty ty
+             end
+         | _ -> acc
+        ) (annotmap, []) (fst query).QD.sql_ops
+    in
+    let annotmap, args = C.list (annotmap, gamma) args in
+    let annotmap, build =
+      OpaMapToIdent.typed_val ~label ~ty:[node.S.ty]
+        Api.Db.build_dbset annotmap gamma
+    in
+    let annotmap, dbset = C.apply gamma annotmap build [database; qid; args] in
+    {env with annotmap}, dbset
 
   let path ~context
       ({schema; _} as env)
@@ -134,7 +167,7 @@ struct
           match node.S.kind with
           | S.SqlAccess query ->
               let env = prepared_statement env query in
-              execute_statement env query
+              execute_statement env node query
           | _ -> assert false
         end
     | _ -> env, Q.Path (label, dbpath, kind, select)
