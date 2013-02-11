@@ -670,20 +670,22 @@ struct
     in
     let sql_fds =
       match select with
-      | QD.SNil  |QD.SId _ | QD.SSlice _->
-          OManager.error "This kind of projection is not yet implemented by PG driver"
-      | QD.SStar -> []
+      | QD.SId _ | QD.SSlice _->
+          OManager.printf "This kind of projection is not yet implemented by PG driver";
+          assert false
+      | QD.SStar | QD.SNil -> []
       | QD.SFlds flds ->
           List.map
             (fun (field, s) ->
                begin match s with
                | QD.SStar | QD.SNil -> ()
-               | _ -> OManager.error "This kind of projection is not yet implemented by PG driver"
+               | _ -> OManager.printf "This kind of projection is not yet implemented by PG driver";
+                   assert false
                end;
                tbl::
                  (List.map
                     (function `string s -> s
-                     | _ -> OManager.error "This kind of projection is not yet implemented by PG driver"
+                     | _ -> OManager.printf "This kind of projection is not yet implemented by PG driver"; assert false
                     ) field
                  )
             ) flds
@@ -1008,14 +1010,14 @@ end
 let process_path env code =
   let fmap tra env = function
     | Q.Path (label, path, kind, select) as expr ->
-        (try
+        (* (try *)
           let context = QmlError.Context.annoted_expr env.annotmap expr in
           let env, result =
             Generator.path ~context env (label, path, kind, select) in
           tra env result
-        with e ->
-          OManager.serror "Error while generates postgres path: %a\n" QmlPrint.pp#expr expr;
-          raise e)
+        (* with e -> *)
+        (*   OManager.serror "Error while generates postgres path: %a\n" QmlPrint.pp#expr expr; *)
+        (*   raise e) *)
     | e -> tra env e
   in
   QmlAstWalk.CodeExpr.fold_map

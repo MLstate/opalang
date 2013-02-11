@@ -248,20 +248,53 @@ Postgres = {{
   /** The default minor version of the protocol, you shouldn't ever have to set this */
   default_minor_version = Pg.default_minor_version
 
-  pack(data: Postgres.data): Pack.u =
+  @private
+  pack_string_array(l):(int, Pack.u) =
+    // Expected size if no escaping
+    size = List.fold_left(size, str -> String.byte_length(str) + size + 3, 1, l)
+    bin = Binary.create(size)
+    rec aux_string(s, size, last, current) =
+      if current == size then
+        if last == 0 then Binary.add_string(bin, s)
+        else Binary.add_string(bin, String.substring(last, current - last, s))
+      else
+        c = String.char_at(s, current)
+        if c == '\"' then
+          do Binary.add_string(bin, "\"\"")
+          aux_string(s, size, current+1, current+1)
+        else aux_string(s, size, last, current+1)
+    rec aux =
+      | [] -> void
+      | [s] ->
+        do Binary.add_string(bin, "\"")
+        do aux_string(s, String.length(s), 0, 0)
+        Binary.add_string(bin, "\"")
+      | [t|q] ->
+        do Binary.add_string(bin, "\"")
+        do aux_string(t, String.length(t), 0, 0)
+        do Binary.add_string(bin, "\"")
+        do Binary.add_string(bin, ",")
+        aux(q)
+    do Binary.add_string(bin, "\{")
+    do aux(l)
+    do Binary.add_string(bin, "}")
+    (0, {Binary = bin})
+
+  pack(data: Postgres.data): (int, Pack.u) =
     match data with
-    | {Null}      -> {Int = -1}
-    | ~{Int}      -> ~{Int}
-    | ~{Int16}    -> {Int=Int16 size={S}}
-    | ~{Int64}    -> ~{Int64}
-    | ~{Bool}     -> ~{Bool}
-    | {String=s}   -> {Binary = Binary.of_string(s)}
-    | ~{Real}     -> {Float32 = Real}
-    | ~{Float}    -> ~{Float}
-    | ~{Bytea}    -> {Binary = Bytea}
-    | {Date=d}    -> {Int=Date.in_milliseconds(d) size={S}}
-    | {Time=d}    -> {Int=Date.in_milliseconds(d)}
-    | {Timestamp=d} -> {Int=Date.in_milliseconds(d)}
+    | {Null}      -> (1, {Int = -1})
+    | ~{Int}      -> (1, ~{Int})
+    | ~{Int16}    -> (1, {Int=Int16 size={S}})
+    | ~{Int64}    -> (1, ~{Int64})
+    | ~{Bool}     -> (1, ~{Bool})
+    | {String=s}  -> (1, {Binary = Binary.of_string(s)})
+    | ~{Real}     -> (1, {Float32 = Real})
+    | ~{Float}    -> (1, ~{Float})
+    | ~{Bytea}    -> (1, {Binary = Bytea})
+    | {Date=d}    -> (1, {Int=Date.in_milliseconds(d) size={S}})
+    | {Time=d}    -> (1, {Int=Date.in_milliseconds(d)})
+    | {Timestamp=d} -> (1, {Int=Date.in_milliseconds(d)})
+    | {StringArray1=l} -> pack_string_array(l)
     | {Duration=_}
     | {Timestamptz=_}
     | {Money=_}
@@ -281,7 +314,6 @@ Postgres = {{
     | {FloatArray1=_}
     | {FloatArray2=_}
     | {FloatArray3=_}
-    | {StringArray1=_}
     | {StringArray2=_}
     | {StringArray3=_}
     | {TypeId=_}
@@ -298,13 +330,14 @@ Postgres = {{
    * @param data The value to serialize
    / @return The serialized reprensentation of [data]
    */
-  serialize(data:Postgres.data): binary =
-    match pack(data) with
+  serialize(data:Postgres.data): (int, binary) =
+    (code, data) = pack(data)
+    (code, match data with
     | ~{Binary} -> Binary
     | pdata ->
       x = Binary.create(Pack.Encode.packlen([pdata]))
       _ = Pack.Encode.pack_u(x, false, false, {S}, pdata)
-      x
+      x)
 
   /**
    * Returns the name of the database
@@ -635,8 +668,9 @@ Postgres = {{
    */
   bind(conn:Postgres.connection, portal, name, params:list(Postgres.data)) : Postgres.connection =
     params = List.map(serialize, params)
+    (codes, params) = List.unzip(params)
     conn = init_conn(conn, "Bind({name},{portal})")
-    match Pg.bind({success=conn.conn}, (portal, name, [1], params, [0])) with
+    match Pg.bind({success=conn.conn}, (portal, name, codes, params, [0])) with
     | {success=c} ->
       conn = {conn with conn=c}
       final(conn,{final={success=conn}}, void, ignore_listener).f1
