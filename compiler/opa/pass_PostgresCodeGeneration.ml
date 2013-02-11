@@ -515,14 +515,21 @@ struct
                   ) StringMap.empty sql_tbs
                 in fun field -> StringMap.find field map
               in
-              match sql_ops with
-              | QD.QFlds flds ->
-                  List.fold_left
-                    (fun (env, args) (f, q) ->
-                       let s = match f with [`string s] -> s | _ -> assert false in
-                       aux env [table_from_field s; s] args q)
-                    (env, []) flds
-              | _ -> assert false
+              let rec aux0 sql_ops acc =
+                let binop q0 q1 acc =
+                  aux0 q1 (aux0 q0 acc)
+                in
+                match sql_ops with
+                | QD.QFlds flds ->
+                    List.fold_left
+                      (fun (env, args) (f, q) ->
+                         let s = match f with [`string s] -> s | _ -> assert false in
+                         aux env [table_from_field s; s] args q)
+                      acc flds
+                | QD.QAnd (q0, q1)
+                | QD.QOr (q0, q1) -> binop q0 q1 acc
+                | _ -> assert false
+              in aux0 sql_ops (env, [])
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
     let annotmap, def = node.S.default annotmap in
