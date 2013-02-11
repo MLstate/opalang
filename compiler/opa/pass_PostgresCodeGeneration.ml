@@ -78,33 +78,61 @@ struct
     Format.pp_list "."
       (fun fmt -> function | `string s -> Format.pp_print_string fmt s | _ -> assert false)
 
+  let opa_to_data gamma annotmap expr =
+    let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr expr)) annotmap in
+    match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+    | Q.TypeConst c ->
+        let fld = match c with
+          | Q.TyNull   -> assert false
+          | Q.TyFloat  -> "Float"
+          | Q.TyInt    -> "Int"
+          | Q.TyString -> "String"
+        in
+        C.record annotmap [fld, expr]
+    | ty -> OManager.i_error
+        "expression of type @{<bright>%a@} in sql query are not yet implemented or unexpected"
+          QmlPrint.pp#ty ty
+
   let database
       ({gamma; annotmap; q_prepared; u_prepared; _} as env)
       name =
     let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
     let annotmap, name = C.string annotmap name in
     let annotmap, statements =
-      let f = fun _prepared (qid, query) (annotmap, statements) ->
-        let annotmap, qid = C.string annotmap qid in
-        let annotmap, query = C.string annotmap query in
-        (* TODO: Optimized types *)
-        let annotmap, types = C.list (annotmap, gamma) [] in
-        let annotmap, statement =
-          C.record annotmap [
-            "id", qid;
-            "query", query;
-            "types", types;
-          ]
-        in
-        annotmap, statement::statements
-      in
       let annotmap, statements =
-        QueryMap.fold f q_prepared (annotmap, []) in
-      let annotmap, statements =
-        UpdateMap.fold f u_prepared (annotmap, statements) in
+        QueryMap.fold
+          (fun _prepared (qid, query) (annotmap, statements) ->
+             let annotmap, qid = C.string annotmap qid in
+             let annotmap, query = C.string annotmap query in
+             (* TODO: Optimized types *)
+             let annotmap, types = C.list (annotmap, gamma) [] in
+             let annotmap, statement =
+               C.record annotmap [
+                 "id", qid;
+                 "query", query;
+                 "types", types;
+               ]
+             in
+             annotmap, statement::statements
+          ) q_prepared (annotmap, []) in
       C.list (annotmap, gamma) statements
     in
-    let annotmap, pgdb = C.apply gamma annotmap open_ [name; statements] in
+    let annotmap, queries =
+      let annotmap, queries =
+        UpdateMap.fold
+          (fun _ (_, query) (annotmap, queries) ->
+             let annotmap, query = C.string annotmap query in
+             let annotmap, query =
+               C.record annotmap [
+                 "query", query;
+               ]
+             in
+             annotmap, query::queries
+          ) u_prepared (annotmap, [])
+      in
+      C.list (annotmap, gamma) queries
+    in
+    let annotmap, pgdb = C.apply gamma annotmap open_ [name; statements; queries] in
     {env with annotmap}, pgdb
 
 
@@ -206,19 +234,8 @@ struct
          | QD.QLte    (`expr e)
          | QD.QNe     (`expr e)
          | QD.QIn     (`expr e) ->
-             let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr e)) annotmap in
-             begin match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
-             | Q.TypeConst c ->
-                 let fld = match c with
-                   | Q.TyNull   -> assert false
-                   | Q.TyFloat  -> "Float"
-                   | Q.TyInt    -> "Int"
-                   | Q.TyString -> "Cstring"
-                 in
-                 let annotmap, arg = C.record annotmap [fld, e] in
-                 annotmap, arg::args
-             | ty -> OManager.i_error "expression of type @{<bright>%a@} in sql query are not yet implemented or unexpected" QmlPrint.pp#ty ty
-             end
+             let annotmap, arg = opa_to_data gamma annotmap e in
+             annotmap, arg::args
          | QD.QAnd (q0, q1)
          | QD.QOr  (q0, q1) ->
              self (self acc q0) q1
@@ -362,18 +379,99 @@ struct
         let u_prepared = UpdateMap.add (query, update) (uid, Buffer.contents buffer) u_prepared in
         {env with annotmap; u_prepared}
 
+  let execute_statement_for_update =
+    fun
+      ({gamma; annotmap; u_prepared; _} as env)
+      node query (update, _update_options) ->
+        let procname, _ = UpdateMap.find (query, update) u_prepared in
+        let amap = AnnotMap.empty in
+        let amap =
+          match query with
+          | None -> amap
+          | Some (query , _) ->
+              QmlAstWalk.DbWalk.Query.fold
+                (fun amap -> function
+                 | QD.QEq e | QD.QGt e | QD.QLt e | QD.QGte e | QD.QLte e
+                 | QD.QNe e | QD.QIn e ->
+                     let annot = Annot.annot (Q.Label.expr e) in
+                     AnnotMap.add annot e amap
+                 | _ -> amap
+                ) AnnotMap.empty query
+        in
+        let amap =
+          QmlAstWalk.DbWalk.Update.fold
+            (fun amap -> function
+             | QD.UExpr e
+             | QD.UIncr e
+             | QD.UAppend    e
+             | QD.UAppendAll e
+             | QD.URemove    e
+             | QD.URemoveAll e
+             | QD.UId (e, _) ->
+                 let annot = Annot.annot (Q.Label.expr e) in
+                 AnnotMap.add annot e amap
+             | _ -> amap
+            ) amap update
+        in
+        let annotmap, database =
+          C.ident annotmap node.S.database.S.ident node.S.database.S.dbty in
+        let annotmap, procname =
+          C.string annotmap procname in
+        let annotmap, args =
+          AnnotMap.fold
+            (fun _ expr (annotmap, args) ->
+               let annotmap, arg = opa_to_data gamma annotmap expr in
+               annotmap, arg::args
+            ) amap (annotmap, [])
+        in
+        let annotmap, args =
+          C.rev_list (annotmap, gamma) args in
+        let annotmap, update_or_insert =
+          OpaMapToIdent.typed_val ~label Api.Db.update_or_insert annotmap gamma in
+        let annotmap, res =
+          C.apply gamma annotmap update_or_insert [database; procname; args] in
+        {env with annotmap}, res
+
+  let query_to_sqlquery tbl query =
+    let rec aux q =
+      let binop q0 q1 rb = rb (aux q0) (aux q1) in
+      match q with
+      | QD.QEq e  -> QD.QEq (`expr e)
+      | QD.QGt e  -> QD.QGt (`expr e)
+      | QD.QLt e  -> QD.QLt (`expr e)
+      | QD.QGte e -> QD.QGte (`expr e)
+      | QD.QLte e -> QD.QLte (`expr e)
+      | QD.QNe e  -> QD.QNe (`expr e)
+      | QD.QIn e  -> QD.QIn (`expr e)
+      | QD.QMod i ->  QD.Mod i
+      | QD.QOr  (q0, q1) -> binop q0 q1 (fun q0 q1 -> QD.QOr (q0, q1))
+      | QD.QAnd (q0, q1) -> binop q0 q1 (fun q0 q1 -> QD.QAnd (q0, q1))
+      | QD.QNot  q -> QD.Not (aux q)
+      | QD.QFlds flds ->
+          let flds = List.map (fun (s,q) -> (s, aux s)) flds in
+          QD.QFlds flds
+      | QD.QExists b -> QD.QExists b
+    in
+    {QD. sql_ops = aux query; sql_tbs = [tbl]; sql_fds = []}
+
+  let resolve_sqlaccess env node query =
+    let env = prepared_statement_for_query env query in
+    execute_statement env node query
+
   let path ~context
-      ({schema; _} as env)
+      ({gamma; schema; _} as env)
       (label, dbpath, kind, select)
       =
-    let node = get_node ~context schema dbpath in
+    let node = get_node ~context gamma schema dbpath in
     match node.S.database.S.options.QD.backend with
     | `postgres ->
         begin
           match kind, node.S.kind with
           | QD.Default, S.SqlAccess query ->
-              let env = prepared_statement_for_query env query in
-              execute_statement env node query
+              resolve_sqlaccess env node query
+          | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, _) ->
+              let query = query_to_sqlquery tbl query in
+              resolve_sqlaccess env node query
           | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, _) ->
               let query =
                 match query with
@@ -382,8 +480,7 @@ struct
                 | _ -> assert false
               in
               let env = prepared_statement_for_update env ~tbl query (upd, opt) in
-              let annotmap, v = C.cheap_void env.annotmap env.gamma in
-              {env with annotmap}, v
+              execute_statement_for_update env node query (upd, opt)
           | _ -> assert false
         end
     | _ -> env, Q.Path (label, dbpath, kind, select)
@@ -418,7 +515,7 @@ let init_database env =
     )
     (env, []) (S.get_db_declaration env.schema)
 
-let clean_declaration {schema; _} code=
+let clean_declaration {gamma; schema; _} code=
   List.filter
     (function
      | Q.Database _ -> false
@@ -430,7 +527,7 @@ let clean_declaration {schema; _} code=
           | QD.Db_Virtual    (p, _))) ->
          begin match p with
          | QD.Decl_fld k::_ ->
-             (S.get_node schema [QD.FldKey k]).S.database.S.options.QD.backend <> `postgres
+             (S.get_node gamma schema [QD.FldKey k]).S.database.S.options.QD.backend <> `postgres
          | _ -> assert false
          end
      | _ -> true) code
