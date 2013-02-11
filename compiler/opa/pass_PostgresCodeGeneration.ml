@@ -1066,16 +1066,19 @@ struct
           Format.fprintf fmt ")";
           Format.pp_print_flush fmt ();
           let q = Buffer.contents buffer in
-          Format.eprintf "Added ENUM at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
           {env with ty_init = StringListMap.add tpath (`type_ (`enum, name, q)) env.ty_init}
         with Not_found ->
-          Format.eprintf "Added BLOB at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
           {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
         end
     | Q.TypeConst _ -> env
-    | _ -> OManager.i_error
-        "Type %a is not yet handled by postgres generator\n"
+    | _ ->
+        let tpath = List.rev (tpath@path) in
+        OManager.warning
+          ~wclass:WarningClass.dbgen_postgres
+          "Data of type @{<bright>%a} at path /%a will be managed as a blob\n"
           QmlPrint.pp#ty ty
+          (Format.pp_list "/" Format.pp_print_string) tpath;
+        {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
 
   let rec table_from_ty
       ({gamma; tb_init; _} as env)
