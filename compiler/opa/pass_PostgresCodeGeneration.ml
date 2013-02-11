@@ -16,13 +16,13 @@
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module Format = BaseFormat
+
 module Q = QmlAst
 module QD = Q.Db
 module S = QmlDbGen.Schema
 
 module C = QmlAstCons.TypedExpr
-
-module DbAst = QmlAst.Db
 
 module Api =
 struct
@@ -64,6 +64,64 @@ struct
         "Can't generates postgres access because : %s is not yet implemented"
         s
 
+  let pp_postgres_field =
+    Format.pp_list "."
+      (fun fmt -> function | `string s -> Format.pp_print_string fmt s | _ -> assert false)
+
+  let pp_postgres_query fmt (q:QmlAst.expr QmlAst.Db.sqlquery) =
+    let pos = ref 0 in
+    let rec aux fmt q =
+      let pp x = Format.fprintf fmt x in
+      let pp_expr fmt = function
+        | `expr _ -> incr pos; pp "$%d" !pos
+        | `bind s -> Format.pp_print_string fmt s
+      in
+      match q with
+      | QD.QEq   e    -> pp " = %a" pp_expr e
+      | QD.QGt   e    -> pp " > %a" pp_expr e
+      | QD.QLt   e    -> pp " < %a" pp_expr e
+      | QD.QGte  e    -> pp " >= %a" pp_expr e
+      | QD.QLte  e    -> pp " <= %a" pp_expr e
+      | QD.QNe   e    -> pp " <> %a" pp_expr e
+      | QD.QIn   e    -> pp " IN %a" pp_expr e
+      | QD.QMod  _    -> assert false
+      | QD.QExists false   -> pp " = NULL"
+      | QD.QExists true    -> pp " <> NULL"
+      | QD.QOr  (q0, q1) ->
+          pp "%a OR %a"
+            aux q0
+            aux q1
+      | QD.QAnd (q0, q1) ->
+          pp "%a AND %a"
+            aux q0
+            aux q1
+      | QD.QNot  _     -> assert false
+      | QD.QFlds flds  ->
+          List.iter
+            (fun (f, q) ->
+               pp "%a %a"
+                 pp_postgres_field f
+                 aux q
+            ) flds
+    in
+    let pp x = Format.fprintf fmt x in
+    pp "SELECT ";
+    (match q.QD.sql_fds with
+     | [] -> pp "* "
+     | _ ->
+         (BaseFormat.pp_list ","
+            (fun fmt (db, field) ->
+               (match db with "" -> ()
+                | _ -> Format.fprintf fmt "%s." db);
+               Format.fprintf fmt "%s" field
+            ))
+           fmt q.QD.sql_fds
+    );
+    pp " FROM ";
+    (BaseFormat.pp_list "," Format.pp_print_string) fmt q.QD.sql_tbs;
+    pp " WHERE ";
+    aux fmt q.QD.sql_ops
+
   let database
       ({gamma; annotmap; prepared; _} as env)
       name =
@@ -99,12 +157,9 @@ struct
     fun
       ({gamma=_; annotmap; prepared; _} as env)
       ((sqlquery, options) as query) ->
-      let dollar = ref 0 in
       let buffer = Buffer.create 256 in
       let fmt = Format.formatter_of_buffer buffer in
-      QD.pp_sqlquery
-        (fun fmt _ -> incr dollar; Format.fprintf fmt " $%d " !dollar)
-        fmt sqlquery;
+      pp_postgres_query fmt sqlquery;
       (* TODO OPTIONS *)
       ignore options;
 
@@ -123,8 +178,8 @@ struct
       C.ident annotmap node.S.database.S.ident node.S.database.S.dbty in
     let annotmap, qid = C.string annotmap qid in
     let annotmap, args = (* see type Pack.u *)
-      QmlAstWalk.DbWalk.Query.fold
-        (fun ((annotmap, args) as acc) -> function
+      QmlAstWalk.DbWalk.Query.self_traverse_fold
+        (fun self tra ((annotmap, args) as acc) -> function
          | QD.QEq     (`expr e)
          | QD.QGt     (`expr e)
          | QD.QLt     (`expr e)
@@ -145,10 +200,13 @@ struct
                  annotmap, arg::args
              | ty -> OManager.i_error "expression of type @{<bright>%a@} in sql query are not yet implemented or unexpected" QmlPrint.pp#ty ty
              end
-         | _ -> acc
+         | QD.QAnd (q0, q1)
+         | QD.QOr  (q0, q1) ->
+             self (self acc q0) q1
+         | x -> tra acc x
         ) (annotmap, []) (fst query).QD.sql_ops
     in
-    let annotmap, args = C.list (annotmap, gamma) args in
+    let annotmap, args = C.rev_list (annotmap, gamma) args in
     let annotmap, build =
       OpaMapToIdent.typed_val ~label ~ty:[node.S.ty]
         Api.Db.build_dbset annotmap gamma
@@ -161,7 +219,7 @@ struct
       (label, dbpath, kind, select)
       =
     let node = get_node ~context schema dbpath in
-    match node.S.database.S.options.DbAst.backend with
+    match node.S.database.S.options.QD.backend with
     | `postgres ->
         begin
           match node.S.kind with
@@ -192,7 +250,7 @@ let process_path env code =
 let init_database env =
   List.fold_left
     (fun (env, newvals) database ->
-       if database.S.options.DbAst.backend = `postgres
+       if database.S.options.QD.backend = `postgres
          && database.S.package = ObjectFiles.get_current_package_name () then
            let ident = database.S.ident in
            let name = database.S.name in
