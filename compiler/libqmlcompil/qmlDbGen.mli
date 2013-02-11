@@ -60,6 +60,8 @@ module Schema: sig
 
   type query = (QmlAst.expr, QmlAst.expr) QmlAst.Db.query * QmlAst.expr QmlAst.Db.query_options
 
+  type sqlquery = QmlAst.expr QmlAst.Db.sqlquery * QmlAst.expr QmlAst.Db.query_options
+
   type set_kind =
     | Map of QmlAst.ty * QmlAst.ty
     | DbSet of QmlAst.ty
@@ -69,6 +71,7 @@ module Schema: sig
     | Plain
     | Partial of bool * string list * string list
     | SetAccess of set_kind * string list * (bool * query) option (*bool == unique*) * QmlAst.path option
+    | SqlAccess of sqlquery
 
   type node = {
     ty : QmlAst.ty;
