@@ -478,9 +478,9 @@ module Generator = struct
     | DbAst.SStar -> Some DbAst.SStar
     | _ -> None
 
-  let get_node ~context schema path =
+  let get_node ~context gamma schema path =
     try
-      DbSchema.get_node schema path
+      DbSchema.get_node gamma schema path
     with Base.NotImplemented s ->
       QmlError.error context
         "Can't generates mongo access because : %s is not yet implemented"
@@ -619,7 +619,7 @@ module Generator = struct
   and string_path ~context gamma annotmap schema (kind, strpath) select =
     let node =
       let strpath = List.map (fun k -> DbAst.FldKey k) strpath in
-      get_node ~context schema strpath in
+      get_node ~context gamma schema strpath in
     match node.DbSchema.kind with
     | DbSchema.SetAccess (setkind, path, query, _todo) ->
         dbset_path ~context gamma annotmap (kind, path) setkind node query None select
@@ -1084,7 +1084,7 @@ module Generator = struct
 
 
   let path ~context gamma annotmap schema (label, dbpath, kind, select) =
-    let node = get_node ~context schema dbpath in
+    let node = get_node ~context gamma schema dbpath in
     match node.DbSchema.database.DbSchema.options.DbAst.backend with
     | `mongo -> (
         let annotmap, mongopath =
@@ -1170,7 +1170,7 @@ let clean_code gamma annotmap schema code =
              | DbAst.Decl_fld k::_ -> [DbAst.FldKey k]
              | _ -> assert false
            in
-           let fake_node = DbSchema.get_node schema fake_path in
+           let fake_node = DbSchema.get_node gamma schema fake_path in
            if fake_node.DbSchema.database.DbSchema.options.DbAst.backend = `mongo then
              begin match decl with
              | DbAst.Db_TypeDecl ((DbAst.Decl_fld _)::p, ty) ->

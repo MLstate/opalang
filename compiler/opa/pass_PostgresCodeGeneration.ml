@@ -66,9 +66,9 @@ struct
     gamma; annotmap; schema;
   }
 
-  let get_node ~context schema path =
+  let get_node ~context gamma schema path =
     try
-      S.get_node schema path
+      S.get_node gamma schema path
     with Base.NotImplemented s ->
       QmlError.error context
         "Can't generates postgres access because : %s is not yet implemented"

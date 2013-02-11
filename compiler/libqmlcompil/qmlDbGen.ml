@@ -240,7 +240,7 @@ module Schema = struct
     | C.Sum -> true
     | _ -> false
 
-  let get_node (schema:t) path =
+  let get_node gamma (schema:t) path =
     #<If>
       Format.eprintf "Get node : @[with path %a@]@\n" QmlPrint.pp#path_elts path;
     #<End>;
@@ -325,7 +325,7 @@ module Schema = struct
           | Partial _ ->
               raise (Base.NotImplemented "SQL query on a partial node")
           | SetAccess (_, _, None, _) | Compose _ | Plain ->
-              let ty = Sch.type_of_sqldata llschema node query in
+              let ty = Sch.type_of_sqldata gamma llschema node query in
               ({node with C.ty}, SqlAccess (query, options), path)
           end
       | DbAst.NewKey -> raise (Base.NotImplemented "New key")
