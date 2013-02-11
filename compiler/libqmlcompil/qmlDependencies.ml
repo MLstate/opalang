@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -264,6 +264,7 @@ let get_expr_dep_context ?filter e =
              | Q.Db.FldKey s -> Option.if_none filter (add_root s acc) acc
              | Q.Db.NewKey
              | Q.Db.ExprKey _
+             | Q.Db.SQLQuery _
              | Q.Db.Query _ ->
                  (* not possible, see the parser *)
                  assert false
