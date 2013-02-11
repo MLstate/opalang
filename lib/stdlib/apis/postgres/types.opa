@@ -480,10 +480,6 @@ PostgresTypes = {{
   ls(l,tos) = List.to_string_using("\{","}",",",List.map(tos,l))
   lls(l,tos) = List.to_string_using("\{","}",",",List.map(ls(_,tos),l))
   llls(l,tos) = List.to_string_using("\{","}",",",List.map(lls(_,tos),l))
-  encode_string(s) = //TODO!!!
-    if String.contains(s,",")
-    then "\"{s}\""
-    else s
 
   @private tzfmt = Date.generate_printer("%z")
   @private timestamp_fmt = Date.generate_printer("%F %T.%x")
@@ -506,6 +502,18 @@ PostgresTypes = {{
     t = if hr.h != 0 || hr.min != 0 || hr.s != 0 then "T" else ""
     "P{get("Y",hr.year)}{get("M",hr.month)}{get("D",hr.day)}{t}{get("H",hr.h)}{get("M",hr.min)}{get("S",hr.s)}"
 
+  escape(s) =
+    String.replace_char(s,
+      (| '\'' -> true | _ -> false),
+      (_ -> "''")
+    )
+
+  escape_for_array(s) =
+    "\"{String.replace_char(s,
+      (| '\'' | '\"' -> true | _ -> false),
+      (c -> String.of_chars([c,c]))
+    )}\""
+
   string_of_field_value(opatype:Postgres.opatype) : string =
     match opatype with
     | {Null} -> "null"
@@ -513,7 +521,7 @@ PostgresTypes = {{
     | {Int16=int} -> Int.to_string(int)
     | {Int64=int64} -> Int64.to_string(int64)
     | {Bool=bool} -> Bool.to_string(bool)
-    | {String=string} -> "'{encode_string(string)}'"
+    | {String=string} -> "'{escape(string)}'"
     | {Real=float} -> Float.to_string(float)
     | {Float=float} -> Float.to_string(float)
     | {Money=money} -> "'{money.currency?""}{money.amount}'"
@@ -538,9 +546,9 @@ PostgresTypes = {{
     | {FloatArray1=l} -> "'{ls(l,Float.to_string)}'"
     | {FloatArray2=ll} -> "'{lls(ll,Float.to_string)}'"
     | {FloatArray3=lll} -> "'{llls(lll,Float.to_string)}'"
-    | {StringArray1=l} -> "'{ls(l,encode_string)}'"
-    | {StringArray2=ll} -> "'{lls(ll,encode_string)}'"
-    | {StringArray3=lll} -> "'{llls(lll,encode_string)}'"
+    | {StringArray1=l} -> "'{ls(l,escape_for_array)}'"
+    | {StringArray2=ll} -> "'{lls(ll,escape_for_array)}'"
+    | {StringArray3=lll} -> "'{llls(lll,escape_for_array)}'"
     | {Duration=duration} -> "'{duration_to_iso8601(duration)}'"
     | {TypeId=(_,data)} ->
        match data with
@@ -847,65 +855,67 @@ PostgresTypes = {{
       | {some=opatype} -> opatype_to_opa(opatype, ty, dflt)
       | {none} -> error("Missing name {name}")
 
-    and opatype_to_list(opatype:Postgres.opatype, ty:OpaType.ty, dflt:option('a), level:int): option('a) =
-      err(name) =
-        pre = String.repeat(level,"list(")
-        post = String.repeat(level,")")
-        error("expected {pre}{name}{post}, got {opatype}")
-      list(get,name) =
+    and opatype_to_list(opatype:Postgres.opatype, ty:OpaType.ty, dflt:option('a)): option('a) =
+      match opatype with
+      | {String = s} -> OpaSerialize.unserialize(s, ty)
+      | _ ->
+      err() = error("expected {ty}, got {opatype}")
+      list(get) =
         match opatype with
         | {Null} -> dflt
         | opatype ->
            match get(opatype) with
            | {some=a} -> {some=@unsafe_cast(a)}
-           | {none} -> err(name)
+           | {none} -> err()
            end
         end
+      rec aux(level, ty) =
       match (level,ty) with
       | (_,{TyName_args=[ty]; TyName_ident="list"}) ->
-         opatype_to_list(opatype, ty, dflt, level+1)
+         aux(level+1, ty)
       | (1,{TyConst={TyInt={}}}) ->
-         list((ot -> match ot with {IntArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"int")
+         list((ot -> match ot with {IntArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (2,{TyConst={TyInt={}}}) ->
-         list((ot -> match ot with {IntArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"int")
+         list((ot -> match ot with {IntArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyConst={TyInt={}}}) ->
-         list((ot -> match ot with {IntArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"int")
+         list((ot -> match ot with {IntArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (1,{TyName_args=[]; TyName_ident="Postgres.smallint"}) ->
-         list((ot -> match ot with {Int16Array1=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"smallint")
+         list((ot -> match ot with {Int16Array1=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (2,{TyName_args=[]; TyName_ident="Postgres.smallint"}) ->
-         list((ot -> match ot with {Int16Array2=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"smallint")
+         list((ot -> match ot with {Int16Array2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyName_args=[]; TyName_ident="Postgres.smallint"}) ->
-         list((ot -> match ot with {Int16Array3=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"smallint")
+         list((ot -> match ot with {Int16Array3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (1,{TyName_args=[]; TyName_ident="int64"}) ->
-         list((ot -> match ot with {Int64Array1=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"int64")
+         list((ot -> match ot with {Int64Array1=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (2,{TyName_args=[]; TyName_ident="int64"}) ->
-         list((ot -> match ot with {Int64Array2=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"int64")
+         list((ot -> match ot with {Int64Array2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyName_args=[]; TyName_ident="int64"}) ->
-         list((ot -> match ot with {Int64Array3=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"int64")
+         list((ot -> match ot with {Int64Array3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (1,{TyConst={TyString={}}}) ->
-         list((ot -> match ot with {StringArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"string")
+         list((ot -> match ot with {StringArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (2,{TyConst={TyString={}}}) ->
-         list((ot -> match ot with {StringArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"string")
+         list((ot -> match ot with {StringArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyConst={TyString={}}}) ->
-         list((ot -> match ot with {StringArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"string")
+         list((ot -> match ot with {StringArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (1,{TyName_args=[]; TyName_ident="Postgres.real"}) ->
-         list((ot -> match ot with {RealArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"real")
+         list((ot -> match ot with {RealArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (2,{TyName_args=[]; TyName_ident="Postgres.real"}) ->
-         list((ot -> match ot with {RealArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"real")
+         list((ot -> match ot with {RealArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyName_args=[]; TyName_ident="Postgres.real"}) ->
-         list((ot -> match ot with {RealArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"real")
+         list((ot -> match ot with {RealArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (1,{TyConst={TyFloat={}}}) ->
-         list((ot -> match ot with {FloatArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"float")
+         list((ot -> match ot with {FloatArray1=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (2,{TyConst={TyFloat={}}}) ->
-         list((ot -> match ot with {FloatArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"float")
+         list((ot -> match ot with {FloatArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyConst={TyFloat={}}}) ->
-         list((ot -> match ot with {FloatArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}),"float")
+         list((ot -> match ot with {FloatArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | _ ->
          match opatype with
          | {Null} -> dflt
-         | _ -> err("'a")
+         | _ -> err()
          end
       end
+      aux(1, ty)
 
     and opatype_to_opa(opatype:Postgres.opatype, ty:OpaType.ty, dflt:option('a)): option('a) =
       match ty with
@@ -976,7 +986,7 @@ PostgresTypes = {{
       //   (match opatype with
       //    | {Null} -> {some=@unsafe_cast({none})}
       //    | _ -> make_option(opatype_to_opa(opatype, ty, none)))
-      | {TyName_args=[ty]; TyName_ident="list"} -> opatype_to_list(opatype, ty, dflt, 1)
+      | {TyName_args=[ty]; TyName_ident="list"} -> opatype_to_list(opatype, ty, dflt)
       | {TyName_args=[]; TyName_ident="Postgres.date"}
       | {TyName_args=[]; TyName_ident="Date.date"} ->
         (match opatype with
