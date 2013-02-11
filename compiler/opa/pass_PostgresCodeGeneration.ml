@@ -112,6 +112,14 @@ struct
     gamma; annotmap; schema;
   }
 
+  let letins bindings (env, e) =
+    let annotmap, e =
+      List.fold_left
+        (fun (annotmap, letin) binding ->
+           C.letin annotmap [binding] letin
+        ) (env.annotmap, e) bindings
+    in {env with annotmap}, e
+
   let get_node ~context gamma schema path =
     try
       S.get_node gamma schema path
@@ -162,13 +170,75 @@ struct
         match get_pg_native_type env.gamma ty with
         | Some (_, t) -> Format.pp_print_string fmt t
         | None ->
-            Format.eprintf "%a\n%!" (Format.pp_list "." Format.pp_print_string) path;
+            Format.eprintf "At path %a\n%!" pp_pgfields path;
             raise Not_found
 
 
   (* ******************************************************)
   (* QUERYING *********************************************)
   (* ******************************************************)
+  let preprocess_query ~tbl ({gamma; annotmap; ty_init; _} as env) q =
+    let rec aux path (annotmap, bindings) q =
+      match StringListMap.find_opt (List.rev path) ty_init with
+      | Some (`type_ (`enum, _, _) | `blob) ->
+          let rec to_expr annotmap q =
+            match q with
+            | QD.QEq e -> annotmap, e
+            | QD.QFlds flds ->
+                let annotmap, flds = List.fold_left_map
+                  (fun annotmap (s, q) ->
+                     let annotmap, e = to_expr annotmap q in
+                     let s = match s with [`string s] -> s | _ -> assert false in
+                     annotmap, (s, e)
+                  ) annotmap flds
+                in C.record annotmap flds
+            | _ -> assert false
+          in let annotmap, e = to_expr annotmap q in
+          (annotmap, bindings), QD.QEq (e:Q.expr)
+      | Some `foreign _ -> assert false
+      | _ -> (
+          match q with
+          | QD.QFlds flds ->
+              let (annotmap, bindings), flds = List.fold_left_map
+                (fun (annotmap, bindings) (s, q) ->
+                   let (annotmap, bindings), q =
+                     let p = match s with | [`string s] -> s | _ -> assert false in
+                     aux (p::path) (annotmap, bindings) q in
+                   (annotmap, bindings), (s, q))
+                (annotmap, bindings) flds
+              in
+              (annotmap, bindings), QD.QFlds flds
+          | QD.QEq e ->
+              let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr e)) annotmap in
+              begin match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
+              | Q.TypeRecord (Q.TyRow (flds, _)) ->
+                  let (annotmap, bindings), flds =
+                    List.fold_left_map
+                      (fun (annotmap, bindings) (s, ty) ->
+                         let annotmap, e = C.dot gamma annotmap e s in
+                         let i = Ident.next "qdot" in
+                         let annotmap, ie = C.ident annotmap i ty in
+                         let acc, q = aux (s::path) (annotmap, (i,e)::bindings) (QD.QEq ie) in
+                         acc, ([`string s], q)
+                      )
+                      (annotmap, bindings) flds
+                  in (annotmap, bindings), QD.QFlds flds
+              | _ -> (annotmap, bindings), QD.QEq e
+              end
+          | QD.QAnd (q0, q1) ->
+              binop path (annotmap, bindings) (fun q0 q1 -> QD.QAnd (q0,q1)) q0 q1
+          | QD.QOr (q0, q1)  ->
+              binop path (annotmap, bindings) (fun q0 q1 -> QD.QOr (q0,q1)) q0 q1
+          | _ -> (annotmap, bindings), q
+        )
+    and binop path (annotmap, bindings) rebuild q0 q1 =
+      let (annotmap, bindings), q0 = aux path (annotmap, bindings) q0 in
+      let (annotmap, bindings), q1 = aux path (annotmap, bindings) q1 in
+      (annotmap, bindings), rebuild q0 q1
+    in
+    let (annotmap, bindings), q = aux [tbl] (annotmap, []) q in
+    {env with annotmap}, bindings, q
+
   let pp_postgres_genquery pp_expr fmt (q:(_, _) QmlAst.Db.query) =
     let rec aux fmt q =
       let pp x = Format.fprintf fmt x in
@@ -257,26 +327,39 @@ struct
     let annotmap, qid = C.string annotmap qid in
     let env = {env with annotmap} in
     let ({annotmap; _} as env), args =
-      match (fst query).QD.sql_ops with
+      let {QD. sql_ops; sql_tbs; _} = fst query in
+      match sql_ops with
       | None -> env, []
       | Some sql_ops ->
-          (* see type Postgres.data *)
-          QmlAstWalk.DbWalk.Query.self_traverse_fold
-            (fun self tra ((env, args) as acc) -> function
-             | QD.QEq     (`expr e)
-             | QD.QGt     (`expr e)
-             | QD.QLt     (`expr e)
-             | QD.QGte    (`expr e)
-             | QD.QLte    (`expr e)
-             | QD.QNe     (`expr e)
-             | QD.QIn     (`expr e) ->
-                 let env, arg = opa_to_data env [] e in
-                 env, arg::args
-             | QD.QAnd (q0, q1)
-             | QD.QOr  (q0, q1) ->
-                 self (self acc q0) q1
-             | x -> tra acc x
-            ) (env, []) sql_ops
+          let rec aux env path args ops =
+            let binop q0 q1 =
+              let env, args = aux env path args q0 in
+              aux env path args q1
+            in
+            match ops with
+            | QD.QEq     (`expr e)
+            | QD.QGt     (`expr e)
+            | QD.QLt     (`expr e)
+            | QD.QGte    (`expr e)
+            | QD.QLte    (`expr e)
+            | QD.QNe     (`expr e)
+            | QD.QIn     (`expr e) ->
+                let env, arg = opa_to_data env (List.rev path) e in
+                env, arg::args
+            | QD.QFlds flds ->
+                List.fold_left
+                  (fun (env, args) (f, q) ->
+                     let s = match f with | [`string s] -> s | _ -> assert false in
+                     aux env (s::path) args q
+                  ) (env, args) flds
+            | QD.QAnd (q0, q1) -> binop q0 q1
+            | QD.QOr  (q0, q1) -> binop q0 q1
+            | QD.QNot q -> aux env path args q
+            | _ -> env, args
+          in
+          match sql_tbs with
+          | [tbl] -> aux env [tbl] [] sql_ops
+          | _ -> OManager.i_error "Not yet implemented\n%!"
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
     let annotmap, def = node.S.default annotmap in
@@ -710,17 +793,26 @@ struct
     let env = prepared_statement_for_query env query in
     execute_statement env node (kpath, query)
 
-  let resolve_sqlupdate ~tbl env node query (upd, opt) =
-    let env, bindings, upd = preprocess_update ~tbl env upd in
+  let resolve_sqlupdate ~tbl env node query embed (upd, opt) =
+    let upd = match embed with
+      | None -> upd
+      | Some p ->
+          List.fold_right
+            (fun elt upd -> match elt with
+             | QD.FldKey s -> QD.UFlds [([`string s], upd)]
+             | _ -> assert false)
+            p upd
+    in
+    let env, ubindings, upd = preprocess_update ~tbl env upd in
+    let env, qbindings, query = match query with
+      | Some (q, o) ->
+          let e, b, q = preprocess_query ~tbl env q in
+          e, b, Some (q, o)
+      | None -> env, [], None
+    in
     let env = prepared_statement_for_update env ~tbl query (upd, opt) in
     let env, e = execute_statement_for_update env ~tbl node query (upd, opt) in
-    let annotmap, e =
-      List.fold_left
-        (fun (annotmap, letin) binding ->
-           C.letin annotmap [binding] letin
-        ) (env.annotmap, e) bindings
-    in
-    {env with annotmap}, e
+    letins qbindings (letins ubindings (env, e))
 
   let path ~context
       ({gamma; schema; _} as env)
@@ -730,15 +822,16 @@ struct
     match node.S.database.S.options.QD.backend with
     | `postgres ->
         begin
-          let setaccess_to_sqlacces tbl query embed =
+          let setaccess_to_sqlacces tbl env query embed =
             let ty = node.S.ty in
             match query with
             | None ->
                 let post, query = query_to_sqlquery ~ty tbl None select embed in
-                `dbset, post, (query, QD.default_query_options)
+                env, [], `dbset, post, (query, QD.default_query_options)
             | Some (uniq, (q, o)) ->
+                let env, bindings, q = preprocess_query ~tbl env q in
                 let post, query = query_to_sqlquery ~ty tbl (Some q) select embed in
-                (if uniq then `uniq else `dbset), post, (query, o)
+                env, bindings, (if uniq then `uniq else `dbset), post, (query, o)
           in
           let string_path () =
             List.map
@@ -777,21 +870,20 @@ struct
           | QD.Default, S.SqlAccess query ->
               resolve_sqlaccess env node (`dbset, query)
           | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
-              let kpath, post, query = setaccess_to_sqlacces tbl query embed in
+              let env, bindings, kpath, post, query = setaccess_to_sqlacces tbl env query embed in
               let env, access = resolve_sqlaccess env node (kpath, query) in
+              let env, access = letins bindings (env, access) in
               post env kpath access
           | QD.Option, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
-              let kpath, post, query = setaccess_to_sqlacces tbl query embed in
+              let env, bindings, kpath, post, query = setaccess_to_sqlacces tbl env query embed in
               assert (kpath = `uniq);
               let env, access = resolve_sqlaccess env node (`option, query) in
+              let env, access = letins bindings (env, access) in
               post env kpath access
-          | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, _) ->
-              let query =
-                match query with
-                | None -> None
-                | Some (true, q) -> Some q
-                | _ -> assert false
-              in resolve_sqlupdate ~tbl env node query (upd, opt)
+
+          | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, embed) ->
+              let query = Option.map snd query in
+              resolve_sqlupdate ~tbl env node query embed (upd, opt)
 
           | QD.Default, S.Plain ->
               let post, node, query = plain_to_sqlaccess node in
@@ -809,7 +901,7 @@ struct
                 (List.map (fun s -> `string s) strpath), upd
               ] in
               let query = QD.QFlds [[`string "_id"], QD.QEq _0], QD.default_query_options in
-              resolve_sqlupdate ~tbl:"_default" {env with annotmap} node (Some query) (upd, opt)
+              resolve_sqlupdate ~tbl:"_default" {env with annotmap} node (Some query) None (upd, opt)
           | _ -> assert false
         end
     | _ -> env, Q.Path (label, dbpath, kind, select)
