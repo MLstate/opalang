@@ -3,5 +3,6 @@ lib/stdlib/core/web/client/xhr.opa
 lib/stdlib/meteor/spark/spark.opa
 lib/stdlib/meteor/spark/reactive.opa
 lib/stdlib/apis/apigenlib/apigenlib.opa
+lib/stdlib/database/postgres/db.opa
 lib/stdlib/io/file/swap.opa
 lib/stdlib/web/dns/dns.opa
