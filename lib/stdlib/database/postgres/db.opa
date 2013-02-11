@@ -207,6 +207,25 @@ query: {query}
     DbSet.build(iter, void)
   }
 
+  /**
+   * As [build_dbset] but for queries which returns only one value.
+   * @param db The postgres database to request.
+   * @param name Name of the prepared statement.
+   * @param args Arguments of prepared statement, a list of pre-packed values.
+   * @return A value.
+   */
+  function 'a build_uniq(DbPostgres.t db, name, list(Postgres.data) args){
+    match(Iter.to_list(DbSet.iterator(build_dbset(db, name, args)))){
+    case [] :
+      Log.error(@wait(db), "TODO(default): No value was returned by postgres")
+      @fail
+    case [v]: v
+    case [t|_]:
+      Log.error(@wait(db), "Multiple value was returned while expecting strictly one")
+      t
+    }
+  }
+
   function void update_or_insert(DbPostgres.t db, string procname, list(Postgres.data) args){
     c = @wait(db)
     args = List.map(PostgresTypes.string_of_field_value, args)
@@ -221,6 +240,7 @@ query: {query}
 
 @opacapi DbPostgres_open = DbPostgres.open
 @opacapi DbPostgres_build_dbset = DbPostgres.build_dbset
+@opacapi DbPostgres_build_uniq = DbPostgres.build_uniq
 @opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
 
 
