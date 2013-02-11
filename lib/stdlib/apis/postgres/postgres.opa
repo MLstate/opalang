@@ -253,6 +253,13 @@ Postgres = {{
   /** The ApigenLib connection module, contains send and receive functions. */
   Conn = Pg.Conn
 
+  /**
+   * Returns the name of the database
+   * @param db A Postgres database
+   * @return Name of database
+   */
+  get_name(conn:Postgres.connection) = conn.name
+
   /** Create connection object.
    *
    * This function returns a fresh [Postgres.connection] object.
