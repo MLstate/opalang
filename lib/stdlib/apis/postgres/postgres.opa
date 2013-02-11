@@ -594,32 +594,6 @@ Postgres = {{
     | ~{failure} -> error(conn, {api_failure=failure}, init, folder)
     end
 
-  /** Extract the raw data for a named column from a [Postgres.full_row] object.
-   *
-   * This is a routine for handling the raw row data from the server which may be
-   * either binary or text according to the [format_code] value in the row description.
-   * The type of the data is embodied in the row description which has the object id for
-   * the type.  This will then need to be decoded to generate, for example ints or dates,
-   * from the raw data.
-   *
-   * @param name The name of the column.
-   * @param row The row data.
-   * @returns The row description plus the data.
-   */
-  get_row_value_by_column_name(name:string, row:Postgres.full_row) : outcome((Postgres.rowdesc,Postgres.data),Postgres.failure) =
-    rec aux(rds, r) =
-      match (rds, r) with
-      | ([rd|rds],[el|r]) ->
-         if rd.name == name
-         then
-           match rd.format_code with
-           | 0 -> {success=(rd,{text=string_of_binary(el)})}
-           | 1 -> {success=(rd,{binary=el})}
-           | n -> {failure={bad_format=n}}
-         else aux(rds, r)
-      | ([],[]) -> {failure={not_found}}
-      | _ -> {failure={bad_row=(row.f2, row.f3)}}
-    aux(row.f2, row.f3)
 
   /** Send a parse query message.
    *
@@ -898,30 +872,6 @@ Postgres = {{
       | [] -> {success=conn}
       end
     aux(conn, l)
-
-  /** Create a table on the PostgreSQL server for a given type instantiating all enum types.
-   *
-   * A table is created to host the given value type (must be a record).
-   * If there are any enum-suitable types in the record, a handler will
-   * be generated and installed in the connection.
-   *
-   * @param conn The connection object.
-   * @param dbase The name of the database.
-   * @param temp Whether the table is temporary or not.
-   * @param value An instance of the type to be used (not added to the table).
-   * @param k The listener.
-   * @returns An updated connection object.
-   */
-  create_table(conn:Postgres.connection, dbase:string, temp:bool, value:'a) : Postgres.connection =
-    enums = PostgresTypes.record_enum_types(@typeval('a))
-    known_enums = IntMap.fold((_, (name,_,_), names -> [name|names]),conn.handlers,[])
-    new_enums = List.filter(((name, _) -> not(List.mem(name,known_enums))),enums)
-    match fold(create_enum_ty, conn, List.map((x -> x.f2),new_enums)) with
-    | {success=conn} ->
-      q = PostgresTypes.create(conn, dbase, temp, value)
-      query(conn, void, q, ignore_listener).f1
-    | {failure=(conn,failure)} -> error(conn, failure, void, ignore_listener).f1
-    end
 
   /** Insert a row into a database.
    *
