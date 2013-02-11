@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -198,7 +198,25 @@ Email = {{
    */
 
   /**
-   * Convertion from a string to {!Email.email}.
+   * Conversion from a string to {!Email.address}.
+   *
+   * @param s string for conversion.
+   * @return an optional address represented by the given string.
+   */
+  address_of_string_opt(s:string) = Parser.try_parse(Email.address_parser, s)
+
+  /**
+   * Conversion from a string to an optional {!Email.email}.
+   *
+   * @param s string for conversion.
+   * @return email address represented by the given string or error
+   *         if [s] did not represesent a valid email address.
+   */
+  address_of_string(s:string) =
+    address_of_string_opt(s) ? error("Wrong email address: {s}")
+
+  /**
+   * Conversion from a string to {!Email.email}.
    *
    * @param s string for conversion.
    * @return an optional email represented by the given string.
@@ -206,11 +224,11 @@ Email = {{
   of_string_opt(s:string) = Parser.try_parse(Email.email_parser, s)
 
   /**
-   * Convertion from a string to email.
+   * Conversion from a string to an optional {!Email.email}.
    *
    * @param s string for conversion.
    * @return email represented by the given string or error
-   *         if [s] did not represesent a valid email address.
+   *         if [s] did not represesent a valid email.
    */
   of_string(s:string) =
     of_string_opt(s) ? error("Wrong email: {s}")
