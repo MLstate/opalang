@@ -289,7 +289,7 @@ sqlquery_double_builder <-
   / (=Opa_lexer.exact_keyword("or"))  {{ fun q1 q2 -> QmlAst.Db.QOr (q1, q2) }}
 
 sqlquery_expr <-
-  / spacing Opa_lexer.field_identifier_nosp:s {{`bind s}}
+  / spacing "./" Opa_lexer.field_identifier_nosp:s {{`bind s}}
   / Opa_parser.expr:e {{`expr e}}
 
 sqlquery_field <- sqlquery_nokeywords field_long:f sqlquery_simple:q
