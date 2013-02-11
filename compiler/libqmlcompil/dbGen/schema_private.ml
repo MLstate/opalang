@@ -916,50 +916,51 @@ let type_of_sqldata gamma schema node ({Db. sql_fds; sql_tbs=_; sql_ops=_} as qu
     fields
   in Q.TypeRecord (Q.TyRow (fields, None))
 
+let simple_coerce new_annots wrap ty expr =
+  let e = QmlAstCons.UntypedExpr.coerce expr ty in
+  Q.QAnnot.expr e::new_annots, wrap e
+
+
+let coerce_query_options options =
+  let a = [] in
+  let optmap f a o = match o with
+    | None -> a, None
+    | Some o -> let x, y = f a o in x, Some y in
+  let a, limit =
+    optmap
+      (fun a -> simple_coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+      a options.Db.limit
+  in let a, skip =
+    optmap
+      (fun a -> simple_coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+      a options.Db.skip
+  in let a, sort =
+    let ty =
+      Q.TypeSum (
+        let void = Q.TypeRecord (QmlAstCons.Type.Row.make []) in
+        QmlAstCons.Type.Col.make [
+          [("down", void)];
+          [("up", void)];
+        ]
+      )
+    in
+    optmap
+      (fun a fields ->
+         List.fold_left_map
+           (fun a (flds, e) -> simple_coerce a (fun e -> (flds, e)) ty e)
+           a fields
+      ) a options.Db.sort
+  in
+  (a, {Db.limit; skip; sort})
 
 let coerce_query_element ~qwrap ~quwrap ~context gamma ty (query, options) =
-  let simple_coerce new_annots wrap ty expr =
-    let e = QmlAstCons.UntypedExpr.coerce expr ty in
-    Q.QAnnot.expr e::new_annots, wrap e
-  in
   let coerce new_annots wrap ty expr =
     try
       let a, e = simple_coerce new_annots (fun e -> qwrap e) ty (quwrap expr) in
       a, wrap e
     with Not_found -> new_annots, wrap expr
   in
-  let a, options =
-    let a = [] in
-    let optmap f a o = match o with
-    | None -> a, None
-    | Some o -> let x, y = f a o in x, Some y in
-    let a, limit =
-      optmap
-        (fun a -> simple_coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
-        a options.Db.limit
-    in let a, skip =
-      optmap
-        (fun a -> simple_coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
-        a options.Db.skip
-    in let a, sort =
-      let ty =
-        Q.TypeSum (
-          let void = Q.TypeRecord (QmlAstCons.Type.Row.make []) in
-          QmlAstCons.Type.Col.make [
-            [("down", void)];
-            [("up", void)];
-          ]
-        )
-      in
-      optmap
-        (fun a fields ->
-           List.fold_left_map
-             (fun a (flds, e) -> simple_coerce a (fun e -> (flds, e)) ty e)
-             a fields
-        ) a options.Db.sort
-    in
-    (a, {Db.limit; skip; sort})
-  in
+  let a, options = coerce_query_options options in
   let rec aux new_annots ty query =
     let coerce = coerce new_annots in
     let aux2 wrap ty (q1, q2) =
@@ -1108,9 +1109,16 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
         in
         let ty = Q.TypeRecord (Q.TyRow (fields, None)) in
         let new_annots, (sql_ops, options) =
-          let qwrap x = `expr x in
-          let quwrap = function | `expr e -> e | _ -> raise Not_found in
-          coerce_query_element ~qwrap ~quwrap ~context gamma ty (sql_ops, options)
+          match sql_ops with
+          | None ->
+              let n, options = coerce_query_options options in
+              n, (sql_ops, options)
+          | Some q ->
+              let qwrap x = `expr x in
+              let quwrap = function | `expr e -> e | _ -> raise Not_found in
+              let a, (q, o) =
+                coerce_query_element ~qwrap ~quwrap ~context gamma ty (q, options)
+              in a, (Some q, o)
         in
         new_annots, (Db.SQLQuery ({Db.sql_tbs; sql_fds; sql_ops}, options))::[]
 

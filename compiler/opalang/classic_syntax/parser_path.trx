@@ -314,7 +314,7 @@ sqltables <- (=list1(spacing Opa_lexer.field_identifier_nosp:s {{s}}, Opa_lexer.
 sqlquery1 <-
   (=Opa_lexer.exact_keyword("SELECT")) spacing sqlfields:f spacing
   (=Opa_lexer.exact_keyword("FROM")) spacing sqltables:t spacing
-  (=Opa_lexer.exact_keyword("WHERE")) spacing sqlquery:q spacing
+  ((=Opa_lexer.exact_keyword("WHERE")) spacing sqlquery:q spacing {{q}})?:q
   {{
      {QmlAst.Db.sql_ops = q; sql_fds = f; sql_tbs = t}
   }}
