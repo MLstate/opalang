@@ -121,8 +121,60 @@ query: {query}
     )
   }
 
+  /**
+   * Create a database set from a prepared statement. The type of value in
+   * database set is inferred by the compiler and should match with the prepared
+   * statement.
+   * @param db The postgres database to request.
+   * @param name Name of the prepared statement.
+   * @param args Arguments of prepared statement, a list of pre-packed values.
+   * @return A database set.
+   */
+  function DbPostgresSet.t('a) build_dbset(DbPostgres.t db, name, list(Pack.u) args){
+    db = @wait(db)
+    c = Postgres.connect(db)
+    c = Postgres.authenticate(c) // TODO
+    match(Postgres.get_error(c)){
+    case {some: e} :
+      Log.error(db, "Authentication failure {e}")
+      @fail
+    case {none} :
+      args = List.map(Pack.Encode.pack, args)
+      (args, err) =
+        List.fold_map(function(arg, err){
+          match(arg){
+          case ~{failure} :
+            Log.error(db, "Error when serialize argument: {failure}")
+            (Binary.create(0), true)
+          case ~{success} : (success, err)
+          }
+        }, args, false)
+      if(err){ @fail }
+      c = Postgres.bind(c, "", name, args)
+      c = Postgres.describe(c, {statement}, name)
+      /* For moment we fetch all rows, then we create an iterator with it. But
+       we have other alternatives. (Lazy execute, PG Cursor?)
+       */
+      rows =
+        Postgres.execute(c, [], "", 0, function(conn, msg, acc){
+          match(msg){
+          case {DataRow:row}:
+            match(option('a) PostgresTypes.to_opa(conn, row)){
+            case {some:data}: [data|acc]
+            case {none}:
+              Log.error(db, "A row can't be unserialized, skip it")
+              acc
+            }
+          default: acc
+          }
+        })
+      iter = Iter.of_list(rows)
+      DbSet.build(iter, void)
+    }
+  }
 }
 
 @opacapi DbPostgres_open = DbPostgres.open
+@opacapi DbPostgres_build_dbset = DbPostgres.build_dbset
 
 
