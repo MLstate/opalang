@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012, 2013 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -23,7 +23,7 @@
            2009, Louis Gesbert            <Louis.Gesbert@mlstate.com>
            2009, Mehdi Bouaziz            <Mehdi.Bouaziz@mlstate.com>
            2009, David Rajchenbach-Teller <David.Teller@mlstate.com>
-           2010, 2012 Quentin Bourgerie
+           2010, 2013 Quentin Bourgerie
 *)
 
 (**
@@ -393,7 +393,7 @@ struct
     (BaseFormat.pp_list "," Format.pp_print_string) fmt sql_tbs;
     pp fmt " WHERE ";
     let pp_qexpr fmt = function
-      | `expr e -> pp fmt "{%a}" pp_expr e
+      | `expr e -> pp fmt "%a" pp_expr e
       | `bind s -> Format.pp_print_string fmt s
     in
     (pp_query pp_expr pp_qexpr) fmt sql_ops
