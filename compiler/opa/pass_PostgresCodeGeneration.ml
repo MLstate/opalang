@@ -1305,7 +1305,6 @@ struct
       let mty = StringMap.add "_id" (`ty (Q.TypeConst Q.TyInt)) mty in
       let rec aux mty =
         let lty = StringMap.to_list mty in
-        Format.eprintf "HERE:%d\n%!" (List.length lty);
         let lty = List.map
           (fun (f, x) -> f, (match x with | `ty ty -> ty | `sub mty -> aux mty))
           lty
@@ -1376,9 +1375,6 @@ struct
     {env with tb_default = StringListMap.add path ty env.tb_default}
 
   let table env path ty lidx =
-    Format.eprintf "Generating table %a with %a\n%!"
-      pp_table_name path
-      QmlPrint.pp#ty ty;
     table_from_ty (type_from_ty env path [] ty) path ty lidx
 
 end
