@@ -72,7 +72,7 @@ type Postgres.opatype =
  / {StringArray2:list(list(string))}
  / {StringArray3:list(list(list(string)))}
  / {Duration:Duration.duration}
-  / {TypeId:(int,{text:string}/{binary:binary})}
+ / {TypeId:(int,{text:string}/{binary:binary})}
  / {BadData:binary}
  / {BadText:string}
  / {BadCode:(int,binary)}
