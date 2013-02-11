@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012, 2013 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -445,6 +445,15 @@ Rule =
     match p(i, b) with
     | {none} -> none
     | {some = (i, r)} -> {some = (i, f(r))}
+
+  /**
+   * Combine two parsers returns the result of parser [p0] or the result of
+   * parser [p1] if [p0] fails.
+   * @param p0 The first parser
+   * @param p1 The second parser
+   * @return A parser that try [p0] then if [p0] fails try [p1].
+   */
+  or(p0, p1) = parser p=p0 -> p | p=p1 -> p
 
   /**
    * Pipe parser [pi] to the [p] parser.
