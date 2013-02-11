@@ -661,6 +661,68 @@ PostgresTypes = {{
         | {failure=_} -> ty
     nty
 
+  @expand
+  fatal(str) =
+    do Log.error("Postgres.row_to_opa", str)
+    @fail(str)
+
+  @private
+  field_parser(label, ty, rcons, dflt) =
+    map(p) =
+      p = @unsafe_cast(p)
+      fld = OpaValue.Record.field_of_name_unsafe(label)
+      parser
+      | x={Rule.or(p, Rule.succeed_opt(Option.map(OpaValue.Record.unsafe_dot(_, fld), dflt)))} ->
+
+        OpaValue.Record.add_field(rcons, fld, @unsafe_cast(x))
+    match ty with
+    | {TyConst={TyInt={}}} -> map(Rule.integer)
+    | {TyConst={TyFloat={}}} -> map(Rule.float)
+    | {TyConst={TyString={}}} ->
+      char = parser
+        | [\\] c=[\\\"] -> c
+        | c=. -> c
+      map(parser [\"] s=((![\"]char)*) [\"] -> Text.to_string(s))
+    | {TyName_args=tys; TyName_ident=tyid} ->
+        field_parser(label, OpaType.type_of_name(tyid, tys), rcons, dflt)
+    | _ -> do jlog("Fail to find parser") Rule.fail
+
+  /**
+   * Try to unserialize a postgres composite value to an Opa record described by
+   * [row].
+   */
+  @private
+  composite_to_opa(row:OpaType.fields, pgdata, dflt) =
+    match pgdata with
+    | ~{text} ->
+      rec composite_parser(row, rcons) = (
+        match row with
+          | [] -> (parser Rule.ws ")" -> OpaValue.Record.make_record(rcons))
+        | [~{label ty}] ->
+          (parser
+             r0=field_parser(label, ty, rcons, dflt)
+             r1=composite_parser([], r0)  -> r1)
+        | [~{label ty}|q] ->
+          (parser
+            r0=field_parser(label, ty, rcons, dflt) [,]
+            r1=composite_parser(q, r0)  -> r1)
+      )
+      match Parser.try_parse(parser "(" c=composite_parser(row, OpaValue.Record.empty_constructor()) -> c, text)
+      | {none} -> dflt
+      | x -> x
+      end
+    | {binary=_} -> @fail("Binary is not yet implemented")
+
+  @private
+  enum_to_opa(col:list(OpaType.fields), pgdata) =
+    match pgdata with
+    | ~{text} ->
+      do @assert(List.exists(| [~{label ty}] -> label==text && OpaType.is_void(ty) | _ -> false, col))
+      r = OpaValue.Record.empty_constructor()
+      r = OpaValue.Record.add_field(r, OpaValue.Record.field_of_name_unsafe(text), void)
+      some(OpaValue.Record.make_record(r))
+    | {binary=_} -> @fail("Binary is not yet implemented")
+
   rec row_to_opa_aux(conn:Postgres.connection, row:Postgres.oparow, ty:OpaType.ty, dflt:option('a)): option('a) =
 
     error_msg(str) = "Try to unserialize {row} with {ty}\n Error : {str}"
@@ -670,10 +732,6 @@ PostgresTypes = {{
       v
 
     error(str) = error_no_retry("{error_msg(str)}", {none})
-
-    fatal(str) =
-      do Log.error("Postgres.row_to_opa", str)
-      @fail(str)
 
     make_option(vopt:option('a)): option('b) =
       match vopt with
@@ -946,8 +1004,14 @@ PostgresTypes = {{
                 | {none} -> fatal("unknown type {OpaType.to_pretty(ty)}")
                 end
               else fatal("unknown type {OpaType.to_pretty(ty)}")
-           | {none} -> fatal("unknown type {OpaType.to_pretty(ty)}")
+           | {none} ->
+             match ty with
+             | {TyRecord_row=row; ...} -> composite_to_opa(row, data, dflt)
+             | {TySum_col=col; ...} -> enum_to_opa(col, data)
+             | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
+             end
            end
+        | {String=s} -> OpaSerialize.unserialize(s, ty)
         | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
 
     ty_name = name_type(ty)
