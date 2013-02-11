@@ -62,9 +62,11 @@ type env = {
   tb_init : string list;
   (* tb_default *)
   tb_default : Q.ty StringListMap.t;
-  (* (id of prepared statement, string query) *)
+  (* query (id of prepared statement, string query) *)
   q_prepared : (string * string) QueryMap.t;
-  (* (id of prepared statement, string query) *)
+  (* delete (id of prepared statement, string query) *)
+  d_prepared : (string * string) QueryMap.t;
+  (* update (id of prepared statement, string query) *)
   u_prepared : (string * string) UpdateMap.t;
   gamma : QmlTypes.gamma;
   annotmap : Q.annotmap;
@@ -197,6 +199,10 @@ struct
     (Api.Types.bool,       "Bool",            "boolean");
   ]
 
+  let command_to_string = function
+    | `select -> "SELECT"
+    | `delete -> "DELETE"
+
   let get_pg_native_type gamma ty =
     let rec aux t =
       match t with
@@ -226,6 +232,7 @@ struct
     ty_init = StringListMap.empty;
     tb_default = StringListMap.empty;
     q_prepared = QueryMap.empty;
+    d_prepared = QueryMap.empty;
     u_prepared = UpdateMap.empty;
     gamma; annotmap; schema;
   }
@@ -412,16 +419,20 @@ struct
         pp " WHERE ";
         aux fmt q
 
-  let pp_postgres_sqlquery fmt q =
+  let pp_postgres_sqlquery ~command fmt q =
     let pos = ref 0 in
     let pp x = Format.fprintf fmt x in
-    pp "SELECT ";
-    (match q.QD.sql_fds with
-     | [] -> pp "* "
-     | _ ->
-         BaseFormat.pp_list "," (BaseFormat.pp_list "." pp_pgfield)
-           fmt q.QD.sql_fds
-    );
+    pp "%s " (command_to_string command);
+    begin match command with
+    | `select ->
+        (match q.QD.sql_fds with
+         | [] -> pp "* "
+         | _ ->
+             BaseFormat.pp_list "," (BaseFormat.pp_list "." pp_pgfield)
+               fmt q.QD.sql_fds
+        );
+    | `delete -> ()
+    end;
     pp " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt q.QD.sql_tbs;
     match q.QD.sql_ops with
@@ -436,26 +447,39 @@ struct
   let prepared_statement_for_query =
     let fresh_id =
       let fresh = Fresh.fresh_factory (fun x -> x) in
-      fun () -> Format.sprintf "query_%d" (fresh ())
+      fun s -> Format.sprintf "%s_%d" s (fresh ())
     in
     fun
-      ({annotmap; q_prepared; _} as env)
+      ?(command=`select)
+      ({annotmap; q_prepared; d_prepared; _} as env)
       ((sqlquery, options) as query) ->
       let buffer = Buffer.create 256 in
       let fmt = Format.formatter_of_buffer buffer in
-      pp_postgres_sqlquery fmt sqlquery;
+      pp_postgres_sqlquery ~command fmt sqlquery;
       (* TODO OPTIONS *)
       ignore options;
       Format.pp_print_flush fmt ();
-      let qid = fresh_id () in
-      let q_prepared = QueryMap.add query (qid, Buffer.contents buffer) q_prepared in
-      {env with annotmap; q_prepared}
+      let qid = fresh_id (command_to_string command) in
+      match command with
+      | `select ->
+          let q_prepared = QueryMap.add query (qid, Buffer.contents buffer) q_prepared in
+          {env with annotmap; q_prepared}
+      | `delete ->
+          let d_prepared = QueryMap.add query (qid, Buffer.contents buffer) d_prepared in
+          {env with annotmap; d_prepared}
 
   let execute_statement
-      ({gamma; annotmap; q_prepared; _} as env)
+      ?(command=`select)
+      ({gamma; annotmap; q_prepared; d_prepared; _} as env)
       next node (kpath, query) =
-    let qid, _ = try QueryMap.find query q_prepared with
-        Not_found -> OManager.i_error "Can't found prepared statement"
+    let qid, _ = try
+      QueryMap.find query
+        (match command with
+         | `select -> q_prepared
+         | `delete -> d_prepared
+        )
+    with
+      Not_found -> OManager.i_error "Can't found prepared statement"
     in
     let annotmap, database =
       C.ident annotmap node.S.database.S.ident node.S.database.S.dbty in
@@ -532,18 +556,25 @@ struct
               in aux0 sql_ops (env, [])
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
-    let annotmap, def = node.S.default annotmap in
-    let build = match kpath with
-      | `dbset   -> Api.Db.build_dbset
-      | `uniq    -> Api.Db.build_uniq
-      | `option    -> Api.Db.build_option
-    in
-    let annotmap, build =
-      OpaMapToIdent.typed_val ~label ~ty:[node.S.ty]
-        build annotmap gamma
-    in
-    let annotmap, dbset = C.apply gamma annotmap build [database; qid; args; def] in
-    {env with annotmap}, dbset
+    match command with
+    | `select ->
+        let annotmap, def = node.S.default annotmap in
+        let build = match kpath with
+          | `dbset   -> Api.Db.build_dbset
+          | `uniq    -> Api.Db.build_uniq
+          | `option    -> Api.Db.build_option
+        in
+        let annotmap, build =
+          OpaMapToIdent.typed_val ~label ~ty:[node.S.ty]
+            build annotmap gamma
+        in
+        let annotmap, dbset = C.apply gamma annotmap build [database; qid; args; def] in
+        {env with annotmap}, dbset
+    | `delete ->
+        let remove = Api.Db.remove in
+        let annotmap, remove = OpaMapToIdent.typed_val ~label remove annotmap gamma in
+        let annotmap, remove = C.apply gamma annotmap remove [database; qid; args] in
+        {env with annotmap}, remove
 
 
   (* ******************************************************)
@@ -954,9 +985,12 @@ struct
     postproj, {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds}
 
   let resolve_sqlaccess env next node (kpath, query) =
-    (* TODO  - Prepare for uniq ? *)
-    let env = prepared_statement_for_query env query in
+    let env = prepared_statement_for_query ~command:`select env query in
     execute_statement env next node (kpath, query)
+
+  let resolve_sqldelete env next node (kpath, query) =
+    let env = prepared_statement_for_query ~command:`delete env query in
+    execute_statement ~command:`delete env next node (kpath, query)
 
   let resolve_sqlupdate ~tbl env node query embed (upd, opt) =
     let upd = match embed with
@@ -979,6 +1013,87 @@ struct
     let env, e = execute_statement_for_update env ~tbl node query (upd, opt) in
     letins qbindings (letins ubindings (env, e))
 
+  let setaccess_to_sqlacces ~tbl env node select query embed =
+    let ty = node.S.ty in
+    match query with
+    | None ->
+        let post, query = query_to_sqlquery ~ty tbl None select embed in
+        env, [], `dbset, post, (query, QD.default_query_options)
+    | Some (uniq, (q, o)) ->
+        let env, bindings, q = preprocess_query ~tbl env q in
+        let post, query = query_to_sqlquery ~ty tbl (Some q) select embed in
+        env, bindings, (if uniq then `uniq else `dbset), post, (query, o)
+
+  let resolve_sqlref ~tbl env next node query embed =
+    assert (embed = None);
+    let env, bindings, kpath, post, sqlquery =
+      setaccess_to_sqlacces ~tbl env node QD.SStar query embed in
+    (* read expression *)
+    let env, read = resolve_sqlaccess env next node (kpath, sqlquery) in
+    let env, read = letins bindings (env, read) in
+    let env, read =
+      let env, read = post env kpath read in
+      let annotmap, read = C.lambda env.annotmap [] read in
+      {env with annotmap}, read
+    in
+
+    (* exists expression: TODO need to be optimized (no fetching data) *)
+    let env, exists = resolve_sqlaccess env next node (`option, sqlquery) in
+    let env, exists = letins bindings (env, exists) in
+    let env, exists = post env kpath exists in
+    let env, exists =
+      let annotmap = env.annotmap in
+      let annotmap, any = QmlAstCons.TypedPat.any annotmap in
+      let annotmap, true_ = C._true (annotmap, env.gamma) in
+      let annotmap, false_ = C._false (annotmap, env.gamma) in
+      let annotmap, exists =
+        QmlAstCons.TypedPat.match_option annotmap env.gamma exists any true_ false_
+      in
+      let annotmap, exists = C.lambda annotmap [] exists in
+      {env with annotmap}, exists
+    in
+
+    (* write expression *)
+    let env, write =
+      let i = Ident.next "x" in
+      let annotmap, x = C.ident env.annotmap i node.S.ty in
+      let upd = QD.UExpr x in
+      let env = {env with annotmap} in
+      let env, write =
+        let query = Option.map snd query in
+        resolve_sqlupdate ~tbl env node query embed (upd, QD.default_update_options)
+      in
+      let annotmap, write = C.lambda env.annotmap [i, node.S.ty] write in
+      {env with annotmap}, write
+    in
+
+    (* remove expression *)
+    let env, remove =
+      let env, remove = resolve_sqldelete env next node (kpath, sqlquery) in
+      let annotmap, remove = C.lambda env.annotmap [] remove in
+      {env with annotmap}, remove
+    in
+
+    (* Db.builder *)
+    let annotmap = env.annotmap in
+    let annotmap, id = C.string annotmap "" in
+    let annotmap, more =
+        C.record annotmap [
+          "write", write;
+          "remove", remove;
+        ]
+    in
+    let annotmap, engine = C.cheap_void annotmap env.gamma in
+    let annotmap, builder = C.record annotmap [
+      "id",     id;
+      "read",   read;
+      "exists", exists;
+      "more",   more;
+      "engine", engine;
+    ]
+    in
+    letins bindings ({env with annotmap}, builder)
+
   let path ~context
       ({gamma; schema; _} as env)
       (label, dbpath, kind, select)
@@ -987,17 +1102,6 @@ struct
     match node.S.database.S.options.QD.backend with
     | `postgres ->
         begin
-          let setaccess_to_sqlacces tbl env query embed =
-            let ty = node.S.ty in
-            match query with
-            | None ->
-                let post, query = query_to_sqlquery ~ty tbl None select embed in
-                env, [], `dbset, post, (query, QD.default_query_options)
-            | Some (uniq, (q, o)) ->
-                let env, bindings, q = preprocess_query ~tbl env q in
-                let post, query = query_to_sqlquery ~ty tbl (Some q) select embed in
-                env, bindings, (if uniq then `uniq else `dbset), post, (query, o)
-          in
           let string_path () =
             List.map
               (function | QD.FldKey str -> str | _ -> assert false)
@@ -1046,16 +1150,20 @@ struct
           | QD.Default, S.SqlAccess query ->
               resolve_sqlaccess env next_for_sql node (`dbset, query)
           | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
-              let env, bindings, kpath, post, query = setaccess_to_sqlacces tbl env query embed in
+              let env, bindings, kpath, post, query =
+                setaccess_to_sqlacces ~tbl env node select query embed in
               let env, access = resolve_sqlaccess env next node (kpath, query) in
               let env, access = letins bindings (env, access) in
               post env kpath access
           | QD.Option, S.SetAccess (S.DbSet _, [tbl], query, embed) ->
-              let env, bindings, kpath, post, query = setaccess_to_sqlacces tbl env query embed in
+              let env, bindings, kpath, post, query =
+                setaccess_to_sqlacces ~tbl env node select query embed in
               assert (kpath = `uniq);
               let env, access = resolve_sqlaccess env next node (`option, query) in
               let env, access = letins bindings (env, access) in
               post env kpath access
+          | QD.Ref,    S.SetAccess (S.DbSet _, [tbl], query, embed) ->
+              resolve_sqlref ~tbl env next node query embed
 
           | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, embed) ->
               let query = Option.map snd query in
@@ -1178,7 +1286,7 @@ struct
 
   let database env name =
     (* Create the default table *)
-    let ({gamma; annotmap; ty_init; tb_init; q_prepared; u_prepared; _} as env) =
+    let ({gamma; annotmap; ty_init; tb_init; q_prepared; d_prepared; u_prepared; _} as env) =
       let mty =
         StringListMap.fold
           (fun path ty acc ->
@@ -1229,21 +1337,25 @@ struct
     let annotmap, tables = C.list (annotmap, gamma) tables in
     let annotmap, statements =
       let annotmap, statements =
-        QueryMap.fold
-          (fun _prepared (qid, query) (annotmap, statements) ->
-             let annotmap, qid = C.string annotmap qid in
-             let annotmap, query = C.string annotmap query in
-             (* TODO: Optimized types *)
-             let annotmap, types = C.list (annotmap, gamma) [] in
-             let annotmap, statement =
-               C.record annotmap [
-                 "id", qid;
-                 "query", query;
-                 "types", types;
-               ]
-             in
-             annotmap, statement::statements
-          ) q_prepared (annotmap, []) in
+        let prepare_statement prepared (annotmap, init) =
+          QueryMap.fold
+            (fun _prepared (qid, query) (annotmap, statements) ->
+               let annotmap, qid = C.string annotmap qid in
+               let annotmap, query = C.string annotmap query in
+               (* TODO: Optimized types *)
+               let annotmap, types = C.list (annotmap, gamma) [] in
+               let annotmap, statement =
+                 C.record annotmap [
+                   "id", qid;
+                   "query", query;
+                   "types", types;
+                 ]
+               in
+               annotmap, statement::statements
+          ) prepared (annotmap, init)
+        in
+        prepare_statement d_prepared (prepare_statement q_prepared (annotmap, []))
+      in
       C.list (annotmap, gamma) statements
     in
     let annotmap, queries =
