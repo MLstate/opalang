@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -787,4 +787,64 @@ struct
     | x -> x
 
   let code_size code = CodeExpr.fold (fun acc e -> Expr.fold (fun acc _ -> acc + 1) acc e) 0 code
+end
+
+module DbWalk =
+struct
+  module Query = Traverse.Make2
+    (struct
+       type 'a t = ('b, 'c) QmlAst.Db.query constraint 'a = ('b * 'c * _)
+
+       let foldmap tra acc input =
+         let binop build q0 q1 =
+           let acc, q0' = tra acc q0 in
+           let acc, q1' = tra acc q1 in
+           acc, if q0 == q0' && q1 == q1' then input else build q0' q1'
+         in
+         match input with
+         | Db.QMod    _
+         | Db.QExists _
+         | Db.QEq     _
+         | Db.QGt     _
+         | Db.QLt     _
+         | Db.QGte    _
+         | Db.QLte    _
+         | Db.QNe     _
+         | Db.QIn     _        -> acc, input
+         | Db.QOr     (q0, q1) -> binop (fun q0 q1 -> Db.QOr (q0, q1)) q0 q1
+         | Db.QAnd    (q0, q1) -> binop (fun q0 q1 -> Db.QAnd (q0, q1)) q0 q1
+         | Db.QNot    q        ->
+             let acc, q' = tra acc q in
+             acc, if q == q' then input else Db.QNot q'
+         | Db.QFlds   flds ->
+             let acc, flds' =
+               List.fold_left_map_stable
+                 (fun acc ((s,f) as bnd) ->
+                    let acc, f' = tra acc f in
+                    acc, if f == f' then bnd else (s, f')
+                 ) acc flds in
+             acc, if flds == flds' then input else Db.QFlds flds'
+
+       let fold tra acc input =
+         let binop q0 q1 = tra (tra acc q0) q1 in
+         match input with
+         | Db.QMod    _
+         | Db.QExists _
+         | Db.QEq     _
+         | Db.QGt     _
+         | Db.QLt     _
+         | Db.QGte    _
+         | Db.QLte    _
+         | Db.QNe     _
+         | Db.QIn     _        -> acc
+         | Db.QOr     (q0, q1) -> binop q0 q1
+         | Db.QAnd    (q0, q1) -> binop q0 q1
+         | Db.QNot    q        -> tra acc q
+         | Db.QFlds   flds ->
+             List.fold_left (fun acc (_,f) -> tra acc f) acc flds
+
+       let iter tra input = Traverse.Unoptimized.iter foldmap tra input
+       let map tra input = Traverse.Unoptimized.map foldmap tra input
+     end)
+
 end
