@@ -83,17 +83,11 @@ struct
     let rec aux t =
       match t with
       | Q.TypeName ([a], s) when Q.TypeIdent.to_string s = Api.Types.list ->
-          let list_error () =
-            failwith
-              (Format.sprintf
-                 "list of %a are not yet handled by postgres generator"
-                 QmlPrint.pp#ty a)
-          in
           begin match aux a with
           | Some (_, "TEXT") -> Some ("StringArray1", "TEXT[]")
           | Some (_, "FLOAT") -> Some ("FloatArray1", "FLOAT[]")
           | Some (_, "INT8") -> Some ("IntArray1", "INT8[]")
-          | _ -> list_error ()
+          | _ -> None
           end
       | Q.TypeName (l, s) ->
           let st = Q.TypeIdent.to_string s in
