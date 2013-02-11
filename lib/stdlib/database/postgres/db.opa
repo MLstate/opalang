@@ -87,11 +87,12 @@ module DbPostgres{
   /**
    * Opening a database and prepare statements.
    * @param name Name of the database to open
+   * @param tables A list of queries to initialize tables
    * @param statements A list of statements to prepare
    * @param queries A list of queries to initialize
    * @return A initialized database
    */
-  function DbPostgres.t open(name, statements, queries){
+  function DbPostgres.t open(name, tables, statements, queries){
     @spawn(
       /* 1 - Opening the postgres database */
       match(Postgres.connect(name, none, name)){
@@ -103,7 +104,23 @@ module DbPostgres{
         Log.info(c, "opened")
         c = Postgres.authenticate(c)
         check_error("Authentication", c)
-        /* 2 - Prepare statements */
+        /* 2 - Init tables
+         TODO: Add a way to unactivate table initialization */
+        List.iter(
+          function(table){
+            (c, _) = Postgres.query(c, void, table, function(_, _, _){void})
+            match(Postgres.get_error(c)){
+            case {none} :
+              Log.debug(c, "Initial query: {table}")
+            case {some: e} :
+              Log.error(c, "An error occurs while processing an initial query:
+error: {e}
+query: {table}
+")
+            }
+          }
+          , tables)
+        /* 3 - Prepare statements */
         List.iter(
           function(~{id, query, types}){
             c = Postgres.parse(c, id, query, types)
@@ -120,9 +137,9 @@ query: {query}
             }
           }
           , statements)
-        /* 3 - Init queries */
+        /* 4 - Init queries */
         List.iter(
-          function(~{query}){
+          function(query){
             (c, _) = Postgres.query(c, void, query, function(_, _, _){void})
             match(Postgres.get_error(c)){
             case {none} :
