@@ -215,15 +215,7 @@ query: {query}
    * @return A value.
    */
   function 'a build_uniq(DbPostgres.t db, name, list(Postgres.data) args, 'a def){
-    match(Iter.to_list(DbSet.iterator(build_dbset(db, name, args, def)))){
-    case [] :
-      Log.error(@wait(db), "TODO(default): No value was returned by postgres")
-      @fail
-    case [v]: v
-    case [t|_]:
-      Log.error(@wait(db), "Multiple value was returned while expecting strictly one")
-      t
-    }
+    build_option(db, name, args, def) ? def
   }
 
   /**
@@ -233,15 +225,13 @@ query: {query}
    * @param args Arguments of prepared statement, a list of pre-packed values.
    * @return A value.
    */
-  function 'a build_uniq(DbPostgres.t db, name, list(Postgres.data) args, 'a def){
+  function option('a) build_option(DbPostgres.t db, name, list(Postgres.data) args, 'a def){
     match(Iter.to_list(DbSet.iterator(build_dbset(db, name, args, def)))){
-    case [] :
-      Log.error(@wait(db), "TODO(default): No value was returned by postgres")
-      @fail
-    case [v]: v
+    case [] : none
+    case [v]: some(v)
     case [t|_]:
       Log.error(@wait(db), "Multiple value was returned while expecting strictly one")
-      t
+      some(t)
     }
   }
 
@@ -264,6 +254,7 @@ query: {query}
 @opacapi DbPostgres_open = DbPostgres.open
 @opacapi DbPostgres_build_dbset = DbPostgres.build_dbset
 @opacapi DbPostgres_build_uniq = DbPostgres.build_uniq
+@opacapi DbPostgres_build_option = DbPostgres.build_option
 @opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
 @opacapi DbPostgres_sum_to_enum = DbPostgres.sum_to_enum
 

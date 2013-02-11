@@ -148,7 +148,7 @@ module type DB =
     val option : string
     val read : string
     val write : string
-	val expr_to_field : string
+    val expr_to_field : string
   end
 
 let make_db(x) =
@@ -180,6 +180,7 @@ struct
   let open_ = !! "open"
   let build_dbset = !! "build_dbset"
   let build_uniq = !! "build_uniq"
+  let build_option = !! "build_option"
   let update_or_insert = !! "update_or_insert"
   let sum_to_enum = !! "sum_to_enum"
 end
