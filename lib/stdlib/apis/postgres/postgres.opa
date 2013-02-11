@@ -283,7 +283,7 @@ Postgres = {{
   pack(data: Postgres.data): (int, Pack.u) =
     match data with
     | {Null}      -> (1, {Int = -1})
-    | ~{Int}      -> (1, ~{Int})
+    | ~{Int}      -> (1, ~{Int size={Ll}})
     | ~{Int16}    -> (1, {Int=Int16 size={S}})
     | ~{Int64}    -> (1, ~{Int64})
     | ~{Bool}     -> (1, ~{Bool})
