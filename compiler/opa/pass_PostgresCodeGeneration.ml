@@ -74,6 +74,115 @@ type env = {
 module Generator =
 struct
 
+  (* http://www.postgresql.org/docs/8.1/static/sql-keywords-appendix.html#KEYWORDS-TABLE
+     cat sqlkeywords | cut  -f 1,2 | grep -v "non-reserved" | grep reserved | cut -f 1 | sed "s/\(.*\)/\"\1\";/g"
+  *)
+  let pg_keywords = StringSet.from_list [
+    "ALL";
+    "ANALYSE";
+    "ANALYZE";
+    "AND";
+    "ANY";
+    "ARRAY";
+    "AS";
+    "ASC";
+    "ASYMMETRIC";
+    "AUTHORIZATION";
+    "BETWEEN";
+    "BINARY";
+    "BOTH";
+    "CASE";
+    "CAST";
+    "CHECK";
+    "COLLATE";
+    "COLUMN";
+    "CONSTRAINT";
+    "CREATE";
+    "CROSS";
+    "CURRENT_DATE";
+    "CURRENT_ROLE";
+    "CURRENT_TIME";
+    "CURRENT_TIMESTAMP";
+    "CURRENT_USER";
+    "DEFAULT";
+    "DEFERRABLE";
+    "DESC";
+    "DISTINCT";
+    "DO";
+    "ELSE";
+    "END";
+    "EXCEPT";
+    "FALSE";
+    "FOR";
+    "FOREIGN";
+    "FREEZE";
+    "FROM";
+    "FULL";
+    "GRANT";
+    "GROUP";
+    "HAVING";
+    "ILIKE";
+    "IN";
+    "INITIALLY";
+    "INNER";
+    "INTERSECT";
+    "INTO";
+    "IS";
+    "ISNULL";
+    "JOIN";
+    "LEADING";
+    "LEFT";
+    "LIKE";
+    "LIMIT";
+    "LOCALTIME";
+    "LOCALTIMESTAMP";
+    "NATURAL";
+    "NEW";
+    "NOT";
+    "NOTNULL";
+    "NULL";
+    "OFF";
+    "OFFSET";
+    "OLD";
+    "ON";
+    "ONLY";
+    "OR";
+    "ORDER";
+    "OUTER";
+    "OVERLAPS";
+    "PLACING";
+    "PRIMARY";
+    "REFERENCES";
+    "RIGHT";
+    "SELECT";
+    "SESSION_USER";
+    "SIMILAR";
+    "SOME";
+    "SYMMETRIC";
+    "TABLE";
+    "THEN";
+    "TO";
+    "TRAILING";
+    "TRUE";
+    "UNION";
+    "UNIQUE";
+    "USER";
+    "USING";
+    "VERBOSE";
+    "WHEN";
+    "WHERE";
+  ]
+
+  let is_pg_keyworkds s = StringSet.mem (String.uppercase s) pg_keywords
+
+  let pp_pgfield fmt s =
+    if is_pg_keyworkds s then Format.fprintf fmt "\"%s\"" s
+    else Format.pp_print_string fmt s
+
+  let pp_pgfields = Format.pp_list "." pp_pgfield
+
+  let pp_pgname = pp_pgfield
+
   let pg_types = [
     (Api.Types.binary,     "Bytea",           "bytea");
     (Api.Types.bool,       "Bool",            "boolean");
@@ -130,7 +239,7 @@ struct
 
   let pp_postgres_field =
     Format.pp_list "."
-      (fun fmt -> function | `string s -> Format.pp_print_string fmt s | _ -> assert false)
+      (fun fmt -> function | `string s -> pp_pgfield fmt s | _ -> assert false)
 
   let pp_table_name = (Format.pp_list "_" Format.pp_print_string)
 
@@ -262,13 +371,18 @@ struct
             aux q0
             aux q1
       | QD.QNot  _     -> assert false
+      | QD.QFlds [(f, q)] ->
+          pp "%a %a"
+            pp_postgres_field f
+            aux q
       | QD.QFlds flds  ->
-          List.iter
-            (fun (f, q) ->
-               pp "%a %a"
-                 pp_postgres_field f
-                 aux q
-            ) flds
+          pp "(%a)"
+            (Format.pp_list " AND "
+               (fun _fmt (f, q) ->
+                  pp "%a %a"
+                    pp_postgres_field f
+                    aux q
+               )) flds
     in
     match q with
     | QD.QFlds [] -> ()
@@ -379,7 +493,6 @@ struct
   (* ******************************************************)
   (* UPDATING *********************************************)
   (* ******************************************************)
-
   let preprocess_update ~tbl ({gamma; annotmap; ty_init; _} as env) u =
     let rec aux path (annotmap, bindings) u =
       match StringListMap.find_opt (List.rev path) ty_init with
@@ -477,7 +590,7 @@ struct
     in aux path StringMap.empty flds
 
   let pp_update ~tbl pp_expr fmt (u:_ QmlAst.Db.update) =
-    Format.fprintf fmt "UPDATE %s SET " tbl;
+    Format.fprintf fmt "UPDATE %a SET " pp_pgname tbl;
     match u with
     | QD.UFlds flds ->
         let flds = flatten_fields flds in
@@ -486,12 +599,12 @@ struct
              match u with
              | QD.UIncr e ->
                  Format.fprintf fmt "%a = %a + %a"
-                   (Format.pp_list "." Format.pp_print_string) p
-                   (Format.pp_list "." Format.pp_print_string) p
+                   pp_pgfields p
+                   pp_pgfields p
                    (pp_expr (tbl::p)) e
              | QD.UExpr e ->
                  Format.fprintf fmt "%a = %a"
-                   (Format.pp_list "." Format.pp_print_string) p
+                   pp_pgfields p
                    (pp_expr (tbl::p)) e
              | _ -> assert false
           ) fmt flds
@@ -508,16 +621,15 @@ struct
           assert false
 
   let pp_insert env ~tbl pp_expr fmt (u:_ QmlAst.Db.update) =
-    Format.eprintf "Type: %a\n%!" (QD.pp_update QmlPrint.pp#expr) u;
     match u with
     | QD.UFlds flds ->
         let start = ref true in
         let lexmap = lexi_fields env [tbl] flds in
-        Format.fprintf fmt "INSERT INTO %s(%a) VALUES(" tbl
+        Format.fprintf fmt "INSERT INTO %a(%a) VALUES(" pp_pgname tbl
           (StringMap.pp ""
              (fun fmt s _ ->
                 (if !start then start:=false else Format.fprintf fmt " ,");
-                Format.pp_print_string fmt s))
+                pp_pgfield fmt s))
           lexmap;
         let rec aux path n =
           match n with
@@ -535,7 +647,7 @@ struct
                           | Some n ->
                               aux (s::path) n)
                     ) flds
-              | _ -> Format.eprintf "Not found %a : %a\n%!" (Format.pp_list "." Format.pp_print_string) path (StringListMap.pp ":::" (fun fmt k _ -> (Format.pp_list "." Format.pp_print_string) fmt k)) env.ty_init; assert false (* ? *)
+              | _ -> Format.eprintf "Not found %a : %a\n%!" pp_pgfields path (StringListMap.pp ":::" (fun fmt k _ -> pp_pgfields fmt k)) env.ty_init; assert false (* ? *)
         in
         let start = ref true in
         StringMap.pp ""
@@ -624,7 +736,6 @@ struct
         (* TODO OPTIONS *)
         ignore (update_options);
         Format.pp_print_flush fmt ();
-        Format.eprintf "%s\n%!" (Buffer.contents buffer);
         let u_prepared = UpdateMap.add (query, update) (uid, Buffer.contents buffer) u_prepared in
         {env with annotmap; u_prepared}
 
@@ -921,16 +1032,17 @@ struct
             let fmt = Format.formatter_of_buffer buffer in
             let tpath = List.rev (tpath@path) in
             let name = Format.sprintf "%a" pp_table_name tpath in
-            Format.fprintf fmt "CREATE TYPE %s AS (" name;
+            Format.fprintf fmt "CREATE TYPE %a AS (" pp_pgname name;
             Format.pp_list ","
               (fun fmt (s, t) ->
-                 Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(tpath@[s]) env) t;
+                 Format.fprintf fmt "%a %a"
+                   pp_pgfield s
+                   (pp_type_as_pgtype ~path:(tpath@[s]) env) t;
               ) fmt fields;
             Format.fprintf fmt ")";
             Format.pp_print_flush fmt ();
             let q = Buffer.contents buffer in
             let fields = List.map fst fields in
-            Format.eprintf "Added COMPOSITE at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
             {env with ty_init = StringListMap.add tpath (`type_ (`composite fields, name, q)) env.ty_init}
         end
     | Q.TypeName (l, s) ->
@@ -943,7 +1055,7 @@ struct
           let buffer = Buffer.create 256 in
           let fmt = Format.formatter_of_buffer buffer in
           let name = Format.sprintf "%a" pp_table_name tpath in
-          Format.fprintf fmt "CREATE TYPE %s AS ENUM (" name;
+          Format.fprintf fmt "CREATE TYPE %a AS ENUM (" pp_pgname name;
           Format.pp_list ","
             (fun fmt flds ->
                match flds with
@@ -975,7 +1087,7 @@ struct
         Format.fprintf fmt "CREATE TABLE %a("
           pp_table_name path;
         let rec aux_field fmt (s, ty) =
-          Format.fprintf fmt "%s %a" s (pp_type_as_pgtype ~path:(List.rev (s::path)) env) ty
+          Format.fprintf fmt "%a %a" pp_pgfield s (pp_type_as_pgtype ~path:(List.rev (s::path)) env) ty
         in
         let env = List.fold_left
           (fun env (field, ty) ->
@@ -986,11 +1098,10 @@ struct
         Format.pp_list ","
           (fun fmt idx ->
              Format.fprintf fmt " PRIMARY KEY(%a)"
-               (Format.pp_list "," Format.pp_print_string) idx)
+               (Format.pp_list "," pp_pgfield) idx)
           fmt lidx;
         Format.fprintf fmt ")";
         Format.pp_print_flush fmt ();
-        Format.eprintf "TABLE FROM TY %s\n%!" (Buffer.contents buffer);
         {env with tb_init = (Buffer.contents buffer)::tb_init}
     | Q.TypeRecord _ -> assert false
     | Q.TypeName _ ->
@@ -1003,7 +1114,6 @@ struct
       let mty =
         StringListMap.fold
           (fun path ty acc ->
-             Format.eprintf "PATH%a:%a\n%!" (Format.pp_list "." Format.pp_print_string) path QmlPrint.pp#ty ty;
              let rec aux path (acc:[`sub of _ | `ty of _] StringMap.t)=
                match path with
                | [] -> acc
@@ -1096,14 +1206,14 @@ end
 let process_path env code =
   let fmap tra env = function
     | Q.Path (label, path, kind, select) as expr ->
-        (* (try *)
+        (try
           let context = QmlError.Context.annoted_expr env.annotmap expr in
           let env, result =
             Generator.path ~context env (label, path, kind, select) in
           tra env result
-        (* with e -> *)
-        (*   OManager.serror "Error while generates postgres path: %a\n" QmlPrint.pp#expr expr; *)
-        (*   raise e) *)
+        with e ->
+          OManager.serror "Error while generates postgres path: %a\n" QmlPrint.pp#expr expr;
+          raise e)
     | e -> tra env e
   in
   QmlAstWalk.CodeExpr.fold_map
