@@ -189,9 +189,21 @@ query: {query}
     iter = Iter.of_list(rows)
     DbSet.build(iter, void)
   }
+
+  function void update_or_insert(DbPostgres.t db, string procname, list(Postgres.data) args){
+    c = @wait(db)
+    args = List.map(PostgresTypes.string_of_field_value, args)
+    args = List.to_string_using("(", ")", ",", args)
+    command = "SELECT {procname}{args}"
+    (c, _) = Postgres.query(c, void, command, function(_,_,_){void})
+    Postgres.release(c)
+    check_error("UpdateInsert({command})", c)
+  }
+
 }
 
 @opacapi DbPostgres_open = DbPostgres.open
 @opacapi DbPostgres_build_dbset = DbPostgres.build_dbset
+@opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
 
 
