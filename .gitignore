@@ -19,3 +19,5 @@ error.log
 repos/
 node_modules/
 ocamlbase.top
+/*.opa
+/*.js
