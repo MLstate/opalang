@@ -905,10 +905,16 @@ let fields_of_sqldata schema node {Db. sql_fds=_; sql_tbs; sql_ops=_} =
     )
     [] sql_tbs
 
-let coerce_query_element ~context gamma ty (query, options) =
-  let coerce new_annots wrap ty expr =
+let coerce_query_element ~qwrap ~quwrap ~context gamma ty (query, options) =
+  let simple_coerce new_annots wrap ty expr =
     let e = QmlAstCons.UntypedExpr.coerce expr ty in
     Q.QAnnot.expr e::new_annots, wrap e
+  in
+  let coerce new_annots wrap ty expr =
+    try
+      let a, e = simple_coerce new_annots (fun e -> qwrap e) ty (quwrap expr) in
+      a, wrap e
+    with Not_found -> new_annots, wrap expr
   in
   let a, options =
     let a = [] in
@@ -917,11 +923,11 @@ let coerce_query_element ~context gamma ty (query, options) =
     | Some o -> let x, y = f a o in x, Some y in
     let a, limit =
       optmap
-        (fun a -> coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+        (fun a -> simple_coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
         a options.Db.limit
     in let a, skip =
       optmap
-        (fun a -> coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
+        (fun a -> simple_coerce a (fun x -> x) (Q.TypeConst Q.TyInt))
         a options.Db.skip
     in let a, sort =
       let ty =
@@ -936,7 +942,7 @@ let coerce_query_element ~context gamma ty (query, options) =
       optmap
         (fun a fields ->
            List.fold_left_map
-             (fun a (flds, e) -> coerce a (fun e -> (flds, e)) ty e)
+             (fun a (flds, e) -> simple_coerce a (fun e -> (flds, e)) ty e)
              a fields
         ) a options.Db.sort
     in
@@ -1075,7 +1081,8 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
                 with Not_found ->
                   cerror "According the path definition, query is invalid"
           in
-          coerce_query_element ~context gamma ty (query, options)
+          let qwrap x = x in let quwrap x = x in
+          coerce_query_element ~qwrap ~quwrap ~context gamma ty (query, options)
         in
         let new_annots', epath = convert_dbpath ~context t gamma (SchemaGraph.unique_next t node) kind select path0 path in
         new_annots @ new_annots', (Db.Query (query, options))::epath
@@ -1089,7 +1096,9 @@ let rec convert_dbpath ~context t gamma node kind select path0 path =
         in
         let ty = Q.TypeRecord (Q.TyRow (fields, None)) in
         let new_annots, (sql_ops, options) =
-          coerce_query_element ~context gamma ty (sql_ops, options)
+          let qwrap x = `expr x in
+          let quwrap = function | `expr e -> e | _ -> raise Not_found in
+          coerce_query_element ~qwrap ~quwrap ~context gamma ty (sql_ops, options)
         in
         new_annots, (Db.SQLQuery ({Db.sql_tbs; sql_fds; sql_ops}, options))::[]
 
@@ -1198,7 +1207,7 @@ let rec find_exprpath_aux ?context t ?(node=SchemaGraphLib.get_root t) ?(kind=Db
       let partial = true in
       let rebuildt = (fun t -> if partial then C.Db.set t else t) in
       let dataty = Q.TypeRecord (Q.TyRow (fields, None)) in
-      rebuildt dataty, `virtualset (dataty, dataty, partial, rebuildt)
+      rebuildt dataty, node, `virtualset (dataty, dataty, partial, rebuildt)
   | (Db.ExprKey _)::epath, C.Multi ->
       aux_multi epath false
   | (Db.FldKey fld)::_rp, C.Sum ->

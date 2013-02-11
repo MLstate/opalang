@@ -243,6 +243,63 @@ query_fields <- (=list1(query_field, Opa_parser.record_fields_separator)):l Opa_
 
 (* ******************************************************************)
 (**
+   {7 SQL querying }
+   Note : Duplication from "Path querying" because TRX restriction (recursive
+   function)
+*)
+sqlquery <-
+  / sqlquery_combine
+  / sqlquery_nocombine
+
+sqlquery_not <- (=Opa_lexer.exact_ident("not")) spacing sqlquery_nocombine:q
+{{ QmlAst.Db.QNot q }}
+
+sqlquery_nocombine <-
+  / Opa_lexer.lpar sqlquery:q Opa_lexer.rpar {{ q }}
+  / sqlquery_simple
+  / sqlquery_not
+  / sqlquery_fields
+
+sqlquery_combine <-
+  / sqlquery_nocombine:q1 spacing sqlquery_double_builder:b spacing sqlquery:q2 {{ b q1 q2 }}
+  / Opa_lexer.lpar sqlquery:q1 Opa_lexer.rpar spacing sqlquery_double_builder:b spacing sqlquery:q2 {{ b q1 q2 }}
+
+sqlquery_simple_builder <-
+  / (=Opa_lexer.exact_symbol("==")) {{ fun e -> QmlAst.Db.QEq e }}
+  / (=Opa_lexer.exact_symbol(">"))  {{ fun e -> QmlAst.Db.QGt e }}
+  / (=Opa_lexer.exact_symbol("<"))  {{ fun e -> QmlAst.Db.QLt e }}
+  / (=Opa_lexer.exact_symbol(">=")) {{ fun e -> QmlAst.Db.QGte e }}
+  / (=Opa_lexer.exact_symbol("<=")) {{ fun e -> QmlAst.Db.QLte e }}
+  / (=Opa_lexer.exact_symbol("!=")) {{ fun e -> QmlAst.Db.QNe e }}
+  / (=Opa_lexer.exact_ident("in"))  {{ fun e -> QmlAst.Db.QIn e }}
+
+sqlquery_simple <-
+  / sqlquery_simple_builder:b sqlquery_expr:e {{ b e }}
+  / (=Opa_lexer.exact_ident("exists")) {{ QmlAst.Db.QExists true }}
+
+sqlquery_keywords <-
+  / (=Opa_lexer.exact_keyword("and"))
+  / (=Opa_lexer.exact_keyword("or"))
+
+sqlquery_nokeywords <-
+  / !sqlquery_keywords
+
+sqlquery_double_builder <-
+  / (=Opa_lexer.exact_keyword("and")) {{ fun q1 q2 -> QmlAst.Db.QAnd (q1, q2) }}
+  / (=Opa_lexer.exact_keyword("or"))  {{ fun q1 q2 -> QmlAst.Db.QOr (q1, q2) }}
+
+sqlquery_expr <-
+  / spacing Opa_lexer.field_identifier_nosp:s {{`bind s}}
+  / Opa_parser.expr:e {{`expr e}}
+
+sqlquery_field <- sqlquery_nokeywords field_long:f sqlquery_simple:q
+{{ (f, q) }}
+
+sqlquery_fields <- (=list1(sqlquery_field, Opa_parser.record_fields_separator)):l Opa_parser.record_fields_separator?
+{{ QmlAst.Db.QFlds l }}
+
+(* ******************************************************************)
+(**
    {7 Path SQL querying }
 *)
 sqlfield <-
@@ -254,10 +311,10 @@ sqlfields <- (=list1(sqlfield, Opa_lexer.comma))
 sqltables <- (=list1(spacing Opa_lexer.field_identifier_nosp:s {{s}}, Opa_lexer.comma))
 
 ;/** SQL Query **/
-sqlquery <-
+sqlquery1 <-
   (=Opa_lexer.exact_keyword("SELECT")) spacing sqlfields:f spacing
   (=Opa_lexer.exact_keyword("FROM")) spacing sqltables:t spacing
-  (=Opa_lexer.exact_keyword("WHERE")) spacing query:q spacing
+  (=Opa_lexer.exact_keyword("WHERE")) spacing sqlquery:q spacing
   {{
      {QmlAst.Db.sql_ops = q; sql_fds = f; sql_tbs = t}
   }}
@@ -301,7 +358,7 @@ query_options <-
   }}
 
 query_with_options <-
-  / sqlquery:q
+  / sqlquery1:q
     {{
        let options = QmlAst.Db.default_query_options in
        QmlAst.Db.SQLQuery (q, options)

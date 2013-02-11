@@ -145,7 +145,7 @@ struct
     | SFlds of ('expr, 'expr select) fields
     | SId of 'expr * 'expr select
 
-  type 'expr query =
+  type ('epath, 'expr) query =
     | QEq   of 'expr
     | QGt   of 'expr
     | QLt   of 'expr
@@ -154,16 +154,16 @@ struct
     | QNe   of 'expr
     | QMod  of int
     | QIn   of 'expr
-    | QOr   of 'expr query * 'expr query
-    | QAnd  of 'expr query * 'expr query
-    | QNot  of 'expr query
-    | QFlds of ('expr, 'expr query) fields
+    | QOr   of ('epath, 'expr) query * ('epath, 'expr) query
+    | QAnd  of ('epath, 'expr) query * ('epath, 'expr) query
+    | QNot  of ('epath, 'expr) query
+    | QFlds of ('epath, ('epath, 'expr) query) fields
     | QExists of bool
 
   type 'expr sqlquery = {
     sql_fds : (string * string) list;
     sql_tbs : string list;
-    sql_ops : 'expr query;
+    sql_ops : ('expr, [`expr of 'expr | `bind of string]) query;
   }
 
   type 'expr query_options = {
@@ -226,7 +226,7 @@ struct
     | FldKey of string
     | ExprKey of 'expr
     | NewKey
-    | Query of 'expr query * 'expr query_options
+    | Query of ('expr, 'expr) query * 'expr query_options
     | SQLQuery of 'expr sqlquery * 'expr query_options
 
   type 'expr path = 'expr path_elt list
@@ -282,12 +282,12 @@ struct
 
   let pp = BaseFormat.fprintf
 
-  let rec pp_field pp_expr fmt =
+  let rec pp_field pp_epath fmt =
     function
-    | `string t0::((_::_) as q) -> pp fmt "%s.%a" t0 (pp_field pp_expr) q
-    | `expr t0::q -> pp fmt "[%a]%a" pp_expr t0 (pp_field pp_expr) q
+    | `string t0::((_::_) as q) -> pp fmt "%s.%a" t0 (pp_field pp_epath) q
+    | `expr t0::q -> pp fmt "[%a]%a" pp_epath t0 (pp_field pp_epath) q
     | `string t0::[] -> pp fmt "%s" t0
-    | `any::q -> pp fmt "[_]%a" (pp_field pp_expr) q
+    | `any::q -> pp fmt "[_]%a" (pp_field pp_epath) q
     | [] -> pp fmt ""
 
   let rec pp_update pp_expr fmt = function
@@ -324,8 +324,7 @@ struct
       pp fmt "%a}" (pp_update_options pp_expr) o
     )
 
-
-  let rec pp_query pp_expr fmt = function
+  let rec pp_query pp_epath pp_expr fmt = function
     | QEq   expr -> pp fmt "== %a" pp_expr expr
     | QGt   expr -> pp fmt "> %a" pp_expr expr
     | QLt   expr -> pp fmt "< %a" pp_expr expr
@@ -334,13 +333,20 @@ struct
     | QNe   expr -> pp fmt "!= %a" pp_expr expr
     | QMod  i    -> pp fmt "mod %d" i
     | QIn   expr -> pp fmt "in %a" pp_expr expr
-    | QOr   (q1, q2) -> pp fmt "(%a) or (%a)" (pp_query pp_expr) q1 (pp_query pp_expr) q2
-    | QAnd  (q1, q2) -> pp fmt "(%a) and (%a)" (pp_query pp_expr) q1 (pp_query pp_expr) q2
-    | QNot  query -> pp fmt "not (%a)" (pp_query pp_expr) query
+    | QOr   (q1, q2) ->
+        pp fmt "(%a) or (%a)"
+          (pp_query pp_epath pp_expr) q1
+          (pp_query pp_epath pp_expr) q2
+    | QAnd  (q1, q2) ->
+        pp fmt "(%a) and (%a)"
+          (pp_query pp_epath pp_expr) q1
+          (pp_query pp_epath pp_expr) q2
+    | QNot  query ->
+        pp fmt "not (%a)" (pp_query pp_epath pp_expr) query
     | QFlds fields ->
         List.iter
           (function (f, q) ->
-             pp fmt "%a %a" (pp_field pp_expr) f (pp_query pp_expr) q) fields
+             pp fmt "%a %a" (pp_field pp_epath) f (pp_query pp_epath pp_expr) q) fields
     | QExists _ -> pp fmt "exists"
 
   let rec pp_select pp_expr fmt = function
@@ -376,21 +382,27 @@ struct
      | _ ->
          (BaseFormat.pp_list ","
             (fun fmt (db, field) ->
-               match db with "" -> ()
-               | _ -> pp fmt "%s," db; pp fmt "%s" field))
-           fmt
-           sql_fds
+               (match db with "" -> ()
+                | _ -> pp fmt "%s." db);
+               pp fmt "%s" field
+            ))
+           fmt sql_fds
     );
     pp fmt " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt sql_tbs;
-    (pp_query pp_expr) fmt sql_ops
+    pp fmt " WHERE ";
+    let pp_qexpr fmt = function
+      | `expr e -> pp fmt "{%a}" pp_expr e
+      | `bind s -> Format.pp_print_string fmt s
+    in
+    (pp_query pp_expr pp_qexpr) fmt sql_ops
 
   let pp_path_elt pp_expr f =
     function
     | FldKey (s) -> pp f "/%s" s
     | ExprKey e -> pp f "[@[<hv>%a@]]" pp_expr e
     | NewKey -> pp f "[?]"
-    | Query (q, o) -> pp f "[%a%a]" (pp_query pp_expr) q (pp_options pp_expr) o
+    | Query (q, o) -> pp f "[%a%a]" (pp_query pp_expr pp_expr) q (pp_options pp_expr) o
     | SQLQuery (q, o) -> pp f "[%a%a]" (pp_sqlquery pp_expr) q (pp_options pp_expr) o
 
   let pp_path_elts pp_expr fmt elts =
@@ -554,7 +566,7 @@ struct
              (sub_db_update_options sub_e sub_ty)
              (update, options))
 
-  let rec sub_db_query sub_e sub_ty = function
+  let rec sub_db_query sub_ep sub_e sub_ty = function
     | QExists _
     | QMod  _ as e -> TU.sub_ignore e
     | QEq   e -> TU.wrap (fun e -> QEq e) (sub_e e)
@@ -567,17 +579,17 @@ struct
     | QOr   (q1, q2) ->
         TU.wrap
           (fun (q1,q2) -> QOr (q1,q2))
-          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query sub_e sub_ty) (q1, q2))
+          (TU.sub_2 (sub_db_query sub_ep sub_e sub_ty) (sub_db_query sub_ep sub_e sub_ty) (q1, q2))
     | QAnd (q1, q2) ->
         TU.wrap
           (fun (q1,q2) -> QAnd (q1,q2))
-          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query sub_e sub_ty) (q1, q2))
-    | QNot  q -> TU.wrap (fun e -> QNot e) (sub_db_query sub_e sub_ty q)
+          (TU.sub_2 (sub_db_query sub_ep sub_e sub_ty) (sub_db_query sub_ep sub_e sub_ty) (q1, q2))
+    | QNot  q -> TU.wrap (fun e -> QNot e) (sub_db_query sub_ep sub_e sub_ty q)
 
     | QFlds flds ->
         TU.wrap
           (fun fields -> QFlds fields)
-          (sub_db_fields sub_e (sub_db_query sub_e sub_ty) flds)
+          (sub_db_fields sub_ep (sub_db_query sub_ep sub_e sub_ty) flds)
 
   let sub_db_query_options sub_e _sub_ty opt =
     TU.wrap
@@ -596,13 +608,18 @@ struct
     | Query (q, o) ->
         TU.wrap
           (fun (q, o) -> Query (q, o))
-          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
+          (TU.sub_2 (sub_db_query sub_e sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
              (q, o)
           )
     | SQLQuery ({sql_fds; sql_tbs; sql_ops}, o) ->
+        let sub_eq = function
+          | `bind _ as x -> TU.sub_ignore x
+          | `expr e ->
+              TU.wrap (fun e -> `expr e) (sub_e e)
+        in
         TU.wrap
           (fun (sql_ops, o) -> SQLQuery ({sql_fds; sql_tbs; sql_ops}, o))
-          (TU.sub_2 (sub_db_query sub_e sub_ty) (sub_db_query_options sub_e sub_ty)
+          (TU.sub_2 (sub_db_query sub_e sub_eq sub_ty) (sub_db_query_options sub_e sub_ty)
              (sql_ops, o)
           )
 
