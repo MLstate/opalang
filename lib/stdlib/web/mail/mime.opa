@@ -1,5 +1,5 @@
 /*
-    Copyright © 2012 MLstate
+ Copyright © 2012-2013 MLstate
 
     This file is part of Opa.
 
@@ -82,7 +82,7 @@ Mime = {{
 
     q_parser = parser
     | c=((!"=" !"_" .)+) -> Text.to_string(c)
-    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> String.of_byte_val(16 * fst + snd)
+    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> String.of_char(16 * fst + snd)
     | "_"  -> " "
 
     decode(s:string) =
@@ -149,7 +149,7 @@ Mime = {{
 
     qp_parser = parser
     | c=((!"=" .)+) -> some(Text.to_string(c))
-    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> some(String.of_byte_val(16 * fst + snd))
+    | "=" fst=Rule.hexadecimal snd=Rule.hexadecimal -> some(String.of_char(16 * fst + snd))
     | "=" crlf_parser -> none
     | "=" -> none
 

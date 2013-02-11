@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -208,7 +208,7 @@ Server = {{
           h1 * 16 + h2
       special_char = parser
         | "+" -> " "
-        | "%" ~hex2 -> String.of_byte_val(hex2)
+        | "%" ~hex2 -> String.of_char(hex2)
       special_chars = parser
         | l=special_char+ -> Text.cons(String.concat("", l))
       Rule.pipe(

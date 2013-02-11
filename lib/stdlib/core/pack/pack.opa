@@ -459,7 +459,7 @@ Pack = {{
 
     /** Encode char, actually just a single 8-bit character string, failure if multi-byte **/
     char(buf:Pack.t, c:string) : outcome(void,string) =
-      b = String.byte_at_unsafe(0,c)
+      b = String.char_at(c, 0)
       not8 = b < 0 || b > 0xff
       if ((String.length(c) != 1) || not8)
       then {failure="Pack.Encode.char: multi-byte char \"{c}\""}
@@ -627,7 +627,7 @@ Pack = {{
     padn(buf:Pack.t, n:int) : outcome(void,string) =
       if n <= 0
       then {success=void}
-      else {success=Binary.add_string(buf, String.repeat(n, String.of_byte_unsafe(0)))}
+      else {success=Binary.add_string(buf, String.repeat(n, String.of_char(0)))}
 
     /**
      * Add null-byte padding to make up to given boundary.
@@ -638,7 +638,7 @@ Pack = {{
       then {success=void}
       else
         padding = bound(Binary.length(buf),n)
-        do Binary.add_string(buf, String.repeat(padding, String.of_byte_unsafe(0)))
+        do Binary.add_string(buf, String.repeat(padding, String.of_char(0)))
         {success=void}
 
     /**
@@ -847,7 +847,7 @@ Pack = {{
         match Int.ordering(len,String.length(str)) with
         | {eq} -> str
         | {lt} -> String.sub(0, len, str)
-        | {gt} -> str^String.repeat(len - String.length(str), String.of_byte_unsafe(0))
+        | {gt} -> str^String.repeat(len - String.length(str), String.of_char(0))
      {success=Binary.add_string(buf, str)}
 
     /** Encode fixed length binary

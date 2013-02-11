@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -53,6 +53,28 @@ type String.order = Order.default
 String =
 {{
   /**
+   * {2 Primitive operations on character}
+   */
+
+  /**
+   * Returns the unicode character of [str] at the given index [i].
+   */
+  char_at(str, i): Unicode.character =
+    %%BslString.char_at%%(str, i)
+
+  /**
+   * Returns a string created from a unicode character.
+   */
+  of_char(c: Unicode.character): string =
+    %%BslString.of_char%%(c)
+
+  /**
+   * Returns a string created from a list of unicode character.
+   */
+  of_chars(c: list(Unicode.character)): string =
+    %%BslString.of_chars%%(c)
+
+  /**
    * {2 Primitive operations}
    */
 
@@ -62,9 +84,8 @@ String =
   compare(a,b): Order.comparison =
     @opensums(ordering(a,b))
 
-
   /**
-   * Compare two string
+   * Order two string
    */
   ordering = %%BslString.ordering%%
 
@@ -274,38 +295,11 @@ String =
   to_upper= %% BslCactutf.uppercase %%
 
   /**
-   * Removes some accents
-   */
-   //FIXME 1: this should be done in a more complete way and moved to Catcutf
-   //FIXME 2: the server version probably breaks UTF-8 strings
-   //WARNING: used in external projects
-  remove_accents = %% Bslstring.remove_accents %%
-
-  /**
    * Returns the UTF8 representation of a positive integer
    *
    * Exits with an error when the integer is negative
    */
   of_utf8_val= %% BslString.to_character %%
-
-  /**
-   * Build a string from a byte value.
-   * Useful if you use strings for outputs in binary format
-  **/
-  of_byte_val = %% BslString.of_byte_val %%
-
-  /**
-   * Build a string from a byte value.
-   * Unsafe: may raise an error
-  **/
-  of_byte_unsafe = %% BslString.of_byte_unsafe %%
-
-  /**
-   * Peeks the nth byte in a string
-   * Unsafe: may raise an error
-   * Unsound: may give different results on server and client
-  **/
-  byte_at_unsafe = %% BslString.byte_at_unsafe %%
 
   /**
     * Escapes some characters. Used internally.
@@ -611,10 +605,10 @@ String =
     if source == "" then "a"
     else
       last = length(source) - 1
-      i = byte_at_unsafe(last, source)
-      if (i >= 65 && i < 90) || (i >= 97 && i < 122)
+      i = char_at(source, last)
+      if (i >= 'A' && i < 'Z') || (i >= 'a' && i < 'z')
       then
-        substring(0, last, source) ^ of_byte_unsafe(i+1)
+        substring(0, last, source) ^ of_char(i+1)
       else
         source ^ "a"
 
