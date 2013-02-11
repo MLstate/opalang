@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -401,7 +401,7 @@ function blocking_wait(barrier){
 function spawn(f) {
     var barrier = new Barrier();
     var task = function(){
-        var k = cont(barrier.release, barrier, null);
+        var k = cont(function(x){barrier.release(x)}, null, null);
         f = wrap_tc(f);
         f(js_void, k);
     }
