@@ -135,7 +135,9 @@ struct
         | Some (fld, _) ->
             let annotmap, e = C.record annotmap [fld, expr] in
             {env with annotmap}, e
-        | None -> raise Not_found
+        | None ->
+            Format.eprintf "%a %a\n%!" QmlPrint.pp#ty ty (Format.pp_list "," Format.pp_print_string) path;
+            raise Not_found
 
 
   let database
@@ -323,12 +325,13 @@ struct
             ) ({env with annotmap}, []) sql_ops
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
+    let annotmap, def = node.S.default annotmap in
     let build = if uniq then Api.Db.build_uniq else Api.Db.build_dbset in
     let annotmap, build =
       OpaMapToIdent.typed_val ~label ~ty:[node.S.ty]
         build annotmap gamma
     in
-    let annotmap, dbset = C.apply gamma annotmap build [database; qid; args] in
+    let annotmap, dbset = C.apply gamma annotmap build [database; qid; args; def] in
     {env with annotmap}, dbset
 
 
@@ -624,7 +627,7 @@ struct
              | QD.URemoveAll e
              | QD.UId (e, _) ->
                  let annot = Annot.annot (Q.Label.expr e) in
-                 path, AnnotMap.add annot (path, e) amap
+                 path, AnnotMap.add annot (List.rev path, e) amap
              | QD.UFlds flds ->
                  path, List.fold_left
                    (fun amap (f, q) ->
@@ -711,7 +714,12 @@ struct
               let env, bindings, upd = preprocess_update ~tbl env upd in
               let env = prepared_statement_for_update env ~tbl query (upd, opt) in
               let env, e = execute_statement_for_update env ~tbl node query (upd, opt) in
-              let annotmap, e = C.letin env.annotmap bindings e in
+              let annotmap, e =
+                List.fold_left
+                  (fun (annotmap, letin) binding ->
+                     C.letin annotmap [binding] letin
+                  ) (env.annotmap, e) bindings
+              in
               {env with annotmap}, e
           | _ -> assert false
         end
@@ -747,6 +755,7 @@ struct
               Format.pp_print_flush fmt ();
               let q = Buffer.contents buffer in
               let fields = List.map fst fields in
+              Format.eprintf "Added COMPOSITE at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
               {env with ty_init = StringListMap.add tpath (`type_ (`composite fields, name, q)) env.ty_init}
           end
       | Q.TypeName (l, s) ->
@@ -770,9 +779,10 @@ struct
             Format.fprintf fmt ")";
             Format.pp_print_flush fmt ();
             let q = Buffer.contents buffer in
-            Format.eprintf "Added path [%a]: %s\n%!" (Format.pp_list "," Format.pp_print_string) tpath q;
+            Format.eprintf "Added ENUM at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
             {env with ty_init = StringListMap.add tpath (`type_ (`enum, name, q)) env.ty_init}
           with Not_found ->
+            Format.eprintf "Added BLOB at [%a]\n%!" (Format.pp_list "," Format.pp_print_string) tpath;
             {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
           end
       | Q.TypeConst _ -> env

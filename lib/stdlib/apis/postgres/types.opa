@@ -1031,5 +1031,8 @@ PostgresTypes = {{
   to_opa(conn:Postgres.connection, row) : option('a) =
      to_opa_ty(conn, row, @typeval('a), none)
 
+  to_opa_default(conn:Postgres.connection, row, def:'a) : option('a) =
+     to_opa_ty(conn, row, @typeval('a), some(def))
+
 }}
 

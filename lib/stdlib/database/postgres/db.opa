@@ -179,7 +179,7 @@ query: {query}
    * @param args Arguments of prepared statement, a list of pre-packed values.
    * @return A database set.
    */
-  function DbPostgresSet.t('a) build_dbset(DbPostgres.t db, name, list(Postgres.data) args){
+  function DbPostgresSet.t('a) build_dbset(DbPostgres.t db, name, list(Postgres.data) args, 'a def){
     c = @wait(db)
     c = Postgres.bind(c, "", name, args)
     check_error("Bind", c)
@@ -192,7 +192,7 @@ query: {query}
       Postgres.execute(c, [], "", 0, function(conn, msg, acc){
         match(msg){
         case {DataRow:row}:
-          match(option('a) PostgresTypes.to_opa(conn, row)){
+          match(option('a) PostgresTypes.to_opa_default(conn, row, def)){
           case {some:data}: [data|acc]
           case {none}:
             Log.error(c, "A row can't be unserialized, skip it")
@@ -214,8 +214,27 @@ query: {query}
    * @param args Arguments of prepared statement, a list of pre-packed values.
    * @return A value.
    */
-  function 'a build_uniq(DbPostgres.t db, name, list(Postgres.data) args){
-    match(Iter.to_list(DbSet.iterator(build_dbset(db, name, args)))){
+  function 'a build_uniq(DbPostgres.t db, name, list(Postgres.data) args, 'a def){
+    match(Iter.to_list(DbSet.iterator(build_dbset(db, name, args, def)))){
+    case [] :
+      Log.error(@wait(db), "TODO(default): No value was returned by postgres")
+      @fail
+    case [v]: v
+    case [t|_]:
+      Log.error(@wait(db), "Multiple value was returned while expecting strictly one")
+      t
+    }
+  }
+
+  /**
+   * As [build_uniq] but for queries which returns an optionnal value.
+   * @param db The postgres database to request.
+   * @param name Name of the prepared statement.
+   * @param args Arguments of prepared statement, a list of pre-packed values.
+   * @return A value.
+   */
+  function 'a build_uniq(DbPostgres.t db, name, list(Postgres.data) args, 'a def){
+    match(Iter.to_list(DbSet.iterator(build_dbset(db, name, args, def)))){
     case [] :
       Log.error(@wait(db), "TODO(default): No value was returned by postgres")
       @fail
