@@ -78,6 +78,11 @@ module DbPostgres{
     }
 
     @expand
+    function warning(db, msg){
+      gen(@toplevel.Log.warning, db, msg)
+    }
+
+    @expand
     function error0(name, msg){
       gen0(@toplevel.Log.error, name, msg)
     }
@@ -235,14 +240,40 @@ query: {query}
     }
   }
 
-  function void update_or_insert(DbPostgres.t db, string procname, list(Postgres.data) args){
+  private
+  function void execute_procedure(DbPostgres.t db, string procname, list(Postgres.data) args, string name){
     c = @wait(db)
     args = List.map(PostgresTypes.string_of_field_value, args)
     args = List.to_string_using("(", ")", ",", args)
     command = "SELECT {procname}{args}"
     (c, _) = Postgres.query(c, void, command, function(_,_,_){void})
     Postgres.release(c)
-    check_error("UpdateInsert({command})", c)
+    check_error("{name}({command})", c)
+  }
+
+  function void update_or_insert(DbPostgres.t db, string procname, list(Postgres.data) args){
+    execute_procedure(db, procname, args, "UpdateInsert")
+  }
+
+  /**
+   * Execute the prepared statement [name] to remove datas.
+   * @param db The postgres database to request.
+   * @param name Name of the prepared statement.
+   * @param args Arguments of prepared statement, a list of pre-packed values.
+   */
+  function void remove(DbPostgres.t db, string name, list(Postgres.data) args){
+    c = @wait(db)
+    c = Postgres.bind(c, "", name, args)
+    check_error("Bind", c)
+    (c, _) =
+      Postgres.execute(c, void, "", 0, function(c, msg, acc){
+        match(msg){
+        case {DataRow:_}: Log.warning(c, "Receive rows on delete command")
+        default: acc
+        }
+      })
+    check_error("Execute", c)
+    Postgres.release(c)
   }
 
   function sum_to_enum('a value){
@@ -256,6 +287,7 @@ query: {query}
 @opacapi DbPostgres_build_uniq = DbPostgres.build_uniq
 @opacapi DbPostgres_build_option = DbPostgres.build_option
 @opacapi DbPostgres_update_or_insert = DbPostgres.update_or_insert
+@opacapi DbPostgres_remove = DbPostgres.remove
 @opacapi DbPostgres_sum_to_enum = DbPostgres.sum_to_enum
 @opacapi Option_map = Option.map
 

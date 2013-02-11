@@ -182,6 +182,7 @@ struct
   let build_uniq = !! "build_uniq"
   let build_option = !! "build_option"
   let update_or_insert = !! "update_or_insert"
+  let remove = !! "remove"
   let sum_to_enum = !! "sum_to_enum"
 end
 
