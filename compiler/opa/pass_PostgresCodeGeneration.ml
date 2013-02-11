@@ -17,6 +17,7 @@
 *)
 
 module Format = BaseFormat
+module List = BaseList
 
 module Q = QmlAst
 module QD = Q.Db
@@ -48,6 +49,7 @@ module UpdateMap = BaseMap.Make(
 )
 
 type env = {
+  tb_init : string list;
   (* (id of prepared statement, string query) *)
   q_prepared : (string * string) QueryMap.t;
   (* (id of prepared statement, string query) *)
@@ -61,6 +63,7 @@ module Generator =
 struct
 
   let make_env gamma annotmap schema = {
+    tb_init = ["CREATE LANGUAGE plpgsql"];
     q_prepared = QueryMap.empty;
     u_prepared = UpdateMap.empty;
     gamma; annotmap; schema;
@@ -94,10 +97,20 @@ struct
           QmlPrint.pp#ty ty
 
   let database
-      ({gamma; annotmap; q_prepared; u_prepared; _} as env)
+      ({gamma; annotmap; tb_init; q_prepared; u_prepared; _} as env)
       name =
     let annotmap, open_ = OpaMapToIdent.typed_val ~label Api.Db.open_ annotmap gamma in
     let annotmap, name = C.string annotmap name in
+    let annotmap, tables =
+      let annotmap, tables =
+        List.fold_left
+          (fun (annotmap, tables) table ->
+             let annotmap, table = C.string annotmap table in
+             annotmap, table::tables
+          ) (annotmap, []) tb_init
+      in
+      C.list (annotmap, gamma) tables
+    in
     let annotmap, statements =
       let annotmap, statements =
         QueryMap.fold
@@ -122,19 +135,20 @@ struct
         UpdateMap.fold
           (fun _ (_, query) (annotmap, queries) ->
              let annotmap, query = C.string annotmap query in
-             let annotmap, query =
-               C.record annotmap [
-                 "query", query;
-               ]
-             in
              annotmap, query::queries
           ) u_prepared (annotmap, [])
       in
       C.list (annotmap, gamma) queries
     in
-    let annotmap, pgdb = C.apply gamma annotmap open_ [name; statements; queries] in
+    let annotmap, pgdb = C.apply gamma annotmap open_ [name; tables; statements; queries] in
     {env with annotmap}, pgdb
 
+  let pp_type_as_pgtype fmt ty =
+    match ty with
+    | Q.TypeConst Q.TyFloat  -> Format.fprintf fmt "FLOAT8"
+    | Q.TypeConst Q.TyInt    -> Format.fprintf fmt "INT"
+    | Q.TypeConst Q.TyString -> Format.fprintf fmt "TEXT"
+    | _ -> raise Not_found
 
   (* ******************************************************)
   (* QUERYING *********************************************)
@@ -170,9 +184,12 @@ struct
                  aux q
             ) flds
     in
-    let pp x = Format.fprintf fmt x in
-    pp " WHERE ";
-    aux fmt q
+    match q with
+    | QD.QFlds [] -> ()
+    | _ ->
+        let pp x = Format.fprintf fmt x in
+        pp " WHERE ";
+        aux fmt q
 
   let pp_postgres_sqlquery fmt q =
     let pos = ref 0 in
@@ -191,11 +208,14 @@ struct
     );
     pp " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt q.QD.sql_tbs;
-    pp_postgres_genquery
-      (fun fmt -> function
-       | `expr _ -> incr pos; Format.fprintf fmt "$%d" !pos
-       | `bind s -> Format.pp_print_string fmt s
-      ) fmt q.QD.sql_ops
+    match q.QD.sql_ops with
+    | None -> ()
+    | Some sql_ops ->
+        pp_postgres_genquery
+          (fun fmt -> function
+           | `expr _ -> incr pos; Format.fprintf fmt "$%d" !pos
+           | `bind s -> Format.pp_print_string fmt s
+          ) fmt sql_ops
 
   let prepared_statement_for_query =
     let fresh_id =
@@ -224,23 +244,27 @@ struct
     let annotmap, database =
       C.ident annotmap node.S.database.S.ident node.S.database.S.dbty in
     let annotmap, qid = C.string annotmap qid in
-    let annotmap, args = (* see type Pack.u *)
-      QmlAstWalk.DbWalk.Query.self_traverse_fold
-        (fun self tra ((annotmap, args) as acc) -> function
-         | QD.QEq     (`expr e)
-         | QD.QGt     (`expr e)
-         | QD.QLt     (`expr e)
-         | QD.QGte    (`expr e)
-         | QD.QLte    (`expr e)
-         | QD.QNe     (`expr e)
-         | QD.QIn     (`expr e) ->
-             let annotmap, arg = opa_to_data gamma annotmap e in
-             annotmap, arg::args
-         | QD.QAnd (q0, q1)
-         | QD.QOr  (q0, q1) ->
-             self (self acc q0) q1
-         | x -> tra acc x
-        ) (annotmap, []) (fst query).QD.sql_ops
+    let annotmap, args =
+      match (fst query).QD.sql_ops with
+      | None -> annotmap, []
+      | Some sql_ops ->
+          (* see type Postgres.data *)
+          QmlAstWalk.DbWalk.Query.self_traverse_fold
+            (fun self tra ((annotmap, args) as acc) -> function
+             | QD.QEq     (`expr e)
+             | QD.QGt     (`expr e)
+             | QD.QLt     (`expr e)
+             | QD.QGte    (`expr e)
+             | QD.QLte    (`expr e)
+             | QD.QNe     (`expr e)
+             | QD.QIn     (`expr e) ->
+                 let annotmap, arg = opa_to_data gamma annotmap e in
+                 annotmap, arg::args
+             | QD.QAnd (q0, q1)
+             | QD.QOr  (q0, q1) ->
+                 self (self acc q0) q1
+             | x -> tra acc x
+            ) (annotmap, []) sql_ops
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
     let annotmap, build =
@@ -342,13 +366,9 @@ struct
     Format.pp_print_flush fmt2 ();
     let () =
       let pp_elt fmt a =
-        Format.fprintf fmt "%a %s" pp_annot a
-          (match QmlAnnotMap.find_ty a annotmap with
-           | Q.TypeConst Q.TyFloat  -> "FLOAT8"
-           | Q.TypeConst Q.TyInt    -> "INT"
-           | Q.TypeConst Q.TyString -> "TEXT"
-           | _   -> assert false
-          )
+        Format.fprintf fmt "%a %a"
+          pp_annot a
+          pp_type_as_pgtype (QmlAnnotMap.find_ty a annotmap)
       in
       let max = AnnotSet.max_elt !aset in
       let set = AnnotSet.remove max !aset in
@@ -443,16 +463,16 @@ struct
       | QD.QLte e -> QD.QLte (`expr e)
       | QD.QNe e  -> QD.QNe (`expr e)
       | QD.QIn e  -> QD.QIn (`expr e)
-      | QD.QMod i ->  QD.Mod i
+      | QD.QMod i ->  QD.QMod i
       | QD.QOr  (q0, q1) -> binop q0 q1 (fun q0 q1 -> QD.QOr (q0, q1))
       | QD.QAnd (q0, q1) -> binop q0 q1 (fun q0 q1 -> QD.QAnd (q0, q1))
-      | QD.QNot  q -> QD.Not (aux q)
+      | QD.QNot  q -> QD.QNot (aux q)
       | QD.QFlds flds ->
-          let flds = List.map (fun (s,q) -> (s, aux s)) flds in
+          let flds = List.map (fun (s,q) -> (s, aux q)) flds in
           QD.QFlds flds
       | QD.QExists b -> QD.QExists b
     in
-    {QD. sql_ops = aux query; sql_tbs = [tbl]; sql_fds = []}
+    {QD. sql_ops = Option.map aux query; sql_tbs = [tbl]; sql_fds = []}
 
   let resolve_sqlaccess env node query =
     let env = prepared_statement_for_query env query in
@@ -470,7 +490,14 @@ struct
           | QD.Default, S.SqlAccess query ->
               resolve_sqlaccess env node query
           | QD.Default, S.SetAccess (S.DbSet _, [tbl], query, _) ->
-              let query = query_to_sqlquery tbl query in
+              let query =
+                match query with
+                | None ->
+                    (query_to_sqlquery tbl None, QD.default_query_options)
+                | Some (false, (q, o)) ->
+                    (query_to_sqlquery tbl (Some q), o)
+                | _ -> assert false
+              in
               resolve_sqlaccess env node query
           | QD.Update (upd, opt), S.SetAccess (S.DbSet _, [tbl], query, _) ->
               let query =
@@ -484,6 +511,40 @@ struct
           | _ -> assert false
         end
     | _ -> env, Q.Path (label, dbpath, kind, select)
+
+  let table
+      ({gamma; tb_init; _} as env)
+      path ty lidx =
+    let rec table_from_ty ty =
+      match ty with
+      | Q.TypeRecord Q.TyRow (fields , None) ->
+          let buffer = Buffer.create 256 in
+          let fmt = Format.formatter_of_buffer buffer in
+          Format.fprintf fmt "CREATE TABLE %a("
+            (Format.pp_list "_" Format.pp_print_string) path;
+          let rec aux_field fmt (s, ty) =
+            Format.fprintf fmt "%s %a" s pp_type_as_pgtype ty
+          in
+          let env = List.fold_left
+            (fun env (field, ty) ->
+               Format.fprintf fmt "%a, " aux_field (field, ty);
+               env
+            ) env fields
+          in
+          Format.pp_list ","
+            (fun fmt idx ->
+               Format.fprintf fmt " PRIMARY KEY(%a)"
+                 (Format.pp_list "," Format.pp_print_string) idx)
+            fmt lidx;
+          Format.fprintf fmt ")";
+          Format.pp_print_flush fmt ();
+          {env with tb_init = (Buffer.contents buffer)::tb_init}
+      | Q.TypeRecord _ -> assert false
+      | Q.TypeName _ ->
+          table_from_ty (QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty)
+      | _ -> assert false
+    in
+    table_from_ty ty
 
 end
 
@@ -515,22 +576,36 @@ let init_database env =
     )
     (env, []) (S.get_db_declaration env.schema)
 
-let clean_declaration {gamma; schema; _} code=
-  List.filter
-    (function
-     | Q.Database _ -> false
+let init_declaration ({gamma; schema; _} as env) code =
+  List.fold_left_filter_map
+    (fun env -> function
+     | Q.Database _ -> env, None
      | Q.NewDbValue
          (_, (QD.Db_TypeDecl (p, _)
           | QD.Db_Default    (p, _)
           | QD.Db_Alias      (p, _)
           | QD.Db_Constraint (p, _)
-          | QD.Db_Virtual    (p, _))) ->
+          | QD.Db_Virtual    (p, _) as decl)) ->
          begin match p with
          | QD.Decl_fld k::_ ->
-             (S.get_node gamma schema [QD.FldKey k]).S.database.S.options.QD.backend <> `postgres
+             if (S.get_node gamma schema [QD.FldKey k]).S.database.S.options.QD.backend
+               <> `postgres then env, None
+             else (
+               match decl with
+               | QD.Db_TypeDecl ((QD.Decl_fld _)::p, ty) ->
+                   let rec aux rpath p = match p with
+                     | (QD.Decl_set lidx)::[] ->
+                         Generator.table env rpath ty lidx, None
+                     | (QD.Decl_set _lidx)::_ -> assert false
+                     | (QD.Decl_fld str)::p -> aux (str::rpath) p
+                     | [] -> env, None
+                     | _ -> assert false
+                   in aux [] p
+               | _ -> env, None
+             )
          | _ -> assert false
          end
-     | _ -> true) code
+     | x -> env, Some x) env  code
 
 let process_code ~stdlib_gamma gamma annotmap schema code =
   match ObjectFiles.compilation_mode () with
@@ -538,7 +613,7 @@ let process_code ~stdlib_gamma gamma annotmap schema code =
   | _ ->
       let gamma = QmlTypes.Env.unsafe_append stdlib_gamma gamma in
       let env = Generator.make_env gamma annotmap schema in
-      let code = clean_declaration env code in
+      let env, code = init_declaration env code in
       let env, code = process_path env code in
       let env, vals = init_database env in
       (env.annotmap, vals@code)
