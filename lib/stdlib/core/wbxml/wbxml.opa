@@ -13,6 +13,7 @@
 
 import stdlib.core.map
 import stdlib.core.xhtml
+import stdlib.core.args
 
 type WBXml.publicid = {int id} or {string str}
 
