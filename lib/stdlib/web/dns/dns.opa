@@ -12,6 +12,9 @@
 
 import-plugin dns
 
+/**
+ * A DNS MX record, with a priority and an exchange field corresponding to the server address
+ */
 type Dns.mx = {
   int priority,
   string exchange,
@@ -19,6 +22,9 @@ type Dns.mx = {
 
 module Dns {
 
+  /**
+   * Resolves a domain into a list of {!Dns.mx}.
+   */
   function list(Dns.mx) resolve_mx(domain) {
     %%BslDns.resolve_mx%%(domain)
   }
