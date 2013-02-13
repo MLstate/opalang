@@ -150,6 +150,13 @@ module ApigenLib {
   private fmts2 = Date.generate_scanner(date2fmtstr)
   function date_of_string2(string s) { Date.of_formatted_string(fmts2, s) }
 
+  // 2006-01-17T00:00:00Z
+  private date3fmtstr = "%FT%TZ"
+  private fmtp3 = Date.generate_printer(date2fmtstr)
+  function date_to_string3(Date.date d) { Date.to_formatted_string(fmtp3, d) }
+  private fmts3 = Date.generate_scanner(date3fmtstr)
+  function date_of_string3(string s) { Date.of_formatted_string(fmts3, s) }
+
   private function generic_build_path(path, options) {
     if (options == []) path else "{path}?{API_libs.form_urlencode(options)}"
   }
@@ -445,6 +452,7 @@ module ApigenLib {
 
   function get_json_int(json) { match (json) { case {Int:i}: i default: -1 } }
   function get_json_string(json) { match (json) { case {String:s}: s default: "" } }
+  function get_json_date(json) { match (json) { case {String:s}: s default: "" } }
   function get_unknown(name, map) { Map.get(name, map) ? {String:"missing unknown type"} }
   get_int = API_libs_private.map_get_int
   get_float = API_libs_private.map_get_float
