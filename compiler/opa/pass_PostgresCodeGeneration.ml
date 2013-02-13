@@ -305,7 +305,7 @@ struct
            | QD.QFlds flds -> aux (s::rpath) acc flds
            | u -> (List.rev (s::rpath), u)::acc)
         acc flds
-    in aux [] [] flds
+    in List.rev (aux [] [] flds)
 
   let preprocess_query ~tbl ({gamma; annotmap; ty_init; _} as env) q =
     let rec aux path (annotmap, bindings) q =
