@@ -138,7 +138,7 @@ PostgresTypes = {{
     | _ -> {BadDate=s}
 
   getBinByteA(bin:binary) : Postgres.opatype =
-    if Binary.get_int8(bin, 0) == 92 && Binary.get_int8(bin, 0) == 120
+    if Binary.get_int8(bin, 0) == 92 && Binary.get_int8(bin, 1) == 120
     then // bytea hex format
       {Bytea=Binary.of_hex(Binary.get_string(bin,2,Binary.length(bin)-2))}
     else // bytea escape format
@@ -530,7 +530,7 @@ PostgresTypes = {{
     | {Time=time} -> "'{Date.to_formatted_string(Date.time_only_printer,time)}'"
     | {Timestamp=timestamp} -> "'{timestamp_to_string(timestamp)}'"
     | {Timestamptz=timestamptz} -> "'{timestamptz_to_string(timestamptz)}'"
-    | {Bytea=binary} -> "'{string_of_binary(binary)}'" //TODO!!!
+    | {Bytea=binary} -> "'\\x{Binary.to_hex(binary)}'"
     | {IntArray1=l} -> "'{ls(l,Int.to_string)}'"
     | {IntArray2=ll} -> "'{lls(ll,Int.to_string)}'"
     | {IntArray3=lll} -> "'{llls(lll,Int.to_string)}'"
