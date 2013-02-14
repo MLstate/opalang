@@ -293,8 +293,6 @@ PostgresTypes = {{
 
   getElement(rowdesc:Postgres.rowdesc, data:binary, output:Postgres.oparow) : Postgres.oparow =
     add(v) = StringMap.add(rowdesc.name,v,output)
-    //do jlog("rowdesc:{rowdesc}")
-    //do jlog("{rowdesc.name}: data({Binary.length(data)})=\n{bindump(data)}")
     if Binary.length(data) == 0
     then add({Null})
     else
@@ -381,15 +379,12 @@ PostgresTypes = {{
     | _ -> []
 
   enum_to_pg(type_id:int, key:string, v:'a, ty:OpaType.ty) : Postgres.oparowl =
-    //do jlog("enum_to_pg: type_id={type_id}  key={key}  v={v}  ty={ty}")
     field_names = %%BslNativeLib.record_fields%%(v)
-    //do jlog("field_names:{field_names}")
     match field_names with
     | [] -> [(key,{Null})]
     | [name] ->
        match enum_field_names(ty) with
        | {success=enames} ->
-          //do jlog("enames:{enames}")
           if List.mem(name,enames)
           then [(key,{TypeId=(type_id,{text=name})})]
           else [(key,{BadEnum=[name]})]
@@ -702,13 +697,11 @@ PostgresTypes = {{
 
   @private
   field_parser(label, ty, rcons, dflt) =
-    do jlog(Debug.dump(dflt))
     fld = OpaValue.Record.field_of_name_unsafe(label)
     map(p) =
       p = @unsafe_cast(p)
       parser
       | x={Rule.or(p, Rule.succeed_opt(dot_default(fld, dflt)))} ->
-        do jlog("Parse ({ty} {label}) {Debug.dump(x)}")
         OpaValue.Record.add_field(rcons, fld, @unsafe_cast(x))
     char_parser = parser | [\\] c=[\\\"] -> c | [\"][\"] -> '\"' | c=. -> c
     string_parser =
@@ -733,7 +726,6 @@ PostgresTypes = {{
    */
   @private
   composite_to_opa(row:OpaType.fields, pgdata, dflt) =
-    do jlog("composite_to_opa {row} {pgdata}")
     match pgdata with
     | ~{text} ->
       rec composite_parser(row, rcons) = (
