@@ -881,10 +881,31 @@ OpaSerializeClosure = {{
 
 @serializer(bool) serialization_bool = (serialize_bool,unserialize_bool)
 
+@private
+@publish
+tob64 = Binary.to_base64
+
+@private
+@publish
+ofb64 = Binary.of_base64
+
+@private
+@serializer(binary) _ser_bin =
+(
+  (b:binary, _ -> @sliced_expr({
+    server={String=tob64(b)}
+    client={String=@unsafe_cast(b)}
+  }))
+  ,
+  (| {String=b64} ->
+   some(@sliced_expr({server=ofb64(b64) client=@unsafe_cast(b64)}))
+   | _ -> none
+  )
+)
 
 /**
-  * Deprecated, [un]serialize
-  */
+ * Deprecated, [un]serialize
+ */
 
 @deprecated({use="OpaSerialize.String.serialize"})
 @both magic_serialize = OpaSerialize.serialize
