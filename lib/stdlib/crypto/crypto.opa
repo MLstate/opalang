@@ -51,6 +51,7 @@ Crypto = {{
    */
   random(length) = %%BslCrypto.secure_random%%(length)
 
+  #<Ifstatic:OPA_BACKEND_QMLJS>
   /**
    * Adds [data] to the running hash computation.
    * @param hash The hash to update.
@@ -62,6 +63,7 @@ Crypto = {{
    * Terminates the hash computation and returns the digest.
    */
   digest(hash) = %%BslCrypto.digest%%(hash)
+  #<End>
 
   /**
    * This module supports the encoding and decoding of
@@ -160,6 +162,7 @@ Crypto = {{
      */
     ripemd160(key, data) = digest("ripemd160", key, data)
 
+    #<Ifstatic:OPA_BACKEND_QMLJS>
     /**
      * Creates a HMAC computation
      * @param H is the name of cryptographic hash function
@@ -203,6 +206,7 @@ Crypto = {{
      * @return A new computation
      */
     create_ripemd160(key) = create("ripemd160", key)
+    #<End>
 
   }}
 
@@ -263,6 +267,7 @@ Crypto = {{
      */
     ripemd160(data) = digest("ripemd160", data)
 
+    #<Ifstatic:OPA_BACKEND_QMLJS>
     /**
      * Creates a Hash computation
      * @param H is the name of cryptographic hash function
@@ -300,6 +305,7 @@ Crypto = {{
      * @return A new computation
      */
     create_ripemd160() = create("ripemd160")
+    #<End>
 
   }}
 

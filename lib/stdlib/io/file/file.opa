@@ -34,6 +34,7 @@ type File.watcher = external
 /** Options for File.onchange function */
 type File.onchange = {persistent:bool}
 
+#<Ifstatic:OPA_BACKEND_QMLJS>
 /**
  * The type of file descriptors
  */
@@ -43,6 +44,7 @@ type File.descriptor = external
  * Unix.error
  */
 type Unix.error = external
+#<End>
 
 /**
   * A module for very basic file access
@@ -52,6 +54,7 @@ type Unix.error = external
   */
 File = {{
 
+  #<Ifstatic:OPA_BACKEND_QMLJS>
   /**
    * As [File.open] but the result is returned to the callback.
    */
@@ -151,6 +154,8 @@ File = {{
    */
   unlink(path) =
     @callcc(k -> unlink_async(path, Continuation.return(k, _)))
+
+  #<End>
 
   /**
    * Read the content of a file
