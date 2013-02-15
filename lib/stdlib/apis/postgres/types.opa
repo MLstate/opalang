@@ -162,7 +162,9 @@ PostgresTypes = {{
       {Bytea = res}
 
   @private comma = parser "," -> void
-  @private lp(ep) = parser | "\{" l=Rule.parse_list_sep(false, ep, comma) "}" -> l
+  @private lp(ep) = parser
+    | "\{}" -> []
+    | "\{" l=Rule.parse_list_sep(false, ep, comma) "}" -> l
 
   @private dims(s) =
     len = String.length(s)
