@@ -368,6 +368,12 @@ Postgres = {{
                  handlers=IntMap.empty backhandlers=StringMap.empty }}
     | {~failure} -> {~failure}
 
+  /** Return the last query made on the connection. */
+  get_query(conn:Postgres.connection) : string = conn.query
+
+  /** Return the list of operations completed by the last call. */
+  get_completed(conn:Postgres.connection) : list(string) = conn.completed
+
   /** Close a connection object.
    *
    * This routine closes the connection to the server and releases any associated resources.
