@@ -710,7 +710,8 @@ PostgresTypes = {{
     match ty with
     | {TyConst={TyInt={}}} -> map(Rule.integer)
     | {TyConst={TyFloat={}}} -> map(Rule.float)
-    | {TyConst={TyString={}}} -> map(parser s=((![,)].)*) -> Text.to_string(s))
+    | {TyConst={TyString={}}} ->
+      map(parser | s=string_parser -> s | s=((![,)].)*) -> Text.to_string(s))
     | {TyName_args=tys; TyName_ident=tyid} ->
       field_parser(label, OpaType.type_of_name(tyid, tys), rcons, dflt)
     | {TyRecord_row=row ...} ->
