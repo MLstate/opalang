@@ -1161,7 +1161,7 @@ struct
               assert (kpath = `uniq);
               let env, access = resolve_sqlaccess env next node (`option, query) in
               let env, access = letins bindings (env, access) in
-              post env kpath access
+              post env `option access
           | QD.Ref,    S.SetAccess (S.DbSet _, [tbl], query, embed) ->
               resolve_sqlref ~tbl env next node query embed
 
