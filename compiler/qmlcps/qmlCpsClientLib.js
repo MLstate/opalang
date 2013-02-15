@@ -361,6 +361,10 @@ function return_(k, x){
     push(task_from_return(k, [x]));
 }
 
+function return_exn(k, e){
+    push(task_from_return(handler_cont(k), [e]));
+}
+
 function execute(k, x){
     var r;
     #<Ifstatic:OPABSL_NODE>
