@@ -761,7 +761,7 @@ PostgresTypes = {{
 
   rec row_to_opa_aux(conn:Postgres.connection, row:Postgres.oparow, ty:OpaType.ty, dflt:option('a)): option('a) =
 
-    error_msg(str) = "Try to unserialize {row} with {ty}\n Error : {str}"
+    error_msg(str) = "Error : {str}"
 
     error_no_retry(str, v) =
       do Log.error("Postgres.row_to_opa", error_msg(str))
@@ -854,7 +854,7 @@ PostgresTypes = {{
       match opatype with
       | {String = s} -> OpaSerialize.unserialize(s, ty)
       | _ ->
-      err() = error("expected {ty}, got {opatype}")
+      err() = error("cannot unserialize a list({ty}) from {opatype}")
       list(get) =
         match opatype with
         | {Null} -> dflt
@@ -904,6 +904,7 @@ PostgresTypes = {{
          list((ot -> match ot with {FloatArray2=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
       | (3,{TyConst={TyFloat={}}}) ->
          list((ot -> match ot with {FloatArray3=a} -> {some=@unsafe_cast(a)} | _ -> {none}))
+      | (_, {TyName_ident=tid TyName_args=tys}) -> aux(level, OpaType.type_of_name(tid, tys))
       | _ ->
          match opatype with
          | {Null} -> dflt
