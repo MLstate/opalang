@@ -187,6 +187,11 @@ type Map('key,'order) =
 
         mapi: ('key, 'val -> 'new_val), ordered_map('key,'val,'order) -> ordered_map('key,'new_val,'order)
 
+        /**
+         * Return all the keys of this map, as a list.
+         */
+        keys: ordered_map('key,'val,'order) -> list('key)
+
         iter: ('key, 'val -> void), ordered_map('key,'val,'order) -> void
 
         min_binding: ordered_map('key,'val,'order) -> ('key, 'val)
@@ -552,6 +557,10 @@ Map_private =
            to_rev_iter(right,
            { next() = some( ((key, value), to_rev_iter(left, cont))) } : iter)
 
+  keys(m:Map_private.map('key,'val)) : list('key) =
+    fold(
+      (k, _, acc -> k +> acc), m, []
+    )
 
   random_get(m) =
     match m : Map_private.map
@@ -784,6 +793,9 @@ Map_make(order: order('key,'order) ) : Map =
 
   mapi(f : ('key, 'val -> 'new_val), m : ordered_map('key, 'val, 'order)) =
     Map_private.mapi(f, m) : ordered_map('key, 'new_val, 'order)
+
+  keys(m : ordered_map('key, 'val, 'order)) =
+    Map_private.keys(m) : list('key)
 
   iter(f, m : ordered_map('key, 'val, 'order)) =
     fold((k, v, _acc -> f(k, v)), m, void)
