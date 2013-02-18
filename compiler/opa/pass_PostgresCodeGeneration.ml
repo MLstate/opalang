@@ -419,7 +419,7 @@ struct
         pp " WHERE ";
         aux fmt q
 
-  let pp_postgres_sqlquery ~command fmt q =
+  let pp_postgres_sqlquery ~command fmt q o =
     let pos = ref 0 in
     let pp x = Format.fprintf fmt x in
     pp "%s " (command_to_string command);
@@ -435,14 +435,40 @@ struct
     end;
     pp " FROM ";
     (BaseFormat.pp_list "," Format.pp_print_string) fmt q.QD.sql_tbs;
-    match q.QD.sql_ops with
-    | None -> ()
-    | Some sql_ops ->
-        pp_postgres_genquery
-          (fun _ fmt -> function
-           | `expr _ -> incr pos; Format.fprintf fmt "$%d" !pos
-           | `bind s -> pp_pgfield fmt s
-          ) fmt sql_ops
+    (match q.QD.sql_ops with
+     | None -> ()
+     | Some sql_ops ->
+         pp_postgres_genquery
+           (fun _ fmt -> function
+            | `expr _ -> incr pos; Format.fprintf fmt "$%d" !pos
+            | `bind s -> pp_pgfield fmt s
+           ) fmt sql_ops);
+    (match o.QD.sort with
+     | None -> ()
+     | Some flds -> Format.fprintf fmt " ORDER BY %a"
+         (Format.pp_list ", "
+            (fun fmt (flds, e) ->
+               let o =
+                 let rec aux e =
+                   match e with
+                   | Q.Record (_, ["up", _]) -> "ASC"
+                   | Q.Record (_, ["down", _]) -> "DESC"
+                   | Q.Coerce (_, e, _) -> aux e
+                   | _ -> failwith "order must be statically known"
+                 in aux e
+               in
+               Format.fprintf fmt "%a %s"
+                 pp_pgqfields flds
+                 o
+            )
+         ) flds
+    );
+    (match o.QD.limit with
+     | None -> ()
+     | Some _ -> incr pos; Format.fprintf fmt " LIMIT $%d" !pos);
+    (match o.QD.skip with
+     | None -> ()
+     | Some _ -> incr pos; Format.fprintf fmt " OFFSET $%d" !pos)
 
   let prepared_statement_for_query =
     let fresh_id =
@@ -455,9 +481,7 @@ struct
       ((sqlquery, options) as query) ->
       let buffer = Buffer.create 256 in
       let fmt = Format.formatter_of_buffer buffer in
-      pp_postgres_sqlquery ~command fmt sqlquery;
-      (* TODO OPTIONS *)
-      ignore options;
+      pp_postgres_sqlquery ~command fmt sqlquery options;
       Format.pp_print_flush fmt ();
       let qid = fresh_id (command_to_string command) in
       match command with
@@ -554,6 +578,20 @@ struct
                 | QD.QOr (q0, q1) -> binop q0 q1 acc
                 | _ -> assert false
               in aux0 sql_ops (env, [])
+    in
+    let annotmap, args =
+      let {QD. limit; skip; _}  = snd query in
+      let annotmap, args = match limit with | None -> annotmap, args
+        | Some limit ->
+            let annotmap, arg = C.record annotmap ["Int", limit] in
+            annotmap, arg :: args
+      in
+      let annotmap, args = match skip with | None -> annotmap, args
+        | Some skip ->
+            let annotmap, arg = C.record annotmap ["Int", skip] in
+            annotmap, arg :: args
+      in
+      annotmap, args
     in
     let annotmap, args = C.rev_list (annotmap, gamma) args in
     match command with

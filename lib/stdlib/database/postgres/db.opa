@@ -208,7 +208,7 @@ query: {query}
       })
     Postgres.release(c)
     check_error("Execute", c)
-    iter = Iter.of_list(rows)
+    iter = Iter.of_list(List.rev(rows))
     DbSet.build(iter, void)
   }
 
