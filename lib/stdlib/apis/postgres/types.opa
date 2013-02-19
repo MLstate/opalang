@@ -646,7 +646,7 @@ PostgresTypes = {{
       | ([],_) -> ([],[])
       | (_,[]) -> ([],[])
       | ([e1|l1],[e2|l2]) ->
-         match String.ordering(e1.f1,e2.label) with
+         match String.ordering(e1.f1,String.lowercase(e2.label)) with
          | {eq} ->
            (l1,l2) = aux(l1,l2)
            ([e1|l1],[e2|l2])
@@ -808,19 +808,20 @@ PostgresTypes = {{
         match (elements, fields) with
         | ([element|erest],[field|frest]) ->
             name = element.f1
+            label = field.label
             next() =
-              match OpaValue.Record.field_of_name(name) with
-              | {none} -> error_no_retry("Missing field {name}", (acc, true))
+              match OpaValue.Record.field_of_name(label) with
+              | {none} -> error_no_retry("Missing field {label}", (acc, true))
               | {some=backfield} ->
                 dflt = Option.map(OpaValue.Record.unsafe_dot(_, backfield), dflt)
                 match opatype_to_opa(element.f2, field.ty, dflt) with
                 | {none} ->
-                  error_no_retry("Failed with field {name}, document {row} and type {OpaType.to_pretty(field.ty)}",
+                  error_no_retry("Failed with field {label}, document {row} and type {OpaType.to_pretty(field.ty)}",
                                  (acc, true))
                 | {some=value} -> aux(erest,frest,[(backfield,value)|acc])
                 end
               end
-            match String.ordering(field.label,name)
+            match String.ordering(String.lowercase(field.label),name)
             | {eq} -> next()
             | {lt} -> optreg(name, field, frest, [element|erest], acc)
             | {gt} -> (acc, true)
@@ -830,7 +831,7 @@ PostgresTypes = {{
         | (_erest,_frest) -> (acc,true)
       elements = StringMap.fold((name, opatype, elements -> [(name,opatype)|elements]),row,[])
       elements = List.sort_by((e -> e.f1),elements)
-      fields = List.sort_by((f -> f.label),fields)
+      fields = List.sort_by((f -> String.lowercase(f.label)),fields)
       (elements,fields) = intersect(elements, fields)
       (flds, err) = aux(elements, fields, [])
       rcrd = List.fold(((field,value), rcrd -> OpaValue.Record.add_field(rcrd, field, value)),
