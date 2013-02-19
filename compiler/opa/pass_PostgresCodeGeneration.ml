@@ -250,7 +250,7 @@ struct
       S.get_node gamma schema path
     with Base.NotImplemented s ->
       QmlError.error context
-        "Can't generates postgres access because : %s is not yet implemented"
+        "Can not generate postgres access because : %s is not yet implemented"
         s
 
   let pp_table_name = (Format.pp_list "_" Format.pp_print_string)
@@ -1426,7 +1426,7 @@ let process_path env code =
             Generator.path ~context env (label, path, kind, select) in
           tra env result
         with e ->
-          OManager.serror "Error while generates postgres path: %a\n" QmlPrint.pp#expr expr;
+          OManager.serror "Error while generating postgres path: %a\n" QmlPrint.pp#expr expr;
           raise e)
     | e -> tra env e
   in
