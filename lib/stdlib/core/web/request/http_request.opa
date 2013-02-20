@@ -218,7 +218,7 @@ HttpRequest = {{
               do Binary.add_binary(data, data2)
               body_as_value(data, iter, dlen - blen)
             end
-          | s -> (Binary.get_string(data, i, s - i), data, iter, s)
+          | s -> (Binary.get_string(data, i, s - i - 2), data, iter, s)
           end
         /* Skip the first boundary */
         rec start(data, iter, i, skipped)
@@ -270,9 +270,9 @@ HttpRequest = {{
                       file(filename, name)
                     | "filename="filename=quoted[;] [ ]* "name="name=quoted[;]? ->
                       file(filename, name)
-                    | "name="name=(.*) ->
+                    | "name="name=quoted ->
                       (value, data, iter, s) = body_as_value(data, iter, s+4/*crlf*2*/)
-                      {some = ({~headers part={name=Text.to_string(name) ~value}},
+                      {some = ({~headers part={~name ~value}},
                                {next = -> start(data, iter, s, 0)})}
                   } -> x, disp.value)
                 | {none} ->
