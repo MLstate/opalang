@@ -422,10 +422,12 @@ Crypto = {{
      */
     new_key = %% BslCrypto.rsa_new_key %% : int -> Crypto.RSA.key
 
+    #<Ifstatic:OPA_BACKEND_QMLJS>
     /**
      * Read a RSA key from a PEM file.
      */
     read_key = %% BslCrypto.read_rsa_key %% : string, option(string), option(string) -> Crypto.RSA.key
+    #<End>
 
     /**
      * Encrypt a binary data with a certain RSA key.
@@ -439,7 +441,7 @@ Crypto = {{
     decrypt = %% BslCrypto.rsa_decrypt %% : Crypto.RSA.key, binary -> option(binary)
 
   }}
-
+  #<Ifstatic:OPA_BACKEND_QMLJS>
   Cipher = {{
 
     generic_encrypt = %% BslCrypto.cipher_encrypt %% : string, binary, binary -> option(binary)
@@ -453,5 +455,6 @@ Crypto = {{
     aes256_decrypt = generic_decrypt("aes256", _, _)
 
   }}
+  #<End>
 
 }}
