@@ -218,7 +218,7 @@ HttpRequest = {{
               do Binary.add_binary(data, data2)
               body_as_value(data, iter, dlen - blen)
             end
-          | s -> (Binary.get_string(data, i, s - i), data, iter, s+blen)
+          | s -> (Binary.get_string(data, i, s - i), data, iter, s)
           end
         /* Skip the first boundary */
         rec start(data, iter, i, skipped)
