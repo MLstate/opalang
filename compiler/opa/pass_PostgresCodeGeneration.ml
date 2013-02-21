@@ -76,6 +76,8 @@ type env = {
 module Generator =
 struct
 
+  let random_stamp = BaseRandom.max_int ()
+
   (* http://www.postgresql.org/docs/8.1/static/sql-keywords-appendix.html#KEYWORDS-TABLE
      cat sqlkeywords | cut  -f 1,2 | grep -v "non-reserved" | grep reserved | cut -f 1 | sed "s/\(.*\)/\"\1\";/g"
   *)
@@ -473,7 +475,7 @@ struct
   let prepared_statement_for_query =
     let fresh_id =
       let fresh = Fresh.fresh_factory (fun x -> x) in
-      fun s -> Format.sprintf "%s_%d" s (fresh ())
+      fun s -> Format.sprintf "%s_%d_%d" s (fresh ()) random_stamp
     in
     fun
       ?(command=`select)
@@ -845,7 +847,7 @@ struct
   let prepared_statement_for_update =
     let fresh_id =
       let fresh = Fresh.fresh_factory (fun x -> x) in
-      fun () -> Format.sprintf "update_%d" (fresh ())
+      fun () -> Format.sprintf "update_%d_%d" (fresh ()) random_stamp
     in
     fun
       ({annotmap; u_prepared; _} as env)
