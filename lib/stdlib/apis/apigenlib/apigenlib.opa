@@ -790,6 +790,7 @@ type ApigenLib.connection = {
   ApigenLib.conf conf,
   bool retain, // total mass
   option(Socket.t) conn,
+  option(SocketPool.auth) auth,
   SocketPool.t pool,
   ApigenLib.read_packet read_packet
 }
@@ -838,7 +839,7 @@ module ApilibConnection(Socket.host default_host) {
    */
   function ApigenLib.connection init(family_name, name, secure, preamble, retain) {
     conf = Conf.get_default(family_name, name)
-    ~{ name, conf, retain, conn:{none},
+    ~{ name, conf, retain, conn:{none}, auth:{none},
        pool:SocketPool.make_secure(conf.default_host,{hint:conf.bufsize, max:conf.poolmax, verbose:conf.verbose},secure,preamble),
        read_packet:read_packet_prefixed(default_length)
      }
@@ -863,9 +864,9 @@ module ApilibConnection(Socket.host default_host) {
     match (conn.conn) {
     case {some:_}: {success:conn};
     case {none}:
-      match (SocketPool.get(conn.pool)) {
+      match (SocketPool.get_auth(conn.pool)) {
       case ~{failure}: {failure:{socket:failure}};
-      case {success:c}: {success:{conn with conn:{some:c}}};
+      case {success:(c,auth)}: {success:{conn with conn:{some:c}, auth:{some:auth}}};
       }
     }
   }
@@ -876,7 +877,9 @@ module ApilibConnection(Socket.host default_host) {
    */
   function ApigenLib.connection release(ApigenLib.connection conn) {
     match (conn.conn) {
-    case {some:c}: SocketPool.release(conn.pool,c); {conn with conn:none};
+    case {some:c}:
+      SocketPool.release_auth(conn.pool,c,conn.auth?{authenticated:false, i1:-1, i2:-1});
+      {conn with conn:none, auth:none};
     case {none}: conn;
     }
   }

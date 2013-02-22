@@ -186,8 +186,6 @@ type Postgres.connection = {
   minor_version  : int /** The minor version for the protocol */
   dbase          : string /** The name of the database to connected to */
   params         : stringmap(string) /** Map of parameter values returned during authentication */
-  processid      : int /** The processid for the connection at the server */
-  secret_key     : int /** The connection's secret data (used in cancel requests) */
   query          : string /** A note of the last query command */
   status         : string /** The last received status code from the server */
   suspended      : bool /** Whether an execution was suspended or not */
@@ -362,7 +360,7 @@ Postgres = {{
     | {success=conn} ->
       {success={ ~name ~secure ~conn ~dbase ssl_accepted=false
                  major_version=default_major_version minor_version=default_minor_version
-                 params=StringMap.empty processid=-1 secret_key=-1
+                 params=StringMap.empty
                  query="" status="" suspended=false in_transaction=false error=none
                  empty=true completed=[] paramdescs=[] rows=0 rowdescs=[]
                  handlers=IntMap.empty backhandlers=StringMap.empty }}
@@ -388,7 +386,7 @@ Postgres = {{
       then Pg.terminate({success=conn.conn})
       else {success=conn.conn}
     match Pg.close(sconn) with
-    | {success=c} -> {success={conn with conn=c processid=-1 secret_key=-1}}
+    | {success=c} -> {success={conn with conn=c}}
     | {~failure} -> {~failure}
 
   /**
@@ -421,9 +419,12 @@ Postgres = {{
    * @returns An optional object with the key data.
    */
   keydata(conn:Postgres.connection) : option({processid:int; secret_key:int}) =
-    if conn.processid != -1 && conn.secret_key != -1
-    then {some={processid=conn.processid; secret_key=conn.secret_key}}
-    else {none}
+    match conn.conn.auth with
+    | {some=auth} ->
+      if auth.authenticated && auth.i1 != -1 && auth.i2 != -1
+      then {some={processid=auth.i1; secret_key=auth.i2}}
+      else {none}
+    | {none} -> {none}
 
   /** Return last status value.
    *
@@ -518,7 +519,8 @@ Postgres = {{
     | {success=(c,{ParameterStatus=(n,v)})} ->
       loop({conn with conn=c; params=StringMap.add(n,v,conn.params)}, acc, f)
     | {success=(c,{BackendKeyData=(processid,secret_key)})} ->
-      loop({conn with conn=c; ~processid ~secret_key}, acc, f)
+      c = {c with auth={some={authenticated=true; i1=processid; i2=secret_key}}}
+      loop({conn with conn=c}, acc, f)
     | {success=(c,{~CommandComplete})} ->
       loop({conn with conn=c; completed=[CommandComplete|conn.completed]}, acc, f)
     | {success=(c,{EmptyQueryResponse})} ->
@@ -557,7 +559,11 @@ Postgres = {{
     end
 
   @private init_conn(conn:Postgres.connection, query) : Postgres.connection =
-    {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; rowdescs=[]; paramdescs=[]; ~query}
+    // We now verify that the connection has been authenticated upon each command.
+    conn = authenticate(conn)
+    if Option.is_none(conn.error)
+    then {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; rowdescs=[]; paramdescs=[]; ~query}
+    else conn
 
   /* Failed attempt to get SSL connection.  We do everything the docs say,
    * we send the SSLRequest message, we get back "S" and then we call
@@ -595,6 +601,11 @@ Postgres = {{
     | ~{failure} -> ~{failure}
     end
 
+  is_authenticated(conn:Postgres.connection) : bool =
+    match conn.conn.auth with
+    | {some={authenticated={true}; i1=processid; i2=secret_key}} -> processid != -1 && secret_key != -1
+    | _ -> false
+
   /** Authenticate with the PostgreSQL server.
    *
    * This function sends a [StartupMessage] message which includes the user and database names.
@@ -608,11 +619,23 @@ Postgres = {{
    * @returns An updated connection with connection data installed.
    */
   authenticate(conn:Postgres.connection) : Postgres.connection =
-    conn = init_conn(conn, "authentication")
-    version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
-    match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
-    | {success=c} -> loop({conn with conn=c}, void, ignore_listener).f1
-    | ~{failure} -> error(conn,{api_failure=failure}, void, ignore_listener).f1
+    // We have to ensure that the connection is pre-allocated here
+    // since Pg.start might be given a socket which is already authenticated.
+    match Pg.Conn.allocate(conn.conn) with
+    | {success=c} ->
+      conn = {conn with conn=c}
+      if is_authenticated(conn)
+      then conn
+      else
+        conn = {conn with error=none; empty=false; suspended=false; completed=[]; rows=0; rowdescs=[]; paramdescs=[];
+                          query="authentication"}
+        version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
+        match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
+        | {success=c} -> loop({conn with conn=c}, void, ignore_listener).f1
+        | ~{failure} -> error(conn,{api_failure=failure}, void, ignore_listener).f1
+        end
+     | ~{failure} -> error(conn,{api_failure=failure}, void, ignore_listener).f1
+     end
 
   /** Issue simple query command and read back responses.
 
@@ -633,10 +656,13 @@ Postgres = {{
    */
   query(conn:Postgres.connection, init, query, folder) =
     conn = init_conn(conn, query)
-    match Pg.query({success=conn.conn}, query) with
-    | {success=c} -> loop({conn with conn=c}, init, folder)
-    | ~{failure} -> error(conn, {api_failure=failure}, init, folder)
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.query({success=conn.conn}, query) with
+      | {success=c} -> loop({conn with conn=c}, init, folder)
+      | ~{failure} -> error(conn, {api_failure=failure}, init, folder)
+      end
+    else (conn,init)
 
 
   /** Send a parse query message.
@@ -654,13 +680,16 @@ Postgres = {{
    */
   parse(conn:Postgres.connection, name, query, oids) : Postgres.connection =
     conn = init_conn(conn, "Parse({query},{name})")
-    match Pg.parse({success=conn.conn}, (name,query,oids)) with
-    | {success=c} ->
-      conn = {conn with conn=c}
-      final(conn, {final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} ->
-      error(conn, {api_failure=failure}, void, ignore_listener).f1
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.parse({success=conn.conn}, (name,query,oids)) with
+      | {success=c} ->
+        conn = {conn with conn=c}
+        final(conn, {final={success=conn}}, void, ignore_listener).f1
+      | ~{failure} ->
+        error(conn, {api_failure=failure}, void, ignore_listener).f1
+      end
+    else conn
 
   /** Bind parameters to a prepared statement and a portal.
    *
@@ -676,13 +705,16 @@ Postgres = {{
     params = List.map(serialize, params)
     (codes, params) = List.unzip(params)
     conn = init_conn(conn, "Bind({name},{portal})")
-    match Pg.bind({success=conn.conn}, (portal, name, codes, params, [0])) with
-    | {success=c} ->
-      conn = {conn with conn=c}
-      final(conn,{final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} ->
-      error(conn, {api_failure=failure}, void, ignore_listener).f1
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.bind({success=conn.conn}, (portal, name, codes, params, [0])) with
+      | {success=c} ->
+        conn = {conn with conn=c}
+        final(conn,{final={success=conn}}, void, ignore_listener).f1
+      | ~{failure} ->
+        error(conn, {api_failure=failure}, void, ignore_listener).f1
+      end
+    else conn
 
   /** Execute named portal.
    *
@@ -697,13 +729,16 @@ Postgres = {{
   execute(conn:Postgres.connection, init, portal, rows_to_return, folder) =
     // should we fold on sync instead of execute ?
     conn = init_conn(conn, "Execute({portal})")
-    match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
-    | {success=c} ->
-      conn = {conn with conn=c}
-      loop(sync(conn), init, folder)
-    | ~{failure} ->
-      error(conn, {api_failure=failure}, init, folder)
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.execute({success=conn.conn},(portal,rows_to_return)) with
+      | {success=c} ->
+        conn = {conn with conn=c}
+        loop(sync(conn), init, folder)
+      | ~{failure} ->
+        error(conn, {api_failure=failure}, init, folder)
+      end
+    else (conn, init)
 
   /** Describe portal or statement.
    *
@@ -718,13 +753,16 @@ Postgres = {{
    */
   describe(conn:Postgres.connection, sp:Postgres.sp, name) : Postgres.connection =
     conn = init_conn(conn, "Describe({string_of_sp(sp)},{name})")
-    match Pg.describe({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success=c} ->
-      conn = {conn with conn=c}
-      final(conn,{final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} ->
-      error(conn,{api_failure=failure}, void, ignore_listener).f1
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.describe({success=conn.conn},(string_of_sp(sp),name)) with
+      | {success=c} ->
+        conn = {conn with conn=c}
+        final(conn,{final={success=conn}}, void, ignore_listener).f1
+      | ~{failure} ->
+        error(conn,{api_failure=failure}, void, ignore_listener).f1
+      end
+    else conn
 
   /** Close a prepared statement or portal.
    *
@@ -741,13 +779,16 @@ Postgres = {{
    */
   closePS(conn:Postgres.connection, sp:Postgres.sp, name) : Postgres.connection =
     conn = init_conn(conn, "Close({string_of_sp(sp)},{name})")
-    match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
-    | {success=c} ->
-	  conn = {conn with conn=c}
-      final(conn, {final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} ->
-      error(conn, {api_failure=failure}, void, ignore_listener).f1
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.closePS({success=conn.conn},(string_of_sp(sp),name)) with
+      | {success=c} ->
+            conn = {conn with conn=c}
+        final(conn, {final={success=conn}}, void, ignore_listener).f1
+      | ~{failure} ->
+        error(conn, {api_failure=failure}, void, ignore_listener).f1
+      end
+    else conn
 
   /** Send [Sync] command and read back response data.
    *
@@ -761,13 +802,16 @@ Postgres = {{
    */
   sync(conn:Postgres.connection) : Postgres.connection =
     conn = init_conn(conn, "Sync")
-    match Pg.sync({success=conn.conn}) with
-    | {success=c} ->
-      conn = {conn with conn=c}
-      final(conn, {final={success=conn}}, void, ignore_listener).f1
-    | ~{failure} ->
-      error(conn,{api_failure=failure}, void, ignore_listener).f1
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.sync({success=conn.conn}) with
+      | {success=c} ->
+        conn = {conn with conn=c}
+        final(conn, {final={success=conn}}, void, ignore_listener).f1
+      | ~{failure} ->
+        error(conn,{api_failure=failure}, void, ignore_listener).f1
+      end
+    else conn
 
   /** Send a [Flush] command and read back response data.
    *
@@ -779,13 +823,16 @@ Postgres = {{
    */
   flush(conn:Postgres.connection) : Postgres.connection =
     conn = init_conn(conn, "Flush")
-    match Pg.flush({success=conn.conn}) with
-    | {success=c} ->
-      conn = {conn with conn=c}
-      loop(conn, void, ignore_listener).f1
-    | ~{failure} ->
-      error(conn,{api_failure=failure}, void, ignore_listener).f1
-    end
+    if Option.is_none(conn.error)
+    then
+      match Pg.flush({success=conn.conn}) with
+      | {success=c} ->
+        conn = {conn with conn=c}
+        loop(conn, void, ignore_listener).f1
+      | ~{failure} ->
+        error(conn,{api_failure=failure}, void, ignore_listener).f1
+      end
+    else conn
 
   /** Send cancel request message on secondary channel.
    *
@@ -802,12 +849,16 @@ Postgres = {{
    * @returns An outcome of a void or an [Apigen.failure] object.
    */
   cancel(conn:Postgres.connection) : Postgres.result =
-    if conn.processid == -1 || conn.secret_key == -1
+    (processid, secret_key) =
+      match conn.conn.auth with
+      | {some={authenticated={true}; i1=processid; i2=secret_key}} -> (processid,secret_key)
+      | _ -> (-1,-1)
+    if processid == -1 || secret_key == -1
     then {failure=(conn,{no_key})}
     else
       match connect(conn.name, conn.secure, conn.dbase) with
       | {success=conn} ->
-         match Pg.cancel({success=conn.conn},(conn.processid,conn.secret_key)) with
+         match Pg.cancel({success=conn.conn},(processid,secret_key)) with
          | {success=c} ->
             _ = close(conn, false)
             {success={conn with conn=c}}
