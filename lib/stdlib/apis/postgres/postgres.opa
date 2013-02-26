@@ -278,6 +278,21 @@ Postgres = {{
     do Binary.add_string(bin, "}")
     (0, {Binary = bin})
 
+  @private
+  pack_int_array(l):(int, Pack.u) =
+    bin = Binary.create(List.length(l)*5)
+    rec aux =
+      | [] -> void
+      | [i] -> Binary.add_string(bin, Int.to_string(i))
+      | [t|q] ->
+        do Binary.add_string(bin, Int.to_string(t))
+        do Binary.add_string(bin, ",")
+        aux(q)
+    do Binary.add_string(bin, "\{")
+    do aux(l)
+    do Binary.add_string(bin, "}")
+    (0, {Binary = bin})
+
   pack(data: Postgres.data): (int, Pack.u) =
     match data with
     | {Null}      -> (1, {Int = -1})
@@ -293,11 +308,11 @@ Postgres = {{
     | {Time=d}    -> (1, {Int=Date.in_milliseconds(d)})
     | {Timestamp=d} -> (1, {Int=Date.in_milliseconds(d)})
     | {StringArray1=l} -> pack_string_array(l)
+    | {IntArray1=l} -> pack_int_array(l)
     | {Duration=_}
     | {Timestamptz=_}
     | {Money=_}
     | {Numeric=_}
-    | {IntArray1=_}
     | {IntArray2=_}
     | {IntArray3=_}
     | {Int16Array1=_}
