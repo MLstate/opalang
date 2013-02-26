@@ -198,6 +198,7 @@ type Postgres.connection = {
   paramdescs     : list(int) /** List of the last-received parameter descriptions */
   handlers       : intmap((string,OpaType.ty,Postgres.abstract_handler)) /** Handlers for unknown data types */
   backhandlers   : stringmap(int) /** Reverse map for outgoing data */
+  init_session   : Postgres.connection -> Postgres.connection
 }
 
 /** Defines whether an operation is for a prepared statement or a portal */
@@ -378,7 +379,9 @@ Postgres = {{
                  params=StringMap.empty
                  query="" status="" suspended=false in_transaction=false error=none
                  empty=true completed=[] paramdescs=[] rows=0 rowdescs=[]
-                 handlers=IntMap.empty backhandlers=StringMap.empty }}
+                 handlers=IntMap.empty backhandlers=StringMap.empty
+                 init_session=identity
+                }}
     | {~failure} -> {~failure}
 
   /** Return the last query made on the connection. */
@@ -464,6 +467,12 @@ Postgres = {{
    * @returns An updated connection object.
    */
   set_major_version(conn:Postgres.connection, major_version:int) : Postgres.connection = {conn with ~major_version}
+
+  /**
+   * Add a session initializer.
+   */
+  add_init_session(conn: Postgres.connection, init): Postgres.connection =
+    {conn with init_session= (c -> conn.init_session(init(c)))}
 
   /** Install a handler for a given Postgres type id.
    *
@@ -646,7 +655,9 @@ Postgres = {{
                           query="authentication"}
         version = Bitwise.lsl(Bitwise.land(conn.major_version,0xffff),16) + Bitwise.land(conn.minor_version,0xffff)
         match Pg.start({success=conn.conn}, (version, [("user",conn.conn.conf.user),("database",conn.dbase)])) with
-        | {success=c} -> loop({conn with conn=c}, void, ignore_listener).f1
+        | {success=c} ->
+          c = loop({conn with conn=c}, void, ignore_listener).f1
+          c.init_session(c: Postgres.connection)
         | ~{failure} -> error(conn,{api_failure=failure}, void, ignore_listener).f1
         end
      | ~{failure} -> error(conn,{api_failure=failure}, void, ignore_listener).f1

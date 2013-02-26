@@ -73,6 +73,11 @@ module DbPostgres{
     }
 
     @expand
+    function notice(db, msg){
+      gen(@toplevel.Log.notice, db, msg)
+    }
+
+    @expand
     function error(db, msg){
       gen(@toplevel.Log.error, db, msg)
     }
@@ -126,22 +131,26 @@ query: {table}
           }
           , tables)
         /* 3 - Prepare statements */
-        List.iter(
-          function(~{id, query, types}){
-            c = Postgres.parse(c, id, query, types)
-            match(Postgres.get_error(c)){
-            case {none} :
-              Log.debug(c, "Prepared statement: {id}")
-            case {some: e} :
-              Log.error(c, "An error occurs while prepare statements
+        function init_session(c){
+          List.iter(
+            function(~{id, query, types}){
+              c = Postgres.parse(c, id, query, types)
+              match(Postgres.get_error(c)){
+              case {none} :
+                Log.debug(c, "Prepared statement: {id}")
+              case {some: e} :
+                Log.error(c, "An error occurs while prepare statements
 error: {e}
 id: {id}
 query: {query}
 ")
-              @fail
+                @fail
+              }
             }
-          }
-          , statements)
+            , statements)
+          c
+        }
+        c = init_session(c)
         /* 4 - Init queries */
         List.iter(
           function(query){
@@ -158,7 +167,7 @@ query: {query}
           }
           , queries)
         Postgres.release(c)
-        c0
+        Postgres.add_init_session(c0, init_session)
       }
     )
   }
