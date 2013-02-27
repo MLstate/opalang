@@ -94,6 +94,31 @@ module DbPostgres{
 
   }
 
+  private
+  function get_options(name){
+    (suffix, msg) = match(name){
+    case "_no_name" : ("", "")
+    case _ : (":{name}", "\"{name}\"")
+    }
+    CommandLine.filter({
+      title : "Options for Postgres database \"{msg}\"",
+      init : ~{name},
+      anonymous : [],
+      parsers : [
+        {CommandLine.default_parser with
+          names : ["--db-prefix{suffix}"],
+         description : "Set the Postgres database name, (default: {name})",
+         param_doc : "dbname",
+         function on_param(acc){
+           parser{
+             path=(.*) -> {no_params : {acc with name : Text.to_string(path)}}
+           }
+         }
+        },
+      ]
+    })
+  }
+
   /**
    * Opening a database and prepare statements.
    * @param name Name of the database to open
@@ -104,8 +129,9 @@ module DbPostgres{
    */
   function DbPostgres.t open(name, tables, statements, queries){
     @spawn(
+      options = get_options(name)
       /* 1 - Opening the postgres database */
-      match(Postgres.connect(name, none, name)){
+      match(Postgres.connect(name, none, options.name)){
       case ~{failure} :
         Log.error0(name, "Can't open Postgres database {failure}")
         @fail("DbPostgres.open")
@@ -114,6 +140,7 @@ module DbPostgres{
         Log.info(c, "opened")
         c = Postgres.authenticate(c)
         check_error("Authentication", c)
+        Log.info(c, "authenticated")
         /* 2 - Init tables
          TODO: Add a way to unactivate table initialization */
         List.iter(
