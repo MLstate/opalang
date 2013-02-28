@@ -190,6 +190,20 @@ Session = {{
     @client set_domain_url = %%Session.set_domain_url%%
 
     /**
+     * Set a custom handler function for the case when the
+     * connection between client and server appears to be
+     * lost. If this in not set, the default is to print
+     * "the connection with the server seems to be lost" to
+     * the client screen.
+     *
+     * Be sure to pass a `client` function here (e.g.
+     * `client function my_handler() { ... }`), as it will
+     * probably be called when the server is not available!
+     */
+    @client set_connection_lost_handler =
+      %%Session.set_connection_lost_handler%%
+
+    /**
      * {2 Creating sessions}
      */
 
