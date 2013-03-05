@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -19,6 +19,7 @@ PingClient = {{
 
   @private registers = Reference.create([]): reference(list(RPC.Json.json))
 
+  @package
   register_actor(id) =
     @atomic(
       x = Reference.get(registers)
@@ -76,6 +77,26 @@ PingClient = {{
 
   async_request(url, body) =
     wrap_request(url, body, %%Session.PingRegister.ping_async_call%%)
+
+  /**
+   * Explicitely set the domain's URL used by AJAX request, no domain by default
+   */
+  set_domain_url =
+    %%Session.PingRegister.set_domain_url%%
+
+  /**
+   * Add a custom handler function for the case when the
+   * connection between client and server appears to be
+   * lost. If they are no custom handler, the default is to print
+   * "the connection with the server seems to be lost" to
+   * the client screen.
+   *
+   * Be sure to pass a `client` function here (e.g.
+   * `client function my_handler() { ... }`), as it will
+   * probably be called when the server is not available!
+   */
+  @client add_connection_lost_handler =
+    %%Session.PingRegister.add_connection_lost_handler%%
 
 }}
 
