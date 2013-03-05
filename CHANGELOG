@@ -30,6 +30,9 @@ Updated APIs:
   * Resource
     - added httpOnly and expires to Resource.cookie_attributes type
 
+  * Map:
+    - Refactor and cleanup, thanks to Owen Gunden
+
 Bug fixes:
 
   * Iter:
