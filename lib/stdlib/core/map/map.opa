@@ -69,6 +69,7 @@ type map('key,'val) = ordered_map('key,'val, Order.default)
 /**
  * Implementation of maps.
  */
+@private
 type Map_private.map('key,'val) =
     { empty } /**The empty map*/
 /   { left : Map_private.map('key,'val);
@@ -462,6 +463,7 @@ type Map('key,'order) = {{
 
 
 /* All implementations go into this module, Map_private. */
+@private
 Map_private =
 {{
   empty = { empty }
