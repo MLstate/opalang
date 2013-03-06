@@ -259,7 +259,8 @@ Postgres = {{
       else
         c = String.char_at(s, current)
         if c == '\"' then
-          do Binary.add_string(bin, "\"\"")
+          do Binary.add_string(bin, String.substring(last, current - last, s))
+          do Binary.add_string(bin, "\\\"")
           aux_string(s, size, current+1, current+1)
         else aux_string(s, size, last, current+1)
     rec aux =
