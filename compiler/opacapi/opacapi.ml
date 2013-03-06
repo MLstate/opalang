@@ -111,6 +111,7 @@ struct
   let (!!) s = !! ("List_"^s)
   let split_at_opt = !! "split_at_opt"
   let split_between = !! "split_between"
+  let map = !! "map"
 end
 
 module Mutable =

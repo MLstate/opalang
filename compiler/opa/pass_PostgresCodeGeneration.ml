@@ -32,6 +32,8 @@ struct
 
   module Option = Opacapi.Option
 
+  module List = Opacapi.List
+
   module DbSet = Opacapi.DbSet
 
   let serialize = Opacapi.OpaSerialize.serialize
@@ -261,19 +263,47 @@ struct
       ({gamma; annotmap; ty_init; _} as env)
       path expr =
     let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr expr)) annotmap in
+    let lty = (* To handle list case QIn as example *)
+      let rec aux t =
+      match t with
+      | Q.TypeName ([a], s) when Q.TypeIdent.to_string s = Api.Types.list -> Some a
+      | Q.TypeName (l, s) -> aux (QmlTypesUtils.Inspect.find_and_specialize gamma s l)
+      | _ -> None
+      in aux ty
+    in
+    let project_list_opt annotmap to_pg_data =
+      match lty with
+      | None ->
+        let annotmap, enum = to_pg_data annotmap ty expr in
+        C.record annotmap ["String", enum]
+      | Some aty ->
+        let arg = Ident.next "x" in
+        let annotmap, earg = C.ident annotmap arg aty in
+        let annotmap, body = to_pg_data annotmap aty earg in
+        let annotmap, f = C.lambda annotmap [(arg, aty)] body in
+        let annotmap, map =
+          OpaMapToIdent.typed_val ~label Api.List.map annotmap gamma
+        in
+        let annotmap, l = C.apply env.gamma annotmap map [f; expr] in
+        C.record annotmap ["StringArray1", l]
+    in
     match StringListMap.find_opt path ty_init with
     | Some (`type_ (`enum, _, _)) ->
+      let to_pg_data annotmap ty expr =
         let annotmap, sum_to_enum =
           OpaMapToIdent.typed_val ~label ~ty:[ty] Api.Db.sum_to_enum annotmap gamma in
-        let annotmap, enum =
-          C.apply gamma annotmap sum_to_enum [expr] in
-        let annotmap, e = C.record annotmap ["String", enum] in
-        {env with annotmap}, e
+        C.apply gamma annotmap sum_to_enum [expr]
+      in
+      let annotmap, e = project_list_opt annotmap to_pg_data in
+      {env with annotmap}, e
     | Some `blob ->
-        let annotmap, ser = OpaMapToIdent.typed_val ~ty:[ty] ~label Api.serialize annotmap gamma in
-        let annotmap, e = C.apply gamma annotmap ser [expr] in
-        let annotmap, e = C.record annotmap ["String", e] in
-        {env with annotmap}, e
+      let to_pg_data annotmap ty expr =
+        let annotmap, ser =
+          OpaMapToIdent.typed_val ~ty:[ty] ~label Api.serialize annotmap gamma in
+        C.apply gamma annotmap ser [expr]
+      in
+      let annotmap, e = project_list_opt annotmap to_pg_data in
+      {env with annotmap}, e
     | Some _ -> assert false
     | None ->
         match get_pg_native_type gamma ty with
@@ -529,8 +559,8 @@ struct
             | QD.QLte    (`expr e)
             | QD.QNe     (`expr e)
             | QD.QIn     (`expr e) ->
-                let env, arg = opa_to_data env (List.rev path) e in
-                env, arg::args
+              let env, arg = opa_to_data env (List.rev path) e in
+              env, arg::args
             | QD.QFlds flds ->
                 List.fold_left
                   (fun (env, args) (f, q) ->
@@ -574,7 +604,7 @@ struct
                     List.fold_left
                       (fun (env, args) (f, q) ->
                          let s = match f with [`string s] -> s | _ -> assert false in
-                         aux env [table_from_field s; s] args q)
+                         aux env [s; table_from_field s] args q)
                       acc flds
                 | QD.QAnd (q0, q1)
                 | QD.QOr (q0, q1) -> binop q0 q1 acc
@@ -1281,6 +1311,11 @@ struct
           let q = Buffer.contents buffer in
           {env with ty_init = StringListMap.add tpath (`type_ (`enum, name, q)) env.ty_init}
         with Not_found ->
+          OManager.warning
+            ~wclass:WarningClass.dbgen_postgres
+            "Data of type @{<bright>%a@} at path @{<bright>/%a@} will be managed as a blob\n"
+            QmlPrint.pp#ty ty
+            (Format.pp_list "/" Format.pp_print_string) tpath;
           {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
         end
     | Q.TypeConst _ -> env
@@ -1288,7 +1323,7 @@ struct
         let tpath = List.rev (tpath@path) in
         OManager.warning
           ~wclass:WarningClass.dbgen_postgres
-          "Data of type @{<bright>%a} at path /%a will be managed as a blob\n"
+          "Data of type @{<bright>%a} at path @{<bright>/%a@} will be managed as a blob\n"
           QmlPrint.pp#ty ty
           (Format.pp_list "/" Format.pp_print_string) tpath;
         {env with ty_init = StringListMap.add tpath (`blob) env.ty_init}
