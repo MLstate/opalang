@@ -289,6 +289,24 @@ Ansi = {{
 
   jlog(s) = Debug.jlog(printc(s))
 
+  Log = {{
+    @private log(fn, where, msg) : void = fn(printc(where),printc(msg))
+    info(where,msg) = log(Log.info,where,msg)
+    notice(where,msg) = log(Log.notice,where,msg)
+    warning(where,msg) = log(Log.warning,where,msg)
+    error(where,msg) = log(Log.error,where,msg)
+    debug(where,msg) = log(Log.debug,where,msg)
+  }}
+
+  LogFrom(where_from:string) = {{
+    @private log(col, fn, msg) : void = fn(printc(col^where_from^"%d"),printc(msg))
+    info(msg) = log("%g",Log.info,msg)
+    notice(msg) = log("%c",Log.notice,msg)
+    warning(msg) = log("%y",Log.warning,msg)
+    error(msg) = log("%r",Log.error,msg)
+    debug(msg) = log("%b",Log.debug,msg)
+  }}
+
   string_of_color(c:Ansi.color) : string =
     match c with
     | {black} -> "black"
