@@ -853,7 +853,7 @@ PostgresTypes = {{
 
     and opatype_to_list(opatype:Postgres.opatype, ty:OpaType.ty, dflt:option('a)): option('a) =
       match opatype with
-      | {String = s} -> OpaSerialize.unserialize(s, ty)
+      | {String = s} -> OpaSerialize.unserialize(s, {TyName_args=[ty]; TyName_ident="list"})
       | _ ->
       err() = error("cannot unserialize a list({ty}) from {opatype}")
       list(get) =

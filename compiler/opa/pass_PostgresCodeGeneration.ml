@@ -260,32 +260,37 @@ struct
   let pp_table_name = (Format.pp_list "_" Format.pp_print_string)
 
   let opa_to_data
+      ?(is_list=false)
       ({gamma; annotmap; ty_init; _} as env)
       path expr =
     let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr expr)) annotmap in
-    let lty = (* To handle list case QIn as example *)
-      let rec aux t =
-      match t with
-      | Q.TypeName ([a], s) when Q.TypeIdent.to_string s = Api.Types.list -> Some a
-      | Q.TypeName (l, s) -> aux (QmlTypesUtils.Inspect.find_and_specialize gamma s l)
-      | _ -> None
-      in aux ty
-    in
     let project_list_opt annotmap to_pg_data =
-      match lty with
-      | None ->
+      if not is_list then
         let annotmap, enum = to_pg_data annotmap ty expr in
         C.record annotmap ["String", enum]
-      | Some aty ->
-        let arg = Ident.next "x" in
-        let annotmap, earg = C.ident annotmap arg aty in
-        let annotmap, body = to_pg_data annotmap aty earg in
-        let annotmap, f = C.lambda annotmap [(arg, aty)] body in
-        let annotmap, map =
-          OpaMapToIdent.typed_val ~label Api.List.map annotmap gamma
+      else
+        let lty = (* To handle list case QIn as example *)
+          let rec aux t =
+            match t with
+            | Q.TypeName ([a], s) when Q.TypeIdent.to_string s = Api.Types.list -> Some a
+            | Q.TypeName (l, s) -> aux (QmlTypesUtils.Inspect.find_and_specialize gamma s l)
+            | _ -> None
+          in aux ty
         in
-        let annotmap, l = C.apply env.gamma annotmap map [f; expr] in
-        C.record annotmap ["StringArray1", l]
+        match lty with
+        | None ->
+          let annotmap, enum = to_pg_data annotmap ty expr in
+          C.record annotmap ["String", enum]
+        | Some aty ->
+          let arg = Ident.next "x" in
+          let annotmap, earg = C.ident annotmap arg aty in
+          let annotmap, body = to_pg_data annotmap aty earg in
+          let annotmap, f = C.lambda annotmap [(arg, aty)] body in
+          let annotmap, map =
+            OpaMapToIdent.typed_val ~label Api.List.map annotmap gamma
+          in
+          let annotmap, l = C.apply env.gamma annotmap map [f; expr] in
+          C.record annotmap ["StringArray1", l]
     in
     match StringListMap.find_opt path ty_init with
     | Some (`type_ (`enum, _, _)) ->
@@ -557,9 +562,11 @@ struct
             | QD.QLt     (`expr e)
             | QD.QGte    (`expr e)
             | QD.QLte    (`expr e)
-            | QD.QNe     (`expr e)
-            | QD.QIn     (`expr e) ->
+            | QD.QNe     (`expr e) ->
               let env, arg = opa_to_data env (List.rev path) e in
+              env, arg::args
+            | QD.QIn     (`expr e) ->
+              let env, arg = opa_to_data ~is_list:true env (List.rev path) e in
               env, arg::args
             | QD.QFlds flds ->
                 List.fold_left
