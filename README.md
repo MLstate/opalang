@@ -89,8 +89,10 @@ You can find more information about the build system in tools/build/README.
 Contact
 -------
 
-All bug reports, feedback, comments, contributions or remarks are welcome: [http://opalang.org](http://opalang.org).
+All bug reports, feedback, comments, contributions or remarks are welcome.
 
 In particular, users are welcome to:
 * subscribe on the mailing list at [OWASP](https://lists.owasp.org/listinfo/opa);
-* participate in the forum at [opalang](http://forum.opalang.org).
+* participate in the [forum at opalang](http://forum.opalang.org).
+
+For more information, please consult the [opalang portal](http://opalang.org).
