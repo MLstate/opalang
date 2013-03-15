@@ -10,10 +10,13 @@
 //    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ////////////////////////////////////
 
-var min_node_version = 'v0.6.0';
+var min_node_version = '0.6.0';
 
-if (process.version < min_node_version) {
+if (flattenVersion(process.versions.node) < flattenVersion(min_node_version)) {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= '+min_node_version+')');
     process.exit(1);
 }
 
+function flattenVersion(version) {
+    return parseInt(version.replace(/\./g,''));
+}
