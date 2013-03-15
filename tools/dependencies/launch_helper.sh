@@ -61,7 +61,7 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
             sudo apt-get install python-software-properties
             sudo add-apt-repository ppa:chris-lea/node.js
             sudo apt-get update
-            sudo apt-get install nodejs npm
+            sudo apt-get install nodejs
             ;;
             *)
             echo "--> node.js is missing, please install node.js from: http://nodejs.org"
