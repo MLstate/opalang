@@ -432,7 +432,7 @@ List = {{
    * @param f A function invoked at each element of the
    * list to update the data.
    * @param l The list to visit.
-   * @param The initial data. If the list is empty, this
+   * @param init The initial data. If the list is empty, this
    * will also be the result.
    */
   fold(f:'item, 'acc -> 'acc, l: list('item), init:'acc ): 'acc =
