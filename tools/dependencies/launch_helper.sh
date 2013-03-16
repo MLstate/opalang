@@ -10,7 +10,10 @@
 #    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ###################################
 
-node=`which node 2>&1`
+# On Debian, node is now called nodejs. The configure script prefers the latter
+# if it exists, as node might be some other program when both exist.
+if which nodejs &>/dev/null; then node=$(which nodejs); else
+	if which node &>/dev/null; then node=$(which node); fi; fi
 if [ $? -ne 0 ] || [ ! -x "$node" ]; then
 
     NODE_VERSION=v0.8.7
@@ -78,4 +81,4 @@ if [ $? -ne 0 ] || [ ! -x "$node" ]; then
 fi;
 
 if [ $? -ne 0 ]; then exit $?; fi;
-node "$0" "$@"; exit $?;
+$node "$0" "$@"; exit $?;
