@@ -759,6 +759,6 @@ html(title:string, body:xhtml) = Resource.page(title:string, body: xhtml)
 /**
  * Combine two chunks of xhtml.
  *
- * [a <+> b] is the same thing as <>{a}{b}</>
+ * [a <+> b] is the same thing as [<>{a}{b}</>]
  */
 `<+>`(left_chunk:xhtml, right_chunk:xhtml) = <>{left_chunk}{right_chunk}</>
