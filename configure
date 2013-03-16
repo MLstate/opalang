@@ -336,7 +336,7 @@ if [ $NODE_VERSION_MIDDLE -ge $NODE_MIN_VERSION ]; then
     echo-ok $NODE_VERSION
 else
     echo-err $NODE_VERSION
-    echo "Node $NODE_MIN_VERSION or newer is required"
+    echo "Node v0.$NODE_MIN_VERSION.0 or newer is required"
     exit 1
 fi
 
