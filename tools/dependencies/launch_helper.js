@@ -11,12 +11,30 @@
 ////////////////////////////////////
 
 var min_node_version = '0.6.0';
+var max_node_version = '0.8.22';
 
-if (flattenVersion(process.versions.node) < flattenVersion(min_node_version)) {
+/**
+ * Compare two versions, string separated with dots
+ * @return true if version1 >= version2
+ */
+function geVersion(version1, version2) {
+		var v1 = version1.toString().split('.');
+		var v2 = version2.toString().split('.');
+    for (var i=0; i<(Math.max(v1.length,v2.length)); i++) {
+        if (v1[i]==undefined) v1[i]=0;
+        if (v2[i]==undefined) v2[i]=0;
+        if (Number(v1[i]) < Number(v2[i])) return false;
+				if (Number(v1[i]) > Number(v2[i])) break;
+    }
+    return true;
+}
+
+if (min_node_version && !geVersion(process.versions.node, min_node_version)) {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= '+min_node_version+')');
     process.exit(1);
 }
 
-function flattenVersion(version) {
-    return parseInt(version.replace(/\./g,''));
+if (max_node_version && !geVersion(max_node_version, process.versions.node)) {
+    console.error('Your version of node seems to be too recent. Please downgrade to an older version of node (<= '+max_node_version+')');
+    process.exit(1);
 }
