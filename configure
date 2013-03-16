@@ -332,8 +332,14 @@ NODE_VERSION_MAJOR=${NODE_VERSION%%.*}
 NODE_VERSION_MIDDLE=${NODE_VERSION%.*}
 NODE_VERSION_MIDDLE=${NODE_VERSION_MIDDLE#*.}
 NODE_MIN_VERSION=6
+NODE_MAX_VERSION=9
 if [ $NODE_VERSION_MIDDLE -ge $NODE_MIN_VERSION ]; then
-    echo-ok $NODE_VERSION
+		if [ $NODE_VERSION_MIDDLE -lt $NODE_MAX_VERSION ]; then
+				echo-ok $NODE_VERSION
+		else
+				echo-err $NODE_VERSION
+				echo "Node older than v0.$NODE_MAX_VERSION.0 is required"
+		fi
 else
     echo-err $NODE_VERSION
     echo "Node v0.$NODE_MIN_VERSION.0 or newer is required"
