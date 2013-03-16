@@ -1,5 +1,5 @@
 ###################################
-#    Copyright © 2012 MLstate
+#    Copyright © 2012, 2013 MLstate
 #
 #    This file is part of Opa.
 #
@@ -16,7 +16,7 @@ if which nodejs &>/dev/null; then node=$(which nodejs); else
 	if which node &>/dev/null; then node=$(which node); fi; fi
 if [ $? -ne 0 ] || [ ! -x "$node" ]; then
 
-    NODE_VERSION=v0.8.7
+    NODE_VERSION=v0.8.22
 
     # Detect OS
     IS_LINUX=""
