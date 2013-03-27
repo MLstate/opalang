@@ -129,6 +129,8 @@ type ApigenLib.logpkg = {
 
 module ApigenLib {
 
+  debug = Mutable.make(0)
+
   private tzfmt = Date.generate_printer("%z")
   private fmt = Date.generate_printer("%FT%T")
 
@@ -817,12 +819,14 @@ module ApilibConnection(Socket.host default_host) {
   Conf = ApigenLibConf(default_host)
 
   private module Log {
-    private function gen(f, m, string fn, msg) {
-      if (m.conf.verbose) f("ApilibConnection({m.name}).{fn}", msg) else void
+    private function gen(level, col, _f, m, string fn, msg) {
+      //if (m.conf.verbose) f("ApilibConnection({m.name}).{fn}", msg) else void
+      //if (m.conf.verbose) Ansi.jlog("ApilibConnection({m.name}).{fn}: {msg}") else void
+      if (ApigenLib.debug.get() >= level) Ansi.jlog("{col}ApilibConnection({m.name}).{fn}%d: {msg}") else void
     }
-    function info(m, fn, msg) { gen(@toplevel.Log.info, m, fn, msg) }
-    function debug(m, fn, msg) { gen(@toplevel.Log.debug, m, fn, msg) }
-    function error(m, fn, msg) { gen(@toplevel.Log.error, m, fn, msg) }
+    function info(m, fn, msg) { gen(7,"%c",@toplevel.Log.info, m, fn, msg) }
+    function debug(m, fn, msg) { gen(8,"%b",@toplevel.Log.debug, m, fn, msg) }
+    function error(m, fn, msg) { gen(1,"%r",@toplevel.Log.error, m, fn, msg) }
   }
 
   /** Default length object, no offset, big endian, signed and 32-bit length. */
@@ -1136,20 +1140,28 @@ module ApilibConnection(Socket.host default_host) {
   function outcome((Mailbox.t,binary),string) read_packet_prefixed(ApigenLib.length length
                                                                   )(Socket.connection conn, int timeout, Mailbox.t mailbox) {
     bound = length.offset + Pack.sizesize(length.size)
-    //jlog("read: offset={length.offset} bound={bound}")
+    if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: offset={length.offset} bound={bound}")
     match (Socket.read_fixed(conn, timeout, bound, mailbox)) {
     case {success:mailbox}:
+      if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: prefix=\n{bindump(Mailbox.binary_contents(mailbox))}")
       match (Pack.Decode.int(length.le, length.signed, length.size, mailbox.buf, mailbox.start+length.offset)) {
       case {success:len}:
-        //jlog("read: len={len}")
+        if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: len={len}")
         if (len+length.offset == bound) // the size was at the end
           Mailbox.sub(mailbox, length.offset+len)
         else if (len < bound)
           {failure:"Inconsistent packet size: len={len} bound={bound}"}
         else {
-          //jlog("read: reading {len-bound}")
-          match (Socket.read_fixed(conn, timeout, len-bound, mailbox)) {
-          case {success:mailbox}: Mailbox.sub(mailbox, length.offset+len)
+          if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: reading {len-bound}")
+          match (Socket.read_fixed(conn, timeout, len, mailbox)) {
+          case {success:mailbox}:
+            match (Mailbox.sub(mailbox, length.offset+len)) {
+            case {success:buf}: {success:buf};
+            case {~failure}:
+              if (ApigenLib.debug.get() >= 7)
+                Ansi.jlog("read_packet_prefixed: failed=\n{bindump(Mailbox.binary_contents(mailbox))}")
+              {~failure}
+            }
           case {~failure}: {~failure}
           }
         }
@@ -1160,7 +1172,7 @@ module ApilibConnection(Socket.host default_host) {
   }
 
   function outcome((Mailbox.t,binary),string) read_raw(Socket.connection conn, int timeout, Mailbox.t mailbox, int no_bytes) {
-    //jlog("read_raw: no_bytes={no_bytes}")
+    if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_raw: no_bytes={no_bytes}")
     match (Socket.read_fixed(conn, timeout, no_bytes, mailbox)) {
     case {success:mailbox}: Mailbox.sub(mailbox, no_bytes);
     case {~failure}: {~failure};
