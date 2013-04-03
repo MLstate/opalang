@@ -570,6 +570,11 @@ module ApigenLib {
         }
       case {none}: {failure:{error:"No WBXml context"}};
       }
+    case ["unknown/unknown"|_]:
+      if (String.length(res.content) == 0)
+        {success:{none}}
+      else
+        {failure:{bad_content:{unknown:(content_type,res.content)}}};
     default:
       //jlog("content_type:\"{content_type}\"")
       {failure:{bad_content:{unknown:(content_type,res.content)}}};
