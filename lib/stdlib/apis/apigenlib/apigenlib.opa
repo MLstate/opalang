@@ -982,7 +982,7 @@ module ApilibConnection(Socket.host default_host) {
          Log.info(c, "receive","failure={failure}")
          _ = Mailbox.reset(conn.mbox)
          {~failure};
-       default: @fail("bad sendresult");
+       default: {failure:{error:"bad sendresult"}};
        }
     case {none}:
       Log.error(c, "receive","No socket")
@@ -1034,7 +1034,7 @@ module ApilibConnection(Socket.host default_host) {
       case {recvraw:no_bytes}: get_raw(c,no_bytes)
       case {send:msg}: send_no_reply(c,msg)
       case {sendrecv:msg}: send_with_reply(c,msg)
-      case {stop}: Log.debug(c, "srpool","stop"); @fail
+      case {stop}: Log.debug(c, "srpool","stop"); {failure:{error:"ApigenLib.srpool: stop"}};
       }
     case {~failure}:
       Log.error(c, "srpool","Can't get pool {failure}")
@@ -1058,7 +1058,7 @@ module ApilibConnection(Socket.host default_host) {
       match (srpool(c,{send:msg})) {
       case {~sendresult}: {success:sendresult};
       case {~failure}: {~failure};
-      default: @fail
+      default: {failure:{error:"ApigenLib.snd: impossible reply"}};
       }
     case {~failure}: {~failure};
     }
@@ -1080,7 +1080,7 @@ module ApilibConnection(Socket.host default_host) {
       match (srpool(c,{sendrecv:msg})) {
       case {~sndrcvresult}: {success:sndrcvresult};
       case {~failure}: {~failure};
-      default: @fail;
+      default: {failure:{error:"ApigenLib.sndrcv: impossible reply"}};
       }
     case {~failure}: {~failure};
     }
@@ -1101,7 +1101,7 @@ module ApilibConnection(Socket.host default_host) {
       match (srpool(c,{recv})) {
       case {~rcvresult}: {success:rcvresult};
       case {~failure}: {~failure};
-      default: @fail;
+      default: {failure:{error:"ApigenLib.rcv: impossible reply"}};
       }
     case {~failure}: {~failure};
     }
@@ -1123,7 +1123,7 @@ module ApilibConnection(Socket.host default_host) {
       match (srpool(c,{recvraw:no_bytes})) {
       case {~rcvrawresult}: {success:rcvrawresult};
       case {~failure}: {~failure};
-      default: @fail;
+      default: {failure:{error:"ApigenLib.rcvraw: impossible reply"}};
       }
     case {~failure}: {~failure};
     }
@@ -1148,7 +1148,7 @@ module ApilibConnection(Socket.host default_host) {
     if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: offset={length.offset} bound={bound}")
     match (Socket.read_fixed(conn, timeout, bound, mailbox)) {
     case {success:mailbox}:
-      if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: prefix=\n{bindump(Mailbox.binary_contents(mailbox))}")
+      if (ApigenLib.debug.get() >= 9) Ansi.jlog("read_packet_prefixed: prefix=\n{bindump(Mailbox.binary_contents(mailbox))}")
       match (Pack.Decode.int(length.le, length.signed, length.size, mailbox.buf, mailbox.start+length.offset)) {
       case {success:len}:
         if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: len={len}")
@@ -1158,13 +1158,15 @@ module ApilibConnection(Socket.host default_host) {
           {failure:"Inconsistent packet size: len={len} bound={bound}"}
         else {
           if (ApigenLib.debug.get() >= 7) Ansi.jlog("read_packet_prefixed: reading {len-bound}")
-          match (Socket.read_fixed(conn, timeout, len, mailbox)) {
+          match (Socket.read_fixed(conn, timeout, length.offset+len, mailbox)) {
           case {success:mailbox}:
             match (Mailbox.sub(mailbox, length.offset+len)) {
-            case {success:buf}: {success:buf};
+            case {success:buf}:
+              if (ApigenLib.debug.get() >= 9) Ansi.jlog("read_packet_prefixed: result=\n{bindump(buf.f2)}")
+              {success:buf};
             case {~failure}:
               if (ApigenLib.debug.get() >= 7)
-                Ansi.jlog("read_packet_prefixed: failed=\n{bindump(Mailbox.binary_contents(mailbox))}")
+                Ansi.jlog("read_packet_prefixed: failure={failure}\nfailed=\n{bindump(Mailbox.binary_contents(mailbox))}")
               {~failure}
             }
           case {~failure}: {~failure}
