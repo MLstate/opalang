@@ -1,5 +1,5 @@
 ////////////////////////////////////
-//    Copyright © 2012 MLstate
+//    Copyright © 2012-2013 MLstate
 //
 //    This file is part of Opa.
 //
@@ -10,8 +10,7 @@
 //    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ////////////////////////////////////
 
-var min_node_version = '0.6.0';
-var max_node_version = '0.8.22';
+var min_node_version = '0.10.3';
 
 /**
  * Compare two versions, string separated with dots
@@ -31,10 +30,5 @@ function geVersion(version1, version2) {
 
 if (min_node_version && !geVersion(process.versions.node, min_node_version)) {
     console.error('Your version of node seems to be too old. Please upgrade to a more recent version of node (>= '+min_node_version+')');
-    process.exit(1);
-}
-
-if (max_node_version && !geVersion(max_node_version, process.versions.node)) {
-    console.error('Your version of node seems to be too recent. Please downgrade to an older version of node (<= '+max_node_version+')');
     process.exit(1);
 }
