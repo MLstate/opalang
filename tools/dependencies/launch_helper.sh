@@ -12,11 +12,13 @@
 
 # On Debian, node is now called nodejs. The configure script prefers the latter
 # if it exists, as node might be some other program when both exist.
-if which nodejs &>/dev/null; then node=$(which nodejs); else
-	if which node &>/dev/null; then node=$(which node); fi; fi
-if [ $? -ne 0 ] || [ ! -x "$node" ]; then
+node=`which nodejs`
+if [ -z "$node" ]; then
+    node=`which node`
+fi
+if [ -z "$node" ] || [ ! -x "$node" ]; then
 
-    NODE_VERSION=v0.8.22
+    NODE_VERSION=v0.10.3
 
     # Detect OS
     IS_LINUX=""
