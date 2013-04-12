@@ -39,6 +39,7 @@ Options:
 	--libdir <dir>	        where to actually do the lib install (by default, the value of --prefix)
 	--packages 'pkg list'	only install the specified packages
 	--sudo			sudo before installation commands ([1msee disclaimer[0m)
+	--pro			install pro packages
 
 Commands: (default choice underlined)
 	[4mfetch[0m			download the archives for the packages to
@@ -134,6 +135,11 @@ while [ $# -gt 0 ]; do
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
             shift
             PACKAGES=($1)
+            ;;
+        --pro)
+            if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
+            shift
+            PACKAGES=$PRO_PACKAGES
             ;;
         --installdir)
             if [ $# -lt 2 ]; then echo "Error: option $1 requires an argument"; exit 1; fi
