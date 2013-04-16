@@ -1,9 +1,22 @@
+2012.04.16, Version, 1.1.1, v4308
+Improvements:
+
+  * Compiler: 
+    - type parameters are now implicitly given to "magic functions", instead of
+      explicit utilities function (before this construction was unsafe)
+
+  * Runtime:
+    - Bump to node 0.10.3
+    - request and ressource are now streamed iterator see
+    HttpRequest.get_iter_body, Ressource.iter)
+
 Updated APIs:
 
   * Crypto:
     - added SHA-512 functions
     - added read_rsa_key function to read RSA key from a file
     - added Cipher module, with AES support
+    - added running hash computation, Crypto.{add, digest}, Crypto.HMAC.create_*, Crypto.Hash.create_*
 
   * Dom:
     - added remove_attribute
@@ -23,15 +36,33 @@ Updated APIs:
     - added render_value function to Reactive.value, in order to render the value directly
     - more functions to Reactive.list
 
-  * HttpRequest
-    - get_cookie now takes a cookie name as a parameter, and returns an optional cookie value
-    - get_internal_cookie returns the Opa internal cookie
-
   * Resource
     - added httpOnly and expires to Resource.cookie_attributes type
 
   * Map:
     - Refactor and cleanup, thanks to Owen Gunden
+
+  * HttpRequest:
+    - get_cookie now takes a cookie name as a parameter, and returns an optional cookie value
+    - get_internal_cookie returns the Opa internal cookie
+    - multipart is no more an external type but a streamed Opa iterator
+    - removed get_user, get_user_unsafe, get_connexion_string
+    - added get_iter_body
+
+  * WebClient:
+    - added a binary web client (WebClient.request*)
+
+  * Ressource:
+    - added iter
+
+  * Binary:
+    - added indexOf, explode, seek, of_iter
+
+  * Barrier:
+    - introduced Barrier module
+
+  * Swap:
+    - introduced Swap module
 
 Bug fixes:
 
@@ -41,10 +72,10 @@ Bug fixes:
   * Plugins:
     - Some bootstrap plugins are not cleaned because of a reflow problem
 
-  * Spark
+  * Spark:
     - remove at the proper index in Reactive.list, push at the begining
 
-  * HttpRequest
+  * HttpRequest:
     - Duplicate cookies will all be set
     - header_get is case insensitive
 
