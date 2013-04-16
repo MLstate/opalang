@@ -204,7 +204,7 @@ SRCDIR=$OPALANG
 OPABOOK=$OPALANG/doc/book # the tutorial and book
 
 # This is absolutely correct that the 2 variables are inversed, we should fix the value inside
-#./configure -prefix $INSTALLDIR -libdir $PREFIX -release
+./configure -prefix $INSTALLDIR -libdir $PREFIX -release
 
 
 TARGETS="distrib"
@@ -213,9 +213,9 @@ if [ $NOMAN = "false" ]; then
 fi
 
 if [ $NOOCAML = "false" ]; then
-    make install
+    make clean $TARGETS install
 else
-    make install-node
+    make clean $TARGETS install-node
 fi
 
 mkdir -p $INSTALLDIR/share/opa/
