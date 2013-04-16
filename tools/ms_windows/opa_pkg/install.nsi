@@ -76,8 +76,8 @@ LangString MsgFolder ${LANG_FRENCH}  "Veuillez choisir un répertoire d'intallati
 DirText $(MsgFolder)
 
 # Include license
-LicenseLangString license ${LANG_ENGLISH} share/doc/opa/AGPL
-LicenseLangString license ${LANG_FRENCH}  share/doc/opa/AGPL
+LicenseLangString license ${LANG_ENGLISH} share/doc/opa/LICENSE
+LicenseLangString license ${LANG_FRENCH}  share/doc/opa/LICENSE
 LicenseData $(license)
 
 LangString MsgLicense ${LANG_ENGLISH} "Please read and accept Opa license"
