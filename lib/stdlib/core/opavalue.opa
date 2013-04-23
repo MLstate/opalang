@@ -121,23 +121,45 @@ OpaValue = {{
     match get(ident) with
     | {none} -> alt(value)
     | {some = f} ->
-      nargs  = List.length(args)
-      f =
-        match nargs | 0 -> f | _ ->
-        clos_tyarg = OpaValue.Closure.Args.create(nargs)
+      /* Both back-end doesn't have the same way to compile (ei) lifted closure,
+      it's why we have different way to apply. */
+      js() =
+        nargs  = List.length(args)
+        f =
+          match nargs | 0 -> f | _ ->
+          clos_tyarg = OpaValue.Closure.Args.create(nargs)
+          do List.iteri(
+            (i, ty ->
+              OpaValue.Closure.Args.set(clos_tyarg, i, ty)
+            ), args)
+          OpaValue.Closure.apply(@unsafe_cast(f), clos_tyarg)
+        nextra = List.length(extra)
+        clos_arg = OpaValue.Closure.Args.create(1 + nextra)
+        do Closure.Args.set(clos_arg, 0, value)
         do List.iteri(
-          (i, ty ->
-            OpaValue.Closure.Args.set(clos_tyarg, i, ty)
-          ), args)
-        OpaValue.Closure.apply(@unsafe_cast(f), clos_tyarg)
-      nextra = List.length(extra)
-      clos_arg = OpaValue.Closure.Args.create(1 + nextra)
-      do Closure.Args.set(clos_arg, 0, value)
-      do List.iteri(
-        (i, e ->
-          OpaValue.Closure.Args.set(clos_arg, i + 1, e)
-        ), extra)
-      OpaValue.Closure.apply(@unsafe_cast(f), clos_arg)
+          (i, e ->
+            OpaValue.Closure.Args.set(clos_arg, i + 1, e)
+          ), extra)
+        OpaValue.Closure.apply(@unsafe_cast(f), clos_arg)
+    #<Ifstatic:OPA_BACKEND_QMLJS>
+      js()
+    #<Else>
+      @sliced_expr({
+        client = js()
+        server =
+          nargs = List.length(args)
+          nextra = List.length(extra)
+          clos_arg = OpaValue.Closure.Args.create(1 + nargs + nextra)
+          do List.iteri(
+               OpaValue.Closure.Args.set(clos_arg, _, _),
+               args)
+          do Closure.Args.set(clos_arg, nargs, value)
+          do List.iteri(
+               (i, e -> OpaValue.Closure.Args.set(clos_arg, i + 1 + nargs, e))
+               , extra)
+          OpaValue.Closure.apply(@unsafe_cast(f), clos_arg)
+      })
+    #<End>
 
 
   /**
@@ -253,13 +275,32 @@ OpaValue = {{
           match nargs with
           | 0 -> comparator(a, b)
           | _ ->
-            clos_arg = OpaValue.Closure.Args.create(nargs)
-            do List.iteri(
-              (i, ty ->
-                OpaValue.Closure.Args.set(clos_arg, i, ty)
-              ), args)
-            comparator = OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
-            comparator(a, b)
+            /* Both back-end doesn't have the same way to compile (ei) lifted closure,
+            it's why we have different way to apply. */
+            js() =
+              clos_arg = OpaValue.Closure.Args.create(nargs)
+              do List.iteri(
+                (i, ty ->
+                  OpaValue.Closure.Args.set(clos_arg, i, ty)
+                ), args)
+              comparator = OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
+              comparator(a, b)
+            #<Ifstatic:OPA_BACKEND_QMLJS>
+              js()
+            #<Else>
+              @sliced_expr({
+                client = js()
+                server =
+                  clos_arg = OpaValue.Closure.Args.create(nargs + 2)
+                  do List.iteri(
+                    (i, ty ->
+                      OpaValue.Closure.Args.set(clos_arg, i, ty)
+                    ), args)
+                  do OpaValue.Closure.Args.set(Magic.id(clos_arg), nargs, a)
+                  do OpaValue.Closure.Args.set(Magic.id(clos_arg), nargs + 1, b)
+                  OpaValue.Closure.apply(@unsafe_cast(comparator), clos_arg)
+              })
+            #<End>
           end
         end
 
