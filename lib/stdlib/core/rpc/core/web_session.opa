@@ -46,7 +46,7 @@ WebSession = {{
             , to_register)
           body = Iter.cons(Binary.of_string(body), Iter.empty)
           {some = {winfo with
-             http_request.request = %%BslNet.Requestdef.request_with%%(request, url, body)
+            http_request.request = @may_cps(%%BslNet.Requestdef.request_with%%)(request, url, body)
           }}
         | _ -> bad_formatted()
       )
