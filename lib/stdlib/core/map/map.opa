@@ -1235,7 +1235,7 @@ Map_make(order: order('key,'order) ) : Map =
 
 }} //: Map_make
 
-@stringifier(ordered_map('key, 'val, 'order)) map_to_string(map) =
+@stringifier(map('key, 'val)) map_to_string(map) =
   tx = Map.fold(key, val, tx ->
     Text.insert_right(tx, "{key}") |>
     Text.insert_right(_, " => ")   |>
