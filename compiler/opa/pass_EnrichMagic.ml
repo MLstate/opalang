@@ -90,7 +90,7 @@ let process_expr ~specialize_env ~stdlib ~gamma ~annotmap ((i, e) as cpl) =
         let a, b, c, expr = aux expr in
         let e = Q.Directive (label, v, [expr], ty) in
         a, b, c, e
-    | Q.Directive (_, (#Q.opavalue_directive as d), [expr], [Q.TypeName (args, name)]) ->
+    | Q.Directive (_, (#Q.opavalue_directive as d), [expr], [Q.TypeName (args, name) as ty_enrich ]) ->
         check expr ;
         let ty = QmlAnnotMap.find_ty (QmlAst.QAnnot.expr expr) annotmap in
         let (annotmap, expri) = QC.TypedExpr.ident annotmap i ty in
@@ -107,11 +107,35 @@ let process_expr ~specialize_env ~stdlib ~gamma ~annotmap ((i, e) as cpl) =
           match QmlAnnotMap.find_tsc_opt annot annotmap with
           | None -> annotmap, expr
           | Some tsc ->
-              let vars = QmlGenericScheme.export_vars tsc in
-              assert (QmlTypeVars.FreeVars.is_row_empty vars);
-              assert (QmlTypeVars.FreeVars.is_col_empty vars);
-              let (vars, _, _) = QmlTypeVars.FreeVars.export_as_lists vars in
-              QC.TypedExpr.directive annotmap (`abstract_ty_arg (vars, [], [])) [expr] []
+            let () =
+              let ty_check = match QmlDirectives.ty d [] [ty_enrich] with
+                | Q.TypeArrow ([_], z) -> z
+                | _ -> OManager.i_error "Expect an arrow"
+              in
+              let (t, _, _) = QmlMoreTypes.unify_and_show_instantiation
+                ~gamma ~allow_partial_application:false
+                ty_check tsc in
+              if List.exists (function | Q.TypeVar _ -> false | _ -> true) t then
+                QmlError.error (QmlError.Context.annoted_expr annotmap expr)
+                  "This expression is annoted as a specializer for @{<bright>%a@}@\n
+But its inferred type is too specific: @{<bright>%a@}"
+                  QmlPrint.pp#ty ty_check QmlPrint.pp#tsc tsc
+              ;
+              match ty_enrich with
+              | Q.TypeName (tys, _) ->
+                begin match List.filter (function | Q.TypeVar _ -> false | _ -> true) tys with
+                | [] -> ()
+                | _ -> QmlError.error (QmlError.Context.annoted_expr annotmap expr)
+                  "Some type parameters are instantiated in @{<bright>%a@}, this specializer is too specific"
+                  QmlPrint.pp#ty ty_enrich
+                end
+              | _ -> assert false
+            in
+            let vars = QmlGenericScheme.export_vars tsc in
+            assert (QmlTypeVars.FreeVars.is_row_empty vars);
+            assert (QmlTypeVars.FreeVars.is_col_empty vars);
+            let (vars, _, _) = QmlTypeVars.FreeVars.export_as_lists vars in
+            QC.TypedExpr.directive annotmap (`abstract_ty_arg (vars, [], [])) [expr] []
         in
         (specialize_env, annotmap, [to_add], expr)
     | Q.Directive (_, #Q.opavalue_directive, _, _) -> assert false
