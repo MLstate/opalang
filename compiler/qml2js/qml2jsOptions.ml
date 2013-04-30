@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -69,6 +69,7 @@ type t =
       cleanup : bool;
       inlining : bool;
       global_inlining : bool;
+      global_sharing : bool;
       lambda_lifting : bool;
       check_bsl_types : bool;
       mlstatelibs : string ;
@@ -106,7 +107,7 @@ module type JsBackend = sig
     t -> BslLib.env_bsl -> QmlTyper.env -> QmlAst.code -> env_js_input
   val name : string
   val runtime_libs : cps:bool -> extra_lib list
-  val dummy_compile : unit -> unit (* if the back end is not called because the input code is empty
+  val dummy_compile : t -> unit (* if the back end is not called because the input code is empty
                                     * then this fake compilation function will be called instead
                                     * The backend should use it to save dummy object files
                                     * for all the separated passes that it contains *)
@@ -176,6 +177,7 @@ struct
   let alpha_renaming = ref true
   let cleanup = ref true
   let inlining = ref true
+  let global_sharing = ref true
   let global_inlining = ref true
   let qml_closure = ref false
   let split = ref false
@@ -244,6 +246,7 @@ struct
       ("--no-cleanup", Arg.Clear cleanup, " -- disable clean up of the produced js");
       ("--no-inlining", Arg.Clear inlining, " -- disable inlining of the produced js");
       ("--no-global-inlining", Arg.Clear global_inlining, " -- disable toplevel inlining of the produced js");
+      ("--no-global-sharing", Arg.Clear global_sharing, " -- disable toplevel sharing of the produced js");
       ("--no-stdlib", Arg.Set no_stdlib, " -- Do not use qml-initial");
       ("--split", Arg.Set split, " -- Do not merge all js-files in one uniq target");
       ("--split-js-value", Arg.Int (fun i -> split_js_value := Some i), " -- UNDOCUMENTED");
@@ -304,6 +307,7 @@ struct
       cleanup = !cleanup;
       inlining = !inlining;
       global_inlining = !global_inlining;
+      global_sharing = !global_sharing;
       lambda_lifting = !lambda_lifting;
       check_bsl_types = !check_bsl_types;
       mlstatelibs = !mlstatelibs ;

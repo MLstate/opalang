@@ -184,6 +184,7 @@ type opa_options = {
   js_cleanup : bool;
   js_local_inlining : bool;
   js_global_inlining : bool;
+  js_global_sharing : bool;
   js_local_renaming : bool;
   publish_src_code : bool; (** if true, application source code will be published at [_internal_/src_code] *)
 
@@ -279,6 +280,7 @@ struct
     let js_cleanup = ref true
     let js_local_inlining = ref true
     let js_global_inlining = ref true
+    let js_global_sharing = ref true
     let js_local_renaming = ref true
     (* in release, force publishing source code ; otherwise, don't
        publish unless --publish-src-code). *)
@@ -301,6 +303,7 @@ struct
           QmlAstUtils.Const.set_limits `js
       | _ ->
           js_serialize := `adhoc;
+          js_global_sharing := false;
           QmlAstUtils.Const.set_limits `ml
     let js_back_end_wanted_name = ref "qmljsimp"
     let js_back_end s = js_back_end_wanted_name := s
@@ -670,6 +673,7 @@ struct
           ("--js-no-cleanup", Arg.Clear js_cleanup, "");
           ("--js-no-local-inlining", Arg.Clear js_local_inlining, "");
           ("--js-no-global-inlining", Arg.Clear js_global_inlining, "");
+          ("--js-no-global-sharing", Arg.Clear js_global_inlining, "");
           ("--js-no-local-renaming", Arg.Clear js_local_renaming, "");
 
           ("--no-cache-parse",    Arg.Set no_cache_parse,    " UNDOCUMENTED");
@@ -908,6 +912,7 @@ struct
     js_cleanup = !ArgParser.js_cleanup;
     js_local_inlining = !ArgParser.js_local_inlining;
     js_global_inlining = !ArgParser.js_global_inlining;
+    js_global_sharing = !ArgParser.js_global_sharing;
     js_local_renaming = !ArgParser.js_local_renaming;
     publish_src_code = !ArgParser.publish_src_code;
 

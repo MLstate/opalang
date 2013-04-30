@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -430,7 +430,7 @@ sig
                 QmlTyper.env ->
                 QmlAst.code ->
                 J.env_js_input
-  val dummy_for_opa : (module Qml2jsOptions.JsBackend) -> unit
+  val dummy_for_opa : (module Qml2jsOptions.JsBackend) -> Qml2jsOptions.t -> unit
 end
 =
 struct
@@ -442,8 +442,8 @@ struct
         argv env_bsl env_typer code
     in
     env_js_input
-  let dummy_for_opa backend =
+  let dummy_for_opa backend argv =
     let module M = (val backend : Qml2jsOptions.JsBackend) in
-    M.dummy_compile ()
+    M.dummy_compile argv
 end
 

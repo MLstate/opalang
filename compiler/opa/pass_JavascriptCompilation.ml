@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -76,6 +76,7 @@ let pass_OpaOptionsToJsOptions _backend options =
     cleanup = options.O.js_cleanup;
     inlining = options.O.js_local_inlining;
     global_inlining = options.O.js_global_inlining;
+    global_sharing = options.O.js_global_sharing;
     no_assert = options.O.no_assert;
   }
 
@@ -393,7 +394,9 @@ let process
   current_package_deps := StringSet.empty;
   if client.QmlBlender.code = [] then (
     R.save {S.extralibs = Hashtbl.create 0; S.plugins = Hashtbl.create 0};
-    Qml2js.Sugar.dummy_for_opa options.OpaEnv.js_back_end;
+    let back_end = options.OpaEnv.js_back_end in
+    let jsoptions = pass_OpaOptionsToJsOptions back_end options in
+    Qml2js.Sugar.dummy_for_opa back_end jsoptions;
     server
   ) else (
     let rev_code = full_serialize

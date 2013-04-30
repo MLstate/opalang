@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011, 2012, 2013 MLstate
 
     This file is part of Opa.
 
@@ -226,17 +226,23 @@ let compile
   let js_code = if options.Qml2jsOptions.alpha_renaming then JsRenaming.rename js_code else js_code in
   #<If:JS_IMP$contains "time"> Printf.printf "local renaming: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   #<If:JS_IMP$contains "print"> ignore (PassTracker.file ~filename:"js_imp_5_local_renaming" _outputer js_code) #<End>;
-  let js_code, sharing_env = Imp_Sharing.process_code ~pass js_code in
-  let inlining_env =
-    Imp_Inlining.map_expr_in_env (Imp_Sharing.rewrite_expr sharing_env) inlining_env
+  let js_code, inlining_env, exported =
+    if options.Qml2jsOptions.global_sharing then
+      let js_code, sharing_env = Imp_Sharing.process_code ~pass js_code in
+      let inlining_env =
+        Imp_Inlining.map_expr_in_env (Imp_Sharing.rewrite_expr sharing_env) inlining_env
+      in
+      let exported =
+        JsIdentSet.fold
+          (fun i exported ->
+            match Imp_Sharing.get_substitute sharing_env i with
+            | None -> exported
+            | Some s -> JsIdentSet.add s (JsIdentSet.remove i exported)
+          ) exported exported in
+      js_code, inlining_env, exported
+    else
+      js_code, inlining_env, exported
   in
-  let exported =
-    JsIdentSet.fold
-      (fun i exported ->
-         match Imp_Sharing.get_substitute sharing_env i with
-         | None -> exported
-         | Some s -> JsIdentSet.add s (JsIdentSet.remove i exported)
-      ) exported exported in
   save_inlining_env inlining_env;
   let exported =
     Imp_Inlining.fold_env
@@ -277,13 +283,14 @@ let compile
   }
 
 
-let dummy_compile () =
+let dummy_compile opt =
   let module R = (val Imp_Inlining.make_r "js" : Imp_Inlining.R) in
   R.save
     ~env:Imp_Inlining.empty_env
     ~loaded_env:Imp_Inlining.empty_env
     ~initial_env:Imp_Inlining.empty_env;
-  ignore (Imp_Sharing.process_code ~pass:"js" [])
+  if opt.Qml2jsOptions.global_sharing then
+    ignore (Imp_Sharing.process_code ~pass:"js" [])
 
 module Backend =
 struct
