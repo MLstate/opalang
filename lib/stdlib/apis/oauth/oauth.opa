@@ -133,6 +133,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
 
   build_auth_text(uri:string, auth_params) =
     auth_params = List.cons(("OAuth realm", uri), auth_params)
+    //auth_params = List.cons((String.replace("Dbg","","OAuth realm"), uri), auth_params) // Debug feature, to be deleted.
     aux((pname:string, pval:string), acc:string) =
       if acc == "" then "{pname}=\"{pval}\""
       else "{acc}, {pname}=\"{pval}\""

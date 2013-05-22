@@ -17,6 +17,7 @@
  * @destination public
  * @stability Work in progress
  */
+import stdlib.core.rpc.core
 import stdlib.core.wbxml
 import stdlib.apis.common
 import stdlib.apis.oauth
@@ -33,6 +34,8 @@ type Apigen.content =
     {xml_document xmldoc}
  or {xmlns xmlns}
  or {xhtml xhtml}
+ or {RPC.Json.json json}
+ or {list((string,string)) form}
  or {string plain}
  or {binary binary}
  or {(string,string) unknown}
@@ -49,6 +52,8 @@ type Apigen.failure =
  or {string pack}
  or {string bad_xml}
  or {string bad_wbxml}
+ or {string bad_json_string}
+ or {string bad_form_string}
  or {Apigen.content bad_content}
  or {string error}
  or {xhtml error_html}
@@ -131,6 +136,20 @@ module ApigenLib {
 
   debug = Mutable.make(0)
 
+  function bool islog(ApigenLib.logpkg logpkg, level) { logpkg.debug >= level }
+  function void dolog(ApigenLib.logpkg logpkg, string msg) { logpkg.logfn(msg) }
+
+  private GETstr = Ansi_print({magenta},"GET")
+  private OPTIONSstr = Ansi_print({magenta},"OPTIONS")
+  private POSTstr = Ansi_print({magenta},"POST")
+  private function hdrstr(string hdr) {
+    match (String.explode(":",hdr)) {
+    case [hdr,text]: "{Ansi_print({blue},hdr)}: {text}";
+    case [hdr|rest]: "{Ansi_print({blue},hdr)}: {String.concat(":",rest)}";
+    default: hdr;
+    }
+  }
+
   private tzfmt = Date.generate_printer("%z")
   private fmt = Date.generate_printer("%FT%T")
 
@@ -168,23 +187,48 @@ module ApigenLib {
     case ~{user, password}:
       auth = Crypto.Base64.encode(binary_of_string("{user}:{password}"))
       {http_options with custom_headers:List.append(http_options.custom_headers,["Authorization: Basic {auth}"])};
-      //{http_options with headers:List.append(http_options.headers,[("Authorization","Basic {auth}")])};
     default: http_options;
+    }
+  }
+
+  function add_timeout(http_options, option(float) timeout) {
+    match (timeout) {
+    case {none}: http_options;
+    case timeout_sec: {http_options with ~timeout_sec};
     }
   }
 
   /**
    * Make a HTTP GET on [path] at [base] with [options]
    */
-  function GET(base, path, options, parse_fun) {
+  function GET(ApigenLib.logpkg logpkg, string base, string path, list((string,string)) options, option(float) timeout,
+               ApigenLib.auth auth, WebClient.Get.options http_options, parse_fun) {
     final_path = generic_build_path("{base}{path}", options)
     //API_libs_private.apijlog("GET {final_path}")
     match (Uri.of_string(final_path)) {
-    case {none}: {failure:{bad_path:final_path}}
+    case {none}:
+      if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Bad path {final_path}")}")
+      {failure:{bad_path:final_path}};
     case {some:uri}:
-      match (WebClient.Get.try_get(uri)) {
-      case {success:res}: parse_fun(res)
-      case {failure:f}: {failure:{network:f}}
+      http_options = add_timeout(http_options, timeout)
+      http_options = authentication(http_options, auth)
+      if (logpkg.debug >= 10) {
+        if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {GETstr} {uri}")
+        if (islog(logpkg,11)) {
+           List.iter(function (hdr) { dolog(logpkg,"ApigenLib:   {hdrstr(hdr)}") },http_options.custom_headers)
+        }
+      }
+      match (WebClient.Get.try_get_with_options(uri, http_options)) {
+      case {success:res}:
+        if (logpkg.debug >= 10) {
+          if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({magenta},"{res.code}")}")
+          if (islog(logpkg,11)) List.iter(function (hdr) { dolog(logpkg,"ApigenLib:   {hdrstr(hdr)}") },res.headers)
+          if (islog(logpkg,12)) dolog(logpkg,"ApigenLib:  content=\n{memdump(res.content)}")
+        }
+        parse_fun(res)
+      case {failure:f}:
+        if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Network failure {f}")}")
+        {failure:{network:f}}
       }
     }
   }
@@ -232,24 +276,11 @@ module ApigenLib {
     }
   }
 
-  function bool islog(ApigenLib.logpkg logpkg, level) { logpkg.debug >= level }
-  function void dolog(ApigenLib.logpkg logpkg, string msg) { logpkg.logfn(msg) }
-
-  private POSTstr = Ansi_print({magenta},"POST")
-  private function hdrstr(string hdr) {
-    match (String.explode(":",hdr)) {
-    case [hdr,text]: "{Ansi_print({blue},hdr)}: {text}";
-    case [hdr|rest]: "{Ansi_print({blue},hdr)}: {String.concat(":",rest)}";
-    default: hdr;
-    }
-  }
-
   /**
    * Make a HTTP POST on [path] at [base] with string [data]
    */
   function POST_GENERIC(ApigenLib.logpkg logpkg, string base, string path, list((string,string)) options,
                         ApigenLib.auth auth, WebClient.Post.options(string) http_options, parse_fun) {
-                        //ApigenLib.auth auth, WebClient.options(binary) http_options, parse_fun) {
     //API_libs_private.apijlog("POST {base}{path}\n{http_options.content}\n")
     final_path = generic_build_path("{base}{path}", options)
     match (Uri.of_string(final_path)) {
@@ -257,7 +288,6 @@ module ApigenLib {
       if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Bad path {final_path}")}")
       {failure:{bad_path:final_path}};
     case {some:uri}:
-      //http_options = {http_options with method:"POST"}
       http_options = authentication(http_options, auth)
       if (logpkg.debug >= 10) {
         if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {POSTstr} {uri}")
@@ -269,7 +299,6 @@ module ApigenLib {
           dolog(logpkg,"ApigenLib:  content=\n{memdump(Option.get(http_options.content))}")
       }
       match (WebClient.Post.try_post_with_options(uri,http_options)) {
-      //match (WebClient.request(uri,http_options)) {
       case {success:res}:
         if (logpkg.debug >= 10) {
           if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({magenta},"{res.code}")}")
@@ -289,7 +318,6 @@ module ApigenLib {
    */
   function POST(ApigenLib.logpkg logpkg, base, path, options, content, auth, parse_fun) {
     POST_GENERIC(logpkg, base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
-    //POST_GENERIC(base, path, options, auth, {WebClient.default_options with content:{some:content}}, parse_fun)
   }
 
   /**
@@ -298,8 +326,6 @@ module ApigenLib {
   function POST_FORM(ApigenLib.logpkg logpkg, base, path, options, data, auth, parse_fun) {
     content = API_libs.form_urlencode(data)
     POST_GENERIC(logpkg, base, path, options, auth, {WebClient.Post.default_options with content:{some:content}}, parse_fun)
-    //content = binary_of_string(API_libs.form_urlencode(data))
-    //POST_GENERIC(base, path, options, auth, {WebClient.default_options with content:{some:content}}, parse_fun)
   }
 
   /**
@@ -307,15 +333,8 @@ module ApigenLib {
    */
   function POST_XML(ApigenLib.logpkg logpkg, base, path, options, timeout, auth, custom_headers, xmlns, parse_fun) {
     http_options = {WebClient.Post.default_options with mimetype:"text/xml", ~custom_headers, content:{some:xmlns}}
-    http_options =
-      match (timeout) {
-      case {none}: http_options;
-      case timeout_sec: {http_options with ~timeout_sec};
-      }
+    http_options = add_timeout(http_options, timeout)
     POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
-    //headers = [("Content-Type","text/xml")|custom_headers]
-    //http_options = {WebClient.default_options with ~headers, content:{some:xmlns}}
-    //POST_GENERIC(base, path, options, auth, http_options, parse_fun)
   }
 
   /**
@@ -325,19 +344,23 @@ module ApigenLib {
     http_options = {WebClient.Post.default_options with mimetype:"application/vnd.ms-sync.wbxml",
                                                         ~custom_headers,
                                                         content:{some:wbxml}}
-    http_options =
-      match (timeout) {
-      case {none}: http_options;
-      case timeout_sec: {http_options with ~timeout_sec};
-      }
+    http_options = add_timeout(http_options, timeout)
     POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
-    //headers = [("Content-Type","application/vnd.ms-sync.wbxml")|custom_headers]
-    //http_options = {WebClient.default_options with ~headers, content:{some:wbxml}}
-    //POST_GENERIC(base, path, options, auth, http_options, parse_fun)
+  }
+
+  /**
+   * Make a HTTP POST on [path] at [base] with string [json]
+   */
+  function POST_JSON(ApigenLib.logpkg logpkg, base, path, options, timeout, auth, custom_headers, json, parse_fun) {
+    http_options = {WebClient.Post.default_options with mimetype:"application/json",
+                                                        ~custom_headers,
+                                                        content:{some:json}}
+    http_options = add_timeout(http_options, timeout)
+    POST_GENERIC(logpkg, base, path, options, auth, http_options, parse_fun)
   }
 
   /** Generic http operation */
-  private function WebClient.Generic.options default_options(op) {
+  function WebClient.Generic.options default_options(op) {
     { operation       : op,
       auth            : {none},
       custom_headers  : [],
@@ -384,23 +407,48 @@ module ApigenLib {
   /**
    * Make a HTTP OPTIONS on [path] at [base] with string [data]
    */
-  function OPTIONS(base, path, options, http_options, content, parse_fun) {
-    //API_libs_private.apijlog("OPTIONS {base}{path}\n{content}\n")
+  function OPTIONS(ApigenLib.logpkg logpkg, string base, string path, list((string,string)) options, option(float) timeout,
+                   ApigenLib.auth auth, WebClient.Generic.options http_options, content, parse_fun) {
     final_path = generic_build_path("{base}{path}", options)
+    //API_libs_private.apijlog("OPTIONS {final_path}")
     match (Uri.of_string(final_path)) {
-    case {none}: {failure:{bad_path:final_path}};
+    case {none}:
+      if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Bad path {final_path}")}")
+      {failure:{bad_path:final_path}};
     case {some:uri}:
+      http_options = {http_options with operation:"OPTIONS"}
+      http_options = add_timeout(http_options, timeout)
+      http_options = authentication(http_options, auth)
+      if (logpkg.debug >= 10) {
+        if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {OPTIONSstr} {uri}")
+        if (islog(logpkg,11)) {
+           List.iter(function (hdr) { dolog(logpkg,"ApigenLib:   {hdrstr(hdr)}") },http_options.custom_headers)
+        }
+      }
       match (try_options_with_options(uri,content, http_options)) {
-      case {success:res}: parse_fun(res)
-      case {failure:f}: {failure:{network:f}}
+      case {success:res}:
+        if (logpkg.debug >= 10) {
+          if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({magenta},"{res.code}")}")
+          if (islog(logpkg,11)) List.iter(function (hdr) { dolog(logpkg,"ApigenLib:   {hdrstr(hdr)}") },res.headers)
+          if (islog(logpkg,12)) dolog(logpkg,"ApigenLib:  content=\n{memdump(res.content)}")
+        }
+        parse_fun(res)
+      case {failure:f}:
+        if (islog(logpkg,10)) dolog(logpkg,"ApigenLib: {Ansi_print({red},"Network failure {f}")}")
+        {failure:{network:f}}
       }
     }
   }
 
-  function OPTIONS_XML(base, path, options, content, parse_fun) {
-    http_options = {default_options("OPTIONS") with custom_headers:["Content-Type: text/xml"]}
+  function OPTIONS_XML(logpkg, base, path, options, timeout, auth, WebClient.Generic.options http_options, content, parse_fun) {
+    http_options = {http_options with custom_headers:["Content-Type: text/xml"|http_options.custom_headers]}
     //content = "<?xml version=\"1.0\"?>\n"^Xmlns.to_string(xmlns)
-    OPTIONS(base, path, options, http_options, content, parse_fun)
+    OPTIONS(logpkg, base, path, options, timeout, auth, http_options, content, parse_fun)
+  }
+
+  function OPTIONS_JSON(logpkg, base, path, options, timeout, auth, WebClient.Generic.options http_options, content, parse_fun) {
+    http_options = {http_options with custom_headers:["Content-Type: application/json"|http_options.custom_headers]}
+    OPTIONS(logpkg, base, path, options, timeout, auth, http_options, content, parse_fun)
   }
 
   /** Generic HTTP parameters, sreq=required string, bopt=optional bool etc. */
@@ -537,13 +585,14 @@ module ApigenLib {
 
   function outcome(Apigen.content,Apigen.failure) build_from_content_type(WebClient.success(string) res,
                                                                           option(WBXml.context) context) {
-    //jlog(Ansi_print({yellow},"res:{res}"))
+    //Ansi.jlog("res:%y{res}%d")
     content_type = Option.default("unknown/unknown",find_header("content-type",res.headers))
     match (List.map(String.trim,String.explode(";",content_type))) {
     case ["text/plain"|_]:
       {success:{plain:res.content}};
       //{success:{plain:%%bslBinary.to_encoding%%(res.content,"binary")}};
-    case ["text/html"|_]:
+    case ["text/html"|_]
+    case ["application/xhtml+xml"|_]:
       {success:{xhtml:Xhtml.of_string(res.content)}};
       //{success:{xhtml:Xhtml.of_string(%%bslBinary.to_encoding%%(res.content,"binary"))}};
     case ["text/xml"|_]:
@@ -570,6 +619,18 @@ module ApigenLib {
         }
       case {none}: {failure:{error:"No WBXml context"}};
       }
+    case ["application/json"|_]:
+      //jlog("res.content:\n{memdump(res.content)}")
+      if (res.content == "") {
+        {success:{none}}
+      } else
+        match (Json.deserialize_opt(res.content)) {
+        case {some:json}: {success:{~json}};
+        case {none}: {failure:{bad_json_string:res.content}};
+        };
+    case ["application/x-www-form-urlencoded"|_]:
+      //jlog("res.content:\n{memdump(res.content)}")
+      {success:{form:API_libs.get_data(res.content)}};
     case ["unknown/unknown"|_]:
       if (String.length(res.content) == 0)
         {success:{none}}
@@ -1740,7 +1801,10 @@ function dbg(where) {
     aux(content)
   }
 
-  function bool matchns(string ns1, string ns2) { ns1 == "" || ns2 == "" || ns1 == ns2 }
+  function bool matchns(string ns1, string ns2) {
+    b1 = (ns1 == "" || ns2 == "")
+    b1 || ns1 == ns2
+  }
 
   function option('a) get_alt2(list(xmlns) content, /*_ttag,*/ sets) {
     //jlog("get_alt2: ttag={ptag(ttag)} content={pxml(content)} sets={String.concat(",",List.map(function (set) { set.f1 },sets))}")
