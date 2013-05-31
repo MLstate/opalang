@@ -18,7 +18,7 @@ if [ -z "$node" ]; then
 fi
 if [ -z "$node" ] || [ ! -x "$node" ]; then
 
-    NODE_VERSION=v0.10.3
+    NODE_VERSION=v0.9.9
 
     # Detect OS
     IS_LINUX=""
