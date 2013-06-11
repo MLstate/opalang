@@ -356,9 +356,11 @@ query_options <-
   }}
 
 query_with_options <-
-  / sqlquery1:q
+  / sqlquery1:q (Opa_parser.separator query_options:o {{o}})?:o
     {{
-       let options = QmlAst.Db.default_query_options in
+       let options =
+         Option.default QmlAst.Db.default_query_options o
+       in
        QmlAst.Db.SQLQuery (q, options)
     }}
   / query:q (Opa_parser.separator query_options:o {{o}})?:o
