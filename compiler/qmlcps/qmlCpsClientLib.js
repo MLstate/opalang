@@ -326,7 +326,7 @@ function loop_schedule(blocking)
         }
         if(tasks.length != 0) {
             #<Ifstatic:OPABSL_NODE>
-            process.nextTick(loop_schedule)
+            setImmediate(loop_schedule)
             #<Else>
             setTimeout(loop_schedule, 0)
             #<End>
