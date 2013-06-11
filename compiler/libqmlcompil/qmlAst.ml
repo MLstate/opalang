@@ -1129,6 +1129,8 @@ type cps_directive = [
          Indicate that the underlying apply was translated in qml from an ApplyConst in IL
          Used by the js backend to know when to treat tail calls
       *)
+
+  | `worker
 ]
 
 (** Exceptions. Unsafely typed for now, only for experimentation purposes *)

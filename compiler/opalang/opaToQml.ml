@@ -577,6 +577,7 @@ struct
       | `with_thread_context
       | `sliced_expr
       | `may_cps
+      | `worker
       | `specialize _
       | `deprecated
       | `todo

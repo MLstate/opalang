@@ -1184,6 +1184,7 @@ directive1 <-
   / "i18n"   {{ `i18n }}
   / "js_ident" {{ `js_ident }}
   / "may_cps" {{ `may_cps }}
+  / "worker" {{ `worker }}
   / "nonexpansive" {{ `nonexpansive }}
   / "openrecord" {{ `openrecord }}
   / "extendwith" {{ `extendwith }}

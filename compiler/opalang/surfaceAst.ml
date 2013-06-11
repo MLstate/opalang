@@ -329,6 +329,7 @@ type concurrency_directive =
     | `throw
     | `catch
     | `may_cps
+    | `worker
     | `async
     ]
 type distribution_directive = QmlAst.slicer_directive
