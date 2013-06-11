@@ -1853,7 +1853,6 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           in
           if workable then
             let fwork_id = Ident.refreshf ~map:"%s_work" id in
-            Format.eprintf "%a work %a\n%!" QmlPrint.pp#ident fwork_id QmlPrint.pp#ident id;
             let private_env = {private_env with
               workable_functions = IdentMap.add id fwork_id private_env.workable_functions
             } in
@@ -1869,7 +1868,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         (* normal case *)
         | Q.Lambda _ -> lambda ()
 
-        | Q.Directive (_, (`workable), [Q.Lambda (_, _, _) as expr], _) ->
+        | Q.Directive (_, `workable, [Q.Lambda (_, _, _) as expr], _) ->
           lambda ~workable:true ~expr ()
 
         | Q.Directive (a, ((`lifted_lambda _) as d), [e], tys)  ->
@@ -1935,11 +1934,73 @@ let instrument code =
      | _ -> assert false)
     code
 
+let propagate_workable_directives private_env code =
+  let add_workable private_env id =
+    if IdentMap.mem id private_env.workable_functions then private_env
+    else
+      let fwork_id = Ident.refreshf ~map:"%s_work" id in
+      {private_env with
+        workable_functions = IdentMap.add id fwork_id private_env.workable_functions
+      }
+  in
+  let fold_workable private_env (id, expr) =
+    let expr =
+      match expr with
+      | Q.Directive (_, `workable, _, _) -> expr
+      | _ ->
+        let label = Annot.nolabel "QmlCpsRewriter.cps_pass" in
+        Q.Directive (label, `workable, [expr], [])
+    in
+    add_workable private_env id, (id, expr)
+  in
+  let should_be_workable private_env (i, e) =
+    match e with
+    | Q.Directive (_, `workable, _, _) -> true
+    | _ -> IdentMap.mem i private_env.workable_functions
+  in
+  let collect_workable_in_defs private_env defs =
+    List.fold_left (fun private_env (_, expr) ->
+      QmlAstWalk.Expr.traverse_fold (fun tra private_env expr -> match expr with
+      | Q.Directive (_, `worker, [expr], _) ->
+        QmlAstWalk.Expr.fold (fun private_env expr -> match expr with
+        | Q.Ident (_, i) -> add_workable private_env i
+        | _ -> private_env
+        ) private_env expr
+      | _ -> tra private_env expr
+      ) private_env expr
+    ) private_env defs
+  in
+  List.fold_right_map
+    (fun elt private_env -> match elt with
+    | Q.NewValRec (label, defs) ->
+      let private_env = collect_workable_in_defs private_env defs in
+      if List.exists (should_be_workable private_env) defs then
+        let private_env, defs = List.fold_left_map
+          (fun private_env binding ->
+            fold_workable private_env binding
+          ) private_env defs
+        in
+        Q.NewValRec (label, defs), private_env
+      else elt, private_env
+    | Q.NewVal (label, defs) ->
+      let private_env = collect_workable_in_defs private_env defs in
+      let defs, private_env = List.fold_right_map
+        (fun binding private_env ->
+          if should_be_workable private_env binding then
+            let private_env, binding = fold_workable private_env binding in
+            binding, private_env
+          else binding, private_env
+        ) defs private_env
+      in Q.NewVal (label, defs), private_env
+    | _ -> assert false
+    ) code private_env
+
 (* utils for backends *)
 let cps_pass ~side env qml_code =
   let qml_code = if env.options.backtrace then instrument qml_code else qml_code in
   let private_env_initial = Package.load_dependencies ~side in
-  let private_env, r = code env private_env_initial qml_code in
+  let qml_code, private_env = propagate_workable_directives private_env_initial qml_code in
+  let private_env, r = code env private_env qml_code in
   Package.save_current ~side ~private_env_initial ~private_env;
   let _ =
     #<If:CPS_VERBOSE $minlevel DebugLevel.il_opt_timer>
