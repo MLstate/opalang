@@ -259,6 +259,7 @@ let ty directive exprs tys =
   | `async
   | `may_cps
   | `worker
+  | `workable
   | `apply_cont
     -> Ty.id ()
 
@@ -474,6 +475,7 @@ let to_string d =
   | `sliced_expr -> "sliced_expr"
   | `may_cps -> "may_cps"
   | `worker -> "worker"
+  | `workable -> "workable"
   | `stringifier -> "stringifier"
   | `comparator -> "comparator"
   | `serializer -> "serializer"

@@ -127,7 +127,10 @@ struct
       | (Directive (`visibility_annotation _,[e],_),_) -> e
       | (Directive (`visibility_annotation _,_,_),_) -> assert false
       | e -> e
-
+    let workable = function
+      | (Directive (`workable, [e], _),_) -> e
+      | (Directive (`workable, _, _),_) -> assert false
+      | e -> e
 
 
   end

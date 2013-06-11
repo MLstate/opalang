@@ -1131,6 +1131,8 @@ type cps_directive = [
       *)
 
   | `worker
+
+  | `workable
 ]
 
 (** Exceptions. Unsafely typed for now, only for experimentation purposes *)
@@ -1295,6 +1297,7 @@ type qml_directive = [
 type binding_directive = [
 | slicer_directive
 | `async
+| `workable
 | opavalue_directive
 ]
 

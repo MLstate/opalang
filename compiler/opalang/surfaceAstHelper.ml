@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -350,7 +350,8 @@ module Rec = struct
                  ; D.Remove.Basic.slicer_directive
                  ; D.Remove.Basic.letin
                  ; D.Remove.Basic.open_
-                 ; D.Remove.Basic.async ] e in
+                 ; D.Remove.Basic.async
+                 ; D.Remove.Basic.workable ] e in
     D.Look.module_ e || D.Look.lambda e
 
   let recursive_scope e =
@@ -363,7 +364,8 @@ module Rec = struct
                  ; D.Remove.Basic.coerce
                  ; D.Remove.Basic.slicer_directive (* LOOK AGAIN: not sure *)
                  ; D.Remove.Basic.letin
-                 ; D.Remove.Basic.async ] e in
+                 ; D.Remove.Basic.async
+                 ; D.Remove.Basic.workable ] e in
     D.Look.module_ e || D.Look.lambda e
 end
 

@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011 MLstate
+    Copyright © 2011, 2013 MLstate
 
     This file is part of Opa.
 
@@ -256,6 +256,7 @@ struct
   | QmlAst.slicer_directive
   | `lifted_lambda of 'b
   | `async
+  | `workable
   ]
 
   let check_valrec ~undot check_fail (annotmap, code) =

@@ -219,6 +219,7 @@ type 'a ignored_directive =[
 | Q.closure_instrumentation_directive
 | Q.ei_directive
 | `async
+| `workable
 ]
 
 (* some utility functions to get types and type schemes *)

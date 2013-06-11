@@ -1128,6 +1128,7 @@ declaration_directive0 <-
   / "opacapi" {{ `opacapi }}
   / "public_env" {{ `public_env }}
   / "expand" {{ `expand None }} (* not allowing anymore to give an integer to expand, could be put back *)
+  / "workable" {{ `workable }}
   / slicing_directive0
 
 declaration_directive1_typ <-

@@ -104,6 +104,7 @@ type ('a,'b,'c) strictly_non_expansive =
     | `specialize of 'c
     | `may_cps
     | `worker
+    | `workable
     | Q.opavalue_directive
     | `async
     | `deprecated

@@ -578,6 +578,7 @@ struct
       | `sliced_expr
       | `may_cps
       | `worker
+      | `workable
       | `specialize _
       | `deprecated
       | `todo

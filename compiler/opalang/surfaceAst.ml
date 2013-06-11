@@ -330,6 +330,7 @@ type concurrency_directive =
     | `catch
     | `may_cps
     | `worker
+    | `workable
     | `async
     ]
 type distribution_directive = QmlAst.slicer_directive
@@ -457,4 +458,6 @@ type binding_directive = [
 | documentation_directive
 | `opacapi
 | `async
+| `workable
 ]
+

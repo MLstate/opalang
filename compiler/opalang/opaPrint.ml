@@ -850,6 +850,7 @@ module Classic = struct
       | `sliced_expr -> Format.pp_print_string f "sliced_expr"
       | `may_cps -> Format.pp_print_string f "may_cps"
       | `worker -> Format.pp_print_string f "worker"
+      | `workable -> Format.pp_print_string f "workable"
       | `llarray -> Format.pp_print_string f "llarray"
       | `specialize `strict -> Format.pp_print_string f "specialize_strict"
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"
@@ -1071,7 +1072,7 @@ module Js = struct
 
     method private binding_directives : 'dir. ([< all_directives ] as 'dir) -> bool  = function
     | a when not(self#variant_has_at a) -> true
-    | `specialize _ | `async
+    | `specialize _ | `async | `workable
     | #QmlAst.slicer_directive | #QmlAst.closure_instrumentation_directive
     | #S.coding_directive | #S.access_directive -> true
     | (_ : [< all_directives ]) -> false
@@ -1438,6 +1439,7 @@ module Js = struct
       | `sliced_expr -> Format.pp_print_string f "sliced_expr"
       | `may_cps -> Format.pp_print_string f "may_cps"
       | `worker -> Format.pp_print_string f "worker"
+      | `workable -> Format.pp_print_string f "workable"
       | `llarray -> Format.pp_print_string f "llarray"
       | `specialize `strict -> Format.pp_print_string f "specialize_strict"
       | `specialize `polymorphic -> Format.pp_print_string f "specialize"

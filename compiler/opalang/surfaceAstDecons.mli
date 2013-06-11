@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -43,6 +43,7 @@ module Remove :
         val slicer_directive:('a, [< all_directives > `side_annotation `visibility_annotation ]) through
         val side_annotation :('a, [< all_directives > `side_annotation ]) through
         val visibility_annotation:('a, [< all_directives > `visibility_annotation ]) through
+        val workable :          ('a, [< all_directives > `workable ]) through
       end
     val remove : through:('a, [< all_directives ] as 'b) through list -> ('a, 'b) expr -> ('a, 'b) expr
     val coerce : ('a, [< all_directives > `coerce] as 'b) expr -> ('a, 'b) expr

@@ -131,6 +131,7 @@ type private_env =
     {
       (* skipped functions : (arity * fskip_id * fcps_id) Map *)
       skipped_functions : (int * Ident.t * Ident.t) IdentMap.t;
+      workable_functions : Ident.t IdentMap.t;
       toplevel_barrier : Ident.t IdentMap.t ;
       warn_x_field : unit ;
       bindings : (Ident.t * QmlAst.expr) list
@@ -140,6 +141,7 @@ let private_env_initial : unit -> private_env = fun () ->
   let bindings = [] in
   {
     skipped_functions = IdentMap.empty;
+    workable_functions = IdentMap.empty;
     toplevel_barrier = IdentMap.empty ;
     warn_x_field = () ;
     bindings = bindings
@@ -180,6 +182,7 @@ module Package = struct
     let merge _pack a b =
       if debug then Printf.printf "LOADING %s\n%!\n" (fst _pack);
       { skipped_functions = IdentMap.safe_merge a.skipped_functions b.skipped_functions
+      ; workable_functions = IdentMap.safe_merge a.workable_functions b.workable_functions
       ; toplevel_barrier  = IdentMap.safe_merge a.toplevel_barrier  b.toplevel_barrier
       ; warn_x_field = ()
       ; bindings = [] }
@@ -189,6 +192,7 @@ module Package = struct
   let save_current ~side ~private_env_initial ~private_env =
     let (-) ab a =
        { skipped_functions = IdentMap.diff ab.skipped_functions a.skipped_functions
+       ; workable_functions = IdentMap.diff ab.workable_functions a.workable_functions
        ; toplevel_barrier  = IdentMap.diff ab.toplevel_barrier  a.toplevel_barrier
        ; warn_x_field = ()
        ; bindings = [] }
@@ -544,6 +548,19 @@ module U = struct
         match partial with
         | Some _ -> skipped_apply ?alabel ?partial f_id f_args
         | None -> cps_apply ?stack_info f_id f_args context
+
+  let rewrite_workable ~private_env expr =
+    QmlAstWalk.Expr.map
+      (function
+      | (Q.Ident (a, i)) as e ->
+        begin match (private_env_get_skipped_ident private_env i) with
+        | Some i -> Q.Ident (a, i)
+        | None -> match IdentMap.find_opt i private_env.workable_functions with
+          | Some i -> Q.Ident (a, i)
+          | None -> e
+        end
+      | e -> e)
+      expr
 
   let is_const e =
     match e with
@@ -982,6 +999,9 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         | (IL.Skip _) as r -> r
         | _ -> QmlError.error (QmlError.Context.expr expr) "The expression cannot be guaranteed to be atomic"
         end
+
+    | Q.Directive (a, `worker, [expr], []) ->
+      IL.Skip (Q.Directive (a, `worker, [U.rewrite_workable ~private_env expr], []))
 
     | Q.Directive (_, `atomic, _ , _) -> assert false
 
@@ -1649,7 +1669,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                   end
               end
         in
-        let immediate_lambda arity =
+        let immediate_lambda ?(workable=false) ?(expr=expr) arity =
           let private_env, il_term = il_of_qml ~can_skip_toplvl:true env private_env expr in
           let private_env, il_term = il_simplification env private_env il_term in
           let toplevel_cont v = QC.ident v in
@@ -1678,7 +1698,16 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               let fcps = simpl_let_in fcps in
               private_env, [ (fskip_id, fskip); (id, fcps) ]
           | _ ->
-              (* if the lambda is not skippable, only a CPS version is generated *)
+            if workable then
+              (* if the lambda is workable, both versions should be generated, CPS and skipped *)
+              let fwork = U.rewrite_workable ~private_env expr in
+              let fwork_id = Ident.refreshf ~map:"%s_work" id in
+
+              let private_env, fcps = qml_of_il ~toplevel_cont env private_env il_term in
+              let fcps = simpl_let_in fcps in
+              private_env, [ (fwork_id, fwork); (id, fcps) ]
+            else
+              (* if the lambda is not skippable and not workable, only a CPS version is generated *)
               let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
               let expr = simpl_let_in expr in
               private_env, [ (id, expr) ]
@@ -1712,6 +1741,9 @@ let code_elt (env:env) (private_env:private_env) code_elt =
 
         | Q.Directive (_, (`restricted_bypass _ | `lifted_lambda _), [Q.Lambda (_, l, _)], _)
         | Q.Lambda (_, l, _) -> immediate_lambda (List.length l)
+
+        | Q.Directive (_, `workable, [Q.Lambda (_, l, _) as expr], _) ->
+          immediate_lambda ~workable:true ~expr (List.length l)
 
         | Q.Apply _ -> immediate_value_or_barrier ~can_skip_toplvl:true ()
 
@@ -1802,31 +1834,47 @@ let code_elt (env:env) (private_env:private_env) code_elt =
   | Q.NewValRec (label, defs) ->
 
       let rec fold_map private_env (id, expr) =
+        let lambda ?(workable=false) ?(expr=expr) () =
+          let private_env, (fcps_id, fcps) =
+            let private_env, il_term = il_of_qml ~can_skip_toplvl:false env private_env expr in
+            let private_env, il_term = il_simplification env private_env il_term in
+            let toplevel_cont v = QC.ident v in
+            begin match il_term with
+            | IL.Skip _ -> assert false
+            | _ ->
+            (* if the lambda is not skipable, only a CPS version is generated *)
+              let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
+              let expr =
+                match expr with
+                | Q.LetIn (_, [(x,expr)], Q.Ident (_, y)) when Ident.equal x y -> expr
+                | _ -> expr
+              in private_env, (id, expr)
+            end
+          in
+          if workable then
+            let fwork_id = Ident.refreshf ~map:"%s_work" id in
+            Format.eprintf "%a work %a\n%!" QmlPrint.pp#ident fwork_id QmlPrint.pp#ident id;
+            let private_env = {private_env with
+              workable_functions = IdentMap.add id fwork_id private_env.workable_functions
+            } in
+            let fwork = U.rewrite_workable ~private_env expr in
+            private_env, [ (fwork_id, fwork); (fcps_id, fcps) ]
+          else private_env, [ (fcps_id, fcps) ]
+        in
         match expr with
 
         (* hack case : TODO: remove this when this could be a valid pre-condition *)
         | Q.Coerce (_, expr, _ ) -> fold_map private_env (id, expr)
 
         (* normal case *)
-        | Q.Lambda _ ->
-          let private_env, il_term = il_of_qml ~can_skip_toplvl:false env private_env expr in
-          let private_env, il_term = il_simplification env private_env il_term in
-          let toplevel_cont v = QC.ident v in
-          begin match il_term with
-          | IL.Skip _ -> assert false
-          | _ ->
-             (* if the lambda is not skipable, only a CPS version is generated *)
-            let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
-            let expr =
-              match expr with
-              | Q.LetIn (_, [(x,expr)], Q.Ident (_, y)) when Ident.equal x y -> expr
-              | _ -> expr
-            in private_env, (id, expr)
-          end
+        | Q.Lambda _ -> lambda ()
+
+        | Q.Directive (_, (`workable), [Q.Lambda (_, _, _) as expr], _) ->
+          lambda ~workable:true ~expr ()
 
         | Q.Directive (a, ((`lifted_lambda _) as d), [e], tys)  ->
-            let private_env, (id, e) = fold_map private_env (id, e) in
-            private_env, (id, Q.Directive (a, d, [e], tys))
+            let private_env, binds = fold_map private_env (id, e) in
+            private_env, List.map (fun (id, e) -> (id, Q.Directive (a, d, [e], tys))) binds
 
         | _ ->
             (* FIXME: use OpaError *)
@@ -1835,7 +1883,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               QmlPrint.pp#expr expr
       in
       let private_env, defs = List.fold_left_map fold_map private_env defs in
-      private_env, [ Q.NewValRec (label, defs) ]
+      private_env, [ Q.NewValRec (label, List.flatten defs) ]
 
   (* other top level QmlAst.code_elt are ignored and removed *)
   | _ -> private_env , []

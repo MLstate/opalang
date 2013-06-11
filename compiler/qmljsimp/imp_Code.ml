@@ -506,6 +506,9 @@ let compile_expr_to_expr env private_env expr =
         let fail = JsCons.Expr.call ~pure:false fail [ message ; position ] in
         private_env, fail
 
+    | Q.Directive (_, `worker, [expr], _) ->
+      aux private_env expr
+
     | Q.Directive (_, `thread_context, _, _) ->
         let call =
           let key = Opacapi.Opabsl.BslCps.Notcps_compatibility.thread_context in
