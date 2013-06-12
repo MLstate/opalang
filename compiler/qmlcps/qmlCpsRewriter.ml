@@ -2005,6 +2005,16 @@ let propagate_workable_directives private_env code =
     ) code private_env
 
 let rewrite_workers ~env private_env code =
+  let skipped_idents =
+    IdentMap.fold
+      (fun _ (_, skip_id, _) skipped_idents -> IdentSet.add skip_id skipped_idents )
+      private_env.skipped_functions IdentSet.empty
+  in
+  let has_arrow a =
+    QmlAstWalk.Type.exists
+      (function | Q.TypeArrow _ -> true | _ -> false)
+      (QmlAnnotMap.find_ty (Annot.annot a) env.typing.QmlTypes.annotmap)
+  in
   let rewrite_expr expr =
     QmlAstWalk.Expr.map
       (function
@@ -2014,9 +2024,11 @@ let rewrite_workers ~env private_env code =
         | None -> match IdentMap.find_opt i private_env.workable_functions with
           | Some i -> Q.Ident (a, i)
           | None ->
-            if not(Ident.get_package_name i = ObjectFiles.get_current_package_name ()) then
+            if not(Ident.get_package_name i = ObjectFiles.get_current_package_name ()
+                  || IdentSet.mem i skipped_idents) && has_arrow a then
               QmlError.serror (QmlError.Context.expr e)
-                "This expression has no workable version (from package:%s)"
+                "This expression has no workable version (ident:@{<bright>%s} from package:@{<bright>%s})"
+                (Ident.original_name i)
                 (Ident.get_package_name i);
             e
         end
