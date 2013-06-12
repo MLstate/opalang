@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -156,6 +156,8 @@ type private_env
 val private_env_initial : unit -> private_env
 
 val private_env_get_skipped_ident : private_env -> Ident.t -> Ident.t option
+
+val private_env_get_worker_ident : private_env -> Ident.t -> Ident.t option
 
 val get_skipped : ObjectFiles.package -> Ident.t IdentMap.t
 

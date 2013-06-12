@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -617,17 +617,21 @@ Please use a bsl plugin@\n" (BslKey.to_string key)
         raise e  (** plus + : very usefull to see the backtrace *)
   in
   let update_exported exported =
-    IdentSet.fold
-      (fun i exported ->
-         match QmlCpsRewriter.private_env_get_skipped_ident private_env i with
-         | Some skip_id -> IdentSet.add skip_id exported
-         | None -> match QmlRenamingMap.new_from_original_opt
-             env.newFinalCompile_renaming_server i with
-             | None -> exported
-             | Some i2 -> match QmlCpsRewriter.private_env_get_skipped_ident private_env i2 with
-               | Some skip_id -> IdentSet.add skip_id exported
-               | None -> exported
-      ) exported exported
+    let aux get_ident exported =
+      IdentSet.fold
+        (fun i exported ->
+          match get_ident private_env i with
+          | Some skip_id -> IdentSet.add skip_id exported
+          | None -> match QmlRenamingMap.new_from_original_opt
+              env.newFinalCompile_renaming_server i with
+              | None -> exported
+              | Some i2 -> match get_ident private_env i2 with
+                | Some skip_id -> IdentSet.add skip_id exported
+                | None -> exported
+        ) exported exported
+    in
+    let exported = aux QmlCpsRewriter.private_env_get_skipped_ident exported in
+    aux QmlCpsRewriter.private_env_get_worker_ident exported
   in
   let exported = update_exported env.newFinalCompile_exported in
   (* ignore (PassTracker.print ~passname:"CPSEXPORTED" ~printer_id:"js_exported" (IdentSet.pp ", " QmlPrint.pp#ident) exported); *)

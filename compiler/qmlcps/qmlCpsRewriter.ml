@@ -165,6 +165,9 @@ let private_env_get_skipped_ident private_env id =
     (fun (_, skip_id, _) -> skip_id)
     (IdentMap.find_opt id private_env.skipped_functions)
 
+let private_env_get_worker_ident private_env id =
+  IdentMap.find_opt id private_env.workable_functions
+
 
 module S =
 struct
