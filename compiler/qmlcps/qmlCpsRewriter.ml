@@ -1842,8 +1842,8 @@ let code_elt (env:env) (private_env:private_env) code_elt =
 
   | Q.NewValRec (label, defs) ->
 
-      let rec fold_map private_env (id, expr) =
-        let lambda ?(workable=false) ?(expr=expr) () =
+      let rec fold_map ?(workable=false) private_env (id, expr) =
+        let lambda ?(expr=expr) () =
           let private_env, (fcps_id, fcps) =
             let private_env, il_term = il_of_qml ~can_skip_toplvl:false env private_env expr in
             let private_env, il_term = il_simplification env private_env il_term in
@@ -1867,16 +1867,16 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         match expr with
 
         (* hack case : TODO: remove this when this could be a valid pre-condition *)
-        | Q.Coerce (_, expr, _ ) -> fold_map private_env (id, expr)
+        | Q.Coerce (_, expr, _ ) -> fold_map ~workable private_env (id, expr)
 
         (* normal case *)
         | Q.Lambda _ -> lambda ()
 
-        | Q.Directive (_, `workable, [Q.Lambda (_, _, _) as expr], _) ->
-          lambda ~workable:true ~expr ()
+        | Q.Directive (_, `workable, [expr], _) ->
+          fold_map ~workable:true private_env (id, expr)
 
         | Q.Directive (a, ((`lifted_lambda _) as d), [e], tys)  ->
-            let private_env, binds = fold_map private_env (id, e) in
+            let private_env, binds = fold_map ~workable private_env (id, e) in
             private_env, List.map (fun (id, e) -> (id, Q.Directive (a, d, [e], tys))) binds
 
         | _ ->
