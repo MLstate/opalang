@@ -1585,7 +1585,6 @@ let private_env_add_workable_fun id fwork_id private_env =
 
 let private_env_gen_workable_fun (id, expr) private_env l =
   let fwork_id = Ident.refreshf ~map:"%s_work" id in
-  Format.eprintf "%a work %a\n%!" QmlPrint.pp#ident fwork_id QmlPrint.pp#ident id;
   let fwork = Q.Directive (Annot.nolabel "QmlCpsRewriter.cps_pass", `workable, [expr], []) in
   private_env_add_workable_fun id fwork_id private_env, (fwork_id, fwork) :: l
 
@@ -1944,8 +1943,6 @@ let propagate_workable_directives private_env code =
     if IdentMap.mem id private_env.workable_functions then private_env
     else
       let fwork_id = Ident.refreshf ~map:"%s_work" id in
-      Format.eprintf "ADD %a work %a: %a\n%!" QmlPrint.pp#ident fwork_id QmlPrint.pp#ident id
-        (IdentMap.pp "@, " (fun fmt key _ -> QmlPrint.pp#ident fmt key)) private_env.workable_functions;
       {private_env with
         workable_functions = IdentMap.add id fwork_id private_env.workable_functions
       }
