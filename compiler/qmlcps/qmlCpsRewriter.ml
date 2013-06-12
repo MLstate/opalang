@@ -2007,7 +2007,7 @@ let propagate_workable_directives private_env code =
     | _ -> assert false
     ) code private_env
 
-let rewrite_workers private_env code =
+let rewrite_workers ~env private_env code =
   let rewrite_expr expr =
     QmlAstWalk.Expr.map
       (function
@@ -2023,6 +2023,11 @@ let rewrite_workers private_env code =
                 (Ident.get_package_name i);
             e
         end
+      | Q.Bypass (_, key) as e ->
+        if (env.bsl_bypass_tags key).BslTags.cps_bypass then
+          QmlError.serror (QmlError.Context.expr e)
+            "This bypass is tagged as a cps bypass. It can't be used by a worker";
+        e
       | e -> e)
       expr
   in
@@ -2047,7 +2052,7 @@ let cps_pass ~side env qml_code =
   let private_env_initial = Package.load_dependencies ~side in
   let qml_code, private_env = propagate_workable_directives private_env_initial qml_code in
   let private_env, r = code env private_env qml_code in
-  let r = rewrite_workers private_env r in
+  let r = rewrite_workers ~env private_env r in
   Package.save_current ~side ~private_env_initial ~private_env;
   let _ =
     #<If:CPS_VERBOSE $minlevel DebugLevel.il_opt_timer>
