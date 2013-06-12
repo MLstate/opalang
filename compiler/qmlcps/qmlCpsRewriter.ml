@@ -549,19 +549,6 @@ module U = struct
         | Some _ -> skipped_apply ?alabel ?partial f_id f_args
         | None -> cps_apply ?stack_info f_id f_args context
 
-  let rewrite_workable ~private_env expr =
-    QmlAstWalk.Expr.map
-      (function
-      | (Q.Ident (a, i)) as e ->
-        begin match (private_env_get_skipped_ident private_env i) with
-        | Some i -> Q.Ident (a, i)
-        | None -> match IdentMap.find_opt i private_env.workable_functions with
-          | Some i -> Q.Ident (a, i)
-          | None -> e
-        end
-      | e -> e)
-      expr
-
   let is_const e =
     match e with
     | Q.Const _ -> true
@@ -1000,8 +987,7 @@ let il_of_qml ?(can_skip_toplvl=false) (env:env) (private_env:private_env) (expr
         | _ -> QmlError.error (QmlError.Context.expr expr) "The expression cannot be guaranteed to be atomic"
         end
 
-    | Q.Directive (a, `worker, [expr], []) ->
-      IL.Skip (Q.Directive (a, `worker, [U.rewrite_workable ~private_env expr], []))
+    | Q.Directive (_, `worker, _, _) -> IL.Skip expr
 
     | Q.Directive (_, `atomic, _ , _) -> assert false
 
@@ -1589,6 +1575,17 @@ let private_env_add_skipped_fun id arity fskip_id fcps_id private_env =
       skipped_functions = IdentMap.add id (arity, fskip_id, fcps_id) private_env.skipped_functions
   }
 
+let private_env_add_workable_fun id fwork_id private_env =
+  { private_env with
+    workable_functions = IdentMap.add id fwork_id private_env.workable_functions
+  }
+
+let private_env_gen_workable_fun (id, expr) private_env l =
+  let fwork_id = Ident.refreshf ~map:"%s_work" id in
+  Format.eprintf "%a work %a\n%!" QmlPrint.pp#ident fwork_id QmlPrint.pp#ident id;
+  let fwork = Q.Directive (Annot.nolabel "QmlCpsRewriter.cps_pass", `workable, [expr], []) in
+  private_env_add_workable_fun id fwork_id private_env, (fwork_id, fwork) :: l
+
 let rec simpl_let_in = function
   | Q.Directive (l, d, [e], tys) ->
       Q.Directive (l, d, [simpl_let_in e], tys)
@@ -1599,7 +1596,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
   match code_elt with
   | Q.NewVal (label, defs) ->
 
-      let rec fold_filter_map private_env (id, expr) =
+      let rec fold_filter_map ?(workable=false) private_env (id, expr) =
         let immediate_value_or_barrier ?(can_skip_toplvl=false) () =
           let is_asynchronous, expr =
             match expr with
@@ -1617,7 +1614,10 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                 (* simplification : if the code is [val f = let x = foo in x], replace it by [val f = foo] *)
                 (* much simplier and efficienter to detect after generation *)
                 let expr = simpl_let_in expr in
-                private_env, [ (id, expr) ]
+                if workable then
+                  private_env_gen_workable_fun (id, expr) private_env [(id, expr)]
+                else
+                  private_env, [ (id, expr) ]
               end
                 (* the expression has not been skiped at toplvl, *)
           | _ ->
@@ -1656,16 +1656,18 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                       in
                       QC.apply cpstopcont [QC.ident value]
                     in
-                    let private_env, expr =
+                    let private_env, ecps =
                       qml_of_il ~toplevel_cont
                         env private_env il_term in
-                    let expr =
+                    let ecps =
                       let qmltopwait =
                         qml_bycps_call Opacapi.Opabsl.BslCps.topwait in
-                      QC.apply qmltopwait [expr]
+                      QC.apply qmltopwait [ecps]
                     in
-                    private_env,
-                    [ (id, expr) ]
+                    if workable then
+                      private_env_gen_workable_fun (id, expr) private_env [id, ecps]
+                    else
+                      private_env, [id, ecps]
                   end
               end
         in
@@ -1696,16 +1698,18 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               let private_env, fcps_il = il_of_qml env private_env fskip_eta_exp in
               let private_env, fcps = qml_of_il ~toplevel_cont env private_env fcps_il in
               let fcps = simpl_let_in fcps in
-              private_env, [ (fskip_id, fskip); (id, fcps) ]
+              if workable then
+                let fskip = Q.Directive (Annot.nolabel "QmlCpsRewriter.cps_pass", `workable, [fskip], []) in
+                private_env_add_workable_fun id fskip_id private_env,
+                [ (fskip_id, fskip); (id, fcps) ]
+              else
+                private_env, [ (fskip_id, fskip); (id, fcps) ]
           | _ ->
             if workable then
               (* if the lambda is workable, both versions should be generated, CPS and skipped *)
-              let fwork = U.rewrite_workable ~private_env expr in
-              let fwork_id = Ident.refreshf ~map:"%s_work" id in
-
               let private_env, fcps = qml_of_il ~toplevel_cont env private_env il_term in
               let fcps = simpl_let_in fcps in
-              private_env, [ (fwork_id, fwork); (id, fcps) ]
+              private_env_gen_workable_fun (id, expr) private_env [ (id, fcps) ]
             else
               (* if the lambda is not skippable and not workable, only a CPS version is generated *)
               let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in
@@ -1744,6 +1748,9 @@ let code_elt (env:env) (private_env:private_env) code_elt =
 
         | Q.Directive (_, `workable, [Q.Lambda (_, l, _) as expr], _) ->
           immediate_lambda ~workable:true ~expr (List.length l)
+
+        | Q.Directive (_, `workable, [expr], _) ->
+          fold_filter_map ~workable:true private_env (id, expr)
 
         | Q.Apply _ -> immediate_value_or_barrier ~can_skip_toplvl:true ()
 
@@ -1852,12 +1859,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
             end
           in
           if workable then
-            let fwork_id = Ident.refreshf ~map:"%s_work" id in
-            let private_env = {private_env with
-              workable_functions = IdentMap.add id fwork_id private_env.workable_functions
-            } in
-            let fwork = U.rewrite_workable ~private_env expr in
-            private_env, [ (fwork_id, fwork); (fcps_id, fcps) ]
+            private_env_gen_workable_fun (id, expr) private_env [ (fcps_id, fcps) ]
           else private_env, [ (fcps_id, fcps) ]
         in
         match expr with
@@ -1939,11 +1941,30 @@ let propagate_workable_directives private_env code =
     if IdentMap.mem id private_env.workable_functions then private_env
     else
       let fwork_id = Ident.refreshf ~map:"%s_work" id in
+      Format.eprintf "ADD %a work %a: %a\n%!" QmlPrint.pp#ident fwork_id QmlPrint.pp#ident id
+        (IdentMap.pp "@, " (fun fmt key _ -> QmlPrint.pp#ident fmt key)) private_env.workable_functions;
       {private_env with
         workable_functions = IdentMap.add id fwork_id private_env.workable_functions
       }
   in
+  let collect_workable_in_expr private_env expr =
+    QmlAstWalk.Expr.traverse_fold (fun tra private_env expr -> match expr with
+    | Q.Directive (_, `workable, [expr], _)
+    | Q.Directive (_, `worker, [expr], _) ->
+      QmlAstWalk.Expr.fold (fun private_env expr -> match expr with
+      | Q.Ident (_, i) -> add_workable private_env i
+      | _ -> private_env
+      ) private_env expr
+    | _ -> tra private_env expr
+    ) private_env expr
+  in
+  let collect_workable_in_defs private_env defs =
+    List.fold_left (fun private_env (_, expr) ->
+      collect_workable_in_expr private_env expr
+    ) private_env defs
+  in
   let fold_workable private_env (id, expr) =
+    let private_env = collect_workable_in_expr private_env expr in
     let expr =
       match expr with
       | Q.Directive (_, `workable, _, _) -> expr
@@ -1957,18 +1978,6 @@ let propagate_workable_directives private_env code =
     match e with
     | Q.Directive (_, `workable, _, _) -> true
     | _ -> IdentMap.mem i private_env.workable_functions
-  in
-  let collect_workable_in_defs private_env defs =
-    List.fold_left (fun private_env (_, expr) ->
-      QmlAstWalk.Expr.traverse_fold (fun tra private_env expr -> match expr with
-      | Q.Directive (_, `worker, [expr], _) ->
-        QmlAstWalk.Expr.fold (fun private_env expr -> match expr with
-        | Q.Ident (_, i) -> add_workable private_env i
-        | _ -> private_env
-        ) private_env expr
-      | _ -> tra private_env expr
-      ) private_env expr
-    ) private_env defs
   in
   List.fold_right_map
     (fun elt private_env -> match elt with
@@ -1995,12 +2004,47 @@ let propagate_workable_directives private_env code =
     | _ -> assert false
     ) code private_env
 
+let rewrite_workers private_env code =
+  let rewrite_expr expr =
+    QmlAstWalk.Expr.map
+      (function
+      | (Q.Ident (a, i)) as e ->
+        begin match (private_env_get_skipped_ident private_env i) with
+        | Some i -> Q.Ident (a, i)
+        | None -> match IdentMap.find_opt i private_env.workable_functions with
+          | Some i -> Q.Ident (a, i)
+          | None ->
+            if not(Ident.get_package_name i = ObjectFiles.get_current_package_name ()) then
+              QmlError.serror (QmlError.Context.expr e)
+                "This expression has no workable version (from package:%s)"
+                (Ident.get_package_name i);
+            e
+        end
+      | e -> e)
+      expr
+  in
+  let rewrite_defs defs =
+    List.map (fun (i,e) ->
+      (i, QmlAstWalk.Expr.traverse_map (fun tra e -> match e with
+      | Q.Directive (label, `workable, [expr], _) ->
+        Q.Directive (label, `workable, [rewrite_expr expr], [])
+      | Q.Directive (label, `worker, [expr], _) ->
+        Q.Directive (label, `worker, [rewrite_expr expr], [])
+      | _ -> tra e) e)
+    ) defs
+  in
+  List.map (function
+  | Q.NewVal (label, defs) -> Q.NewVal (label, rewrite_defs defs)
+  | Q.NewValRec (label, defs) -> Q.NewValRec (label, rewrite_defs defs)
+  | _ -> assert false) code
+
 (* utils for backends *)
 let cps_pass ~side env qml_code =
   let qml_code = if env.options.backtrace then instrument qml_code else qml_code in
   let private_env_initial = Package.load_dependencies ~side in
   let qml_code, private_env = propagate_workable_directives private_env_initial qml_code in
   let private_env, r = code env private_env qml_code in
+  let r = rewrite_workers private_env r in
   Package.save_current ~side ~private_env_initial ~private_env;
   let _ =
     #<If:CPS_VERBOSE $minlevel DebugLevel.il_opt_timer>

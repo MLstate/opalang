@@ -506,7 +506,8 @@ let compile_expr_to_expr env private_env expr =
         let fail = JsCons.Expr.call ~pure:false fail [ message ; position ] in
         private_env, fail
 
-    | Q.Directive (_, `worker, [expr], _) ->
+    | Q.Directive (_, `worker, [expr], _)
+    | Q.Directive (_, `workable, [expr], _) ->
       aux private_env expr
 
     | Q.Directive (_, `thread_context, _, _) ->
@@ -708,6 +709,9 @@ let analyse_tail_recursion bindings =
          Format.printf ">> analysing tail calls of %s: " (Ident.to_string i)
        #<End>;
        (match expr with
+        | Q.Directive (_, `workable, [
+          Q.Lambda (_, _, Q.Lambda (_, _, e))
+          | Q.Lambda (_, _, e)], _)
         | Q.Lambda (_, _, Q.Lambda (_, _, e))
         | Q.Lambda (_, _, e) -> aux i e
         | _ -> OManager.i_error "Non lambda in a recursion: %a@." QmlPrint.pp#expr expr);
@@ -1113,7 +1117,7 @@ let compile_fun env private_env i ?fun_env params body =
 
 (* this directive compiles the nodes that can appear only at the toplevel of
  * expressions *)
-let compile_non_rec_declaration env private_env (i,e) =
+let rec compile_non_rec_declaration env private_env (i,e) =
   #<If:JS_MATCH_COMPILATION $contains "code_elt">
     let pos = Q.Pos.expr e in
     OManager.printf (
@@ -1128,6 +1132,7 @@ let compile_non_rec_declaration env private_env (i,e) =
   | Q.Lambda (_, params, body) ->
       compile_fun env private_env i params body
 
+  | Q.Directive(_, `workable, [e], _) -> compile_non_rec_declaration env private_env (i,e)
   | Q.Directive(_, `hybrid_value, l, _) -> (
       let exprident = i in
       let ident = JsCons.Ident.ident exprident in
