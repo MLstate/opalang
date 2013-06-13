@@ -1988,30 +1988,33 @@ let propagate_workable_directives private_env code =
     | Q.Directive (_, `workable, _, _) -> true
     | _ -> IdentMap.mem i private_env.workable_functions
   in
-  List.fold_right_map
-    (fun elt private_env -> match elt with
-    | Q.NewValRec (label, defs) ->
-      let private_env = collect_workable_in_defs private_env defs in
-      if List.exists (should_be_workable private_env) defs then
-        let private_env, defs = List.fold_left_map
-          (fun private_env binding ->
-            fold_workable private_env binding
-          ) private_env defs
-        in
-        Q.NewValRec (label, defs), private_env
-      else elt, private_env
-    | Q.NewVal (label, defs) ->
-      let private_env = collect_workable_in_defs private_env defs in
-      let defs, private_env = List.fold_right_map
-        (fun binding private_env ->
-          if should_be_workable private_env binding then
-            let private_env, binding = fold_workable private_env binding in
-            binding, private_env
-          else binding, private_env
-        ) defs private_env
-      in Q.NewVal (label, defs), private_env
-    | _ -> assert false
-    ) code private_env
+  (* /!\ Don't update workable_functions yet, is done by the cps rewriter *)
+  let code, _ =
+    List.fold_right_map
+      (fun elt private_env -> match elt with
+      | Q.NewValRec (label, defs) ->
+        let private_env = collect_workable_in_defs private_env defs in
+        if List.exists (should_be_workable private_env) defs then
+          let private_env, defs = List.fold_left_map
+            (fun private_env binding ->
+              fold_workable private_env binding
+            ) private_env defs
+          in
+          Q.NewValRec (label, defs), private_env
+        else elt, private_env
+      | Q.NewVal (label, defs) ->
+        let private_env = collect_workable_in_defs private_env defs in
+        let defs, private_env = List.fold_right_map
+          (fun binding private_env ->
+            if should_be_workable private_env binding then
+              let private_env, binding = fold_workable private_env binding in
+              binding, private_env
+            else binding, private_env
+          ) defs private_env
+        in Q.NewVal (label, defs), private_env
+      | _ -> assert false
+      ) code private_env
+  in code
 
 let rewrite_workers ~env private_env code =
   let skipped_idents =
@@ -2019,35 +2022,76 @@ let rewrite_workers ~env private_env code =
       (fun _ (_, skip_id, _) skipped_idents -> IdentSet.add skip_id skipped_idents )
       private_env.skipped_functions IdentSet.empty
   in
-  let has_arrow a =
-    QmlAstWalk.Type.exists
-      (function | Q.TypeArrow _ -> true | _ -> false)
-      (QmlAnnotMap.find_ty (Annot.annot a) env.typing.QmlTypes.annotmap)
+  let has_arrow e =
+    try
+      QmlAstWalk.Type.exists
+        (function | Q.TypeArrow _ -> true | _ -> false)
+        (QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap)
+    with _ ->
+      QmlError.warning ~wclass:WarningClass.root_warning
+        (QmlError.Context.expr e)
+        "No annot attached on this expression";
+      false
   in
   let rewrite_expr expr =
-    QmlAstWalk.Expr.map
-      (function
-      | (Q.Ident (a, i)) as e ->
-        begin match (private_env_get_skipped_ident private_env i) with
-        | Some i -> Q.Ident (a, i)
-        | None -> match IdentMap.find_opt i private_env.workable_functions with
+    let let_aux is_rec self locals bnd expr =
+      let locals' = List.fold_left
+        (fun locals (i, _) -> IdentSet.add i locals)
+        locals bnd
+      in
+      let bnd = List.map
+        (fun (i, e) -> i, snd (if is_rec then self locals' e else self locals e))
+        bnd
+      in
+      locals, bnd, snd (self locals' expr)
+    in
+    let _, expr =
+      QmlAstWalk.Expr.self_traverse_foldmap (fun self tra locals e -> match e with
+      | Q.Ident (a, i) ->
+        if IdentSet.mem i locals then locals, e
+        else
+          locals,
+          begin match (private_env_get_skipped_ident private_env i) with
           | Some i -> Q.Ident (a, i)
-          | None ->
-            if not(Ident.get_package_name i = ObjectFiles.get_current_package_name ()
-                  || IdentSet.mem i skipped_idents) && has_arrow a then
-              QmlError.serror (QmlError.Context.expr e)
-                "This expression has no workable version (ident:@{<bright>%s} from package:@{<bright>%s})"
-                (Ident.original_name i)
-                (Ident.get_package_name i);
-            e
-        end
-      | Q.Bypass (_, key) as e ->
+          | None -> match IdentMap.find_opt i private_env.workable_functions with
+            | Some i -> Q.Ident (a, i)
+            | None ->
+              if not(IdentSet.mem i skipped_idents) && not(IdentSet.mem i locals) && has_arrow e then
+                QmlError.serror (QmlError.Context.expr e)
+                  "This expression has no workable version (ident:@{<bright>%s} from package:@{<bright>%s})"
+                  (Ident.original_name i)
+                  (Ident.get_package_name i);
+              e
+          end
+      | Q.Bypass (_, key) ->
         if (env.bsl_bypass_tags key).BslTags.cps_bypass then
           QmlError.serror (QmlError.Context.expr e)
             "This bypass is tagged as a cps bypass. It can't be used by a worker";
-        e
-      | e -> e)
-      expr
+        locals, e
+      | Q.LetIn (label, bnd, expr) ->
+        let locals, bnd, expr = let_aux false self locals bnd expr in
+        locals, Q.LetIn (label, bnd, expr)
+      | Q.LetRecIn (label, bnd, expr) ->
+        let locals, bnd, expr = let_aux true self locals bnd expr in
+        locals, Q.LetIn (label, bnd, expr)
+      | Q.Lambda (label, ids, expr) ->
+        let _, expr = self (IdentSet.add_list ids locals) expr in
+        locals, Q.Lambda(label, ids, expr)
+      | Q.Match (label, expr, clist) ->
+        let _, expr = self locals expr in
+        let clist = List.map (fun (pat, expr) -> match pat with
+          | Q.PatVar (_, i) ->
+            pat , snd (self (IdentSet.add i locals) expr)
+          | Q.PatAs (_, _, i) ->
+            pat , snd (self (IdentSet.add i locals) expr)
+          | _ -> (pat, expr)
+        ) clist
+        in
+        locals, Q.Match (label, expr, clist)
+      | e -> tra locals e)
+        IdentSet.empty expr
+    in
+    expr
   in
   let rewrite_defs defs =
     List.map (fun (i,e) ->
@@ -2068,7 +2112,7 @@ let rewrite_workers ~env private_env code =
 let cps_pass ~side env qml_code =
   let qml_code = if env.options.backtrace then instrument qml_code else qml_code in
   let private_env_initial = Package.load_dependencies ~side in
-  let qml_code, private_env = propagate_workable_directives private_env_initial qml_code in
+  let qml_code = propagate_workable_directives private_env_initial qml_code in
   let private_env, r = code env private_env qml_code in
   let r = rewrite_workers ~env private_env r in
   Package.save_current ~side ~private_env_initial ~private_env;
