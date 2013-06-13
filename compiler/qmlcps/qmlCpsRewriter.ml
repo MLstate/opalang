@@ -1888,7 +1888,14 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               QmlPrint.pp#expr expr
       in
       let private_env, defs = List.fold_left_map fold_map private_env defs in
-      private_env, [ Q.NewValRec (label, List.flatten defs) ]
+      let defs = List.flatten defs in
+      let defs, workdefs = List.partition (function
+        | _, Q.Directive (_, `workable, _, _) -> false
+        | _ -> true) defs
+      in
+      let r = [ Q.NewValRec (label, defs) ] in
+      let r = if workdefs <> [] then Q.NewValRec (label, workdefs) :: r else r in
+      private_env, r
 
   (* other top level QmlAst.code_elt are ignored and removed *)
   | _ -> private_env , []
