@@ -1746,7 +1746,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         | Q.LetRecIn _ -> immediate_value_or_barrier ()
 
         | Q.Directive (_, (`restricted_bypass _ | `lifted_lambda _), [Q.Lambda (_, l, _)], _)
-        | Q.Lambda (_, l, _) -> immediate_lambda (List.length l)
+        | Q.Lambda (_, l, _) -> immediate_lambda ~workable (List.length l)
 
         | Q.Directive (_, `workable, [Q.Lambda (_, l, _) as expr], _) ->
           immediate_lambda ~workable:true ~expr (List.length l)
@@ -1769,7 +1769,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
         | Q.Directive (_, `restricted_bypass _, _, _)
         | Q.Bypass _ -> immediate_value_or_barrier ()
 
-        | Q.Coerce (_, e, _) -> fold_filter_map private_env (id, e)
+        | Q.Coerce (_, e, _) -> fold_filter_map ~workable private_env (id, e)
 
         | Q.Path _ ->
             failwith "Internal error: At this stage, all first-class paths should have been compiled."
@@ -1813,7 +1813,7 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                   private_env, [(id, expr)]
               | [client; server] ->
                   ignore server;
-                  let private_env, e = fold_filter_map private_env (id, client) in
+                  let private_env, e = fold_filter_map ~workable private_env (id, client) in
                   (match e with
                    | [] -> assert false
                    | [ (id, e) ] ->
@@ -1876,8 +1876,10 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           fold_map ~workable:true private_env (id, expr)
 
         | Q.Directive (a, ((`lifted_lambda _) as d), [e], tys)  ->
-            let private_env, binds = fold_map ~workable private_env (id, e) in
-            private_env, List.map (fun (id, e) -> (id, Q.Directive (a, d, [e], tys))) binds
+          let private_env, binds = fold_map ~workable:false private_env (id, e) in
+          let binds = List.map (fun (id, e) -> (id, Q.Directive (a, d, [e], tys))) binds in
+          if workable then private_env_gen_workable_fun (id, expr) private_env binds
+          else private_env, binds
 
         | _ ->
             (* FIXME: use OpaError *)
@@ -1964,7 +1966,6 @@ let propagate_workable_directives private_env code =
     ) private_env defs
   in
   let fold_workable private_env (id, expr) =
-    let private_env = collect_workable_in_expr private_env expr in
     let expr =
       match expr with
       | Q.Directive (_, `workable, _, _) -> expr
@@ -1972,6 +1973,7 @@ let propagate_workable_directives private_env code =
         let label = Annot.nolabel "QmlCpsRewriter.cps_pass" in
         Q.Directive (label, `workable, [expr], [])
     in
+    let private_env = collect_workable_in_expr private_env expr in
     add_workable private_env id, (id, expr)
   in
   let should_be_workable private_env (i, e) =
