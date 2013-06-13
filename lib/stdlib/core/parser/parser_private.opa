@@ -89,8 +89,8 @@ Parser_private =
   char_equal(case_sensitive, c1, c2) =
     c1 == c2 ||
     (not(case_sensitive) &&
-       Text.lowercase(Text.from_character(c1)) ==
-       Text.lowercase(Text.from_character(c2)))
+       Unicode.lowercase(c1) ==
+       Unicode.lowercase(c2))
 
   /**
    * [match_char(c, r)] returns true iff character [c] matches
