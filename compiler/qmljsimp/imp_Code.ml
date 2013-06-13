@@ -1020,7 +1020,8 @@ let define_functions rec_name funs =
 
 (* compilation of l, which is a set of mutually recursive functions *)
 let compile_function_bodies env private_env l =
-  let extract_function = function
+  let rec extract_function = function
+    | (i, Q.Directive (_, `workable, [e], _)) -> extract_function (i, e)
     | (i, Q.Lambda (_, params1, Q.Lambda (_, params2, body))) -> (i, Some params1, params2, body)
     | (i, Q.Lambda (_, params, body)) -> (i,None,params,body)
     | (i, expr) ->
