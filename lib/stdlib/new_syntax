@@ -8,3 +8,4 @@ lib/stdlib/io/file/swap.opa
 lib/stdlib/web/dns/dns.opa
 lib/stdlib/core/mbint.opa
 lib/stdlib/core/wbxml/wbxml.opa
+lib/stdlib/core/unicode.opa

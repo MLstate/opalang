@@ -32,17 +32,6 @@
  */
 
 /**
- * type character :
- * Represent a single character.
- * Since we want Unicode encoding, the traditional `char' of one byte will not be enough.
- * This is only an input/output type ! The inner type is UTF-8 (one to four bytes).
- *
- * FIXME: Can it be abstract
-**/
-@opacapi
-type Unicode.character = int
-
-/**
  * textavl
  * It's a AVL tree.
 **/
