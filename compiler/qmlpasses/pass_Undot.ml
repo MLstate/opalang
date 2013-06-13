@@ -42,7 +42,7 @@ type env = {
                                  *)
 }
 
-type ignored_directives = [ Q.type_directive | Q.slicer_directive ]
+type ignored_directives = [ Q.type_directive | Q.slicer_directive | `workable ]
 
 let fold_expr f acc env =
   IdentMap.fold (fun _ fields acc -> StringMap.fold (fun _ e acc -> f acc e) fields acc) env.modules acc
