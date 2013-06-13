@@ -45,15 +45,12 @@ SmtpClient = {{
     from : Email.email,
     to : Email.email,
     subject : string,
-    mail_content : Email.content,
+    //mail_content : Email.content,
+    text : string,
+    html : string,
     options : Email.options,
     k : (Email.send_status -> void)
   ) : void =
-    (text, html) =
-      match mail_content with
-      | {~text} -> (text, "")
-      | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
-      | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
 
     files =
       List.filter_map(x ->
@@ -103,15 +100,31 @@ SmtpClient = {{
    * Try to send a mail {b synchronously}
    */
   try_send(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options) : Email.send_status =
+    (text, html) =
+      match content with
+      | {~text} -> (text, "")
+      | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
+      | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
     k(cont) =
       f(r) = Continuation.return(cont, r)
-      send_async(from, to, subject, content, options, f)
+      send_async(from, to, subject, text, html, options, f)
     @callcc(k)
 
   /**
    * Try to send a mail {b asynchronously}
    */
   try_send_async(from : Email.email, to : Email.email, subject : string, content : Email.content, options : Email.options, continuation : (Email.send_status -> void)) : void =
-    send_async(from, to, subject, content, options, continuation)
+    (text, html) =
+      match content with
+      | {~text} -> (text, "")
+      | {~text ~html} -> (text, Xhtml.serialize_as_standalone_html(html))
+      | {~html} -> (Xhtml.to_readable_string(html), Xhtml.serialize_as_standalone_html(html))
+    send_async(from, to, subject, text, html, options, continuation)
+
+  /**
+   * Try to send a mail {b asynchronously}
+   */
+  try_send_async_preserialized(from : Email.email, to : Email.email, subject : string, text : string, html : string, options : Email.options, continuation : (Email.send_status -> void)) : void =
+    send_async(from, to, subject, text, html, options, continuation)
 
 }}
