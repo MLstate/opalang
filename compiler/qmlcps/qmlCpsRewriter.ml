@@ -2079,12 +2079,16 @@ let rewrite_workers ~env private_env code =
         locals, Q.Lambda(label, ids, expr)
       | Q.Match (label, expr, clist) ->
         let _, expr = self locals expr in
-        let clist = List.map (fun (pat, expr) -> match pat with
-          | Q.PatVar (_, i) ->
-            pat , snd (self (IdentSet.add i locals) expr)
-          | Q.PatAs (_, _, i) ->
-            pat , snd (self (IdentSet.add i locals) expr)
-          | _ -> (pat, expr)
+        let clist = List.map (fun (pat, expr) ->
+          let locals =
+            QmlAstWalk.Pattern.fold (fun locals pat ->
+              match pat with
+              | Q.PatVar (_, i)
+              | Q.PatAs (_, _, i) -> IdentSet.add i locals
+              | _ -> locals
+            ) locals pat
+          in
+          pat, snd (self locals expr)
         ) clist
         in
         locals, Q.Match (label, expr, clist)
@@ -2113,7 +2117,7 @@ let cps_pass ~side env qml_code =
   let qml_code = if env.options.backtrace then instrument qml_code else qml_code in
   let private_env_initial = Package.load_dependencies ~side in
   let qml_code = propagate_workable_directives private_env_initial qml_code in
-  let private_env, r = code env private_env qml_code in
+  let private_env, r = code env private_env_initial qml_code in
   let r = rewrite_workers ~env private_env r in
   Package.save_current ~side ~private_env_initial ~private_env;
   let _ =
