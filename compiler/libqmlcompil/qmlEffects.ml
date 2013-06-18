@@ -371,6 +371,7 @@ struct
                       | #Q.slicer_directive
                       | `lifted_lambda _
                       | `full_apply _
+                      | `workable
                       | `assert_), l, _) -> (
         match l with
         | [e] -> infer bp env effect (level+1) e

@@ -453,6 +453,7 @@ type ignored_directive = [
 | Q.type_directive
 | Q.lambda_lifting_directive
 | Q.slicer_directive
+| `workable
 ]
 let async_lambda e =
   QmlAstWalk.Expr.traverse_exists
