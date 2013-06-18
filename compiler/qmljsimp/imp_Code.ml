@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -75,16 +75,20 @@ let is_it_void _env expr =
     | _ -> `maybe in
   aux expr
 
-let compile_bypass env key =
+let compile_bypass private_env env key =
   let module BP  = Imp_Bsl.JsImpBSL.ByPass         in
   let module BPM = Imp_Bsl.JsImpBSL.ByPassMap      in
   let module I   = Imp_Bsl.JsImpBSL.Implementation in
+  let bymap =
+    if private_env.E.work then env.E.private_bymap_work
+    else env.E.private_bymap
+  in
   let is_pure key =
-    match BPM.bsl_bypass_tags env.E.private_bymap ~lang:env.E.bsl_lang key with
+    match BPM.bsl_bypass_tags bymap ~lang:env.E.bsl_lang key with
     | None -> false
     | Some tag -> tag.BslTags.pure
   in
-  match BPM.find_opt_implementation env.E.private_bymap ~lang:env.E.bsl_lang key with
+  match BPM.find_opt_implementation bymap ~lang:env.E.bsl_lang key with
   | None ->
       OManager.error
         "bsl-resolution failed for: key %a" BslKey.pp key
@@ -297,7 +301,7 @@ let compile_expr_to_expr env private_env expr =
 
     | Q.Directive (_, `restricted_bypass _, [Q.Bypass (_, key)], _)
     | Q.Bypass (_, key) ->
-        private_env, compile_bypass env key
+        private_env, compile_bypass private_env env key
 
     | Q.Lambda _ ->
         (* a precondition of the backend is that the code is lambda lifted *)
@@ -501,19 +505,21 @@ let compile_expr_to_expr env private_env expr =
         in
         let fail =
           let key = Opacapi.Opabsl.BslPervasives.fail in
-          compile_bypass env key
+          compile_bypass private_env env key
         in
         let fail = JsCons.Expr.call ~pure:false fail [ message ; position ] in
         private_env, fail
 
     | Q.Directive (_, `worker, [expr], _)
     | Q.Directive (_, `workable, [expr], _) ->
-      aux private_env expr
+      let work = private_env.E.work in
+      let private_env, e = aux {private_env with E.work=true} expr in
+      {private_env with E.work}, e
 
     | Q.Directive (_, `thread_context, _, _) ->
         let call =
           let key = Opacapi.Opabsl.BslCps.Notcps_compatibility.thread_context in
-          compile_bypass env key
+          compile_bypass private_env env key
         in
         let call = JsCons.Expr.call ~pure:true call [] in
         private_env, call
@@ -995,7 +1001,7 @@ let wrap_function_bodies _env private_env recursion_info unified_params bodies =
  * (ie f or g that call f_g in the example above) *)
 let define_functions rec_name funs =
   List.mapi
-    (fun i (name,fun_env,params,_body) ->
+    (fun i (_,name,fun_env,params,_body) ->
        let params = List.map (fun p -> J.ExprIdent p) params in
        let fun_env =
          match fun_env with
@@ -1020,16 +1026,17 @@ let define_functions rec_name funs =
 
 (* compilation of l, which is a set of mutually recursive functions *)
 let compile_function_bodies env private_env l =
-  let rec extract_function = function
-    | (i, Q.Directive (_, `workable, [e], _)) -> extract_function (i, e)
-    | (i, Q.Lambda (_, params1, Q.Lambda (_, params2, body))) -> (i, Some params1, params2, body)
-    | (i, Q.Lambda (_, params, body)) -> (i,None,params,body)
+  let rec extract_function ?(work=false) = function
+    | (i, Q.Directive (_, `workable, [e], _)) -> extract_function ~work:true (i, e)
+    | (i, Q.Lambda (_, params1, Q.Lambda (_, params2, body))) ->
+      (work, i, Some params1, params2, body)
+    | (i, Q.Lambda (_, params, body)) -> (work, i,None,params,body)
     | (i, expr) ->
         let context = QmlError.Context.annoted_expr env.E.annotmap expr in
         QmlError.i_error None context "@[<2>Invalid recursion on %s@\n@]" (Ident.to_string i) in
     match List.map extract_function l with
     | [] -> assert false
-    | [(name,fun_env,params,body)] ->
+    | [(work, name,fun_env,params,body)] ->
         let fun_env = (match fun_env with None -> None | Some l -> Some (List.map (fun p -> J.ExprIdent p) l)) in
         let recursion_info = {
           case_ident = None;
@@ -1037,19 +1044,22 @@ let compile_function_bodies env private_env l =
           index = IdentMap.empty;
           number_of_funs = 1;
         } in
-        let private_env, body = compile_function_body_aux env private_env recursion_info name body in
+        let private_env = {private_env with E.work} in
+        let private_env, body =
+          compile_function_body_aux env private_env recursion_info name body in
+        let private_env = {private_env with E.work=false} in
         wrap_function_body env private_env recursion_info fun_env name body
     | funs ->
         let case_ident = E.next_param "case_" in
         let max_arity =
           List.fold_left
-            (fun old_max (_,fun_env,params,_) ->
+            (fun old_max (_,_,fun_env,params,_) ->
                max old_max (Option.default_map 0 List.length fun_env + List.length params))
             (-1) funs in
         let unified_params = List.init max_arity (fun i -> E.next_param ("p" ^ string_of_int i)) in
         let renaming, params =
           List.fold_left
-            (fun (renaming,map) (name,fun_env,params,_) ->
+            (fun (renaming,map) (_,name,fun_env,params,_) ->
                let renaming, params =
                  List.fold_left_partial_map2
                    (fun renaming orig new_ -> IdentMap.add orig new_ renaming, new_)
@@ -1060,13 +1070,17 @@ let compile_function_bodies env private_env l =
         let recursion_info = {
           case_ident = Some case_ident;
           params = params;
-          index = List.fold_left_i (fun map (name,_,_,_) i -> IdentMap.add name i map) IdentMap.empty funs;
+          index = List.fold_left_i (fun map (_,name,_,_,_) i -> IdentMap.add name i map) IdentMap.empty funs;
           number_of_funs = List.length funs;
         } in
         let private_env, bodies =
           List.fold_left_map
-            (fun private_env (name,_,_,body) ->
-               compile_function_body_aux env private_env recursion_info name body
+            (fun private_env (work, name,_,_,body) ->
+              let private_env = {private_env with E.work} in
+              let private_env, e =
+                compile_function_body_aux env private_env recursion_info name body
+              in
+              {private_env with E.work=false}, e
             ) private_env funs in
         let private_env, rec_name, rec_fun =
           wrap_function_bodies env private_env recursion_info unified_params bodies in
@@ -1133,7 +1147,11 @@ let rec compile_non_rec_declaration env private_env (i,e) =
   | Q.Lambda (_, params, body) ->
       compile_fun env private_env i params body
 
-  | Q.Directive(_, `workable, [e], _) -> compile_non_rec_declaration env private_env (i,e)
+  | Q.Directive(_, `workable, [e], _) ->
+    let private_env, e =
+      compile_non_rec_declaration env {private_env with E.work=true} (i,e) in
+    {private_env with E.work=false}, e
+
   | Q.Directive(_, `hybrid_value, l, _) -> (
       let exprident = i in
       let ident = JsCons.Ident.ident exprident in

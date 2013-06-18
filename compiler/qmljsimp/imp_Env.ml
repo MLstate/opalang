@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -23,6 +23,7 @@ type env = {
   annotmap : QmlAst.annotmap;
   val_ : ?side:[`client|`server] -> string -> Ident.t;
   private_bymap : Imp_Bsl.JsImpBSL.ByPassMap.t;
+  private_bymap_work : Imp_Bsl.JsImpBSL.ByPassMap.t;
   bsl_lang : BslLanguage.t;
   srenaming : QmlRenamingMap.t;
   is_distant : Ident.t -> bool;
@@ -32,6 +33,7 @@ type private_env = {
   local_vars : J.ident list;
   renaming : J.ident IdentMap.t;
   no_warn_x : unit;
+  work: bool;
 }
 
 

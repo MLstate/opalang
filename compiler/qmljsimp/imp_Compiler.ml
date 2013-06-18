@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012, 2013 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -27,7 +27,6 @@ module E = Imp_Env
 let warning_set = Imp_Warnings.warning_set
 
 let initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code =
-  let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
   (* Keep only Bypasses used in the code *)
   let filter =
     let used_bypasses =
@@ -46,7 +45,12 @@ let initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code =
         ) used_bypasses code
     in (fun bypass -> BslKeySet.mem (Imp_Bsl.JsImpBSL.ByPass.key bypass) used_bypasses)
   in
+  let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
   let private_bymap = Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~filter ~js_ctrans () in
+  let private_bymap_work =
+    let options = {options with Qml2jsOptions.cps=false} in
+    let js_ctrans = Imp_Bsl.build_ctrans_env ~options in
+    Imp_Bsl.JsImpBSL.RegisterTable.build_bypass_map ~filter ~js_ctrans () in
   let gamma = env_typer.QmlTypes.gamma in
   let annotmap = env_typer.QmlTypes.annotmap in
   let env = {E.
@@ -55,6 +59,7 @@ let initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code =
     annotmap;
     val_;
     private_bymap;
+    private_bymap_work;
     bsl_lang;
     is_distant;
     srenaming = renaming;
@@ -65,6 +70,7 @@ let initial_private_env () = {E.
   local_vars = [];
   renaming = IdentMap.empty;
   no_warn_x = ();
+  work = false;
 }
 
 let _outputer oc js_code =
@@ -87,9 +93,12 @@ let compile
   let _chrono = Chrono.make () in
   _chrono.Chrono.start ();
   let env = initial_env ~val_ ~is_distant ~renaming ~bsl_lang options env_typer code in
-  let js_init = (if BslLanguage.is_nodejs bsl_lang then Imp_Bsl.JsImpBSL.ByPassMap.node_init
-                 else Imp_Bsl.JsImpBSL.ByPassMap.js_init)
-    env.E.private_bymap in
+  let js_init =
+    (if BslLanguage.is_nodejs bsl_lang then
+        Imp_Bsl.JsImpBSL.ByPassMap.node_init env.E.private_bymap
+        @ Imp_Bsl.JsImpBSL.ByPassMap.node_init env.E.private_bymap_work
+     else Imp_Bsl.JsImpBSL.ByPassMap.js_init env.E.private_bymap)
+     in
   #<If:JS_IMP$contains "time"> Printf.printf "bsl projection: %fs\n%!" (_chrono.Chrono.read ()); _chrono.Chrono.restart () #<End>;
   let private_env = initial_private_env () in
 
