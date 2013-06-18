@@ -716,7 +716,7 @@ PostgresTypes = {{
     char_parser = parser | [\\] c=[\\\"] -> c | [\"][\"] -> '\"' | c=. -> c
     string_parser =
       aux_parser = parser !([\"]![\"]) c=char_parser -> c
-      parser [\"] s=aux_parser* [\"] -> Text.to_string(Text.lcconcat(s))
+      parser [\"] s=aux_parser* [\"] -> String.of_chars(s)
     match ty with
     | {TyConst={TyInt={}}} -> map(Rule.integer)
     | {TyConst={TyFloat={}}} -> map(Rule.float)
