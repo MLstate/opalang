@@ -58,7 +58,7 @@ type Parser_private.range = { one : Unicode.character }
 /**
  * {1 Interface}
  */
-
+@workable
 Parser_private =
 {{
 
@@ -223,9 +223,9 @@ Parser_private =
    * @return a boolean value indicating whether the test was successful
    */
   test_parsing(to_string, of_string, s) =
-    process = compose(to_string,of_string)
+    process(x) = to_string(of_string(x))
     s_normalized = process(s)
-    process(s_normalized) == s_normalized
+    String.equals(process(s_normalized), s_normalized)
 
   /**
    * As {!test_parsing} only now the [of_string] function gives an
@@ -242,22 +242,10 @@ Parser_private =
       | {some = v1} ->
         match process(v1) with
         | {none} -> false
-        | {some = v2} -> v1 == v2
+        | {some = v2} -> String.equals(v1, v2)
     else
-      process(s) == none
-
-  /**
-   * As {!test_try_parsing} but we start from a data element and not from
-   * a string and check that the value after printing and parsing is the same
-   * one that we started with.
-   */
-  test_try_parsing_with_data(to_string, of_string, data, correct) =
-    dp = of_string(to_string(data))
-    if correct then
-      match dp with
-      | {none} -> false
-      | {some = new_data} -> data == new_data
-    else
-      dp == none
+      match process(s) with
+      | {none} -> true
+      | _ -> false
 
 }}

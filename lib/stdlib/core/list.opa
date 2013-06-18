@@ -81,6 +81,7 @@ type list('a) =
  * or if you frequently need to access the [n]th element. For this purpose, you should rather use module
  * [Array].
  */
+@workable
 List = {{
 
   /**
@@ -1482,11 +1483,13 @@ nil = List.empty
 /**
  * As {!List.cons}: adding an element at the head of a list.
  */
+@workable
 `+>`=List.`+>`
 
 /**
  * As {!List.append}: list concatenation.
 **/
+@workable
 `++`(x, y) = List.append(x, y)
 
 /**

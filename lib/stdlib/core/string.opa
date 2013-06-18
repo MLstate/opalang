@@ -49,7 +49,7 @@ type String.order = Order.default
 /**
  * {1 Interface}
  */
-
+@workable
 String =
 {{
   /**

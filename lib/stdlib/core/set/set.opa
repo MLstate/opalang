@@ -299,7 +299,7 @@ type Set('elem,'order) =
 /**
  * {1 Interface}
  */
-
+@workable
 Set_make( order : order('elem,'order)  )  =
 {{
 
@@ -483,9 +483,11 @@ Set = @nonexpansive(Set_make(Order.default)) : Set('elem, Order.default)
  * This instance of [Set] differentiates uppercase from lowercase.
  * Otherwise, the order between strings is alphabetical.
  */
+@workable
 StringSet = Set_make(String.order) : Set(string, String.order)
 
 /**
  * A [Set] on numbers, using numeric comparison.
  */
+@workable
 IntSet    = Set_make(Int.order) : Set(int, Int.order)

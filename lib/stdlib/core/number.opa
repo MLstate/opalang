@@ -42,7 +42,7 @@ type Float.order = Order.default
 /**
  * {1 Interface}
  */
-
+@workable
 Int = {{
 
   /**

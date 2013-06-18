@@ -60,7 +60,7 @@
 /**
  * {1 Interface}
  */
-
+@workable
 Itextrator = {{
 
 /**
@@ -83,7 +83,7 @@ txt(it:itextrator) = it.txt
 
 /**
  * Return the next itextrator
- * FIXME: refactor 
+ * FIXME: refactor
  * FIXME: used as wild insertion by [surfaceAstTrx], without opacapi
 **/
 next(it:itextrator) : option((itextrator, Unicode.character)) =
@@ -122,6 +122,12 @@ forward(it : itextrator, bytes : int) : itextrator =
   txt = it.txt
   pos = it.pos + bytes
   ~{ pos txt }
+
+  /**
+   * Returns the string contained in the itextrator after the current position
+   */
+  to_string(it:itextrator) =
+    String.substring(it.pos, String.length(it.txt) - it.pos, it.txt)
 }}
 
 
@@ -155,7 +161,7 @@ forward(it : itextrator, bytes : int) : itextrator =
 /**
  * {1 Interface}
  */
-
+@workable
 Text =
 Textralist = Utf8cact_textralist
 param_smerge = 50

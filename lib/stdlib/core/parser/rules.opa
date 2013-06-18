@@ -50,6 +50,7 @@ import stdlib.core.map
 /**
  * Some useful parsers and parser combinators
  */
+@workable
 Rule =
 {{
 
@@ -258,6 +259,7 @@ Rule =
    *
    * @return parser of type [Parser.general_parser(void)]
    */
+  @workable
   ws = parser white_space* -> void;
 
   /**
@@ -453,6 +455,7 @@ Rule =
    * @param p1 The second parser
    * @return A parser that try [p0] then if [p0] fails try [p1].
    */
+  @workable
   or(p0, p1) = parser p=p0 -> p | p=p1 -> p
 
   /**

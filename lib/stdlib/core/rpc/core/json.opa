@@ -82,7 +82,8 @@ type ll_json_list_repr = external
 type ll_json_record_repr = external
 
 
-@both Json = {{
+@workable
+Json = {{
 
   /**
    * {1 Public API}

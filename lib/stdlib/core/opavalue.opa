@@ -109,6 +109,7 @@ type Closure.info('a) =
   { closure_name : string }
 / { closure_name : string; stored : 'a }
 
+@workable
 OpaValue = {{
   /**
    * Make an error message...

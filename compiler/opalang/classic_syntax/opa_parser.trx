@@ -590,6 +590,7 @@ declaration_directive0 <-
   / "public_env" {{ `public_env }}
   / "private" {{ `private_ }}
   / "public" {{ `public }}
+  / "workable" {{ `workable }}
   / "expand" {{ `expand None }} (* not allowing anymore to give an integer to expand, could be put back *)
   / slicing_directive0
 
@@ -650,6 +651,7 @@ directive1 <-
   / "i18n"   {{ `i18n }}
   / "js_ident" {{ `js_ident }}
   / "may_cps" {{ `may_cps }}
+  / "worker" {{ `worker }}
   / "nonexpansive" {{ `nonexpansive }}
   / "openrecord" {{ `openrecord }}
   / "extendwith" {{ `extendwith }}

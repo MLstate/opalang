@@ -63,7 +63,7 @@ type Order.ordering   = {lt} / {gt} / {eq}
 /**
  * {1 Interface}
  */
-
+@workable
 Order = {{
 
   string_of_comparison(x:Order.comparison) =

@@ -49,6 +49,7 @@ type option('a) = { none } / { some : 'a }
     | { ~some } -> some
     | { none } -> d
 
+@workable
 Option = {{
   /**
    * A shorthand for [{none}]
@@ -184,6 +185,6 @@ Option = {{
 
 }}
 
-@opacapi some    = Option.some
+@opacapi @workable some(x)    = Option.some(x)
 @opacapi none    = Option.none
 default = Option.default

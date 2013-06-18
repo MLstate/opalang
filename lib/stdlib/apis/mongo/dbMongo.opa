@@ -363,7 +363,7 @@ MongoDb = {{
     opa_to_document(key, v, ty)
 
   rec bson_to_opa(bson:Bson.document, ty:OpaType.ty, valname:string): option('a) =
- 
+
     //do println("bson_to_opa:\n  bson={Bson.string_of_bson(bson)}\n  ty={OpaType.to_pretty(ty)}\n  valname={valname}")
 
     error(str, v) =
@@ -507,7 +507,7 @@ MongoDb = {{
            | _ ->
              ([Bson.key(element)], [element]))
         //do println("doc={doc} keys={Bson.keys(doc)}")
-        (match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
+        (match OpaType.fields_of_fields_list2(ltyfield, col) with
          | {some=fields} ->
            //do println("fields={fields}")
            element_to_rec(doc, fields)

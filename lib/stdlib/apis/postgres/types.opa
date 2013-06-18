@@ -698,6 +698,14 @@ PostgresTypes = {{
     Option.map(OpaValue.Record.unsafe_dot(_, fld), dflt)
 
   @private
+  alpha_unserialize(text:string, ty) =
+    match PgSerialize.unserialize_basic(text, ty) with
+    | ~{failure} ->
+      do jlog("FAILURE: alpha_unserialize({OpaType.to_pretty(ty)}) => {failure}")
+      none
+    | ~{success} -> {some=success}
+
+  @private
   field_parser(label, ty, rcons, dflt) =
     fld = OpaValue.Record.field_of_name_unsafe(label)
     map(p) =
@@ -721,7 +729,7 @@ PostgresTypes = {{
         composite_to_opa(row, ~{text}, dot_default(fld, dflt)) ? @fail)
     | _ ->
       map(parser text=string_parser ->
-        OpaSerialize.unserialize(text, ty) ? dflt ? @fail)
+          alpha_unserialize(text, ty) ? dflt ? @fail)
 
   /**
    * Try to unserialize a postgres composite value to an Opa record described by
@@ -759,9 +767,9 @@ PostgresTypes = {{
       some(OpaValue.Record.make_record(r))
     | {binary=_} -> @fail("Binary is not yet implemented")
 
-  rec row_to_opa_aux(conn:Postgres.connection, row:Postgres.oparow, ty:OpaType.ty, dflt:option('a)): option('a) =
+  rec row_to_opa_aux(row:Postgres.oparow, ty:OpaType.ty, dflt:option('a)): option('a) =
 
-    error_msg(str) = "Error : {str}"
+    error_msg(str:string) = "Error : {str}"
 
     error_no_retry(str, v) =
       do Log.error("Postgres.row_to_opa", error_msg(str))
@@ -842,7 +850,7 @@ PostgresTypes = {{
 
     and column_to_rec(row:Postgres.oparow, col) =
       ltyfield = List.sort(StringMap_keys(row))
-      match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
+      match OpaType.fields_of_fields_list2(ltyfield, col) with
       | {some=fields} -> element_to_rec(row, fields, none)
       | {none} -> error("Fields ({OpaType.to_pretty_lfields(col)}) not found in sum type ({List.to_string(ltyfield)})")
 
@@ -853,7 +861,7 @@ PostgresTypes = {{
 
     and opatype_to_list(opatype:Postgres.opatype, ty:OpaType.ty, dflt:option('a)): option('a) =
       match opatype with
-      | {String = s} -> OpaSerialize.unserialize(s, {TyName_args=[ty]; TyName_ident="list"})
+      | {String = s} -> alpha_unserialize(s, {TyName_args=[ty]; TyName_ident="list"})
       | _ ->
       err() = error("cannot unserialize a list({ty}) from {opatype}")
       list(get) =
@@ -1034,24 +1042,13 @@ PostgresTypes = {{
       | _ ->
         match opatype with
         | {Null} -> dflt
-        | {TypeId=(type_id,data)} ->
-           match IntMap.get(type_id,conn.handlers) with
-           | {some=(_,hty,handler)} ->
-              if ty == hty
-              then
-                match handler(type_id, ty, data) with
-                | {some=val} -> {some=@unsafe_cast(val)}
-                | {none} -> fatal("unknown type {OpaType.to_pretty(ty)}")
-                end
-              else fatal("unknown type {OpaType.to_pretty(ty)}")
-           | {none} ->
-             match ty with
-             | {TyRecord_row=row; ...} -> composite_to_opa(row, data, dflt)
-             | {TySum_col=col; ...} -> enum_to_opa(col, data)
-             | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
-             end
+        | {TypeId=(_type_id,data)} ->
+           match ty with
+           | {TyRecord_row=row; ...} -> composite_to_opa(row, data, dflt)
+           | {TySum_col=col; ...} -> enum_to_opa(col, data)
+           | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
            end
-        | {String=s} -> OpaSerialize.unserialize(s, ty)
+        | {String=s} -> alpha_unserialize(s, ty)
         | _ -> fatal("unknown type {OpaType.to_pretty(ty)}")
 
     ty_name = name_type(ty)
@@ -1066,13 +1063,16 @@ PostgresTypes = {{
     | _ -> @fail
 
   to_opa_ty(conn:Postgres.connection, row, ty:OpaType.ty, dflt:option('a)) : option('a) =
-     row_to_opa_aux(conn, getRow(conn.rowdescs, row), ty, dflt)
+    rowdescs = conn.rowdescs
+    @worker(row_to_opa_aux(getRow(rowdescs, row), ty, dflt))
 
   to_opa(conn:Postgres.connection, row) : option('a) =
-     to_opa_ty(conn, row, @typeval('a), none)
+    rowdescs = conn.rowdescs
+    @worker(row_to_opa_aux(getRow(rowdescs, row), @typeval('a), none))
 
   to_opa_default(conn:Postgres.connection, row, def:'a) : option('a) =
-     to_opa_ty(conn, row, @typeval('a), some(def))
+    rowdescs = conn.rowdescs
+    @worker(row_to_opa_aux(getRow(rowdescs, row), @typeval('a), some(def)))
 
 }}
 

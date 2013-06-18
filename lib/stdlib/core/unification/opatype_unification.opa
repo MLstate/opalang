@@ -411,6 +411,7 @@ type OpaTypeUnification.result = outcome(OpaTypeUnification.subst,OpaTypeUnifica
 
 }}
 
+@workable
 OpaTypeUnification = {{
   unify(ty1, ty2) = P.unifiable(ty1, ty2, P.empty_subst)
   is_unifiable(ty1, ty2) = Outcome.is_success(unify(ty1, ty2))

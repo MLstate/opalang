@@ -57,6 +57,7 @@ OpaTsc_get = {{
   final_get(ident) = @sliced_expr({client=get_with_fallback(ident) server=get(ident)})
 }}
 
+@workable
 OpaTsc = {{
   /**
    * {2 Get type schemes}
@@ -298,7 +299,7 @@ type OpaType.ty_ident = string
  */
 type OpaType.Field.label = string
 
-
+@workable
 OpaType = {{
 
   /**
@@ -482,6 +483,26 @@ OpaType = {{
     | _ -> error("[OpaType.fields_of_fields_list] Can't select a row for :\n" ^
                  "value (dump): "^Debug.dump(value) ^
                  "list fields : "^to_pretty_lfields(lfields))
+
+  /* [ltyfield] and list on [lfields] must be ordered */
+  fields_of_fields_list2(ltyfield : list(string), lfields:list(OpaType.fields)) =
+    List.find(
+      (fields ->
+        rec aux(l1 : list, l2 : list)=
+          match l1 with
+          | [] ->
+            (match l2 with
+            | [] -> true
+            | _ -> false)
+          | [hd1 | tl1] ->
+            (match l2 with
+             | {hd = hd2; tl = tl2} ->
+               if @toplevel.String.equals(hd1, hd2.label) then aux(tl1, tl2)
+               else false
+             | _ -> false)
+          | _ -> false
+        aux(ltyfield, fields)
+      ), lfields)
 
   /**
    * Return [true] if the given type represents a [void] value.

@@ -166,7 +166,7 @@ OpaSerializeClosure = {{
  * {1 Interface}
  */
 
-@both OpaSerialize = {{
+OpaSerialize = {{
 
   JsonTop = @toplevel.Json
 
@@ -490,7 +490,6 @@ OpaSerializeClosure = {{
    */
   partial_unserialize(str) = JsonTop.deserialize_opt(str)
 
-
   /**
    * Check and finish unserialize value. This function ensures that
    * the returned value match with type [ty].
@@ -675,7 +674,7 @@ OpaSerializeClosure = {{
           List.fold(((name, _), acc ->
             OpaType.Field.of_string(name) +> acc),
             js_lst, [])
-        (match fields_of_fields_list2(ltyfield, lfields) with
+        (match OpaType.fields_of_fields_list2(ltyfield, lfields) with
         | {none} -> error_ret("Fields ({OpaType.to_pretty_lfields(lfields)}) are not found in type sum ({List.to_string(ltyfield)})", {none})
         | {some = fields} ->
           //do jlog("Select {OpaType.to_pretty_fields(fields)} from sum {OpaType.to_pretty_lfields(lfields)} and json fields {List.to_string(ltyfield)}")
@@ -691,7 +690,7 @@ OpaSerializeClosure = {{
       | ({List = l}, {TyRecord_row = row ...}) ->
         aux_list(l, OpaType.type_of_field(row, OpaType.Field.of_string("hd")) )
       | ({List = l}, {TySum_col = col ...}) ->
-        match fields_of_fields_list2(["hd","tl"],Magic.id(col)) with
+        match OpaType.fields_of_fields_list2(["hd","tl"],Magic.id(col)) with
         | {none} -> error_ret("Fields hd and tl are not found in type sum for a json list", {none})
         | {some = row} -> aux_list(l, OpaType.type_of_field(row,OpaType.Field.of_string("hd")) )
         end
@@ -764,27 +763,6 @@ OpaSerializeClosure = {{
         do Log.error("OpaSerialize.finish_unserialize","Type doesn't match value :\nvalue : {to_string(a)}\n on type : {to_string(b)}\n inside the main type {OpaType.to_pretty(original_ty)}")
         {none}
     aux(unser, ty)
-
-
-  /* [ltyfield] and list on [lfields] must be ordered */
-  fields_of_fields_list2(ltyfield : list(string), lfields:list(OpaType.fields)) =
-    List.find(
-      (fields ->
-        rec aux(l1 : list, l2 : list)=
-          match l1 with
-          | [] ->
-            (match l2 with
-            | [] -> true
-            | _ -> false)
-          | [hd1 | tl1] ->
-            (match l2 with
-             | {hd = hd2; tl = tl2} ->
-               if @toplevel.String.equals(hd1, hd2.label) then aux(tl1, tl2)
-               else false
-             | _ -> false)
-          | _ -> false
-        aux(ltyfield, fields)
-      ), lfields)
 
   /**
    * (De)serialization of arrays

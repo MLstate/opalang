@@ -909,7 +909,7 @@ Bson = {{
 
     and column_to_rec(doc:Bson.document, col) =
       ltyfield = List.sort(Bson.keys(doc))
-      match OpaSerialize.fields_of_fields_list2(ltyfield, col) with
+      match OpaType.fields_of_fields_list2(ltyfield, col) with
       | {some=fields} -> element_to_rec(doc, fields, none)
       | {none} ->
         allreg = List.for_all((r -> List.for_all((f -> isrcrdtype(f.ty)),r)),col)

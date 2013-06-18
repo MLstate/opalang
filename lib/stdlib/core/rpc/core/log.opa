@@ -63,6 +63,7 @@ Clientlog = {{
  * Example:
  * [Log.fatal("topic", "message")]
  */
+@workable
 Log =
   @sliced_expr({
   server = ServerLog

@@ -22,6 +22,7 @@ type Ansi.color =
  / {xterm:int}
  / {`default`}
 
+@workable
 Ansi = {{
 
   color(c) =

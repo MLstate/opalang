@@ -132,7 +132,8 @@ type Date.set = ordered_set(Date.date, Date.order)
 // FIXME Should we merge Date.date & time_t ?
 type time_t = external
 
-@both Date =
+@workable
+Date =
 {{
 
   /**

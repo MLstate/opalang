@@ -107,7 +107,7 @@ type Duration.set = ordered_set(Duration.duration, Duration.order)
 /**
  * {1 Interface}
  */
-
+@workable
 Duration = {{
 
   /**

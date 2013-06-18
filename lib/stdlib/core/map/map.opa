@@ -1251,6 +1251,7 @@ Map_make(order: order('key,'order) ) : Map =
 /**
  * A [Map] on numbers, using numeric comparison.
  */
+@workable
 IntMap    = Map_make(Int.order):Map(int, Int.order)
 
 /**
@@ -1259,6 +1260,7 @@ IntMap    = Map_make(Int.order):Map(int, Int.order)
  * This instance of [Map] differentiates uppercase from lowercase.
  * Otherwise, the order between strings is alphabetical.
  */
+@workable
 StringMap = Map_make(String.order):Map(string, String.order)
 
 /**

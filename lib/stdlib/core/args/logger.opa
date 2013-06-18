@@ -60,6 +60,7 @@ type Logger.log_opts = {
 }
 
 //@server_private
+@workable
 Logger = {{
 
   /* Convert an entry priority to a string */

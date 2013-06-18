@@ -68,11 +68,13 @@
  */
 @private type Parser.Gen('input) = {{
   genparse : (bool, Parser.general_parser('a), 'input, (-> 'b), ((itextrator, 'a) -> 'b) -> 'b)
+  to_string: 'input -> string
 }}
 
 /**
  * A module with parsing related functions and some common parsers
  */
+@workable
 Parser =
 {{
 
@@ -83,6 +85,8 @@ Parser =
   StringGen = {{
     genparse(partial, rule:Parser.general_parser, s, on_failure, on_success) =
       TextGen.genparse(partial, rule, @toplevel.Text.cons(s), on_failure, on_success)
+
+    to_string(x:string) = x
   }}
 
   /**
@@ -92,6 +96,8 @@ Parser =
   TextGen = {{
     genparse(partial, rule:Parser.general_parser, text, on_failure, on_success) =
       ItextGen.genparse(partial, rule, @toplevel.Text.itstart(text), on_failure, on_success)
+
+    to_string = @toplevel.Text.to_string
   }} : Parser.Gen(text)
 
   /**
@@ -103,10 +109,12 @@ Parser =
       match rule(partial, iterator) with
       | {none} -> on_failure()
       | {some=(it, res)} -> on_success((it, res))
+
+    to_string = @toplevel.Itextrator.to_string
   }} : Parser.Gen(itextrator)
 
   @private
-  parse_error(input, pos, fn) =
+  parse_error(input:string, pos:string, fn:string) =
     txt =
       if @toplevel.String.length(input) < 20 then
         input
@@ -126,7 +134,7 @@ Parser =
      * As [Parser.parse] but the input depends of [genparse]
      */
     parse(rule:Parser.general_parser('a), s:'input):'a =
-      on_failure() = parse_error("{s}", __POSITION__, "parse")
+      on_failure() = parse_error(F.to_string(s), __POSITION__, "parse")
       on_success((_it, res)) = res
       F.genparse(false, rule, s, on_failure, on_success)
 
@@ -150,7 +158,7 @@ Parser =
      * As [Parser.partial_parse] but the input depends of [genparse]
      */
     partial_parse(rule:Parser.general_parser('a), s:'input):'a =
-      on_failure() = parse_error("{s}", __POSITION__, "partial_parse")
+      on_failure() = parse_error(F.to_string(s), __POSITION__, "partial_parse")
       on_success((_it, res)) = res
       F.genparse(true, rule, s, on_failure, on_success)
 
@@ -316,7 +324,7 @@ Parser =
    *
    * @param an input string
    *
-   * @return [some(f)] with [f : string] 
+   * @return [some(f)] with [f : string]
    * or [none] if the source is not contain
    * a valid representation of an alphanum sequence
    */
@@ -328,7 +336,7 @@ Parser =
    *
    * @param an input string
    *
-   * @return [some(f)] with [f : string] 
+   * @return [some(f)] with [f : string]
    * or [none] if the source is not contain
    * a valid representation of an ident
    */
@@ -340,7 +348,7 @@ Parser =
    *
    * @param an input string
    *
-   * @return [some(f)] with [f : bool] 
+   * @return [some(f)] with [f : bool]
    * or [none] if the source is not contain
    * a valid representation of boolean
    */
@@ -364,7 +372,7 @@ Parser =
       | l=Rule.white_space* -> List.length(l)
     partial_parse(p, _)
 
-  of_string = Rule.of_string
+  of_string(x) = Rule.of_string(x)
 
   of_string_case_insensitive = Rule.of_string_case_insensitive
 
