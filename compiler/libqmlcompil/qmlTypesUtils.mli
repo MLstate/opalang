@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -73,6 +73,8 @@ sig
 
   (* Other inspection functions *)
   val is_type_arrow : QmlTypes.gamma -> QmlAst.ty -> bool
+
+  val has_type_arrow : QmlTypes.gamma -> QmlAst.ty -> bool
 
   (**
      See if the internal implementation of [ty] is the type [void].

@@ -1609,17 +1609,17 @@ let code_elt (env:env) (private_env:private_env) code_elt =
           let private_env, il_term = il_simplification env private_env il_term in
           match il_term with
             (* a barrier won't be needed when an expression is skipable at the top level. *)
-          | IL.Skip expr ->
+          | IL.Skip skip ->
               begin
                 (* let toplevel_cont v = QC.ident v in *)
                 (* let private_env, expr = qml_of_il ~toplevel_cont env private_env il_term in *)
                 (* simplification : if the code is [val f = let x = foo in x], replace it by [val f = foo] *)
                 (* much simplier and efficienter to detect after generation *)
-                let expr = simpl_let_in expr in
+                let skip = simpl_let_in skip in
                 if workable then
-                  private_env_gen_workable_fun (id, expr) private_env [(id, expr)]
+                  private_env_gen_workable_fun (id, expr) private_env [(id, skip)]
                 else
-                  private_env, [ (id, expr) ]
+                  private_env, [ (id, skip) ]
               end
                 (* the expression has not been skiped at toplvl, *)
           | _ ->
@@ -1701,9 +1701,8 @@ let code_elt (env:env) (private_env:private_env) code_elt =
               let private_env, fcps = qml_of_il ~toplevel_cont env private_env fcps_il in
               let fcps = simpl_let_in fcps in
               if workable then
-                let fskip = Q.Directive (Annot.nolabel "QmlCpsRewriter.cps_pass", `workable, [fskip], []) in
-                private_env_add_workable_fun id fskip_id private_env,
-                [ (fskip_id, fskip); (id, fcps) ]
+                private_env_gen_workable_fun (id, expr) private_env
+                  [ (fskip_id, fskip); (id, fcps) ]
               else
                 private_env, [ (fskip_id, fskip); (id, fcps) ]
           | _ ->
@@ -2022,16 +2021,24 @@ let rewrite_workers ~env private_env code =
       (fun _ (_, skip_id, _) skipped_idents -> IdentSet.add skip_id skipped_idents )
       private_env.skipped_functions IdentSet.empty
   in
+  let ty_has_arrow ty =
+    QmlTypesUtils.Inspect.has_type_arrow
+      env.typing.QmlTypes.gamma
+      ty
+  in
   let has_arrow e =
-    try
-      QmlAstWalk.Type.exists
-        (function | Q.TypeArrow _ -> true | _ -> false)
-        (QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap)
-    with _ ->
-      QmlError.warning ~wclass:WarningClass.root_warning
-        (QmlError.Context.expr e)
-        "No annot attached on this expression";
-      false
+    ty_has_arrow
+      (QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap)
+  in
+  let is_second_order e =
+    let ty = QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap in
+    match QmlTypesUtils.Inspect.follow_alias_noopt_private
+      env.typing.QmlTypes.gamma
+      ty
+    with
+    | Q.TypeArrow (args, res) ->
+      ty_has_arrow res && List.for_all ty_has_arrow args
+    | _ -> false
   in
   let rewrite_expr expr =
     let let_aux is_rec self locals bnd expr =
@@ -2051,16 +2058,19 @@ let rewrite_workers ~env private_env code =
         if IdentSet.mem i locals then locals, e
         else
           locals,
-          begin match (private_env_get_skipped_ident private_env i) with
-          | Some i -> Q.Ident (a, i)
-          | None -> match IdentMap.find_opt i private_env.workable_functions with
-            | Some i -> Q.Ident (a, i)
-            | None ->
+          begin match IdentMap.find_opt i private_env.workable_functions with
+          | Some i ->
+            Q.Ident (a, i)
+          | None -> match private_env_get_skipped_ident private_env i with
+            | Some i when not(is_second_order e) ->
+              Q.Ident (a, i)
+            | _ ->
               if not(IdentSet.mem i skipped_idents) && not(IdentSet.mem i locals) && has_arrow e then
                 QmlError.serror (QmlError.Context.expr e)
-                  "This expression has no workable version (ident:@{<bright>%s} from package:@{<bright>%s})"
-                  (Ident.original_name i)
-                  (Ident.get_package_name i);
+                  "@{<bright>%s@} has no workable version (from package:@{<bright>%s@})"
+                  (Ident.to_string i)
+                  (Ident.get_package_name i)
+              ;
               e
           end
       | Q.Bypass (_, key) ->

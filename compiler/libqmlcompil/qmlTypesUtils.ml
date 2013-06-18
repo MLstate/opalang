@@ -1,5 +1,5 @@
 (*
-    Copyright © 2011, 2012 MLstate
+    Copyright © 2011-2013 MLstate
 
     This file is part of Opa.
 
@@ -224,6 +224,22 @@ struct
     match follow_alias_noopt gamma ty with
     | Q.TypeArrow _ -> true
     | _ -> false
+
+  let rec has_type_arrow gamma ty =
+    let rec aux memo t =
+      match t with
+      | Q.TypeName (l, s) ->
+        if TypeIdentSet.mem s memo then false
+        else aux (TypeIdentSet.add s memo) (find_and_specialize gamma s l)
+      | ty ->
+        QmlAstWalk.Type.exists
+          (function
+          | Q.TypeArrow _ -> true
+          | (Q.TypeName _) as ty -> aux memo ty
+          | _ -> false
+          ) ty
+    in
+    aux TypeIdentSet.empty ty
 
   let is_type_void gamma ty =
     match follow_alias_noopt gamma ty with
