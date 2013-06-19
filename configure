@@ -84,11 +84,11 @@ echo -n > $CONFIG_LOG
 echo-check() { echo -n "Checking $*... " >&2 ; echo "# CHECK-START: $*" >> $CONFIG_LOG; }
 echo-ok() {
     local opts=; if [ "X$1" = "X-n" ]; then shift; opts="-n"; fi
-    echo $opts "[1m$*[0m" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >> $CONFIG_LOG;
+    echo $opts "$*" >&2 ;  echo $opts -e "# CHECK-OK: $*\n" >> $CONFIG_LOG;
 }
-echo-ok-tag() { echo "[1m[32mOK[0m" >&2 ;  echo -e "# CHECK-OK\n" >> $CONFIG_LOG; }
-echo-err() { echo "[1m[31m$*[0m" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >> $CONFIG_LOG; }
-echo-skip() { echo "[1m[33m$*[0m" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >> $CONFIG_LOG; }
+echo-ok-tag() { echo "OK" >&2 ;  echo -e "# CHECK-OK\n" >> $CONFIG_LOG; }
+echo-err() { echo "$*" >&2 ;  echo -e "# CHECK-FAIL: $*\n" >> $CONFIG_LOG; }
+echo-skip() { echo "$*" >&2 ;  echo -e "# CHECK-SKIP: $*\n" >> $CONFIG_LOG; }
 
 # check OS
 echo-check your OS
@@ -688,6 +688,6 @@ fi
 {
     echo
     echo "Congrats, you're all set. Installation will be done in:"
-    echo "	[1m$PREFIX[0m"
+    echo "	$PREFIX"
     echo
 } >&2
