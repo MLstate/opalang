@@ -706,6 +706,43 @@ PostgresTypes = {{
     | ~{success} -> {some=success}
 
   @private
+  string_parser(partial, it) =
+    pos0 = Itextrator.pos(it)
+    str = Itextrator.txt(it)
+    len = String.length(str)
+    buf = Binary.create(len - pos0)
+    add(c) = Binary.add_unicode(buf,c)
+    rec start(pos) =
+      if pos >= len then none
+      else match String.char_at(str, pos) with
+      | '\"' -> body(pos+1)
+      | _ -> none
+    and body(pos) =
+      if pos >= len then none else
+      match String.char_at(str, pos) with
+      | '\"' ->
+        next = pos + 1
+        if next >= len then
+          some((Itextrator.forward(Itextrator.make(str), pos0 - pos),
+                Binary.to_string(buf)))
+        else if String.char_at(str, next) == '\"' then
+          do add('\"')
+          body(next + 1)
+        else if not(partial) && next < len then none
+        else
+          some((Itextrator.forward(Itextrator.make(str), pos0 - pos),
+                Binary.to_string(buf)))
+      | '\\' ->
+        next = pos + 1
+        match String.char_at(str, next) with
+        | '\\' -> do add('\\') body(next + 1)
+        | '\"' -> do add('\"') body(next + 1)
+        | _ -> do add('\\') body(next)
+        end
+      | c -> do add(c) body(pos+1)
+    start(pos0)
+
+  @private
   field_parser(label, ty, rcons, dflt) =
     fld = OpaValue.Record.field_of_name_unsafe(label)
     map(p) =
@@ -713,10 +750,6 @@ PostgresTypes = {{
       parser
       | x={Rule.or(p, Rule.succeed_opt(dot_default(fld, dflt)))} ->
         OpaValue.Record.add_field(rcons, fld, @unsafe_cast(x))
-    char_parser = parser | [\\] c=[\\\"] -> c | [\"][\"] -> '\"' | c=. -> c
-    string_parser =
-      aux_parser = parser !([\"]![\"]) c=char_parser -> c
-      parser [\"] s=aux_parser* [\"] -> String.of_chars(s)
     match ty with
     | {TyConst={TyInt={}}} -> map(Rule.integer)
     | {TyConst={TyFloat={}}} -> map(Rule.float)
