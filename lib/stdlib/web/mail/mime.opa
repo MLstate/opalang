@@ -219,11 +219,18 @@ Mime = {{
    * Decode a string given a content transfer encoding
    */
   @private
-  decode_body(s:string, cte:string) =
+  _decode_body(s:string, cte:string) =
     match String.lowercase(cte)
     | "quoted-printable" -> QuotedPrintable.decode(s)
     | "base64" -> string_of_binary(Crypto.Base64.decode(s))
     | _ -> String.replace(crlf, "\n", s)
+
+  @private
+  _binary_body(s:string, cte:string) =
+    match String.lowercase(cte)
+    | "quoted-printable" -> binary_of_string(QuotedPrintable.decode(s))
+    | "base64" -> Crypto.Base64.decode(s)
+    | _ -> binary_of_string(String.replace(crlf, "\n", s))
 
   /**
    * Parsing
@@ -285,11 +292,12 @@ Mime = {{
       content_type =
         if List.length(content_type_list) <= 1 then content_type
         else List.head(content_type_list)
-      decoded_body =
+      cte =
         match Header.find("Content-Transfer-Encoding", headers)
-        {none} -> decode_body(body, charset)
-        {some=cte} -> decode_body(body, cte)
-      binary_body = binary_of_string(decoded_body)
+        {none} -> charset
+        {some=cte} -> cte
+      decoded_body() = _decode_body(body, cte)
+      binary_body() = _binary_body(body, cte)
 
       match content_type
       | "multipart/mixed" ->
@@ -305,24 +313,24 @@ Mime = {{
         match Header.find("Content-Disposition", headers)
         {none} ->
           if content_type == "text/html" then
-            {html=Xhtml.of_string(decoded_body)}
+            {html=Xhtml.of_string(decoded_body())}
           else
-            {plain=(charset, binary_body)}
+            {plain=(charset, binary_body())}
         {some=cd} ->
           if content_type == "text/plain" && cd == "inline" then
-            {plain=(charset, binary_body)}
+            {plain=(charset, binary_body())}
           else if content_type == "text/html" && cd == "inline" then
-            {html=Xhtml.of_string(decoded_body)}
+            {html=Xhtml.of_string(decoded_body())}
           else
             filename = String.explode(";", cd)
                        |> List.map(String.trim, _)
                        |> Header.extract_value("filename", _)
-            if String.is_empty(filename) then {plain=(charset, binary_body)}
+            if String.is_empty(filename) then {plain=(charset, binary_body())}
             else
             { attachment = {
               ~filename
               mimetype = content_type
-              data = binary_body
+              data = binary_body()
             }}
 
   @private
