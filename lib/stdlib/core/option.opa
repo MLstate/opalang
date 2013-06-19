@@ -185,6 +185,6 @@ Option = {{
 
 }}
 
-@opacapi @workable some(x)    = Option.some(x)
+@opacapi some(x)    = Option.some(x)
 @opacapi none    = Option.none
 default = Option.default

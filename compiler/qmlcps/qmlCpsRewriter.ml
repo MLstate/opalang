@@ -1731,7 +1731,10 @@ let code_elt (env:env) (private_env:private_env) code_elt =
                 (* we recreate a two version function skip and cps *)
               let skip_id =  Ident.refreshf ~map:"%s_skip" id in
               let private_env = private_env_add_skipped_fun id arity x_skip_id x_cps_id private_env in
-              private_env, [ (skip_id,  QC.ident x_skip_id) ; (id, QC.ident x_cps_id )  ]
+              if workable then
+                private_env_gen_workable_fun (id, expr) private_env
+                  [ (skip_id,  QC.ident x_skip_id) ; (id, QC.ident x_cps_id ) ]
+              else private_env, [ (skip_id,  QC.ident x_skip_id) ; (id, QC.ident x_cps_id ) ]
 
             (* on a barrier *)
             | _, Some barrier when env.options.toplevel_concurrency ->

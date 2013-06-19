@@ -372,7 +372,7 @@ Parser =
       | l=Rule.white_space* -> List.length(l)
     partial_parse(p, _)
 
-  of_string(x) = Rule.of_string(x)
+  of_string = Rule.of_string
 
   of_string_case_insensitive = Rule.of_string_case_insensitive
 
