@@ -1,7 +1,5 @@
 # Opa #
 
-## Overview ##
-
 Opa is an advanced framework for JavaScript, made of two parts:
 
 * A compiler from the Opa language, which features JavaScript-like syntax but introduces many enhancements;
@@ -9,9 +7,13 @@ Opa is an advanced framework for JavaScript, made of two parts:
 
 This repository contains all the sources of both the Opa compiler and the Opa library.
 
+## Overview ##
+
+To learn more about Opa, please visit [opalang.org](http://opalang.org) and the [take the tour](https://github.com/MLstate/opalang/wiki/A-tour-of-Opa).
+
 ## Getting Started ##
 
-Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-started).
+Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-started) to install Opa and start to code.
 
 ## Quick build instructions ##
 
@@ -19,18 +21,7 @@ Check out the [dedicated guide](https://github.com/MLstate/opalang/wiki/Getting-
     $ make
     $ sudo make install
 
-should get you there. `./configure` should report any missing dependencies and
-point you to the packages you may install to fix them (although those may depend
-on your distribution). `make` needs to be GNU make.
-
-The main dependencies of Opa is OCaml 4.00 and Node.js >= 0.6. In case your distribution doesn't provide a recent enough version, or if you miss some other dependencies, you can use the `installation_helper.sh` script, which automates the download and
-installation of our dependencies. Try
-
-    $ tools/dependencies/installation_helper.sh --help
-
-#### Amazon Image
-
-We provide a ready to use [Amazon Image for Opa](https://github.com/MLstate/opalang/wiki/Amazon-Image-for-Opa).
+Read more about [building Opa](https://github.com/MLstate/opalang/wiki/Building-Opa).
 
 ## Directory layout ##
 
