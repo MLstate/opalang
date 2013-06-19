@@ -246,6 +246,15 @@ Binary = {{
   add_fill : binary, int, int -> void = %%BslBinary.add_fill%%
 
   /**
+   * Add a unicode character to the end of the data.
+   *
+   * @param b The binary data.
+   * @param c The unicode character to add.
+   * @return void
+   */
+  add_unicode : binary, Unicode.character -> void = %%BslBinary.add_unicode%%
+
+  /**
    * Add a string to the end of the data.
    *
    * @param b The binary data.
