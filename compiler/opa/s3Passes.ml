@@ -1629,6 +1629,12 @@ let pass_ExplicitInstantiation =
       let client_renaming = !Pass_ExplicitInstantiation.renaming_map in
 
       let stdlib_gamma = Pass_ExplicitInstantiation.get_stdlib_gamma gamma in
+      let stdlib_gamma =
+        (* Append types definitions *)
+        let gamma = env.P.env_gen.P.stdlib_gamma in
+        let gamma = QmlTypes.Env.Ident.from_map IdentMap.empty gamma in
+        QmlTypes.Env.unsafe_append gamma stdlib_gamma
+      in
 
       let env_gen =
         { env.P.env_gen with P.

@@ -2026,18 +2026,22 @@ let rewrite_workers ~env private_env code =
       env.typing.QmlTypes.gamma
       ty
   in
-  let has_arrow e =
-    ty_has_arrow
-      (QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap)
+  let ty_of_ident_or_expr i e =
+    try
+      QmlTypes.Scheme.instantiate (QmlTypes.Env.Ident.find i env.typing.QmlTypes.gamma)
+    with _ -> (* Some of ident are not in gamma as example runtime type seems
+                 to be not inserted in gamma *)
+      QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap
   in
-  let is_second_order e =
-    let ty = QmlAnnotMap.find_ty (Q.QAnnot.expr e) env.typing.QmlTypes.annotmap in
+  let has_arrow i e = ty_has_arrow (ty_of_ident_or_expr i e) in
+  let is_second_order i e =
+    let ty = ty_of_ident_or_expr i e in
     match QmlTypesUtils.Inspect.follow_alias_noopt_private
       env.typing.QmlTypes.gamma
       ty
     with
     | Q.TypeArrow (args, res) ->
-      ty_has_arrow res && List.for_all ty_has_arrow args
+      ty_has_arrow res || List.exists ty_has_arrow args
     | _ -> false
   in
   let rewrite_expr expr =
@@ -2062,10 +2066,10 @@ let rewrite_workers ~env private_env code =
           | Some i ->
             Q.Ident (a, i)
           | None -> match private_env_get_skipped_ident private_env i with
-            | Some i when not(is_second_order e) ->
-              Q.Ident (a, i)
+            | Some is when not(is_second_order i e) ->
+              Q.Ident (a, is)
             | _ ->
-              if not(IdentSet.mem i skipped_idents) && not(IdentSet.mem i locals) && has_arrow e then
+              if not(IdentSet.mem i skipped_idents) && not(IdentSet.mem i locals) && has_arrow i e then
                 QmlError.serror (QmlError.Context.expr e)
                   "@{<bright>%s@} has no workable version (from package:@{<bright>%s@})"
                   (Ident.to_string i)

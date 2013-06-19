@@ -597,12 +597,17 @@ Please use a bsl plugin@\n" (BslKey.to_string key)
   let bsl_bypass_cps = BslLib.BSL.ByPassMap.bsl_bypass_cps
     ~lang env.newFinalCompile_bsl.BslLib.bymap in
   let env_cps =
+    let typing = { env.newFinalCompile_qml_milkshake.QmlBlender.env with
+      QmlTypes.gamma = QmlTypes.Env.unsafe_append
+        env.newFinalCompile_qml_milkshake.QmlBlender.env.QmlTypes.gamma
+        env.newFinalCompile_stdlib_gamma
+    } in
     QmlCpsRewriter.env_initial
       ~options
       ~bsl_bypass_typer
       ~bsl_bypass_tags
       ~bsl_bypass_cps
-      ~typing:(env.newFinalCompile_qml_milkshake.QmlBlender.env)
+      ~typing
       () in
   let code = env.newFinalCompile_qml_milkshake.QmlBlender.code in
   let private_env, code =
