@@ -76,7 +76,8 @@ PgSerialize = {{
       /* Basic case *****************************/
       | ({Int = value}, {TyConst = {TyInt}})
       | ({Float = value}, {TyConst = {TyFloat}})
-      | ({String = value}, {TyConst = {TyString}}) -> magic_success(value)
+      | ({String = value}, {TyConst = {TyString}})
+      | ({Bool = value}, {TyName_args = []; TyName_ident = "bool"}) -> magic_success(value)
 
       /* Degenerate float case ******************/
       | ({~String} , {TyConst = {TyFloat}}) ->
