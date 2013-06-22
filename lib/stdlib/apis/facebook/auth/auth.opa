@@ -153,7 +153,25 @@ FbAuth(conf:Facebook.config) = {{
    * an error in case of failure
    */
   get_token_raw(rawdata, redirect_uri) : FbAuth.token_res =
-    match Dialog.oauth_res(rawdata) with
+    get_token(API_libs.get_data(rawdata), redirect_uri)
+
+  /**
+   * Gets an access token directly from the query string provided with the user
+   * redirection after a [user_login_url]. Requesting several times an
+   * access token from the same data will always return the same token with
+   * the same expiration date. If the permission [offline_access] is granted,
+   * the token will not expire.
+   *
+   * @param query Data provided with user redirection.
+   * @param redirect_uri Address where the user will be redirected after
+   * accepting (or not). Domain must match the domain configured for
+   * your application on Facebook.
+   *
+   * @return A [FbAuth.token_res] with either a token or
+   * an error in case of failure
+   */
+  get_token(query, redirect_uri) : FbAuth.token_res =
+    match Dialog.oauth_res(query) with
     | { error=e } -> { error=e }
     | { code=c } -> get_token_from_code(c.code, redirect_uri)
 
