@@ -176,8 +176,7 @@ FbDialog(conf:Facebook.config) = {{
   /**
    * Parser for the GET parameters resulting of a OAuth dialog
    */
-  oauth_res(rawdata) : FbDialog.oauth_res =
-    data = API_libs.get_data(rawdata)
+  oauth_res(data) : FbDialog.oauth_res =
     get_field(name) = API_libs.get_field(data, name)
     if data == [] then
 	{ error = Facebook.data_error }
