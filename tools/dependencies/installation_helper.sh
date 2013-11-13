@@ -30,6 +30,9 @@ help () {
 [1minstallation_helper.sh[0m
 helps download, patch, build and install the dependencies of Opa.
 
+Prerequisite:
+	sudo apt-get install patch make
+
 Usage:
 	$0 --prefix <dir> [options] [commands]
 
