@@ -14,6 +14,7 @@ import-plugin mail
 
 import stdlib.web.mail
 import stdlib.web.utils
+import stdlib.crypto
 
 (binary -> string) bindump = %% BslPervasives.bindump %%
 
@@ -28,17 +29,21 @@ abstract type SmtpServer.smtp_server = reference({
   string server_domain,
   string hello_message,
   int max_size,
+  list(string) auth_methods,
   (SmtpServer.email -> (int, string)) email_callback,
   (string -> (int, string)) verify_callback,
   (string -> list((int, string))) expand_callback,
   (-> void) tls_callback,
+  (string, string -> bool) auth_callback,
   (V8.Error -> void) error_callback
 })
 
 private type SmtpServer.mode =
-    {hello}
- or {message}
+    {message}
  or {data}
+ or {plain}
+ or {loginuser}
+ or {loginpass}
  or {quit}
  or {closed}
 
@@ -47,7 +52,9 @@ private type SmtpServer.state = reference({
   SmtpServer.mode mode,
   SmtpServer.email email,
   string client_domain,
-  bool extended
+  bool extended,
+  string username,
+  bool authenticated
 })
 
 module SmtpServer {
@@ -92,7 +99,7 @@ module SmtpServer {
       case "noop":
         RAIServer.send(raiclient, "250 Ok")
       case "rset":
-        ServerReference.set(stateref, ~{state with mode:{hello}});
+        ServerReference.set(stateref, ~{state with mode:{message}});
         RAIServer.send(raiclient, "250 Ok")
       case "quit":
         RAIServer.send(raiclient, "221 Bye")
@@ -141,29 +148,15 @@ module SmtpServer {
            List.flatten([msgs,
                          ["8BITMIME","ENHANCEDSTATUSCODES"],
                          if (srvr.max_size > 0) { ["SIZE {srvr.max_size}"] } else [],
+                         if (List.length(srvr.auth_methods) > 0) {
+                           ["AUTH "+String.concat(" ",srvr.auth_methods),
+                            "AUTH="+String.concat(" ",srvr.auth_methods)]
+                         } else [],
                          ["STARTTLS"]
                         ])
          } else msgs
         send_multi_code(raiclient, 250, msgs)
         ServerReference.set(stateref, ~{state with mode:{message}, email:init_email(), client_domain, extended});
-      }
-    }
-
-    function void hello_mode(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
-      match (cb) {
-      case ~{command, payload}:
-        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
-        match (String.lowercase(command)) {
-        case "ehlo":
-          send_greeting(srvrref, stateref, payload, true);
-        case "helo":
-          send_greeting(srvrref, stateref, payload, false);
-        //case "auth": // TODO
-        case command:
-          command_common(srvrref, stateref, command, payload);
-        }
-      default:
-        mode_common(srvrref, stateref, cb);
       }
     }
 
@@ -183,14 +176,76 @@ module SmtpServer {
       } else {none}
     }
 
+    function (int,string) get_cstring(binary bin, int pos) {
+      len = Binary.length(bin)
+      recursive function aux(int pos, string str) {
+        if (pos >= len)
+          (pos,str)
+        else if (Binary.get_int8(bin,pos) == 0)
+          (pos+1,str)
+        else {
+          aux(pos+1,str^Binary.get_string(bin,pos,1))
+        }
+      }
+      aux(pos,"")
+    }
+
+    function (int,list(string)) get_cstrings(binary bin, int pos) {
+      len = Binary.length(bin)
+      recursive function aux(int pos, list(string) strs) {
+        if (pos >= len)
+          (pos,List.rev(strs))
+        else {
+          (pos,str) = get_cstring(bin,pos)
+          aux(pos,[str|strs])
+        }
+      }
+      aux(pos,[])
+    }
+
+    function string check_auth(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, string username, string password) {
+      state = ServerReference.get(stateref)
+      if (ServerReference.get(srvrref).auth_callback(username, password)) {
+        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:true})
+        "235 2.7.0 Authentication successful"
+      } else {
+        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
+        "535 5.7.8 Error: authentication failed: generic failure"
+      }
+    }
+
+    function string authplain(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, string authdata) {
+      state = ServerReference.get(stateref)
+      authdata = Crypto.Base64.decode(authdata)
+      (_,strs) = get_cstrings(authdata,0)
+      match (strs) {
+      case ["",username,password]
+      case [username,_,password]:
+        check_auth(srvrref, stateref, username, password);
+      default:
+        ServerReference.set(stateref, {state with username:"", authenticated:false})
+        "500 5.5.2 Error: invalid userdata to decode"
+      }
+    }
+
+    function is_authenticated(SmtpServer.smtp_server srvrref, SmtpServer.state stateref) {
+      srvr = ServerReference.get(srvrref)
+      state = ServerReference.get(stateref)
+      List.length(srvr.auth_methods) == 0 || state.authenticated
+    }
+
     function void message_mode(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
       state = ServerReference.get(stateref)
       raiclient = state.raiclient
       match (cb) {
       case ~{command, payload}:
         Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
-        match (String.lowercase(command)) {
-        case "mail":
+        match ((is_authenticated(srvrref,stateref),String.lowercase(command))) {
+        case (_,"ehlo"):
+          send_greeting(srvrref, stateref, payload, true);
+        case (_,"helo"):
+          send_greeting(srvrref, stateref, payload, false);
+        case ({true},"mail"):
           match (between_angles("from", payload)) {
           case {some:from}:
             Log.info("from: %g{from}%d")
@@ -204,7 +259,7 @@ module SmtpServer {
           case {none}:
             RAIServer.send(raiclient, "500 Command not recognised")
           }
-        case "rcpt":
+        case ({true},"rcpt"):
           if (state.email.from == "")
             RAIServer.send(raiclient,"503 5.5.1 MAIL command required")
           else {
@@ -217,7 +272,7 @@ module SmtpServer {
               RAIServer.send(raiclient, "500 Command not recognised")
             }
           }
-        case "data": 
+        case ({true},"data"): 
           if (List.length(state.email.to) <= 0)
             RAIServer.send(raiclient,"503 5.5.1 RCPT command required")
           else {
@@ -225,11 +280,31 @@ module SmtpServer {
             ServerReference.set(stateref, ~{state with mode:{data}});
             RAIServer.client_start_data_sequence(raiclient, ".");
           }
-        case "starttls": 
+        case (_,"starttls"): 
           RAIServer.send(raiclient, "220 2.0.0 Ready to start TLS");
           RAIServer.client_start_tls(raiclient);
-          ServerReference.set(stateref, ~{state with mode:{hello}});
-        case command:
+          ServerReference.set(stateref, ~{state with mode:{message}});
+        case (_,"auth"):
+          words = String.explode(" ",payload)
+          match ((Option.map(String.lowercase,List.nth(0,words)),List.nth(1,words))) {
+          case ({some:"plain"},{some:authdata}):
+            msg = authplain(srvrref, stateref, authdata)
+            RAIServer.send(raiclient, msg);
+          case ({some:"plain"},{none}):
+            ServerReference.set(stateref, ~{state with mode:{plain}});
+            RAIServer.send(raiclient, "334");
+          case ({some:"login"},{some:username}):
+            ServerReference.set(stateref, ~{state with mode:{loginpass}, username});
+            RAIServer.send(raiclient, "334");
+          case ({some:"login"},_):
+            ServerReference.set(stateref, ~{state with mode:{loginuser}});
+            RAIServer.send(raiclient, "334");
+          default:
+            RAIServer.send(raiclient, "535 5.7.8 Error: authentication failed: no mechanism available")
+          }
+        case ({false},_):
+          RAIServer.send(raiclient,"530 5.5.1 Authentication Required");
+        case (_,command):
           command_common(srvrref, stateref, command, payload);
         }
       default:
@@ -259,6 +334,48 @@ module SmtpServer {
       }
     }
 
+    function void plain_mode(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
+      state = ServerReference.get(stateref)
+      raiclient = state.raiclient
+      match (cb) {
+      case ~{command, payload}:
+        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        RAIServer.send(raiclient,authplain(srvrref, stateref, command))
+      default:
+        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
+        RAIServer.send(raiclient,"535 5.7.8 Error: authentication failed: generic failure")
+      }
+    }
+
+    function void loginuser_mode(SmtpServer.smtp_server _srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
+      state = ServerReference.get(stateref)
+      raiclient = state.raiclient
+      match (cb) {
+      case ~{command, payload}:
+        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        username = string_of_binary(Crypto.Base64.decode(command))
+        ServerReference.set(stateref, {state with mode:{loginpass}, ~username})
+        RAIServer.send(raiclient,"334")
+      default:
+        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
+        RAIServer.send(raiclient,"535 5.7.8 Error: authentication failed: generic failure")
+      }
+    }
+
+    function void loginpass_mode(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
+      state = ServerReference.get(stateref)
+      raiclient = state.raiclient
+      match (cb) {
+      case ~{command, payload}:
+        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        password = string_of_binary(Crypto.Base64.decode(command))
+        RAIServer.send(raiclient,check_auth(srvrref, stateref, state.username, password))
+      default:
+        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
+        RAIServer.send(raiclient,"535 5.7.8 Error: authentication failed: generic failure")
+      }
+    }
+
     function void quit_mode(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
       mode_common(srvrref, stateref, cb);
     }
@@ -267,9 +384,11 @@ module SmtpServer {
                                   RAIServer.raiserver _raiserver, RAIServer.raiclient _raiclient, RAIServer.client_callback cb) {
       state = ServerReference.get(stateref)
       match (state.mode) {
-      case {hello}: hello_mode(srvrref, stateref, cb);
       case {message}: message_mode(srvrref, stateref, cb);
       case {data}: data_mode(srvrref, stateref, cb);
+      case {plain}: plain_mode(srvrref, stateref, cb);
+      case {loginuser}: loginuser_mode(srvrref, stateref, cb);
+      case {loginpass}: loginpass_mode(srvrref, stateref, cb);
       case {quit}: quit_mode(srvrref, stateref, cb);
       case {closed}: void;
       }
@@ -281,7 +400,8 @@ module SmtpServer {
       match (cb) {
       case {connect:raiclient}:
         RAIServer.send(raiclient, "220 {srvr.server_domain} ESMTP {srvr.hello_message}")
-        stateref = ServerReference.create({~raiclient, mode:{hello}, email:init_email(), client_domain:"", extended:false})
+        stateref = ServerReference.create({~raiclient, mode:{message}, email:init_email(), client_domain:"", extended:false,
+                                           username:"", authenticated:false})
         RAIServer.client_callback(raiserver, raiclient, client_callback(srvrref,stateref,_,_,_))
       case ~{error}:
         Log.info("Server %r{error.name}%d: %r{error.message}%d\n{error.stack}")
@@ -310,6 +430,11 @@ module SmtpServer {
       Log.info("Start TLS")
     }
 
+    function bool default_auth_callback(string username, string _password) {
+      Log.info("Unhandled AUTH for user {username}")
+      false
+    }
+
     function void default_error_callback(V8.Error error) {
       Log.info("Client %r{error.name}%d: %r{error.message}%d\n{error.stack}")
     }
@@ -332,18 +457,23 @@ module SmtpServer {
     ServerReference.set(srvrref, {ServerReference.get(srvrref) with ~tls_callback})
   }
 
+  function void setAuthCallback(SmtpServer.smtp_server srvrref, (string, string -> bool) auth_callback) {
+    ServerReference.set(srvrref, {ServerReference.get(srvrref) with ~auth_callback})
+  }
+
   function void setErrorCallback(SmtpServer.smtp_server srvrref, (V8.Error -> void) error_callback) {
     ServerReference.set(srvrref, {ServerReference.get(srvrref) with ~error_callback})
   }
 
   function SmtpServer.smtp_server runServer(string host, int port, RAIServer.options options,
-                                            string server_domain, string hello_message, int max_size) {
+                                            string server_domain, string hello_message, int max_size, list(string) auth_methods) {
     srvr = ~{raiserver:RAIServer.make_server_options(port, host, options),
-             server_domain, hello_message, max_size,
+             server_domain, hello_message, max_size, auth_methods,
              email_callback:SmtpServer_private.default_email_callback,
              verify_callback:SmtpServer_private.default_verify_callback,
              expand_callback:SmtpServer_private.default_expand_callback,
              tls_callback:SmtpServer_private.default_tls_callback,
+             auth_callback:SmtpServer_private.default_auth_callback,
              error_callback:SmtpServer_private.default_error_callback}
     srvrref = ServerReference.create(srvr)
     RAIServer.server_callback(srvr.raiserver, SmtpServer_private.server_callback(srvrref,_,_))
