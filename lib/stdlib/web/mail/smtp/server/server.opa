@@ -16,8 +16,6 @@ import stdlib.web.mail
 import stdlib.web.utils
 import stdlib.crypto
 
-(binary -> string) bindump = %% BslPervasives.bindump %%
-
 type SmtpServer.email = {
   string from,
   list(string) to,
@@ -59,10 +57,8 @@ private type SmtpServer.state = reference({
 
 module SmtpServer {
 
-  bool verbose = true
-
   private module Log {
-    @expand function void gen(f, string msg) { if (verbose) f("SmtpServer", Ansi.printc(msg)) else void }
+    @expand function void gen(f, string msg) { f("SmtpServer", msg) }
     @expand function void info(msg) { gen(@toplevel.Log.info, msg) }
     @expand function void debug(msg) { gen(@toplevel.Log.debug, msg) }
     @expand function void error(msg) { gen(@toplevel.Log.error, msg) }
@@ -239,7 +235,7 @@ module SmtpServer {
       raiclient = state.raiclient
       match (cb) {
       case ~{command, payload}:
-        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        Log.info("command: {command} {payload}")
         match ((is_authenticated(srvrref,stateref),String.lowercase(command))) {
         case (_,"ehlo"):
           send_greeting(srvrref, stateref, payload, true);
@@ -248,7 +244,7 @@ module SmtpServer {
         case ({true},"mail"):
           match (between_angles("from", payload)) {
           case {some:from}:
-            Log.info("from: %g{from}%d")
+            Log.info("from: {from}")
             // TODO: validate email address
             if (state.email.from == "") {
               ServerReference.set(stateref, {state with email:{state.email with ~from}})
@@ -265,7 +261,7 @@ module SmtpServer {
           else {
             match (between_angles("to", payload)) {
             case {some:to}:
-              Log.info("to: %g{to}%d")
+              Log.info("to: {to}")
               ServerReference.set(stateref, {state with email:{state.email with to:[to|state.email.to]}})
               RAIServer.send(raiclient, "250 Ok")
             case {none}:
@@ -320,13 +316,13 @@ module SmtpServer {
       match (cb) {
       case {~data}:
         ServerReference.set(stateref, {state with email:{state.email with body:Iter.cons(data,state.email.body)}});
-        Log.info("%gdata%d")
-        Log.info("data:\n%c{bindump(data)}%d")
+        Log.info("data {Binary.length(data)} bytes")
+        //Log.info("data:\n{%%BslPervasives.bindump%%(data)}")
       case {ready}:
         data = binary_of_string("\r\n")
         ServerReference.set(stateref, ~{state with mode:{quit}, email:{state.email with body:Iter.cons(data,state.email.body)}});
-        Log.info("%rready%d")
-        Log.info("data:\n%c{bindump(data)}%d")
+        Log.info("ready")
+        //Log.info("data:\n{%%BslPervasives.bindump%%(data)}")
         (code, message) = ServerReference.get(srvrref).email_callback({state.email with body:irev(state.email.body)})
         RAIServer.send(raiclient, "{code} {message}");
       default:
@@ -334,16 +330,21 @@ module SmtpServer {
       }
     }
 
+    function void auth_fail(SmtpServer.state stateref) {
+      state = ServerReference.get(stateref)
+      ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
+      RAIServer.send(state.raiclient,"535 5.7.8 Error: authentication failed")
+    }
+
     function void plain_mode(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, RAIServer.client_callback cb) {
       state = ServerReference.get(stateref)
       raiclient = state.raiclient
       match (cb) {
       case ~{command, payload}:
-        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        Log.info("command: {command} {payload}")
         RAIServer.send(raiclient,authplain(srvrref, stateref, command))
       default:
-        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
-        RAIServer.send(raiclient,"535 5.7.8 Error: authentication failed: generic failure")
+        auth_fail(stateref)
       }
     }
 
@@ -352,13 +353,12 @@ module SmtpServer {
       raiclient = state.raiclient
       match (cb) {
       case ~{command, payload}:
-        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        Log.info("command: {command} {payload}")
         username = string_of_binary(Crypto.Base64.decode(command))
         ServerReference.set(stateref, {state with mode:{loginpass}, ~username})
         RAIServer.send(raiclient,"334")
       default:
-        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
-        RAIServer.send(raiclient,"535 5.7.8 Error: authentication failed: generic failure")
+        auth_fail(stateref)
       }
     }
 
@@ -367,12 +367,11 @@ module SmtpServer {
       raiclient = state.raiclient
       match (cb) {
       case ~{command, payload}:
-        Log.info("%mcommand%d: %g{command}%d %y{payload}%d")
+        Log.info("command: {command} {payload}")
         password = string_of_binary(Crypto.Base64.decode(command))
         RAIServer.send(raiclient,check_auth(srvrref, stateref, state.username, password))
       default:
-        ServerReference.set(stateref, {state with mode:{message}, username:"", authenticated:false})
-        RAIServer.send(raiclient,"535 5.7.8 Error: authentication failed: generic failure")
+        auth_fail(stateref)
       }
     }
 
@@ -395,7 +394,7 @@ module SmtpServer {
     }
 
     function void server_callback(SmtpServer.smtp_server srvrref, RAIServer.raiserver raiserver, RAIServer.server_callback cb) {
-      Log.info("%cconnect%d")
+      Log.info("connect")
       srvr = ServerReference.get(srvrref)
       match (cb) {
       case {connect:raiclient}:
@@ -404,14 +403,14 @@ module SmtpServer {
                                            username:"", authenticated:false})
         RAIServer.client_callback(raiserver, raiclient, client_callback(srvrref,stateref,_,_,_))
       case ~{error}:
-        Log.info("Server %r{error.name}%d: %r{error.message}%d\n{error.stack}")
+        Log.info("Server {error.name}: {error.message}\n{error.stack}")
       }
     }
 
     function (int,string) default_email_callback(SmtpServer.email email) {
       Log.info("Email:")
-      Log.info("  From: %y{email.from}%d")
-      List.iter(function (to) { Log.info("  To: %y{to}%d") },List.rev(email.to))
+      Log.info("  From: {email.from}")
+      List.iter(function (to) { Log.info("  To: {to}") },List.rev(email.to))
       Iter.iter(function (bin) { Log.info("  Data:\n{string_of_binary(bin)}") },email.body)
       (250,"Ok")
     }
@@ -436,7 +435,7 @@ module SmtpServer {
     }
 
     function void default_error_callback(V8.Error error) {
-      Log.info("Client %r{error.name}%d: %r{error.message}%d\n{error.stack}")
+      Log.info("Client {error.name}: {error.message}\n{error.stack}")
     }
 
   } // End of SmtpServer_private
