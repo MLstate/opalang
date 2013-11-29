@@ -106,6 +106,14 @@ Binary = {{
   to_hex(data) = to_encoding(data, "hex")
 
   /**
+   * Returns a binary string of a binary [data].
+   * @warning This encoding is deprecated.
+   * @param data The binary data
+   * @return The binary string content of [data]
+   */
+  to_binary(data) = to_encoding(data, "binary")
+
+  /**
    * A generic of_string function.
    * @param encoding is the way where the string is encoded
    * @param data is string data to decode to a binary
@@ -134,6 +142,14 @@ Binary = {{
    * @return The binary representation of hex decoded [data]
    */
   of_hex(data) = of_encoding(data, "hex")
+
+  /**
+   * Convert a binary string to its binary representation.
+   * @warning This encoding is deprecated.
+   * @param data The string to convert
+   * @return The binary representation of binary string [data]
+   */
+  of_binary(data) = of_encoding(data, "binary")
 
   /**
    * Returns the index of the first occurrence of [value] on [binary] after
