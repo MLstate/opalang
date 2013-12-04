@@ -44,7 +44,7 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
     let package = package_name code in
     (* adding internationalisation import *)
     let i18n_to_import = I18nAndComputedString.may_import_package ?package ~exists ~options in
-    let imports =  List.map (fun s -> Package(`import, s), label s) i18n_to_import in
+    let imports =  BaseList.map (fun s -> Package(`import, s), label s) i18n_to_import in
     (name,content,imports @ code)
   in
   let main_file (entry : Qml2jsOptions.extra_lib) =
@@ -61,12 +61,12 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
       (*
         TODO(if needed): we can patch ObjectFiles for passing the conf as well
       *)
-      List.map main_file options.OpaEnv.extrajs
+      BaseList.map main_file options.OpaEnv.extrajs
     )
     ~no_stdlib:(not options.OpaEnv.stdlib)
     extract_package_decl
     (SurfaceAstStaticInclude.pass_analyse_static_include_deps ~options)
-    (List.map map special_parsed_files @ List.map map user_parsed_files)
+    (BaseList.map map special_parsed_files @ BaseList.map map user_parsed_files)
     k
 
 let pass_parser_generation
@@ -128,11 +128,11 @@ let pass_tuple_types ~options:_  lcode =
            (fun n ident acc ->
               let name = Printf.sprintf "tuple_%d" n in
               let var d = Printf.sprintf "%s_%d" name d in
-              let vars = List.init n (fun n -> Ident.next (var n)) in
+              let vars = BaseList.init n (fun n -> Ident.next (var n)) in
               C.T.typedef
-                SurfaceAst.TDV_public ident ~tyvs: (List.map flatvar vars)
-                (C.T.tuple (List.map C.T.var vars))
+                SurfaceAst.TDV_public ident ~tyvs: (BaseList.map flatvar vars)
+                (C.T.tuple (BaseList.map C.T.var vars))
               :: acc)
            intmap [] in
-       let defs = List.map C.C.newtype typedefs in
+       let defs = BaseList.map C.C.newtype typedefs in
        defs @ lcode)

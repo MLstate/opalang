@@ -23,7 +23,7 @@
 module Parser_utils = OpaParserUtils
 
 open Trx_ast
-open SurfaceAstHelper
+(*open SurfaceAstHelper*)
 
 let opt_compile_ranges = true
 

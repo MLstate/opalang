@@ -193,6 +193,9 @@ module My_param_module_that_needs_to_be_rebound_and_named = struct
   let add_edge_e = G.add_edge_e
   let add_edge = G.add_edge
   let add_vertex = G.add_vertex
+  let remove_edge_e = G.remove_edge_e
+  let remove_edge = G.remove_edge
+  let remove_vertex = G.remove_vertex
 end
 
 module Input = Graph.Gml.Parse

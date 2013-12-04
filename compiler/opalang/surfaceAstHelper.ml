@@ -17,11 +17,11 @@
 *)
 
 (* depends *)
-module List = BaseList
+(*module List = BaseList*)
 
 (* TODO remove *)
 open SurfaceAst
-let (|>) = InfixOperator.(|>)
+(*let (|>) = InfixOperator.(|>)*)
 
 (**)
 
@@ -53,8 +53,8 @@ let directive (a,el,t) = Directive (a,el,t)
 (* functions wrapping code_elt constructors *)
 let database (ident,sl,ol) = Database (ident,sl,ol)
 let newdbdef dd = NewDbDef dd
-let newdbvalue (sl,ty) = NewDbDef(QmlAst.Db.Db_TypeDecl(List.map (fun x -> QmlAst.Db.Decl_fld x) sl, ty)) (* transitional *)
-let newdbdefault (sl,e) = NewDbDef(QmlAst.Db.Db_Default(List.map (fun x -> QmlAst.Db.Decl_fld x) sl, e)) (* transitional *)
+let newdbvalue (sl,ty) = NewDbDef(QmlAst.Db.Db_TypeDecl(BaseList.map (fun x -> QmlAst.Db.Decl_fld x) sl, ty)) (* transitional *)
+let newdbdefault (sl,e) = NewDbDef(QmlAst.Db.Db_Default(BaseList.map (fun x -> QmlAst.Db.Decl_fld x) sl, e)) (* transitional *)
 let newtype t = NewType t
 let newval (pel,b) = NewVal (pel,b)
 
@@ -189,15 +189,16 @@ module Record = struct
       | Directive (`coerce, [e], _) -> extract_fields e
       | Directive (`coerce, _, _) -> assert false
       | _ -> assert false (* FIXME *)
+  let (|>) = InfixOperator.(|>)
   let extract_fields_through_letin_before_renaming e =
     match Letin.unletin_before_renaming e |> fst with
       | Record r
       | Directive (`module_, [(Record r, _)], _) -> r
       | _ -> assert false (* FIXME *)
   let field_names r =
-    List.map fst r
+    BaseList.map fst r
   let field_content r =
-    List.map snd r
+    BaseList.map snd r
   let rec is_record (e,_) =
     match e with
       | Directive (`coerce, [e], _) -> is_record e
@@ -214,15 +215,15 @@ module Record = struct
   let is_record_or_module_through_letin_before_renaming e =
     is_record_or_module (Letin.unletin_before_renaming e)
   let map_content f l =
-    List.map (fun (k,v) -> (k, f v)) l
+    BaseList.map (fun (k,v) -> (k, f v)) l
 
   (* CHECK: the fields may not be in the right order ? *)
   let is_tuple r =
-    List.for_alli (fun i (s,_) -> s = "f" ^ string_of_int (i+1)) r && r <> []
+    BaseList.for_alli (fun i (s,_) -> s = "f" ^ string_of_int (i+1)) r && r <> []
 
   let get_tuple r =
     if is_tuple r then
-      Some (List.map snd r)
+      Some (BaseList.map snd r)
     else
       None
 
@@ -241,9 +242,9 @@ module Record = struct
   let rec get_field_opt field e =
     match fst e with
       | Record l ->
-          List.assoc_opt field l
+          BaseList.assoc_opt field l
       | ExtendRecord (l, e) ->
-          ( match List.assoc_opt field l with
+          ( match BaseList.assoc_opt field l with
               | None -> get_field_opt field e
               | Some _ as v -> v
           )
@@ -259,19 +260,19 @@ module Record = struct
    *)
   let rec get_fields e =
     match fst e with
-      | Record l -> List.map fst l
-      | ExtendRecord (l, e) -> List.map fst l @ get_fields e
+      | Record l -> BaseList.map fst l
+      | ExtendRecord (l, e) -> BaseList.map fst l @ get_fields e
       | Directive (`coerce, [e], _) -> get_fields e
       | _ -> []
   let get_fields_filter fields e =
-    List.map (fun field -> get_field field e) fields
+    BaseList.map (fun field -> get_field field e) fields
   let has_field field e =
     Option.is_some (get_field_opt field e)
 
   let rec get_field_opt_p field p =
     match fst p with
       | PatRecord (l, _) ->
-          List.assoc_opt field l
+          BaseList.assoc_opt field l
       | PatCoerce (p,_) ->
           get_field_opt_p field p
       | _ ->
@@ -279,7 +280,7 @@ module Record = struct
 
   let rec get_fields_p p =
     match fst p with
-      | PatRecord (l, _) -> List.map fst l
+      | PatRecord (l, _) -> BaseList.map fst l
       | PatCoerce (p,_) -> get_fields_p p
       | _ -> []
 
@@ -303,7 +304,7 @@ struct
   let get_list e =
     let rec aux acc e =
       match fst e with
-        | Record [("nil", _)] -> List.rev acc
+        | Record [("nil", _)] -> BaseList.rev acc
         | Record [("hd",e1);("tl",e2)] -> aux (e1 :: acc) e2
         | Record [("tl",e1);("hd",e2)] -> aux (e2 :: acc) e1
         | Directive (`coerce, [e], _) -> aux acc e
@@ -381,7 +382,7 @@ end
 module TypeRecord =
 struct
   let field_names (TyRow (fields,_)) =
-    List.map fst fields
+    BaseList.map fst fields
   let get_tuple_length s =
     try
       Scanf.sscanf s "tuple_%d" (fun i -> if i > 0 then Some i else None)
@@ -427,6 +428,6 @@ struct
       aux [] (*[]*) e
 
   let dot_to_app_safe e path =
-    List.fold_left (fun e (s,label) -> (Dot (e, s), label)) e path
+    BaseList.fold_left (fun e (s,label) -> (Dot (e, s), label)) e path
 
 end

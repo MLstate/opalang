@@ -185,32 +185,32 @@ module ExprTraverse =
         let map_down fd f e =
           let rec aux e =
             let build, l = SExpr.sub_expr' fd (f e) in
-            let l = List.map aux l in
+            let l = BaseList.map aux l in
             build l in
           aux e
         let lift_map_down fd f code =
           let build, l = SExpr.sub_code code in
-          let l = List.map (fun e -> map_down fd f e) l in
+          let l = BaseList.map (fun e -> map_down fd f e) l in
           build l
         let map_down_to_fixpoint fd f e =
           let rec aux e =
             let e' = f e in
             if e' == e then
               let build, l = SExpr.sub_expr' fd e in
-              let l = List.map aux l in
+              let l = BaseList.map aux l in
               build l
             else
               aux e' in
           aux e
         let lift_map_down_to_fixpoint fd f code =
           let build, l = SExpr.sub_code code in
-          let l = List.map (fun e -> map_down_to_fixpoint fd f e) l in
+          let l = BaseList.map (fun e -> map_down_to_fixpoint fd f e) l in
           build l
         let foldmap_down fd f acc e =
           let rec aux acc e =
             let acc, e = f acc e in
             let build, l = SExpr.sub_expr' fd e in
-            let acc, l = List.fold_left_map aux acc l in
+            let acc, l = BaseList.fold_left_map aux acc l in
             acc, build l in
           aux acc e
         let foldmap = foldmap_down
@@ -218,7 +218,7 @@ module ExprTraverse =
         let traverse_foldmap fd f acc e =
           let rec tra acc e =
             let build, l = SExpr.sub_expr' fd e in
-            let acc, l = List.fold_left_map (f tra) acc l in
+            let acc, l = BaseList.fold_left_map (f tra) acc l in
             acc, build l
           in f tra acc e
 
@@ -252,12 +252,12 @@ struct
             match get_name_and_expr_if_local h with
               | None ->
                   (* case after dependency analysis *)
-                  assert (List.for_all (Option.is_none @* get_name_and_expr_if_local) r);
+                  assert (BaseList.for_all (Option.is_none @* get_name_and_expr_if_local) r);
                   None
               | Some _ ->
                   (* before and while dependency analysis *)
                   Some (
-                    List.fold_right
+                    BaseList.fold_right
                       (fun fe (env,r) ->
                          let (field,name,e) = get_local_name_and_expr fe in
                            (add_env env name (Some e), (field,e) :: r))
@@ -296,14 +296,14 @@ struct
                   | None ->
                       tra env acc expr )
           | LetIn (rec_, bnd, expr) ->
-              let full_env = List.fold_left add_bnd env bnd in
+              let full_env = BaseList.fold_left add_bnd env bnd in
               let local_env = if rec_ then full_env else env in
               let acc =
-                List.fold_left (fun acc (_,expr) -> process_expr tra local_env acc expr) acc bnd in
+                BaseList.fold_left (fun acc (_,expr) -> process_expr tra local_env acc expr) acc bnd in
               process_expr tra full_env acc expr
           | Match (expr, pel) ->
               let acc = process_expr tra env acc expr in
-              List.fold_left (process_pattern_expr tra env) acc pel
+              BaseList.fold_left (process_pattern_expr tra env) acc pel
           | _ -> tra env acc expr in
     ExprTraverse.traverse_fold_context_down process_expr env acc expr
 
@@ -334,7 +334,7 @@ end
 module Code =
 struct
   let get_pattern_expr code =
-    List.concat_map (function
+    BaseList.concat_map (function
                     | (NewVal (pel,_), _) -> pel
                     | _ -> []
                  ) code

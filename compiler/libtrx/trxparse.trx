@@ -158,7 +158,7 @@ CodeRange <- (":_" Spacing)? {{ __1 <> None }}
 StoppableCode <- ("!!" Spacing)? {{ __1 <> None }}
 
 let code_aux beg end =
-  beg Spacing StoppableCode CodeRange ((!end .)* $_) end {{ __4, (if (__3 && _stoppable) or (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5) }} 
+  beg Spacing StoppableCode CodeRange ((!end .)* $_) end {{ __4, (if (__3 && _stoppable) || (not _stoppable) then __5 else Printf.sprintf "Some (%s)" __5) }} 
 
 DefaultCode <- (=code_aux(BEGIn, ENd)) {{ let (u, v) = __1 in u, v, Some(current_location _file_name _pos_beg), true }}
              / (=code_aux(BEGIN, END))   {{ let (u, v) = __1 in u, v, Some(current_location _file_name _pos_beg), false }}

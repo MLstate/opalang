@@ -481,7 +481,7 @@ let infer_memoization_options ?(memo_default=T.MemoFull) peg =
 (*     e -> *)
 (*       let _, _, _, last_ok = positions ... *)
 (*       raise e *)
-let grammar_of_pre_grammar ~analyze ~memo_default ~unfold_starplus start_opt pg =
+let grammar_of_pre_grammar ~analyze ?memo_default ~unfold_starplus start_opt pg =
   let pg = rewrite_funs pg in
   let used = check_grammar ~analyze pg.P.defs in
   (* FIXME: ne conserver que used dans pg, renvoyer juste pg en type abstrait ! *)
