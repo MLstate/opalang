@@ -64,7 +64,7 @@ let is_hex c = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && 
 let is_lower c = c >= 'a' && c <= 'z'
 let is_upper c = c >= 'A' && c <= 'Z'
 
-let is_alpha c = is_digit c or is_lower c or is_upper c
+let is_alpha c = is_digit c || is_lower c || is_upper c
 
 let pred a = (Obj.magic (pred (Obj.magic a)) : char)
 let succ a = (Obj.magic (succ (Obj.magic a)) : char)

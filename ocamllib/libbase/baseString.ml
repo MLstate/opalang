@@ -223,7 +223,7 @@ let remove_trail s =
     else
       let pm = pred p in
       let c = unsafe_get s pm in
-      if c = '\n' or c = '\r' then aux pm
+      if c = '\n' || c = '\r' then aux pm
       else sub s 0 p
   in aux l
 
@@ -369,7 +369,7 @@ let for_all f s = not (exists (fun c -> not (f c)) s)
 let equal_insensitive s1 s2 =
   let l = length s1 in
   let rec aux i =
-    i=l or (Char.equal_insensitive (unsafe_get s1 i) (unsafe_get s2 i) && aux (succ i))
+    i=l || (Char.equal_insensitive (unsafe_get s1 i) (unsafe_get s2 i) && aux (succ i))
   in
   l = length s2 && aux 0
 
@@ -377,7 +377,7 @@ let compare_insensitive s1 s2 =
   let l1 = length s1
   and l2 = length s2 in
   let rec aux i =
-    if i=l1 or i=l2 then compare_int l1 l2
+    if i=l1 || i=l2 then compare_int l1 l2
     else
       let c = Char.compare_insensitive (unsafe_get s1 i) (unsafe_get s2 i) in
       if c = 0 then aux (succ i) else c
@@ -415,7 +415,7 @@ let is_substring s s1 p1 =
   if p1 < 0 then invalid_arg "String.is_substring" else
     let l = length s and l1 = length s1 in
     let rec aux p =
-      p = l or (
+      p = l || (
         let pp1 = p1 + p in
         pp1 < l1 && unsafe_get s p = unsafe_get s1 pp1 && aux (succ p)
       )
@@ -427,7 +427,7 @@ let is_substring_compare compare s s1 p1 =
   and l1 = length s1 in
   let rec aux p =
     let pp1 = p1 + p in
-    p = l or (pp1 < l1 &&
+    p = l || (pp1 < l1 &&
                 compare (unsafe_get s p) (unsafe_get s1 pp1) = 0
         && aux (succ p))
   in
@@ -713,7 +713,7 @@ let limit lim s =
 let limit_width lim s =
   let l = length s in
   let rec aux sum pos =
-    if pos = l or sum >= lim then pos
+    if pos = l || sum >= lim then pos
     else
       let w = Char.width (unsafe_get s pos) in
       aux (sum + w) (succ pos)

@@ -551,7 +551,7 @@ struct
   let p_attr_value i =                                   (* {S}? {AttValue} *)
     skip_white i;
     let delim =
-      if i.c = u_quot or i.c = u_apos then i.c else
+      if i.c = u_quot || i.c = u_apos then i.c else
       err_expected_chars i [ u_quot; u_apos]
     in
     nextc i;
@@ -570,7 +570,7 @@ struct
       if not (is_white i.c) then pre_acc, acc else
       begin
         skip_white i;
-        if i.c = u_slash or i.c = u_gt then pre_acc, acc else
+        if i.c = u_slash || i.c = u_gt then pre_acc, acc else
         begin
           let (prefix, local) as n = p_qname i in
           let v = skip_white i; accept i u_eq; p_attr_value i in
@@ -767,7 +767,7 @@ struct
                   end
               end
           end
-        else if i.c = u_quot or i.c = u_apos then
+        else if i.c = u_quot || i.c = u_apos then
           begin
             let c = i.c in
             buf c; nextc i;

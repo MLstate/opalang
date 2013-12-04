@@ -169,10 +169,10 @@ struct
         let sl = size l
         and sr = size r in
         if sl = 0 then
-          if sr = 0 or Random.int (sr + 1) = 0 then v, d
+          if sr = 0 || Random.int (sr + 1) = 0 then v, d
           else random r
         else if sr = 0 then
-          if sl = 0 or Random.int (sl + 1) = 0 then v, d
+          if sl = 0 || Random.int (sl + 1) = 0 then v, d
           else random l
         else
           match Random.int (sl + sr + 1) with

@@ -42,7 +42,7 @@ let uchar s pos =
 (** benchmark vs FUNC *)
 let ulength_of_string s =
   let l = ref 0 in
-  String.iter (fun x -> if x < '\128' or (x >= '\192' && x < '\248') then incr l) s ;
+  String.iter (fun x -> if x < '\128' || (x >= '\192' && x < '\248') then incr l) s ;
   !l
 
 let length_of_ustring us =

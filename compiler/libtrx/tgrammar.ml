@@ -139,7 +139,7 @@ module P = PreGrammar
 let rec def_map_to_string ?cf dm =
   StringMap.fold (
     fun x y acc ->
-      Printf.sprintf "%s%s%s%s%s%s <- %s" acc (if y.P.mark & (not y.P.debug) & (not (acc = "")) then ";" else "") (if acc = "" then "" else "\n\n") (if y.P.debug then "%" else "") (if y.P.mark then "+" else "") x (def_to_string ?cf y)
+      Printf.sprintf "%s%s%s%s%s%s <- %s" acc (if y.P.mark && (not y.P.debug) && (not (acc = "")) then ";" else "") (if acc = "" then "" else "\n\n") (if y.P.debug then "%" else "") (if y.P.mark then "+" else "") x (def_to_string ?cf y)
   ) dm ""
 and def_to_string ?cf d =
   expr_to_string ?cf d.P.expression
@@ -305,8 +305,8 @@ let match_char c l =
   let rec aux = function
     | [] -> false
     | Any::_ -> true
-    | (One c1)::tl -> c1 = c or aux tl
-    | (Range (c1, c2))::tl -> (c >= c1 && c <= c2) or aux tl
+    | (One c1)::tl -> c1 = c || aux tl
+    | (Range (c1, c2))::tl -> (c >= c1 && c <= c2) || aux tl
   in aux l
 
 let str2memo_type = function

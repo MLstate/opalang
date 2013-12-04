@@ -256,7 +256,7 @@ let build_ids ?(tag="id") xml =
         let mem = StringMap.mem value acc in
         #<If> if mem then
               debug "Warning: id %s is defined several times" value #<End>;
-        StringMap.add value id acc, mem or err
+        StringMap.add value id acc, mem || err
       else (acc, err)
   ) xml.nodes (StringMap.empty, false)
 

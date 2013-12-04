@@ -449,7 +449,7 @@ let rec iter_dir_rec ?(showdir=false) f d =
       | Unix.S_REG -> f ~name:x ~path
       | Unix.S_DIR ->
           if showdir && x="." then f ~name:x ~path:d
-          else if x="." or x=".." then ()
+          else if x="." || x=".." then ()
           else iter_dir_rec f path ~showdir
       | _ -> ()
     done
@@ -466,7 +466,7 @@ let fold_dir_rec f i d =
       match st.Unix.st_kind with
       | Unix.S_REG -> aux d dh (f r ~name:x ~path)
       | Unix.S_DIR ->
-          if x="." or x=".." then aux d dh r
+          if x="." || x=".." then aux d dh r
           else aux d dh (aux path (Unix.opendir path) r)
       | _ -> aux d dh r
     with
