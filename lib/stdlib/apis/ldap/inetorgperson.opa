@@ -147,7 +147,7 @@ module InetOrgPerson {
 
   }
 
-  private function lst(name, json, rcrd, cur, set) {
+  private function lst(_name, json, rcrd, cur, set) {
     //Ansi.jlog("lst: name=%y{name}%d cur=%m{cur}%d json=%g{json}%d");
     match (json) {
     case {~String}:
@@ -170,7 +170,7 @@ module InetOrgPerson {
     }
   }
 
-  private function opt(name, json, rcrd, cur, set) { // ie. SINGLE-VALUE
+  private function opt(_name, json, rcrd, cur, set) { // ie. SINGLE-VALUE
     //Ansi.jlog("opt: name=%y{name}%d cur=%m{cur}%d json=%g{json}%d");
     function chk(String) {
       match (cur) {
