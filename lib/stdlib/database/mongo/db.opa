@@ -426,7 +426,7 @@ Then use option --db-remote instead of --db-local.
 
     default_archive =
       arch = "x86_64" // TODO 32 BITS
-      ver  = "2.0.2"
+      ver  = "2.4.8"
       Option.map(os -> "mongodb-{os}-{arch}-{ver}", os)
 
     default_url =
