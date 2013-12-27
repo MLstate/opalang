@@ -403,7 +403,7 @@ DbMongo = {{
 Please download and init MongoDB yourself.
 Download : http://www.mongodb.org/downloads
 Quick start: http://www.mongodb.org/display/DOCS/Quickstart
-Then use option --db-remote instead of --db-local.
+Then use 'opa --db-remote' instead of '--db-local'.
 ")
 
     jlog(msg) = Log.notice("DbGen/Mongo", msg)
