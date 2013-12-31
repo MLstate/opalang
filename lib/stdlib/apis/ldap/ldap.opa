@@ -14,6 +14,8 @@ package stdlib.apis.ldap
 
 import-plugin mail
 
+import stdlib.crypto
+
 /**
  * Ldap client binding for OPA.
  *
@@ -77,6 +79,13 @@ type Ldap.operation =
  or {add}
  or {delete}
 
+// The ints are the lengths of the salts
+type Ldap.SlapPasswd.algorithm =
+    {md5}
+ or {int smd5}
+ or {sha}
+ or {int ssha}
+
 module Ldap {
 
   function Ldap.ldap create(Ldap.options options) {
@@ -126,6 +135,58 @@ module Ldap {
   function void unbind(Ldap.ldap ldap, (outcome(void,string) -> void) callback) {
     %%bslLdap.unbindLdap%%(ldap, Continuation.make(callback))
   }
+
+  module SlapPasswd {
+
+    function string string_of_algorithm(Ldap.SlapPasswd.algorithm alg) {
+      match (alg) {
+      case {md5}: "MD5";
+      case {smd5:_}: "SMD5";
+      case {sha}: "SHA";
+      case {ssha:_}: "SSHA";
+      }
+    }
+
+    function bool check(string slappasswd, string passwd) {
+      len = String.length(slappasswd)
+      if (len < 29 || String.sub(0,1,slappasswd) != "\{")
+        false
+      else {
+        match (String.index("}",slappasswd)) {
+        case {none}: false;
+        case {some:i}:
+          alg = String.lowercase(String.sub(1,i-1,slappasswd))
+          encoded = String.sub(i+1,len-(i+1),slappasswd)
+          decoded = Crypto.Base64.decode(encoded)
+          dlen = Binary.length(decoded)
+          hlen = match (alg) { case "md5" case "smd5": 16; case "sha" case "ssha": 20; default: 0; }
+          data = Binary.get_binary(decoded,0,hlen)
+          salt = Binary.get_binary(decoded,hlen,dlen-hlen)
+          match (String.lowercase(alg)) {
+          case "ssha" case "sha": Crypto.Salt.check_sha1(binary_of_string(passwd), ~{data, salt})
+          case "smd5" case "md5": Crypto.Salt.check_md5(binary_of_string(passwd), ~{data, salt})
+          default: false;
+          }
+        }
+      }
+    }
+
+    function string generate(Ldap.SlapPasswd.algorithm alg, binary data) {
+      ~{data, salt} =
+        match (alg) {
+        case {md5}: Crypto.Salt.md5(data, 0);
+        case {smd5:salt_length}: Crypto.Salt.md5(data, salt_length);
+        case {sha}: Crypto.Salt.sha1(data, 0);
+        case {ssha:salt_length}: Crypto.Salt.sha1(data, salt_length);
+        }
+      decoded = Binary.create(Binary.length(data)+Binary.length(salt))
+      Binary.add_binary(decoded,data)
+      Binary.add_binary(decoded,salt)
+      encoded = Crypto.Base64.encode(decoded)
+      "\{{string_of_algorithm(alg)}}{encoded}";
+    }
+
+  } // module SlapPasswd
 
 }
 
