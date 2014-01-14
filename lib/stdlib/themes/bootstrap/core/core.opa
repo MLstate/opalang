@@ -101,7 +101,7 @@ Bootstrap = {{
 
   @package
   import_font_awesome() =
-    match Map.get("{font_awesome_resources_path}/css/font-awesome.css", uri_font_awesome)
+    match Map.get("{font_awesome_resources_path}/css/font-awesome.min.css", uri_font_awesome)
     {none} -> void
     {some=uri} -> Resource.register_external_css(uri)
 
@@ -131,11 +131,17 @@ Bootstrap = {{
 
   @package
   import_css(v:string) = // css, no icons, no responsive
-    import_bs("{bs_resources_path}/{v}/css/bootstrap-css.min.css")
+    fname = 
+      if String.lt(v, "3.0.0") then
+        "bootstrap-css.min.css"
+      else
+        "bootstrap.min.css"
+    import_bs("{bs_resources_path}/{v}/css/{fname}")
 
   @package
   import_responsive_css(v:string) = // responsive only
-    import_bs("{bs_resources_path}/{v}/css/bootstrap-responsive.min.css")
+    if String.lt(v, "3.0.0") then
+      import_bs("{bs_resources_path}/{v}/css/bootstrap-responsive.min.css")
 
   @package
   import_icons(v:string) = // icons only
@@ -145,6 +151,12 @@ Bootstrap = {{
       void
 
   /**
+   * Latest version of Bootstrap included in Opa
+   */
+  latest = "3.0.3"
+  theme_path = "{bs_resources_path}/{latest}/css/bootstrap-theme.min.css"
+
+  /**
    * Import a specific version of Bootstrap, with its icons
    */
   import(v:string) = // css, icons
@@ -152,9 +164,9 @@ Bootstrap = {{
     fallback_url(v) // fallback to github
     |> Resource.register_external_css(_)
 
-  /**
-   * Latest version of Bootstrap included in Opa
-   */
-  latest = "2.2.1"
+  set_theme(path) =
+    path = path ? theme_path
+    do import_bs(path)
+    void
 
 }}
