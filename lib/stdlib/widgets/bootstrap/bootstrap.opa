@@ -13,7 +13,8 @@
 /**
  * Bootstrapped widgets library.
  *
- * @author Frederic Ye 2011-2012
+ * @author Frederic Ye
+ * @author Henri Binsztok
  * @category WIDGET
  * @destination PUBLIC
  * @stability EXPERIMENTAL
@@ -48,9 +49,11 @@ type WBootstrap.Responsive.visibility =
   {visible_phone}
 / {visible_tablet}
 / {visible_desktop}
+/ {visible_large}
 / {hidden_phone}
 / {hidden_tablet}
 / {hidden_desktop}
+/ {hidden_large}
 
 // List
 
@@ -95,6 +98,7 @@ type WBootstrap.Table.decoration =
   {bordered}
 / {striped}
 / {condensed}
+/ {hover}
 
 type WBootstrap.Table.decorations = list(WBootstrap.Table.decoration)
 
@@ -145,7 +149,7 @@ type WBootstrap.BadgeLabel.importance =
 / {warning}
 / {important}
 / {info}
-/ {inverse}
+/ {primary}
 
 // Alert
 
@@ -172,7 +176,7 @@ type WBootstrap.Alert.content = {
  *
  * {1 Where should I start?}
  *
- * Your pages needs the HTML5 doctype.
+ * Your pages need the HTML5 doctype.
  *
  * {1 Compatibility?}
  *
@@ -215,9 +219,9 @@ WBootstrap = {{
       <div>{
         @toplevel.List.map(~{span offset content} ->
           offset = match offset
-                   {some=ofs} -> " offset{ofs}"
+                   {some=ofs} -> " col-md-offset-{ofs}"
                    {none} -> ""
-          <div class="span{span}{offset}">{content}</div>
+          <div class="col-md-{span}{offset}">{content}</div>
         , columns)
       }</div>
 
@@ -232,10 +236,11 @@ WBootstrap = {{
     /**
      * Create a fluid row
      *
+     * Deprecated in Bootstrap 3
      * @param columns a list of WBootstrap.Grid.column
      * @see {!WBootstrap.Grid.column} for column restrictions
      */
-    row_fluid(cols) = row_private(cols) |> Xhtml.update_class("row-fluid", _)
+    row_fluid = row
 
   }}
 
@@ -266,12 +271,14 @@ WBootstrap = {{
     decorate(visibilities:list(WBootstrap.Responsive.visibility), xhtml:xhtml) =
       @toplevel.List.fold(visibility, acc ->
         cl = match visibility
-             | {visible_phone} -> "visible-phone"
-             | {visible_tablet} -> "visible-tablet"
-             | {visible_desktop} -> "visible-desktop"
-             | {hidden_phone} -> "hidden-phone"
-             | {hidden_tablet} -> "hidden-tablet"
-             | {hidden_desktop} -> "hidden-desktop"
+             | {visible_phone} -> "visible-xs"
+             | {visible_tablet} -> "visible-sm"
+             | {visible_desktop} -> "visible-md"
+             | {visible_large} -> "visible-lg"
+             | {hidden_phone} -> "hidden-xs"
+             | {hidden_tablet} -> "hidden-sm"
+             | {hidden_desktop} -> "hidden-md"
+             | {hidden_large} -> "hidden-lg"
         Xhtml.update_class(cl, acc)
       , visibilities, xhtml)
 
@@ -371,7 +378,7 @@ WBootstrap = {{
      * Create an unordered and unstyled list
      */
     unstyled(list:list(xhtml)) =
-      unordered(list) |> Xhtml.update_class("unstyled", _)
+      unordered(list) |> Xhtml.update_class("list-unstyled", _)
 
     /**
      * Create an ordered list
@@ -402,21 +409,22 @@ WBootstrap = {{
     make_simple(content:xhtml) =
       <span>{content}</span> |> Xhtml.update_class(t, _)
 
+    dfault = Xhtml.update_class("{t}-default", _)
     success = Xhtml.update_class("{t}-success", _)
     warning = Xhtml.update_class("{t}-warning", _)
-    important = Xhtml.update_class("{t}-important", _)
+    important = Xhtml.update_class("{t}-danger", _)
     info = Xhtml.update_class("{t}-info", _)
-    inverse = Xhtml.update_class("{t}-inverse", _)
+    primary = Xhtml.update_class("{t}-primary", _)
 
     make(text:xhtml, importance:WBootstrap.BadgeLabel.importance) =
       lb = make_simple(text)
       lb = match importance
-          {default} -> lb
+          {default} -> lb |> dfault(_)
           {success} -> lb |> success(_)
           {warning} -> lb |> warning(_)
           {important} -> lb |> important(_)
           {info} -> lb |> info(_)
-          {inverse} -> lb |> inverse(_)
+          {primary} -> lb |> primary(_)
       lb
 
   }}
@@ -444,6 +452,7 @@ WBootstrap = {{
             </a> |> add_href_opt(img.href, _)
         , imgs)
       List.unordered(list) |> Xhtml.update_class("thumbnails", _)
+      // thumbnails class does not exist in Bootstrap 3 anymore
 
   }}
 
@@ -491,6 +500,7 @@ WBootstrap = {{
              {bordered} -> "table-bordered"
              {striped} -> "table-striped"
              {condensed} -> "table-condensed"
+             {hover} -> "table-hover"
         Xhtml.update_class(cl, acc)
       , decorations, xhtml)
 
@@ -509,6 +519,11 @@ WBootstrap = {{
      */
     condensed(h, b) = table(h, b, [{condensed}])
 
+    /**
+     * Create a hover table
+     */
+    hover(h, b) = table(h, b, [{hover}])
+
   }}
 
   Form = {{
@@ -516,19 +531,17 @@ WBootstrap = {{
     // TODO
 
     classic(content:xhtml) =
-      <form action="javascript:void(0);">{content}</form>
-
-    vertical(content:xhtml) =
-      <form action="javascript:void(0);" class="form-vertical">{content}</form>
+      <form role="form" action="javascript:void(0);">{content}</form>
 
     horizontal(content:xhtml) =
-      <form action="javascript:void(0);" class="form-horizontal">{content}</form>
+      <form role="form" action="javascript:void(0);" class="form-horizontal">{content}</form>
 
     inline(content:xhtml) =
-      <form action="javascript:void(0);" class="form-inline">{content}</form>
+      <form role="form" action="javascript:void(0);" class="form-inline">{content}</form>
 
-    search(content:xhtml) =
-      <form action="javascript:void(0);" class="form-search">{content}</form>
+    // removed in Bootstrap 3
+    vertical = classic
+    search = classic
 
     Fieldset = {{
 
@@ -536,7 +549,7 @@ WBootstrap = {{
         <>
           {match legend {some=l} -> <legend>{l}</legend> {none} -> <></>}
           {@toplevel.List.map(
-            e -> <div class="control-group">{e}</div>
+            e -> <div class="form-group">{e}</div>
            , elements)}
         </>
 
@@ -544,18 +557,19 @@ WBootstrap = {{
 
   }}
 
+  // TODO: add active
   Button = {{
 
     make_button(content:xhtml, callback:(Dom.event -> void)) =
-      <button onclick={callback}>{content}</button>
+      <button type="button" onclick={callback}>{content}</button>
       |> Xhtml.update_class("btn", _) // CAUTION: cannot use class="btn" (see on top)
 
     make_no_propagation_button(content:xhtml, callback:(Dom.event -> void)) =
-      <button onclick={callback} options:onclick={[{stop_propagation}]}>{content}</button>
+      <button type="button" onclick={callback} options:onclick={[{stop_propagation}]}>{content}</button>
       |> Xhtml.update_class("btn", _) // CAUTION: cannot use class="btn" (see on top)
 
     make_link(content:xhtml, href:option(string), callback:(Dom.event -> void)) =
-      <a onclick={callback}>{content}</a>
+      <a role="button" onclick={callback}>{content}</a>
       |> Xhtml.update_class("btn", _)
       |> add_href_opt(href, _)
 
@@ -563,15 +577,16 @@ WBootstrap = {{
       <input type="button" value="{text}" onclick={callback}/>
       |> Xhtml.update_class("btn", _)
 
+    dfault = Xhtml.update_class("btn-default", _)
     primary = Xhtml.update_class("btn-primary", _)
     info = Xhtml.update_class("btn-info", _)
     success = Xhtml.update_class("btn-success", _)
     danger = Xhtml.update_class("btn-danger",_)
     warning = Xhtml.update_class("btn-warning",_)
     inverse = Xhtml.update_class("btn-inverse",_)
-    large = Xhtml.update_class("btn-large", _)
-    small = Xhtml.update_class("btn-small", _)
-    mini = Xhtml.update_class("btn-mini", _)
+    large = Xhtml.update_class("btn-lg", _)
+    small = Xhtml.update_class("btn-sm", _)
+    mini = Xhtml.update_class("btn-xs", _)
     disabled = Xhtml.update_class("disabled", _) // FIXME: incomplete on buttons and inputs (see below)
 
     /**
@@ -604,7 +619,7 @@ WBootstrap = {{
                    , bt_options_list, {class={default} size={normal} disabled=false})
 
       bt = match bt_options.class
-          {default} -> bt
+          {default} -> bt |> dfault(_)
           {primary} -> bt |> primary(_)
           {info} -> bt |> info(_)
           {success} -> bt |> success(_)
@@ -642,7 +657,7 @@ WBootstrap = {{
      * Create a toolbar of buttons group
      */
     toolbar(groups:list(WBootstrap.Button.group)) =
-      <div class="btn-toolbar">{
+      <div role="toolbar" class="btn-toolbar">{
         @toplevel.List.map(bt_group ->
           group(bt_group)
         , groups)
@@ -665,7 +680,7 @@ WBootstrap = {{
          |> Xhtml.add_attribute_unsafe("data-toggle", "dropdown", _)
     <div class="btn-group">
       {bt}
-      <ul class="dropdown-menu">{
+      <ul class="dropdown-menu" role="menu">{
         @toplevel.List.map(Navigation.nav_elt_to_xhtml(false, identity), list)
       }</ul>
     </div>
@@ -686,7 +701,7 @@ WBootstrap = {{
     <div class="btn-group">
       {make(bt_type, bt_options_list)}
       {bt}
-      <ul class="dropdown-menu">{
+      <ul class="dropdown-menu" role="menu">{
         @toplevel.List.map(Navigation.nav_elt_to_xhtml(false, identity), list)
       }</ul>
     </div>
@@ -719,19 +734,39 @@ WBootstrap = {{
       | {divider} -> <li class="divider{if vertical_sep then "-vertical" else ""}"></li>
       | {~custom_li} -> custom_li
 
+    navbar_header(brand) =
+      target = Random.string(20)
+      html = 
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#{target}">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          {brand}
+        </div>
+      (html, target)
+
     /**
      * Create a navbar
      */
-    navbar(content:xhtml) =
-      <div data-spy="scroll">
-        <div class="navbar-inner">{content}</div>
-      </div> |> Xhtml.update_class("navbar", _)
+    navbar(content:xhtml, brand:xhtml, style:{default}/{inverse}) =
+      (header, brand_target) = navbar_header(brand)
+      style_name = match style
+        {default} -> "default"
+        {inverse} -> "inverse"
+      <nav class="navbar navbar-{style_name}" data-spy="scroll" role="navigation">
+        {header}
+        <div class="collapse navbar-collapse" id="{brand_target}">{content}</div>
+      </nav> 
+      // |> Xhtml.update_class("navbar", _)
 
     /**
      * Create a fixed navbar (top or bottom)
      */
-    fixed_navbar(content:xhtml, location:{top}/{bottom}) =
-      xhtml = navbar(content)
+    fixed_navbar(content:xhtml, brand, location:{top}/{bottom}, style) =
+      xhtml = navbar(content, brand, style)
       cl = if location == {top} then "top" else "bottom"
       Xhtml.update_class("navbar-fixed-{cl}", xhtml)
 
@@ -742,8 +777,8 @@ WBootstrap = {{
      */
     brand(brand:xhtml, href:option(string), callback:(Dom.event -> void)) =
       html = match href
-             {none} -> <span class="brand" onclick={callback}>{brand}</span>
-             {some=_} -> <a class="brand" onclick={callback}>{brand}</a>
+             {none} -> <span class="navbar-brand" onclick={callback}>{brand}</span>
+             {some=_} -> <a class="navbar-brand" onclick={callback}>{brand}</a>
       add_href_opt(href, html)
 
     /**
