@@ -88,7 +88,7 @@ type Ldap.SlapPasswd.algorithm =
 
 module Ldap {
 
-  function Ldap.ldap create(Ldap.options options) {
+  function outcome(Ldap.ldap,string) create(Ldap.options options) {
     %%bslLdap.createLdap%%(options)
   }
 
