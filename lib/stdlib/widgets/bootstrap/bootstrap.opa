@@ -789,7 +789,7 @@ WBootstrap = {{
         {<a class="dropdown-toggle"
              data-toggle="dropdown">{toggle}</a>
          |> add_href_opt(href, _)}
-        <ul class="dropdown-menu">{
+        <ul class="dropdown-menu" role="menu">{
           @toplevel.List.map(nav_elt_to_xhtml(false, identity), list)
         }</ul>
       </li>
@@ -803,7 +803,10 @@ WBootstrap = {{
           else identity)
 
     nav(l, stacked) = make_tabs("", l, stacked, identity)
-    tabs(l, stacked) = make_tabs("nav-tabs", l, stacked, Xhtml.add_attribute_unsafe("data-toggle", "tab", _))
+    tabs(l, stacked, justified) = 
+      make_tabs("nav-tabs", l, stacked, Xhtml.add_attribute_unsafe("data-toggle", "tab", _))
+      |> (if justified then Xhtml.update_class("nav-justified", _)
+          else identity)
     pills(l, stacked) = make_tabs("nav-pills", l, stacked, Xhtml.add_attribute_unsafe("data-toggle", "pill", _))
 
     // TODO: nav-list, tabbable nav
@@ -823,7 +826,7 @@ WBootstrap = {{
     pagination(pages:list(WBootstrap.Navigation.elt),
                prev:WBootstrap.Navigation.page_nav_elt,
                next:WBootstrap.Navigation.page_nav_elt,
-               alignment:{left}/{centered}/{right}) =
+               size:{default}/{small}/{large}) =
       list = @toplevel.List.map(nav_elt_to_xhtml(true, identity), pages)
       is_disabled(l) = if @toplevel.List.is_empty(l)
                           || (match @toplevel.List.head(l) {active=_ href=_ onclick=_} -> true _ -> false)
@@ -843,10 +846,10 @@ WBootstrap = {{
           </li>
         </ul>
       </div>
-      |> (match alignment
-          {centered} -> Xhtml.update_class("pagination-centered", _)
-          {left} -> identity
-          {right} -> Xhtml.update_class("pagination-right", _))
+      |> (match size
+          {default} -> identity
+          {small} -> Xhtml.update_class("pagination-sm", _)
+          {large} -> Xhtml.update_class("pagination-lg", _))
 
     // TODO: pager
 
@@ -879,7 +882,7 @@ WBootstrap = {{
       gen_make(closable, content, some(4), more) |> Xhtml.update_class("alert-block", _)
 
     warning = Xhtml.update_class("alert-warning", _)
-    error = Xhtml.update_class("alert-error", _)
+    error = Xhtml.update_class("alert-danger", _)
     success = Xhtml.update_class("alert-success", _)
     info = Xhtml.update_class("alert-info", _)
 

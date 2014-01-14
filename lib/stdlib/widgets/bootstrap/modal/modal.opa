@@ -49,18 +49,22 @@ Modal = {{
 
   @both
   make(id:string, title:xhtml, body:xhtml, footer:xhtml, options:Modal.options) =
-    <div id="{id}" class="modal hide fade"
+    <div id="{id}" class="modal fade"
          role="dialog" aria-hidden="true"
          onready={_->init(#{id}, options)}>
-      <div class="modal-header">
-        <a class="close" data-dismiss="modal" aria-hidden="true">&times;</a>
-        <h3>{title}</h3>
-      </div>
-      <div class="modal-body">
-        {body}
-      </div>
-      <div class="modal-footer">
-        {footer}
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4>{title}</h4>
+          </div>
+          <div class="modal-body">
+            {body}
+          </div>
+          <div class="modal-footer">
+            {footer}
+          </div>
+        </div>
       </div>
     </div>
 
