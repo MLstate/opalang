@@ -151,18 +151,22 @@ WLoginbox =
         <iframe src="{prepend}{null_url}" id="{iframe_id}" name="{iframe_id}"
                 width="0" height="0"
                 style="visibility:hidden;display:none;width:0px;height:0px;opacity:0;"></iframe>
-        <form  target="{iframe_id}" method="post"  action="{prepend}{null_url}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} >
-        <span id={get_not_logged_id(id)} style="{login_css}">
-          {match config.login_label
-           {some=s} -> <label for={username_id}>{s}</label>
-           {none} -> <></>}
-          <input id={username_id} type="text" autocomplete="on" name="{username_id}" placeholder="{init_username}" onready={place_holder(username_id,init_username,false)} />
-          {match config.password_label
-           {some=s} -> <label for={password_id}>{s}</label>
-           {none} -> <></>}
-          <input id={password_id} type="password" autocomplete="on" name="{password_id}" placeholder="{init_password}" onready={place_holder(password_id,init_password,true)} />
-          {match config.password_help {some=ph} -> ph {none} -> <></>}
-          {<button type="submit">{config.login_text}</button> |> WStyler.add(config.stylers.submit, _)}
+        <form target="{iframe_id}" method="post"  action="{prepend}{null_url}" name="{form_id}" id="{form_id}" autocomplete="on" onsubmit={on_login(id, login_action)} role="form">
+          <span id={get_not_logged_id(id)} style="{login_css}">
+            {match config.login_label
+            {some=s} -> <label for={username_id}>{s}</label>
+            {none} -> <></>}
+            <div class="form-group">
+              <input id={username_id} class="form-control" type="text" autocomplete="on" name="{username_id}" placeholder="{init_username}" onready={place_holder(username_id,init_username,false)} />
+            </div>
+            {match config.password_label
+            {some=s} -> <label for={password_id}>{s}</label>
+            {none} -> <></>}
+            <div class="form-group">
+              <input id={password_id} class="form-control" type="password" autocomplete="on" name="{password_id}" placeholder="{init_password}" onready={place_holder(password_id,init_password,true)} />
+            </div>
+            {match config.password_help {some=ph} -> ph {none} -> <></>}
+            {<button type="submit">{config.login_text}</button> |> WStyler.add(config.stylers.submit, _)}
         </span>
         </form>;
       // Login XHTML chunk itself

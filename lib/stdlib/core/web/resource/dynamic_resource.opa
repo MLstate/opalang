@@ -155,6 +155,8 @@ DynamicResource = {{
     match message with
     | { get = key } ->
       //do jlog("GET key:{key}")
+      // FIX: for font queries with version request (i.e. font-awesome)
+      key = List.head(String.explode_with("?", key, false))
       return =
         match StringMap.get(key, map) with
         | { some = ~{ resource manager } } ->
