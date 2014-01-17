@@ -333,7 +333,7 @@ just_field <- (module_field / record_field):v     {{ let (f,ty) = v in (f, `valu
                                                       else
                                                         `novalue (f) in
                                                     (undecorate f, ty) }}
-field_name  <- ml_identifier
+field_name  <- "default" / ml_identifier
 
 just_final_row_variable   <- comma? just_implicit_row_variable:rv {{ rv }}
 

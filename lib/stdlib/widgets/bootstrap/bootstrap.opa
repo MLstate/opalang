@@ -766,9 +766,9 @@ WBootstrap = {{
      * Create a fixed navbar (top or bottom)
      */
     fixed_navbar(content:xhtml, brand, location:{top}/{bottom}, style) =
-      xhtml = navbar(content, brand, style)
       cl = if location == {top} then "top" else "bottom"
-      Xhtml.update_class("navbar-fixed-{cl}", xhtml)
+      navbar(content, brand, style)
+      |> Xhtml.update_class("navbar-fixed-{cl}", _)
 
     // TODO: navbar forms
 
