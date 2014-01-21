@@ -566,6 +566,22 @@ Dom = {{
   )
 
   /**
+   * Current element (BROKEN)
+   */
+  this(): dom =
+  (
+    %% BslDom.thisisthis %%()
+  )
+
+  /*
+   * Element at position
+   */
+  get_at_position(pos: Dom.dimensions): dom =
+  (
+    %% BslDom.get_at_position %%(pos.x_px, pos.y_px)
+  )
+
+  /**
    * Apply an animation to a dom item.
    *
    * This function is meaningless if the dom item hasn't been inserted on the page.
@@ -1194,6 +1210,13 @@ Dom = {{
       key_modifiers= []
       value_change = {none}
     }
+
+    /*
+     * Element at mouse position
+     */
+    get_element(e:Dom.event) =
+      Dom.get_at_position(e.mouse_position_on_page)
+
   }}
 
   get_currently_selected(): Dom.selected =
