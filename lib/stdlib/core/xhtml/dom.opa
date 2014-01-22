@@ -419,6 +419,14 @@ Dom = {{
         %% BslDom.is_empty %%(of_selection(dom))
   )
 
+  /**
+   * @return [name] of element tag
+   */
+  tag_name(elt: dom): string =
+  (
+      %% BslDom.tag_name %%(elt)
+  )
+
    /**
     * Iterate on the selection
     */
