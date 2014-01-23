@@ -105,6 +105,10 @@ module Ldap {
     %%bslLdap.searchLdap%%(ldap, base, options, Continuation.make(callback))
   }
 
+  function void bind(Ldap.ldap ldap, string dn, string password, (outcome(void,string) -> void) callback) {
+    %%bslLdap.bindLdap%%(ldap, dn, password, Continuation.make(callback))
+  }
+
   function void add(Ldap.ldap ldap, string dn, string entry, (outcome(void,string) -> void) callback) {
     %%bslLdap.addLdap%%(ldap, dn, entry, Continuation.make(callback))
   }
