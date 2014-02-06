@@ -153,6 +153,9 @@ Int = {{
     int_to_1hex(int) =
       //if int<10 then string_of_int(int) <-- problems with node
       //else
+      if int == 0
+      then "0"
+      else
         match int:int with
         | 0 -> "0"
         | 1 -> "1"
