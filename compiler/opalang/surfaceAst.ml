@@ -278,7 +278,7 @@ type 'expr xml_pattern =
 and 'expr xml_named_pattern = string option * 'expr xml_pattern * 'expr xml_suffix label option
 and 'expr xml_rule = 'expr xml_named_pattern list * 'expr (* one line of parser *)
 type 'expr xml_parser =
-  'expr xml_rule list (* the alternatives *)
+  'expr xml_rule list * 'expr option (* the alternatives *)
 
 
 (**

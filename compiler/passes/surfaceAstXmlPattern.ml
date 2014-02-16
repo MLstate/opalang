@@ -269,18 +269,22 @@ let process_rule xml env (patterns,e) : (_,_) expr =
   let res = C.E.some (C.E.tuple_2 e (C.E.ident last_name)) in
   process_named_patterns xml env patterns last_name res
 
-let process_rules xml env l =
+let process_rules xml env rules =
+  let l, def = rules in
   let last_none = C.E.none () in
+  let def = match def with
+  | None -> last_none
+  | Some e -> C.E.some (C.E.tuple_2 e !xml) in
   List.fold_right_i
     (fun rule_ i acc ->
-       let n = fresh_name ~name:(Printf.sprintf "case_%d" i) () in
        if acc == last_none then
          process_rule xml env rule_ (* avoid a stupid match *)
        else
-       C.E.letin n (process_rule xml env rule_)
-         (C.E.match_opt !n
-            (C.P.none (), acc)
-            (C.P.ident "res", !"res"))) l last_none
+         let n = fresh_name ~name:(Printf.sprintf "case_%d" i) () in
+         C.E.letin n (process_rule xml env rule_)
+           (C.E.match_opt !n
+              (C.P.none (), acc)
+              (C.P.ident "res", !"res"))) l def
 
 let process_parser _e rules =
   #<If:SA_XML_PATTERN>

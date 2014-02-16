@@ -40,7 +40,8 @@ xml_parser <-
 ;deco_xml_parser_no_keyword = deco xml_parser_no_keyword;
 xml_parser_no_keyword <-
   / (Opa_parser.match_case xml_rule:v {{v}})+:l
-    {{ (xml_parser (l : _ xml_parser) : (_,_) expr_node) }}
+    (Opa_parser.match_default_case Opa_parser.match_prod:e {{e}})?:d
+    {{ (xml_parser ((l, d) : _ xml_parser) : (_,_) expr_node) }}
 
 trx_parser <- Opa_lexer.PARSER? Trx.Item+:l (*Trx.ParserSeq:e*) {{ l }}
 

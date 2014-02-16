@@ -1782,8 +1782,10 @@ let makeFamilly syntax =
             pp f "@[<h>%a@]" self#under_colon#expr e
         | d -> super#directive f d
 
-      method xml_parser f l =
-        pp f "@[<v>xml_parser{@ | %a@ end@]" (list "@ | " self#xml_rule) l
+      method xml_parser f (l, d) =
+        match d with
+        | None -> pp f "@[<v>xml_parser{@ | %a@ end@]" (list "@ | " self#xml_rule) l
+        | Some def -> pp f "@[<v>xml_parser{@ | %a@ | -> %a@ end@]" (list "@ | " self#xml_rule) l self#expr def
       method xml_rule f (pl,e) =
         pp f "@[<2>%a -> @ %a@]" (list "@ " self#xml_named_pattern) pl self#expr e
       method xml_named_pattern f (nameo,p,s) =

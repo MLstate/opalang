@@ -36,7 +36,8 @@ xml_parser <- (=Opa_lexer.exact_ident("xml_parser")) spacing xml_parser_no_keywo
 ;deco_xml_parser_no_keyword = deco xml_parser_no_keyword;
 xml_parser_no_keyword <-
                 Opa_lexer.BAR? xml_rule:v (Opa_lexer.BAR xml_rule:v {{v}})*:l
-                Opa_parser.match_end {{ (xml_parser (v::l : _ xml_parser) : (_,_) expr_node) }}
+                (Opa_lexer.BAR? Opa_parser.match_code_arrow:h Opa_parser.expr:e {{ clear_1hint h; e }})?:d
+                Opa_parser.match_end {{ (xml_parser ((v::l, d) : _ xml_parser) : (_,_) expr_node) }}
 
 trx_parser <- Opa_lexer.PARSER? Trx.Item+:l (*Trx.ParserSeq:e*) {{ l }}
 
