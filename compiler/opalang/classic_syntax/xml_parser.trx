@@ -55,7 +55,7 @@ xml_named_pattern <- spacing ident_except_parser:i xml_suffix?:o spacing !Opa_le
 
 
 /** xml parser pattern **/
-xml_pattern <- Xml.begin_open_tag:nstag attribute*:l
+xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
                 ( Xml.close_sign spacing xml_named_pattern*:l
                   Xml.close_tag_or_frag:close_tag {{ (l, close_tag) }}
                 / Xml.autoclose {{ ([],None) }}):p {{
@@ -65,11 +65,11 @@ xml_pattern <- Xml.begin_open_tag:nstag attribute*:l
                        | `normal_attr v -> (rev_bindings, v :: rev_l)
                       ) ([],[]) l in
                     let (children, end_tago) = p in
-                    Option.iter (tag_mismatch nstag) end_tago;
-                    let ns, tag = nstag in
-                    let ns =
-                      let string, label = ns in
-                      (SA.Const (SA.CString string), label) in
+                    let ((_, nsp) as ns), ((_, tagp) as tag) = nstag in
+                    begin match nsp, tagp, end_tago with
+                    | XmlNameConst ns, XmlNameConst beg_tag, Some end_tag -> tag_mismatch (ns, beg_tag) end_tag
+                    | _, _, Some end_tag -> pattern_tag_mismatch end_tag
+                    | _ -> () end;
                     let node = XmlNode ({namespace = ns; name = tag}, rev_l, children) in
                     if rev_bindings = [] then node
                     else SA.XmlLetIn (rev_bindings, node)
@@ -77,6 +77,19 @@ xml_pattern <- Xml.begin_open_tag:nstag attribute*:l
              / "_" Opa_lexer.end_of_ident_nosp  {{ XmlAny }}
              / Opa_parser.opa_in_braces_nosp:e {{ XmlExpr e }}
              / Opa_lexer.lpar deco_xml_parser_no_keyword:e Opa_lexer.rpar {{ XmlExpr e }}
+
+xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_named_tagname_pattern:n spacing {{ n }})?:n2 {{
+  match n1, n2 with
+  | (t, label), None -> (None, XmlNameConst ("", label)), t
+  | (ns, _), Some t -> ns, t
+}}
+
+;deco_xml_named_tagname_pattern = deco xml_named_tagname_pattern
+;xml_named_tagname_pattern <- (Opa_lexer.ml_identifier:i Opa_lexer.assign {{ i }})?:io xml_tagname_pattern:n {{ io, n }}
+;xml_tagname_pattern <- "_" Opa_lexer.end_of_ident_nosp {{ XmlNameAny }}
+                      / Xml.deco_tname:n {{ XmlNameConst n }}
+                      / Opa_parser.opa_in_braces_nosp:e {{ XmlNameParserExpr e }}
+                      / Opa_lexer.lpar spacing trx_parser:e spacing Opa_lexer.rpar {{ XmlNameParser e }}
 
 attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                    {{ match ns, name with

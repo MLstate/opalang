@@ -1804,8 +1804,8 @@ let makeFamilly syntax =
       method xml_pattern f = function
         | XmlLetIn (bindings,p) -> pp f "/* encoded let and */@\n@[<v>%a@ %a@]" self#bindings bindings self#xml_pattern p
         | XmlExpr e -> pp f "{%a}" self#expr e
-        | XmlNode (ns,attrs,[]) -> pp f "<%a%s%a/>" self#xml_namespace ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs
-        | XmlNode (ns,attrs,children) -> pp f "@[<v>@[<v2><%a%s%a>@ %a@]@ </>@]" self#xml_namespace ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs (list "@ " self#xml_named_pattern) children
+        | XmlNode (ns,attrs,[]) -> pp f "<%a%s%a/>" self#xml_namespace_pattern ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs
+        | XmlNode (ns,attrs,children) -> pp f "@[<v>@[<v2><%a%s%a>@ %a@]@ </>@]" self#xml_namespace_pattern ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs (list "@ " self#xml_named_pattern) children
         | XmlAny -> pp f "_"
         | XmlParser items -> pp f "parser %a" (list "@ " self#trx_item) items
       method xml_attribute f (ns,_bound_opt,xml_attribute_value) =
@@ -1816,6 +1816,17 @@ let makeFamilly syntax =
         | XmlAttrParser e -> pp f "%a = %a" self#xml_namespace ns self#expr e
       method xml_namespace f = function
         | {namespace=ns; name=name} -> pp f "%a:%a" self#expr ns self#string_label name
+      method xml_namespace_pattern f = function
+        | {namespace=ns; name=t} -> pp f "%a:%a" self#xml_named_name_pattern ns self#xml_named_name_pattern t
+      method xml_named_name_pattern f = function
+        | None, np -> pp f "%a" self#xml_name_pattern np
+        | Some name, np -> pp f "%s=%a" name self#xml_name_pattern np
+      method xml_name_pattern f = function
+        | XmlNameConst sl -> pp f "%a" self#string_label sl
+        | XmlNameStringExpr e -> pp f "%a" self#expr e
+        | XmlNameAny -> pp f "_"
+        | XmlNameParserExpr e -> pp f "{%a}" self#expr e
+        | XmlNameParser items -> pp f "(%a)" (list "@ " self#trx_item) items
       method string_label f p = self#label Format.pp_print_string f p
 
       method trx_expr ?(sub=false) f c = self#label (self#trx_expr_node ~sub) f c

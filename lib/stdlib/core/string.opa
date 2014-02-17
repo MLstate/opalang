@@ -706,3 +706,5 @@ String =
 String_flatten = String.flatten
 @opacapi
 String_quote(s) = "\"" ^ s ^ "\""
+@opacapi
+String_equals = String.equals

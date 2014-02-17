@@ -171,6 +171,7 @@ struct
 
     let ident ?(label=w()) ?(directives=[]) ident = (PatVar ({ident;directives}), c label)
     let var = ident
+    let as_ ?(label=w()) ?(directives=[]) p ident = (PatAs (p, {ident;directives}), c label)
 
     let string ?(label=w()) s = (PatConst (CString s), c label)
 

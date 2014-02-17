@@ -248,7 +248,14 @@ type ('ident, 'dir) code = ('ident, 'dir) code_elt list (**One (or more) complet
 (**
    {5 The ast for pattern matching on xml }
  *)
-type 'expr namespace = {namespace : 'expr ; name : string label}
+type 'expr xml_name_pattern =
+| XmlNameConst of string label
+| XmlNameAny
+| XmlNameStringExpr of 'expr
+| XmlNameParserExpr of 'expr
+| XmlNameParser of 'expr Trx_ast.item list
+type ('ns, 'name) namespace = {namespace : 'ns ; name : 'name}
+type 'expr namespace_pattern = (string option * 'expr xml_name_pattern, string option * 'expr xml_name_pattern) namespace
 type 'expr xml_suffix =
   | Xml_star
   | Xml_plus
@@ -262,11 +269,11 @@ type 'expr xml_pattern_attribute_value =
   | XmlAttrParser of 'expr
 type 'expr xml_pattern_attribute =
   (* string is a unique name used by the parser generator *)
-  'expr namespace * string option * 'expr xml_pattern_attribute_value
+  ('expr, string label) namespace * string option * 'expr xml_pattern_attribute_value
 type 'expr xml_pattern =
   | XmlLetIn of (string * 'expr) list * 'expr xml_pattern (* this node allows to bind namespaces *)
   | XmlExpr of 'expr
-  | XmlNode of 'expr namespace *
+  | XmlNode of 'expr namespace_pattern *
             'expr xml_pattern_attribute list *
             'expr xml_named_pattern list
   | XmlAny

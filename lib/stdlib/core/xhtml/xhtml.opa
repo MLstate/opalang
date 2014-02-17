@@ -538,6 +538,10 @@ XmlParser_Env_add_pbinds = XmlParser.Env.add_pbinds
 @opacapi
 XmlParser_Env_add_xbinds = XmlParser.Env.add_xbinds
 @opacapi
+XmlParser_Env_p_get_uri = XmlParser.Env.p_get_uri
+@opacapi
+XmlParser_Env_x_get_uri = XmlParser.Env.x_get_uri
+@opacapi
 XmlParser_make = XmlParser.make
 @opacapi
 XmlParser_set_env = XmlParser.set_env
@@ -557,6 +561,10 @@ XmlParser = {{
 
     add_xbinds(env:XmlParser.env, binds:list(Xml.binding)):XmlParser.env =
       {env with xbind = XmlNsEnv.add(env.xbind, binds)}
+
+    p_get_uri(env:XmlParser.env, ns:string) = XmlNsEnv.get_uri(ns, env.pbind)
+
+    x_get_uri(env:XmlParser.env, ns:string) = XmlNsEnv.get_uri(ns, env.xbind)
   }}
 
   flatten_and_discard_whitespace_aux(xml,acc) =

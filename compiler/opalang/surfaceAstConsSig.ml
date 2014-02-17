@@ -78,6 +78,7 @@ sig
     val any :           ?label:annot -> unit -> ident pat
     val ident :         ?label:annot -> ?directives:bind_directives list -> ident -> ident pat
     val var :           ?label:annot -> ?directives:bind_directives list -> ident -> ident pat
+    val as_ :           ?label:annot -> ?directives:bind_directives list -> ident pat -> ident -> ident pat
 
     val string :        ?label:annot -> string -> ident pat
 

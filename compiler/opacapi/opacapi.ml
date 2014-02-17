@@ -333,6 +333,7 @@ struct
   let (!!) s = !! ("String_" ^ s)
   let flatten = !! "flatten"
   let quote = !! "quote"
+  let equals = !! "equals"
 end
 
 module StringMap =
@@ -372,6 +373,8 @@ struct
     let (!!) s = !! ("Env_" ^ s)
     let add_pbinds = !! "add_pbinds"
     let add_xbinds = !! "add_xbinds"
+    let p_get_uri = !! "p_get_uri"
+    let x_get_uri = !! "x_get_uri"
   end
 end
 

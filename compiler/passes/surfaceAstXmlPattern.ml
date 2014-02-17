@@ -173,57 +173,98 @@ let rec process_named_pattern env named_pattern l tl acc =
       C.E.match_opt res
         (C.P.none (), C.E.none ())
         (C.P.some (C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl)), acc)
-  | (_name,XmlNode (tag,attr,children),suffix) -> (
-      match suffix with
-      | None ->
-          let mkstring (string,label) = C.P.string ~label string in
-          let attrs = fresh_name ~name:"attrs" () in
-          let args = fresh_name ~name:"args" () in
-          let ns = fresh_name ~name:"ns" () in
-          let xmlns = fresh_name ~name:"xmlns" () in
-          let k e =
-            C.E.match_ !l
-              [ C.P.hd_tl (
-                  C.P.coerce_name
-                    (C.P.record [ "namespace", C.P.var ns
-                                ; "tag", mkstring tag.name
-                                ; "args", (if attr = [] then C.P.any () else C.P.var attrs)
-                                ; "content", (if children = [] then C.P.any () else C.P.var args)
-                                ; "specific_attributes", C.P.any ()
-                                ; "xmlns", C.P.var xmlns
-                                ])
-                    Opacapi.Types.xml
-                ) (C.P.ident tl), e
-              ; C.P.any (), C.E.none () ] in
-          let k e =
-            k (
-                C.E.letin env
-                  (!I.XmlParser.Env.add_xbinds & [C.E.ident env; C.E.ident xmlns])
-                  (C.E.if_
-                     (!I.Xml.match_namespace & [C.E.ident env; tag.namespace; C.E.var ns])
-                     e
-                     (C.E.none ())
-                  )
-            ) in
-          k (
-            if children = [] then (
-              process_attributes attrs attr
-                acc
-            ) else (
-              let last_name = fresh_name ~name:"dontcare" () in
-              process_attributes attrs attr
-                (C.E.letin args (flatten_and_discard_whitespace_list () & [!args])
-                   (process_named_patterns args env children last_name
-                      acc))
-            )
+  | (_name,XmlNode (nstag,attr,children),None) -> (
+    let mkstring (string,label) = C.P.string ~label string in
+    let name_pattern_p_k ~name ?trp ?trx name_p =
+      let io = match name_p with
+      | Some ident, _ -> Some ident
+      | _, (XmlNameConst _ | XmlNameAny) -> None
+      | _ -> Some (fresh_name ~name ()) in
+      let _, p = name_p in
+      let pat = match io, p with
+      | None, XmlNameConst name -> mkstring name
+      | Some ident, XmlNameConst name -> C.P.as_ (mkstring name) ident
+      | None, _ -> C.P.any ()
+      | Some ident, _ -> C.P.var ident in
+      let reb = match io, trx with
+      | Some ident, Some trx -> fun k e -> k (C.E.letin ident (trx !ident) e)
+      | _ -> Base.identity in
+      let trp = Option.default Base.identity trp in
+      let k k =
+        let k = reb k in
+        match io, p with
+        | _, (XmlNameConst _ | XmlNameAny) -> k
+        | None, _ -> assert false
+        | Some ident, XmlNameStringExpr se ->
+          fun e -> k (
+            C.E.if_ (!I.String.equals & [trp se; !ident])
+              e
+              (C.E.none ())
           )
-      | Some (_suffix,annot) ->
+        | Some ident, XmlNameParserExpr pe ->
+          fun e -> k (
+            C.E.match_opt (try_parse () & [pe; !ident])
+              (C.P.none (), C.E.none ())
+              (C.P.any (), e)
+          )
+        | Some ident, XmlNameParser items ->
+          let item = List.hd items in
+          fun e ->
+            let trx_expr =
+              (Trx_ast.Expr
+                 [({ Trx_ast.seq_items = items
+                   ; Trx_ast.seq_code = Some e },
+                   Parser_utils.nlabel item)], Parser_utils.nlabel item) in
+            let p = fresh_name ~name:"p" () in
+            k (
+              C.E.letin p (SurfaceAstTrx.translate_rule trx_expr)
+                (try_parse_opt () & [!p; !ident])
+            ) in
+      pat, k in
+    let attrs = fresh_name ~name:"attrs" () in
+    let args = fresh_name ~name:"args" () in
+    let xmlns = fresh_name ~name:"xmlns" () in
+    let trp e = !I.XmlParser.Env.p_get_uri & [!env; e] in
+    let trx e = !I.XmlParser.Env.x_get_uri & [!env; e] in
+    let pns, kns = name_pattern_p_k ~name:"ns" ~trp ~trx nstag.namespace in
+    let ptag, ktag = name_pattern_p_k ~name:"tag" nstag.name in
+    let k e =
+      C.E.match_ !l
+        [ C.P.hd_tl (
+          C.P.coerce_name
+            (C.P.record [ "namespace", pns
+                        ; "tag", ptag
+                        ; "args", (if attr = [] then C.P.any () else C.P.var attrs)
+                        ; "content", (if children = [] then C.P.any () else C.P.var args)
+                        ; "specific_attributes", C.P.any ()
+                        ; "xmlns", C.P.var xmlns
+                        ])
+            Opacapi.Types.xml
+          ) (C.P.ident tl), e
+        ; C.P.any (), C.E.none () ] in
+    let k = ktag k in
+    let k e =
+      k (
+        C.E.letin env
+          (!I.XmlParser.Env.add_xbinds & [C.E.ident env; C.E.ident xmlns])
+          e
+      ) in
+    let k = kns k in
+    k (
+      let acc = if children = [] then acc else
+        let last_name = fresh_name ~name:"dontcare" () in
+        C.E.letin args (flatten_and_discard_whitespace_list () & [!args])
+          (process_named_patterns args env children last_name acc) in
+      process_attributes attrs attr acc
+    )
+  )
+  | (_, XmlNode _, Some (_suffix,annot)) -> (
           (* instance of error:  xml_parser <mlk> <mlk/>* </> -> {}
            * happens because in xml_parser <mlk> <mlk a=_/>* </>, what should be the type of a?
            * each nesting inside a star/plus/... could create a list, but it isn't
            * done and it hasn't been asked for *)
           error_suffix_anonymous_parser annot
-    )
+  )
   | (_, XmlParser _, Some (_suffix,annot)) ->
       (* same problem as above, XmlParser may bind variables *)
       error_suffix_anonymous_parser annot
