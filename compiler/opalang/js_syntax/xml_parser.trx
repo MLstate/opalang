@@ -52,15 +52,26 @@ ident_except_parser <- !("parser" Opa_lexer.end_of_ident_nosp) Opa_lexer.ml_iden
 
 /* xml named pattern */
 xml_named_pattern <- spacing ident_except_parser:i xml_suffix?:o spacing !Opa_lexer.assign {{ ((Some i, XmlAny, o) : _ xml_named_pattern) }}
-                   / spacing (ident_except_parser:i Opa_lexer.assign spacing {{i}})?:i
-                       xml_pattern:p xml_suffix?:o spacing
-                     {{ ((i, p, o) : _ xml_named_pattern) }}
+                   / (=mk_xml_named_pattern_aux(name_binding, xml_named_pattern))
+
+;xml_named_pattern_no_binding <- (=mk_xml_named_pattern_aux(no_binding, xml_named_pattern_no_binding))
+;let mk_xml_named_pattern_aux binding content_pattern = spacing binding:i (=mk_xml_pattern(binding, content_pattern)):p xml_suffix?:o spacing {{ ((i, p, o) : _ xml_named_pattern) }}
+                   / Trx.AND xml_unnamed_pattern_list:l {{ (None, XmlPrefixed (XmlAnd, l), None) }}
+                   / Trx.NOT xml_unnamed_pattern_list:l {{ (None, XmlPrefixed (XmlNot, l), None) }}
                    / spacing trx_parser:e spacing {{ (None, XmlParser e, None) }}
 
+/* xml unnamed pattern */
+xml_unnamed_pattern_list <- Opa_lexer.lpar_nosp spacing xml_unnamed_pattern+:l Opa_lexer.rpar spacing {{ l }}
+                           / spacing xml_unnamed_pattern:p {{ [p] }}
+
+;xml_unnamed_pattern <- (=mk_xml_pattern(no_binding, xml_named_pattern_no_binding)):p xml_suffix?:o spacing {{ p, o }}
+
+;name_binding <- (ident_except_parser:i Opa_lexer.assign spacing {{ i }})?:io {{ io }}
+;no_binding <- &. {{ None }}
 
 /** xml parser pattern **/
-xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
-                ( Xml.close_sign spacing xml_named_pattern*:l
+let mk_xml_pattern binding content_pattern = Xml.open_sign (=mk_xml_nstag_pattern(binding)):nstag attribute*:l
+                ( Xml.close_sign spacing content_pattern*:l
                   Xml.close_tag_or_frag:close_tag {{ (l, close_tag) }}
                 / Xml.autoclose {{ ([],None) }}):p {{
                     let rev_bindings, rev_l = List.fold_left
@@ -86,7 +97,7 @@ xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
              / Opa_parser.opa_in_braces_nosp:e {{ XmlExpr e }}
              / Opa_lexer.lpar deco_xml_parser_no_keyword:e Opa_lexer.rpar {{ XmlExpr e }}
 
-xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_named_tagname_pattern:n spacing {{ n }})?:n2 {{
+;let mk_xml_nstag_pattern binding = (=deco((=mk_xml_named_tagname_pattern(binding)))):n1 spacing ([:] spacing (=mk_xml_named_tagname_pattern(binding)):n spacing {{ n }})?:n2 {{
   let ns, t = match n1, n2 with
   | (t, label), None -> (None, XmlNameConst ("", label)), t
   | (ns, _), Some t -> ns, t in
@@ -96,8 +107,7 @@ xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_
   ns, t
 }}
 
-;deco_xml_named_tagname_pattern = deco xml_named_tagname_pattern
-;xml_named_tagname_pattern <- (Opa_lexer.ml_identifier:i Opa_lexer.assign {{ i }})?:io xml_tagname_pattern:n {{ io, n }}
+;let mk_xml_named_tagname_pattern binding = binding:io xml_tagname_pattern:n {{ io, n }}
 ;xml_tagname_pattern <- "_" Opa_lexer.end_of_ident_nosp {{ XmlNameAny }}
                       / Xml.deco_tname:n {{ XmlNameConst n }}
                       / Opa_parser.opa_in_braces_nosp:e {{ XmlNameParserExpr e }}

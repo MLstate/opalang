@@ -285,6 +285,22 @@ let rec process_named_pattern env named_pattern l tl acc =
           C.E.letin p (SurfaceAstTrx.translate_rule trx_expr)
             (try_parse_opt () & [C.E.var p; C.E.var res])
         ; C.P.any (), C.E.none () ]
+  | (name, XmlPrefixed (prefix, upl), suffix) ->
+    assert (name = None);
+    assert (suffix = None);
+    let m = fresh_name ~name:"match" () in
+    let last_name = fresh_name ~name:"last_name" () in
+    let res = C.E.some (C.E.void ()) in
+    let stop = C.E.none () in
+    let cont = C.E.letin tl !l acc in
+    let none, some = match prefix with
+    | XmlAnd -> stop, cont
+    | XmlNot -> cont, stop in
+    let npl = List.map (fun (p, s) -> None, p, s) upl in
+    C.E.letin m (process_named_patterns l env npl last_name res)
+      (C.E.match_opt !m
+         (C.P.none (), none)
+         (C.P.any (), some))
 
 and process_named_patterns xml env named_patterns last_name e : (_,_) expr =
   let acc, _ =
