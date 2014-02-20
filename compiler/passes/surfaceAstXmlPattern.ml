@@ -173,7 +173,7 @@ let rec process_named_pattern env named_pattern l tl acc =
       C.E.match_opt res
         (C.P.none (), C.E.none ())
         (C.P.some (C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl)), acc)
-  | (_name,XmlNode (nstag,attr,children),None) -> (
+  | (name,XmlNode (nstag,attr,children),None) -> (
     let mkstring (string,label) = C.P.string ~label string in
     let name_pattern_p_k ~name ?trp ?trx name_p =
       let io, pl = name_p in
@@ -234,19 +234,21 @@ let rec process_named_pattern env named_pattern l tl acc =
     let trx e = !I.XmlParser.Env.x_get_uri & [!env; e] in
     let pns, kns = name_pattern_p_k ~name:"ns" ~trp ~trx nstag.namespace in
     let ptag, ktag = name_pattern_p_k ~name:"tag" nstag.name in
+    let p_hd = (C.P.coerce_name
+               (C.P.record [ "namespace", pns
+                           ; "tag", ptag
+                           ; "args", (if attr = [] then C.P.any () else C.P.var attrs)
+                           ; "content", (if children = [] then C.P.any () else C.P.var args)
+                           ; "specific_attributes", C.P.any ()
+                           ; "xmlns", C.P.var xmlns
+                           ])
+               Opacapi.Types.xml) in
+    let p_hd = match name with
+    | Some ident -> C.P.as_ p_hd ident
+    | None -> p_hd in
     let k e =
       C.E.match_ !l
-        [ C.P.hd_tl (
-          C.P.coerce_name
-            (C.P.record [ "namespace", pns
-                        ; "tag", ptag
-                        ; "args", (if attr = [] then C.P.any () else C.P.var attrs)
-                        ; "content", (if children = [] then C.P.any () else C.P.var args)
-                        ; "specific_attributes", C.P.any ()
-                        ; "xmlns", C.P.var xmlns
-                        ])
-            Opacapi.Types.xml
-          ) (C.P.ident tl), e
+        [ C.P.hd_tl p_hd (C.P.ident tl), e
         ; C.P.any (), C.E.none () ] in
     let k = ktag k in
     let k e =
