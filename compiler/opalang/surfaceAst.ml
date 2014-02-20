@@ -251,6 +251,7 @@ type ('ident, 'dir) code = ('ident, 'dir) code_elt list (**One (or more) complet
 type 'expr xml_name_pattern =
 | XmlNameConst of string label
 | XmlNameStringExpr of 'expr
+| XmlNameStringParser of 'expr
 | XmlNameParserExpr of 'expr
 | XmlNameParser of 'expr Trx_ast.item list
 type ('ns, 'name) namespace = {namespace : 'ns ; name : 'name}

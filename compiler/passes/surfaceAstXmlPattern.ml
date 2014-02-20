@@ -195,6 +195,10 @@ let rec process_named_pattern env named_pattern l tl acc =
         match p with
         | XmlNameConst (name,label)  -> C.E.if_ (!I.String.equals & [C.E.string ~label name; !ident]) eSucc eFail
         | XmlNameStringExpr se -> C.E.if_ (!I.String.equals & [trp se; !ident]) eSucc eFail
+        | XmlNameStringParser sp ->
+          C.E.match_opt (try_parse () & [!I.Parser.of_string & [sp]; !ident])
+            (C.P.none (), eFail)
+            (C.P.any (), eSucc)
         | XmlNameParserExpr pe ->
           C.E.match_opt (try_parse () & [pe; !ident])
             (C.P.none (), eFail)

@@ -94,6 +94,7 @@ xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_
 ;xml_tagname_pattern <- Xml.deco_tname:n {{ XmlNameConst n }}
                       / Opa_parser.opa_in_braces_nosp:e {{ XmlNameParserExpr e }}
                       / Opa_lexer.lpar spacing trx_parser:e spacing Opa_lexer.rpar {{ XmlNameParser e }}
+                      / String_expr.string_with_opa:e {{ XmlNameStringParser e }}
 
 attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                    {{ match ns, name with

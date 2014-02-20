@@ -109,6 +109,7 @@ let mk_xml_pattern binding content_pattern = Xml.open_sign (=mk_xml_nstag_patter
 ;xml_tagname_pattern <- Xml.deco_tname:n {{ XmlNameConst n }}
                       / Opa_parser.opa_in_braces_nosp:e {{ XmlNameParserExpr e }}
                       / Opa_lexer.lpar spacing trx_parser:e spacing Opa_lexer.rpar {{ XmlNameParser e }}
+                      / String_expr.string_with_opa:e {{ XmlNameStringParser e }}
 
 attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                    {{ match ns, name with

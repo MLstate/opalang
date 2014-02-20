@@ -1831,6 +1831,7 @@ let makeFamilly syntax =
       method xml_name_pattern f = function
         | XmlNameConst sl -> pp f "%a" self#string_label sl
         | XmlNameStringExpr e -> pp f "%a" self#expr e
+        | XmlNameStringParser e -> pp f "\"{%a}\"" self#expr e
         | XmlNameParserExpr e -> pp f "{%a}" self#expr e
         | XmlNameParser items -> pp f "(%a)" (list "@ " self#trx_item) items
       method string_label f p = self#label Format.pp_print_string f p
