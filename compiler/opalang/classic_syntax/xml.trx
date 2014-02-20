@@ -151,8 +151,8 @@ nochild_elem  <- open_html5_void_tag:open_tag has_children_nodes:has_children cl
 xhtml_tag <-
   / comment spacing xhtml_tag:tag {{ tag }}
   / autoclose_tag:t {{ let nstag,args = t in create_element nstag args [] }}
-  / nochild_elem:e {{ e }}
-  / noclose_elem:t {{ let nstag,args = t in create_element nstag args [] }}
+  / xhtml_specific nochild_elem:e {{ e }}
+  / xhtml_specific noclose_elem:t {{ let nstag,args = t in create_element nstag args [] }}
   / open_tag:open_tag just_xhtml_nodes:children close_tag_or_frag:close_tag
     {{ let nstag, args = open_tag in
          Option.iter (tag_mismatch nstag) close_tag;
