@@ -176,49 +176,55 @@ let rec process_named_pattern env named_pattern l tl acc =
   | (_name,XmlNode (nstag,attr,children),None) -> (
     let mkstring (string,label) = C.P.string ~label string in
     let name_pattern_p_k ~name ?trp ?trx name_p =
-      let io = match name_p with
+      let io, pl = name_p in
+      let io = match io, pl with
       | Some ident, _ -> Some ident
-      | _, (XmlNameConst _ | XmlNameAny) -> None
+      | _, ([] | [XmlNameConst _]) -> None (* special case when there is only one constant string to match, otherwise we will have to use a cascade of ifs *)
       | _ -> Some (fresh_name ~name ()) in
-      let _, p = name_p in
-      let pat = match io, p with
-      | None, XmlNameConst name -> mkstring name
-      | Some ident, XmlNameConst name -> C.P.as_ (mkstring name) ident
+      let pat = match io, pl with
+      | None, [XmlNameConst name] -> mkstring name
+      | Some ident, [XmlNameConst name] -> C.P.as_ (mkstring name) ident
       | None, _ -> C.P.any ()
       | Some ident, _ -> C.P.var ident in
-      let reb = match io, trx with
+      let rebind = match io, trx with
       | Some ident, Some trx -> fun k e -> k (C.E.letin ident (trx !ident) e)
       | _ -> Base.identity in
       let trp = Option.default Base.identity trp in
-      let k k =
-        let k = reb k in
-        match io, p with
-        | _, (XmlNameConst _ | XmlNameAny) -> k
-        | None, _ -> assert false
-        | Some ident, XmlNameStringExpr se ->
-          fun e -> k (
-            C.E.if_ (!I.String.equals & [trp se; !ident])
-              e
-              (C.E.none ())
-          )
-        | Some ident, XmlNameParserExpr pe ->
-          fun e -> k (
-            C.E.match_opt (try_parse () & [pe; !ident])
-              (C.P.none (), C.E.none ())
-              (C.P.any (), e)
-          )
-        | Some ident, XmlNameParser items ->
+      let last_none = C.E.none () in
+      let match_p ident eSucc p eFail =
+        match p with
+        | XmlNameConst (name,label)  -> C.E.if_ (!I.String.equals & [C.E.string ~label name; !ident]) eSucc eFail
+        | XmlNameStringExpr se -> C.E.if_ (!I.String.equals & [trp se; !ident]) eSucc eFail
+        | XmlNameParserExpr pe ->
+          C.E.match_opt (try_parse () & [pe; !ident])
+            (C.P.none (), eFail)
+            (C.P.any (), eSucc)
+        | XmlNameParser items ->
           let item = List.hd items in
+          let last_seq = if eFail == last_none then []
+            else [({ Trx_ast.seq_items = []; Trx_ast.seq_code = Some eFail }, Parser_utils.nlabel item)] in
+          let trx_expr = (Trx_ast.Expr
+             (({ Trx_ast.seq_items = items
+               ; Trx_ast.seq_code = Some eSucc },
+               Parser_utils.nlabel item)::last_seq), Parser_utils.nlabel item) in
+          let p = fresh_name ~name:"p" () in
+          C.E.letin p (SurfaceAstTrx.translate_rule trx_expr)
+            (try_parse_opt () & [!p; !ident]) in
+      let k k =
+        let k = rebind k in
+        match io, pl with
+        | _, ([] | [XmlNameConst _]) -> k
+        | None, _ -> assert false
+        | Some ident, [p] -> fun e -> k (match_p ident e p last_none)
+        | Some ident, pl ->
+          let eSucc = C.E.some (C.E.void ()) in
           fun e ->
-            let trx_expr =
-              (Trx_ast.Expr
-                 [({ Trx_ast.seq_items = items
-                   ; Trx_ast.seq_code = Some e },
-                   Parser_utils.nlabel item)], Parser_utils.nlabel item) in
-            let p = fresh_name ~name:"p" () in
+            let m = fresh_name ~name:("match_"^name) () in
             k (
-              C.E.letin p (SurfaceAstTrx.translate_rule trx_expr)
-                (try_parse_opt () & [!p; !ident])
+              C.E.letin m (List.fold_right (match_p ident eSucc) pl last_none)
+                (C.E.match_opt !m
+                   (C.P.none (), C.E.none ())
+                   (C.P.any (), e))
             ) in
       pat, k in
     let attrs = fresh_name ~name:"attrs" () in

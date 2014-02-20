@@ -1823,12 +1823,14 @@ let makeFamilly syntax =
       method xml_namespace_pattern f = function
         | {namespace=ns; name=t} -> pp f "%a:%a" self#xml_named_name_pattern ns self#xml_named_name_pattern t
       method xml_named_name_pattern f = function
-        | None, np -> pp f "%a" self#xml_name_pattern np
-        | Some name, np -> pp f "%s=%a" name self#xml_name_pattern np
+        | None, np -> pp f "%a" self#xml_name_pattern_list np
+        | Some name, np -> pp f "%s=%a" name self#xml_name_pattern_list np
+      method xml_name_pattern_list f = function
+      | [] -> pp f "_"
+      | l -> pp f "%a" (list "@ | " self#xml_name_pattern) l
       method xml_name_pattern f = function
         | XmlNameConst sl -> pp f "%a" self#string_label sl
         | XmlNameStringExpr e -> pp f "%a" self#expr e
-        | XmlNameAny -> pp f "_"
         | XmlNameParserExpr e -> pp f "{%a}" self#expr e
         | XmlNameParser items -> pp f "(%a)" (list "@ " self#trx_item) items
       method string_label f p = self#label Format.pp_print_string f p

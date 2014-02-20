@@ -250,12 +250,11 @@ type ('ident, 'dir) code = ('ident, 'dir) code_elt list (**One (or more) complet
  *)
 type 'expr xml_name_pattern =
 | XmlNameConst of string label
-| XmlNameAny
 | XmlNameStringExpr of 'expr
 | XmlNameParserExpr of 'expr
 | XmlNameParser of 'expr Trx_ast.item list
 type ('ns, 'name) namespace = {namespace : 'ns ; name : 'name}
-type 'expr namespace_pattern = (string option * 'expr xml_name_pattern, string option * 'expr xml_name_pattern) namespace
+type 'expr namespace_pattern = (string option * 'expr xml_name_pattern list, string option * 'expr xml_name_pattern list) namespace
 type xml_prefix = XmlAnd | XmlNot
 type 'expr xml_suffix =
   | Xml_star

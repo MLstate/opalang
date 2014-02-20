@@ -65,9 +65,9 @@ xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
                        | `normal_attr v -> (rev_bindings, v :: rev_l)
                       ) ([],[]) l in
                     let (children, end_tago) = p in
-                    let ((_, nsp) as ns), ((_, tagp) as tag) = nstag in
-                    begin match nsp, tagp, end_tago with
-                    | XmlNameConst ns, XmlNameConst beg_tag, Some end_tag -> tag_mismatch (ns, beg_tag) end_tag
+                    let ((_, nspl) as ns), ((_, tagpl) as tag) = nstag in
+                    begin match nspl, tagpl, end_tago with
+                    | [XmlNameConst ns], [XmlNameConst beg_tag], Some end_tag -> tag_mismatch (ns, beg_tag) end_tag
                     | _, _, Some end_tag -> pattern_tag_mismatch end_tag
                     | _ -> () end;
                     let node = XmlNode ({namespace = ns; name = tag}, rev_l, children) in
@@ -79,15 +79,19 @@ xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
              / Opa_lexer.lpar deco_xml_parser_no_keyword:e Opa_lexer.rpar {{ XmlExpr e }}
 
 xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_named_tagname_pattern:n spacing {{ n }})?:n2 {{
-  match n1, n2 with
-  | (t, label), None -> (None, XmlNameConst ("", label)), t
-  | (ns, _), Some t -> ns, t
+  let ns, t = match n1, n2 with
+  | (t, label), None -> (None, [XmlNameConst ("", label)]), t
+  | (ns, _), Some t -> ns, t in
+  begin match t with
+  | _, [XmlNameConst t] -> push_tag t
+  | _ -> () end;
+  ns, t
 }}
 
 ;deco_xml_named_tagname_pattern = deco xml_named_tagname_pattern
-;xml_named_tagname_pattern <- (Opa_lexer.ml_identifier:i Opa_lexer.assign {{ i }})?:io xml_tagname_pattern:n {{ io, n }}
-;xml_tagname_pattern <- "_" Opa_lexer.end_of_ident_nosp {{ XmlNameAny }}
-                      / Xml.deco_tname:n {{ XmlNameConst n }}
+;xml_named_tagname_pattern <- (Opa_lexer.ml_identifier:i Opa_lexer.assign {{ i }})?:io ("_" Opa_lexer.end_of_ident_nosp {{ [] }} / (=Opa_parser.list1(xml_tagname_pattern_w_spacing, Opa_lexer.BAR))):l {{ io, l }}
+;xml_tagname_pattern_w_spacing <- spacing xml_tagname_pattern:p spacing {{ p }}
+;xml_tagname_pattern <- Xml.deco_tname:n {{ XmlNameConst n }}
                       / Opa_parser.opa_in_braces_nosp:e {{ XmlNameParserExpr e }}
                       / Opa_lexer.lpar spacing trx_parser:e spacing Opa_lexer.rpar {{ XmlNameParser e }}
 
