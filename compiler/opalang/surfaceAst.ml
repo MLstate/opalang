@@ -283,8 +283,7 @@ type 'expr xml_pattern =
        already anyway
        but then what about <toto a={e}>*
     *)
-  | XmlPrefixed of xml_prefix * 'expr xml_unnamed_pattern list
-and 'expr xml_unnamed_pattern = 'expr xml_pattern * 'expr xml_suffix label option
+  | XmlPrefixed of xml_prefix * 'expr xml_named_pattern list
 and 'expr xml_named_pattern = string option * 'expr xml_pattern * 'expr xml_suffix label option
 and 'expr xml_rule = 'expr xml_named_pattern list * 'expr (* one line of parser *)
 type 'expr xml_parser =

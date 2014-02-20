@@ -56,15 +56,13 @@ xml_named_pattern <- spacing ident_except_parser:i xml_suffix?:o spacing !Opa_le
 
 ;xml_named_pattern_no_binding <- (=mk_xml_named_pattern_aux(no_binding, xml_named_pattern_no_binding))
 ;let mk_xml_named_pattern_aux binding content_pattern = spacing binding:i (=mk_xml_pattern(binding, content_pattern)):p xml_suffix?:o spacing {{ ((i, p, o) : _ xml_named_pattern) }}
-                   / Trx.AND xml_unnamed_pattern_list:l {{ (None, XmlPrefixed (XmlAnd, l), None) }}
-                   / Trx.NOT xml_unnamed_pattern_list:l {{ (None, XmlPrefixed (XmlNot, l), None) }}
+                   / Trx.AND (=mk_xml_named_pattern_list(content_pattern)):l {{ (None, XmlPrefixed (XmlAnd, l), None) }}
+                   / Trx.NOT (=mk_xml_named_pattern_list(xml_named_pattern_no_binding)):l {{ (None, XmlPrefixed (XmlNot, l), None) }}
                    / spacing trx_parser:e spacing {{ (None, XmlParser e, None) }}
 
 /* xml unnamed pattern */
-xml_unnamed_pattern_list <- Opa_lexer.lpar_nosp spacing xml_unnamed_pattern+:l Opa_lexer.rpar spacing {{ l }}
-                           / spacing xml_unnamed_pattern:p {{ [p] }}
-
-;xml_unnamed_pattern <- (=mk_xml_pattern(no_binding, xml_named_pattern_no_binding)):p xml_suffix?:o spacing {{ p, o }}
+let mk_xml_named_pattern_list content_pattern = Opa_lexer.lpar_nosp spacing content_pattern+:l Opa_lexer.rpar spacing {{ l }}
+                           / content_pattern:p {{ [p] }}
 
 ;name_binding <- (ident_except_parser:i Opa_lexer.assign spacing {{ i }})?:io {{ io }}
 ;no_binding <- &. {{ None }}

@@ -1811,8 +1811,7 @@ let makeFamilly syntax =
         | XmlNode (ns,attrs,children) -> pp f "@[<v>@[<v2><%a%s%a>@ %a@]@ </>@]" self#xml_namespace_pattern ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs (list "@ " self#xml_named_pattern) children
         | XmlAny -> pp f "_"
         | XmlParser items -> pp f "parser %a" (list "@ " self#trx_item) items
-        | XmlPrefixed (prefix, l) -> pp f "%a(%a)" self#xml_prefix prefix (list "@ " self#xml_unnamed_pattern) l
-      method xml_unnamed_pattern f (p,s) = pp f "%a%a" self#xml_pattern p self#xml_suffix_option s
+        | XmlPrefixed (prefix, l) -> pp f "%a(%a)" self#xml_prefix prefix (list "@ " self#xml_named_pattern) l
       method xml_attribute f (ns,_bound_opt,xml_attribute_value) =
         match xml_attribute_value with
         | XmlExists -> pp f "%a = _" self#xml_namespace ns
