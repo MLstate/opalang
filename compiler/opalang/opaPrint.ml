@@ -1788,16 +1788,20 @@ let makeFamilly syntax =
         | Some def -> pp f "@[<v>xml_parser{@ | %a@ | -> %a@ end@]" (list "@ | " self#xml_rule) l self#expr def
       method xml_rule f (pl,e) =
         pp f "@[<2>%a -> @ %a@]" (list "@ " self#xml_named_pattern) pl self#expr e
+      method xml_binding binding_symbol f = function
+        | None -> ()
+        | Some name -> pp f "%s %s " name binding_symbol
       method xml_named_pattern f (nameo,p,s) =
-        match nameo with
-        | None -> pp f "%a%a" self#xml_pattern p self#xml_suffix_option s
-        | Some name -> pp f "%s = %a%a" name self#xml_pattern p self#xml_suffix_option s
+        pp f "%a%a%a" (self#xml_binding "=") nameo self#xml_pattern p self#xml_suffix_option s
       method xml_prefix f = function
         | XmlAnd -> pp f "&"
         | XmlNot -> pp f "!"
       method xml_suffix_option f = function
         | None -> ()
         | Some suffix -> self#label self#xml_suffix f suffix
+      method xml_just_suffix_option f = function
+        | None -> ()
+        | Some suffix -> self#xml_suffix f suffix
       method xml_suffix f = function
         | Xml_star -> pp f "*"
         | Xml_plus -> pp f "+"
@@ -1807,33 +1811,30 @@ let makeFamilly syntax =
       method xml_pattern f = function
         | XmlLetIn (bindings,p) -> pp f "/* encoded let and */@\n@[<v>%a@ %a@]" self#bindings bindings self#xml_pattern p
         | XmlExpr e -> pp f "{%a}" self#expr e
-        | XmlNode (ns,attrs,[]) -> pp f "<%a%s%a/>" self#xml_namespace_pattern ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs
-        | XmlNode (ns,attrs,children) -> pp f "@[<v>@[<v2><%a%s%a>@ %a@]@ </>@]" self#xml_namespace_pattern ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs (list "@ " self#xml_named_pattern) children
+        | XmlNode (ns,attrs,[]) -> pp f "<%a%s%a/>" (self#xml_namespace_pattern "=") ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs
+        | XmlNode (ns,attrs,children) -> pp f "@[<v>@[<v2><%a%s%a>@ %a@]@ </>@]" (self#xml_namespace_pattern "=") ns (if attrs <> [] then " " else "") (list " " self#xml_attribute) attrs (list "@ " self#xml_named_pattern) children
         | XmlAny -> pp f "_"
         | XmlParser items -> pp f "parser %a" (list "@ " self#trx_item) items
         | XmlPrefixed (prefix, l) -> pp f "%a(%a)" self#xml_prefix prefix (list "@ " self#xml_named_pattern) l
-      method xml_attribute f (ns,_bound_opt,xml_attribute_value) =
-        match xml_attribute_value with
-        | XmlExists -> pp f "%a = _" self#xml_namespace ns
-        | XmlName -> self#xml_namespace f ns
-        | XmlAttrStringParser e -> pp f "%a = \"{%a}\"" self#xml_namespace ns self#expr e
-        | XmlAttrParser e -> pp f "%a = %a" self#xml_namespace ns self#expr e
-      method xml_namespace f = function
-        | {namespace=ns; name=name} -> pp f "%a:%a" self#expr ns self#string_label name
-      method xml_namespace_pattern f = function
-        | {namespace=ns; name=t} -> pp f "%a:%a" self#xml_named_name_pattern ns self#xml_named_name_pattern t
-      method xml_named_name_pattern f = function
-        | None, np -> pp f "%a" self#xml_name_pattern_list np
-        | Some name, np -> pp f "%s=%a" name self#xml_name_pattern_list np
-      method xml_name_pattern_list f = function
+      method xml_attribute f = function
+        | XmlAttrMatch ({namespace=None,[]; name=None,[]},(None,[])) -> pp f "."
+        | XmlAttrMatch (nsp, v) -> pp f "%a = %a" (self#xml_namespace_pattern ":=") nsp (self#xml_named_value_pattern ":=") v
+        | XmlAttrPrefixed (prefix, pal) -> pp f "%a(%a)" self#xml_prefix prefix (list " " self#xml_attribute) pal
+        | XmlAttrSuffixed (nameo, [a], suffixo) -> pp f "%a%a%a" (self#xml_binding ":=") nameo self#xml_attribute a self#xml_just_suffix_option suffixo
+        | XmlAttrSuffixed _ -> failwith "There is no syntax for suffixed attribute list"
+      method xml_namespace_pattern binding_symbol f = function
+        | {namespace=ns; name=t} -> pp f "%a:%a" (self#xml_named_value_pattern binding_symbol) ns (self#xml_named_value_pattern binding_symbol) t
+      method xml_named_value_pattern binding_symbol f (nameo,np) =
+        pp f "%a%a" (self#xml_binding binding_symbol) nameo self#xml_value_pattern_list np
+      method xml_value_pattern_list f = function
       | [] -> pp f "_"
-      | l -> pp f "%a" (list "@ | " self#xml_name_pattern) l
-      method xml_name_pattern f = function
-        | XmlNameConst sl -> pp f "%a" self#string_label sl
-        | XmlNameStringExpr e -> pp f "%a" self#expr e
-        | XmlNameStringParser e -> pp f "\"{%a}\"" self#expr e
-        | XmlNameParserExpr e -> pp f "{%a}" self#expr e
-        | XmlNameParser items -> pp f "(%a)" (list "@ " self#trx_item) items
+      | l -> list "@ | " self#xml_value_pattern f l
+      method xml_value_pattern f = function
+        | XmlValueConst sl -> self#string_label f sl
+        | XmlValueStringExpr e -> pp f "%a" self#expr e
+        | XmlValueStringParser e -> pp f "\"{%a}\"" self#expr e
+        | XmlValueParserExpr e -> pp f "{%a}" self#expr e
+        | XmlValueParser items -> pp f "(%a)" (list "@ " self#trx_item) items
       method string_label f p = self#label Format.pp_print_string f p
 
       method trx_expr ?(sub=false) f c = self#label (self#trx_expr_node ~sub) f c

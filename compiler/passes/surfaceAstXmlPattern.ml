@@ -37,6 +37,10 @@ let pattern_of_opt = function
   | None -> C.P.any ()
   | Some name -> C.P.ident name
 
+let bind_of_opt = function
+| None -> fun _ e -> e
+| Some name -> C.E.letin name
+
 let try_parse_opt () =
   C.E.dot !"Parser" "try_parse_opt"
 let try_parse () =
@@ -44,63 +48,140 @@ let try_parse () =
 let flatten_and_discard_whitespace_list () =
   C.E.dot !"Xml_parser" "flatten_and_discard_whitespace_list"
 
-(*
-let may_be_compatible patterns1 patterns2 =
-  match patterns1, patterns2 with
-  | [], _
-  | _, [] -> assert false (* cannot parse empty sequences *)
-  | p1 :: _, p2 :: _ ->
-      match p1, p2 with
-      | XmlNode _, XmlParser _ -> false
-      | XmlParser _, XmlNode _ -> false
-      | XmlNode ({namespace=(ns1,_);name=(n1,_)},_,_),
-        XmlNode ({namespace=(ns2,_);name=(n2,_)},_,_) ->
-          ns1 = ns2 && n1 = n2
-      | XmlAny, _
-      | _, XmlAny
-      | XmlExpr _, _
-      | _, XmlExpr _ -> true
-      | XmlParser _, XmlParser _ ->
-          true (* FIXME: actually, we should regroup these two parsers
-                * into one, so that trx can compile it possibly in a smarter way *)
-*)
 
-let process_attribute name (attr,name_opt,attr_check) content =
-  let expr = !I.Xml.find_attr & [!name; attr.namespace; Parser_utils.string2 attr.name] in
-  let bound_ident =
-    match name_opt with
-    | None -> C.P.ident ~label:(snd attr.name) (fst attr.name)
-    | Some bound_name -> C.P.ident bound_name in
-  let attrParser parser_ =
-    let val_name = Parser_utils.fresh_name ~name:"value" () in
-    let match_attr content =
-      C.E.match_opt expr
-        (C.P.none (), C.E.none ())
-        (C.P.some (C.P.ident val_name), content) in
-    let match_attr_val =
-      C.E.match_opt (try_parse () & [parser_; !val_name])
-        (C.P.none (), C.E.none ())
-        (C.P.some bound_ident, content) in
-    match_attr match_attr_val
-  in
-  match attr_check with
-    | XmlAttrStringParser se ->
-        (* convert the string to a parser (no more magic for that) *)
-        attrParser (!I.Parser.of_string & [se])
-    | XmlAttrParser parser_ -> attrParser parser_
-    | XmlExists ->
-        C.E.match_opt expr
-          (C.P.none (), C.E.none ())
-          (C.P.some (C.P.any ()), content)
-    | XmlName ->
-        C.E.match_opt expr
-          (C.P.none (), C.E.none ())
-          (C.P.some bound_ident, content)
+let value_pattern_p_k ?(optim_const=true) ?(keep_unused=true) ~name ?trp ?trx val_p =
+  let mkstring (string,label) = C.P.string ~label string in
+  let io, pl = val_p in
+  let io = match io, pl with
+  | Some ident, _ when keep_unused -> Some ident
+  | _, [] -> None
+  | _, [XmlValueConst _] when optim_const -> None (* special case when there is only one constant string to match, otherwise we will have to use a cascade of ifs. Not used for attributes *)
+  | _ -> Some (fresh_name ~name ()) in
+  let pat = match io, pl with
+  | None, [XmlValueConst name] when optim_const -> mkstring name
+  | Some ident, [XmlValueConst name] when optim_const -> C.P.as_ (mkstring name) ident
+  | i, _ -> pattern_of_opt i in
+  let rebind = match io, trx with
+  | Some ident, Some trx -> fun k e -> k (C.E.letin ident (trx !ident) e)
+  | _ -> Base.identity in
+  let trp = Option.default Base.identity trp in
+  let last_none = C.E.none () in
+  let match_p ident eSucc p eFail =
+    match p with
+    | XmlValueConst (name,label)  -> C.E.if_ (!I.String.equals & [C.E.string ~label name; !ident]) eSucc eFail
+    | XmlValueStringExpr se -> C.E.if_ (!I.String.equals & [trp se; !ident]) eSucc eFail
+    | XmlValueStringParser sp ->
+      C.E.match_opt (try_parse () & [!I.Parser.of_string & [sp]; !ident])
+        (C.P.none (), eFail)
+        (C.P.any (), eSucc)
+    | XmlValueParserExpr pe ->
+      C.E.match_opt (try_parse () & [pe; !ident])
+        (C.P.none (), eFail)
+        (C.P.any (), eSucc)
+    | XmlValueParser items ->
+      let item = List.hd items in
+      let last_seq = if eFail == last_none then []
+        else [({ Trx_ast.seq_items = []; Trx_ast.seq_code = Some eFail }, Parser_utils.nlabel item)] in
+      let trx_expr = (Trx_ast.Expr
+                        (({ Trx_ast.seq_items = items
+                          ; Trx_ast.seq_code = Some eSucc },
+                          Parser_utils.nlabel item)::last_seq), Parser_utils.nlabel item) in
+      let p = fresh_name ~name:"p" () in
+      C.E.letin p (SurfaceAstTrx.translate_rule trx_expr)
+        (try_parse_opt () & [!p; !ident]) in
+  let k k =
+    let k = rebind k in
+    match io, pl with
+    | _, [] -> k
+    | _, [XmlValueConst _] when optim_const -> k
+    | None, _ -> assert false
+    | Some ident, [p] -> fun e -> k (match_p ident e p last_none)
+    | Some ident, pl ->
+      let eSucc = C.E.some (C.E.void ()) in
+      fun e ->
+        let m = fresh_name ~name:("match_"^name) () in
+        k (
+          C.E.letin m (List.fold_right (match_p ident eSucc) pl last_none)
+            (C.E.match_opt !m
+               (C.P.none (), C.E.none ())
+               (C.P.any (), e))
+        ) in
+  pat, k
 
-let process_attributes (name:string) list content =
-  List.fold_right (fun attr_node acc ->
-                    process_attribute name attr_node acc
-                  ) list content
+let rec process_attribute attr content name =
+  match attr with
+  | XmlAttrMatch ({namespace = ns, []; name = n, []}, (value, [])) ->
+    (* special case, any attribute will make it, just take the first one *)
+    let p = match ns, n, value with
+    | None, None, None -> C.P.any ()
+    | _ -> C.P.coerce_name (C.P.record ["namespace",(pattern_of_opt ns); "name",(pattern_of_opt n); "value",(pattern_of_opt value)]) Opacapi.Types.Xml.attribute in
+    let content = C.E.match_ !name
+                   [ C.P.nil (), C.E.none ()
+                   ; C.P.hd_tl p (C.P.ident name), content ] in
+    content, name
+  | XmlAttrMatch (nsp, vp) ->
+    let rem_attr = fresh_name ~name:"rem_attr" () in
+    let attr_pattern_p_k ~keep_unused =
+      let pns, kns = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"namespace" nsp.namespace in
+      let pname, kname = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"name" nsp.name in
+      let pvalue, kvalue = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"value" vp in
+      let p = C.P.coerce_name (C.P.record ["namespace",pns; "name",pname; "value",pvalue]) Opacapi.Types.Xml.attribute in
+      let k = kvalue (kns (kname Base.identity)) in
+      p, k in
+    let p, k = attr_pattern_p_k ~keep_unused:false in
+    let e = k (C.E.some (C.E.void ())) in
+    let e = C.E.match_opt e
+      (C.P.none (), C.E.false_ ())
+      (C.P.any (), C.E.true_ ()) in
+    let f = C.E.lambda [p] e in
+    let p, _ = attr_pattern_p_k ~keep_unused:true in
+    let content = C.E.match_ (!I.List.extract_p & [f; !rem_attr])
+      [ C.P.tuple_2 (C.P.none ()) (C.P.any ()), C.E.none ();
+        C.P.tuple_2 (C.P.some p) (C.P.var name), content ] in
+    content, rem_attr
+  | XmlAttrPrefixed (XmlAnd, al) -> process_attributes name al content, name
+  | XmlAttrPrefixed (XmlNot, al) ->
+    let m = fresh_name ~name:"match" () in
+    let content = C.E.letin m (process_attributes name al (C.E.some (C.E.void ())))
+      (C.E.match_opt !m
+         (C.P.none (), content)
+         (C.P.any (), C.E.none ())) in
+    content, name
+  | XmlAttrSuffixed (i, al, suffixo) ->
+    let content = match al with
+    | [XmlAttrMatch ({namespace=None,[];name=None,[]},(None,[]))] -> (
+      match suffixo with
+      | None -> C.E.match_ !name
+                 [ C.P.nil (), C.E.none ()
+                 ; C.P.hd_tl (pattern_of_opt i) (C.P.ident name), content ]
+      | Some Xml_star -> bind_of_opt i !name (C.E.letin name (C.E.nil ()) content)
+      | Some Xml_plus -> C.E.match_ !name
+                          [ C.P.nil (), C.E.none ()
+                          ; (pattern_of_opt i), C.E.letin name (C.E.nil ()) content ]
+      | Some Xml_question -> let q = fresh_name ~name:"question" () in
+                             let v = C.E.match_ !name
+                                      [ C.P.nil (), C.E.tuple_2 (C.E.none ()) (C.E.nil ())
+                                      ; C.P.hd_tl (C.P.ident "hd") (C.P.ident "tl"), C.E.tuple_2 (C.E.some !"hd") !"tl"] in
+                             C.E.letin q v
+                               (C.E.match_ !q
+                                  [ C.P.tuple_2 (pattern_of_opt i) (C.P.ident name), content ])
+      | Some (Xml_number e) -> C.E.match_opt (C.E.applys !I.List.split_at_opt [!name;e])
+                                (C.P.none (), C.E.none ())
+                                (C.P.some (C.P.tuple_2 (pattern_of_opt i) (C.P.ident name)), content)
+      | Some (Xml_range (e1, e2)) -> C.E.match_opt (C.E.applys !I.List.split_between [!name;e1;e2])
+                                      (C.P.none (), C.E.none ())
+                                      (C.P.some (C.P.tuple_2 (pattern_of_opt i) (C.P.ident name)), content)
+      )
+    | _ -> failwith "Not implemented: binding/suffixing of any attribute pattern" in
+    content, name
+
+and process_attributes (name:string) list content =
+  if list = [] then content else
+    let last_name = fresh_name ~name:"rem_attr" () in
+    let content, last_name = List.fold_left (fun (content, name) attr ->
+      process_attribute attr content name
+    ) (content, last_name) list in
+    C.E.letin last_name !name content
 
 let error_suffix_anonymous_parser annot =
   let context = OpaError.Context.annot annot in
@@ -130,10 +211,7 @@ let rec process_named_pattern env named_pattern l tl acc =
               ; C.P.hd_tl (pattern_of_opt name) (C.P.var tl), acc ]
         | Some (Xml_star,_) ->
             let acc = C.E.letin tl (C.E.nil ()) acc in
-            ( match name with
-              | None -> acc
-              | Some name -> C.E.letin name !l acc
-            )
+            bind_of_opt name !l acc
         | Some (Xml_plus,_) ->
             let acc = C.E.letin tl (C.E.nil ()) acc in
             C.E.match_ !l
@@ -152,7 +230,7 @@ let rec process_named_pattern env named_pattern l tl acc =
               (C.E.match_ !i
                  [ C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl), acc ])
         | Some (Xml_number e,_) ->
-            C.E.match_opt (C.E.applys !I.List.split_at_opt [e;!l])
+            C.E.match_opt (C.E.applys !I.List.split_at_opt [!l;e])
               (C.P.none (), C.E.none ())
               (C.P.some (C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl)), acc)
         | Some (Xml_range (e1,e2),_) ->
@@ -174,70 +252,13 @@ let rec process_named_pattern env named_pattern l tl acc =
         (C.P.none (), C.E.none ())
         (C.P.some (C.P.tuple_2 (pattern_of_opt name) (C.P.ident tl)), acc)
   | (name,XmlNode (nstag,attr,children),None) -> (
-    let mkstring (string,label) = C.P.string ~label string in
-    let name_pattern_p_k ~name ?trp ?trx name_p =
-      let io, pl = name_p in
-      let io = match io, pl with
-      | Some ident, _ -> Some ident
-      | _, ([] | [XmlNameConst _]) -> None (* special case when there is only one constant string to match, otherwise we will have to use a cascade of ifs *)
-      | _ -> Some (fresh_name ~name ()) in
-      let pat = match io, pl with
-      | None, [XmlNameConst name] -> mkstring name
-      | Some ident, [XmlNameConst name] -> C.P.as_ (mkstring name) ident
-      | None, _ -> C.P.any ()
-      | Some ident, _ -> C.P.var ident in
-      let rebind = match io, trx with
-      | Some ident, Some trx -> fun k e -> k (C.E.letin ident (trx !ident) e)
-      | _ -> Base.identity in
-      let trp = Option.default Base.identity trp in
-      let last_none = C.E.none () in
-      let match_p ident eSucc p eFail =
-        match p with
-        | XmlNameConst (name,label)  -> C.E.if_ (!I.String.equals & [C.E.string ~label name; !ident]) eSucc eFail
-        | XmlNameStringExpr se -> C.E.if_ (!I.String.equals & [trp se; !ident]) eSucc eFail
-        | XmlNameStringParser sp ->
-          C.E.match_opt (try_parse () & [!I.Parser.of_string & [sp]; !ident])
-            (C.P.none (), eFail)
-            (C.P.any (), eSucc)
-        | XmlNameParserExpr pe ->
-          C.E.match_opt (try_parse () & [pe; !ident])
-            (C.P.none (), eFail)
-            (C.P.any (), eSucc)
-        | XmlNameParser items ->
-          let item = List.hd items in
-          let last_seq = if eFail == last_none then []
-            else [({ Trx_ast.seq_items = []; Trx_ast.seq_code = Some eFail }, Parser_utils.nlabel item)] in
-          let trx_expr = (Trx_ast.Expr
-             (({ Trx_ast.seq_items = items
-               ; Trx_ast.seq_code = Some eSucc },
-               Parser_utils.nlabel item)::last_seq), Parser_utils.nlabel item) in
-          let p = fresh_name ~name:"p" () in
-          C.E.letin p (SurfaceAstTrx.translate_rule trx_expr)
-            (try_parse_opt () & [!p; !ident]) in
-      let k k =
-        let k = rebind k in
-        match io, pl with
-        | _, ([] | [XmlNameConst _]) -> k
-        | None, _ -> assert false
-        | Some ident, [p] -> fun e -> k (match_p ident e p last_none)
-        | Some ident, pl ->
-          let eSucc = C.E.some (C.E.void ()) in
-          fun e ->
-            let m = fresh_name ~name:("match_"^name) () in
-            k (
-              C.E.letin m (List.fold_right (match_p ident eSucc) pl last_none)
-                (C.E.match_opt !m
-                   (C.P.none (), C.E.none ())
-                   (C.P.any (), e))
-            ) in
-      pat, k in
     let attrs = fresh_name ~name:"attrs" () in
     let args = fresh_name ~name:"args" () in
     let xmlns = fresh_name ~name:"xmlns" () in
     let trp e = !I.XmlParser.Env.p_get_uri & [!env; e] in
     let trx e = !I.XmlParser.Env.x_get_uri & [!env; e] in
-    let pns, kns = name_pattern_p_k ~name:"ns" ~trp ~trx nstag.namespace in
-    let ptag, ktag = name_pattern_p_k ~name:"tag" nstag.name in
+    let pns, kns = value_pattern_p_k ~name:"ns" ~trp ~trx nstag.namespace in
+    let ptag, ktag = value_pattern_p_k ~name:"tag" nstag.name in
     let p_hd = (C.P.coerce_name
                (C.P.record [ "namespace", pns
                            ; "tag", ptag

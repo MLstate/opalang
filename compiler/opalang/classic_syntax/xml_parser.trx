@@ -67,10 +67,11 @@ xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
                     let (children, end_tago) = p in
                     let ((_, nspl) as ns), ((_, tagpl) as tag) = nstag in
                     begin match nspl, tagpl, end_tago with
-                    | [XmlNameConst ns], [XmlNameConst beg_tag], Some end_tag -> tag_mismatch (ns, beg_tag) end_tag
+                    | [XmlValueConst ns], [XmlValueConst beg_tag], Some end_tag -> tag_mismatch (ns, beg_tag) end_tag
                     | _, _, Some end_tag -> pattern_tag_mismatch end_tag
                     | _ -> () end;
-                    let node = XmlNode ({namespace = ns; name = tag}, rev_l, children) in
+                    let attr = List.rev_map (function (n,v) -> XmlAttrMatch (n,v)) rev_l in
+                    let node = XmlNode ({namespace = ns; name = tag}, attr, children) in
                     if rev_bindings = [] then node
                     else SA.XmlLetIn (rev_bindings, node)
                 }}
@@ -80,10 +81,10 @@ xml_pattern <- Xml.open_sign xml_nstag_pattern:nstag attribute*:l
 
 xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_named_tagname_pattern:n spacing {{ n }})?:n2 {{
   let ns, t = match n1, n2 with
-  | (t, label), None -> (None, [XmlNameConst ("", label)]), t
+  | (t, label), None -> (None, [XmlValueConst ("", label)]), t
   | (ns, _), Some t -> ns, t in
   begin match t with
-  | _, [XmlNameConst t] -> push_tag t
+  | _, [XmlValueConst t] -> push_tag t
   | _ -> () end;
   ns, t
 }}
@@ -91,10 +92,10 @@ xml_nstag_pattern <- deco_xml_named_tagname_pattern:n1 spacing ([:] spacing xml_
 ;deco_xml_named_tagname_pattern = deco xml_named_tagname_pattern
 ;xml_named_tagname_pattern <- (Opa_lexer.ml_identifier:i Opa_lexer.assign {{ i }})?:io ("_" Opa_lexer.end_of_ident_nosp {{ [] }} / (=Opa_parser.list1(xml_tagname_pattern_w_spacing, Opa_lexer.BAR))):l {{ io, l }}
 ;xml_tagname_pattern_w_spacing <- spacing xml_tagname_pattern:p spacing {{ p }}
-;xml_tagname_pattern <- Xml.deco_tname:n {{ XmlNameConst n }}
-                      / Opa_parser.opa_in_braces_nosp:e {{ XmlNameParserExpr e }}
-                      / Opa_lexer.lpar spacing trx_parser:e spacing Opa_lexer.rpar {{ XmlNameParser e }}
-                      / String_expr.string_with_opa:e {{ XmlNameStringParser e }}
+;xml_tagname_pattern <- Xml.deco_tname:n {{ XmlValueConst n }}
+                      / Opa_parser.opa_in_braces_nosp:e {{ XmlValueParserExpr e }}
+                      / Opa_lexer.lpar spacing trx_parser:e spacing Opa_lexer.rpar {{ XmlValueParser e }}
+                      / String_expr.string_with_opa:e {{ XmlValueStringParser e }}
 
 attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                    {{ match ns, name with
@@ -110,16 +111,16 @@ attribute_lhs <- Xml.namespace:ns Xml.deco_ename:name spacing
                             else
                               (SA.Ident ("xmlns:"^string), label)
                           in
-                          `normal_attr {namespace = ns; name = name} }}
-attribute_value <- ( String_expr.string_with_opa:e {{ XmlAttrStringParser e }}
-                   / Opa_parser.opa_in_braces:e {{ XmlAttrParser e }}
-                   / Opa_lexer.underscore {{ XmlExists }}
+                          `normal_attr {namespace = None, [XmlValueStringExpr ns]; name = None, [XmlValueConst name]} }}
+attribute_value <- ( String_expr.string_with_opa:e {{ [XmlValueStringParser e] }}
+                   / Opa_parser.opa_in_braces:e {{ [XmlValueParserExpr e] }}
+                   / Opa_lexer.underscore {{ [] }}
                    ):e {{ e }}
 attribute_rhs <- Opa_lexer.assign spacing
-                   ( attribute_value:e {{ e, None }}
-                   / Opa_lexer.lpar attribute_value:e Opa_lexer.AS Opa_lexer.ml_identifier:i Opa_lexer.rpar {{ e, Some i}} ):v
+                   ( attribute_value:e {{ true, None, e }}
+                   / Opa_lexer.lpar attribute_value:e Opa_lexer.AS Opa_lexer.ml_identifier:i Opa_lexer.rpar {{ false, Some i, e }} ):v
                  {{ v }}
-               / !Opa_lexer.assign {{ XmlName, None }}
+               / !Opa_lexer.assign {{ false, None, [] }}
 
 /* xml parser attribute value */
 attribute <- spacing attribute_lhs:name attribute_rhs:e {{
@@ -127,14 +128,20 @@ attribute <- spacing attribute_lhs:name attribute_rhs:e {{
                | `define (name, label) -> (
                    let e =
                      match e with
-                     | _, Some _ -> error1 (Printf.sprintf "You cannot put a 'as' on an xmlns declaration.") label
-                     | XmlExists, None -> error1 (Printf.sprintf "'_' is not an expression.") label
-                     | XmlAttrParser e, None
-                     | XmlAttrStringParser e, None -> e
-                     | XmlName, None -> (SA.Ident name, label) in
+                     | _, Some _, _ -> error1 (Printf.sprintf "You cannot put a 'as' on an xmlns declaration.") label
+                     | true, _, [] -> error1 (Printf.sprintf "'_' is not an expression.") label
+                     | _, _, [XmlValueStringExpr e]
+                     | _, _, [XmlValueStringParser e]
+                     | _, _, [XmlValueParserExpr e] -> e
+                     | _, _, [XmlValueConst (name, label)] -> (SA.Ident name, label)
+                     | false, _, [] -> (SA.Ident name, label)
+                     | _ -> error1 (Printf.sprintf "You cannot put a pattern on an xmlns declaration.") label in
                    `define ((name,e):(string * (string,_) expr))
                  )
-               | `normal_attr name -> `normal_attr (name, snd e, fst e)
+               | `normal_attr namep ->
+                 match e, namep with
+                 | (true, None, a), { name = _, [XmlValueConst (name, _)] } -> `normal_attr (namep, (Some name, a))
+                 | (_, i, a), _ -> `normal_attr (namep, (i, a))
              }}
 
 ;xml_suffix = deco just_xml_suffix;

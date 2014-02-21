@@ -1501,3 +1501,4 @@ type caml_list('a) = external
 @opacapi List_split_at_opt = List.split_at_opt
 @opacapi List_split_between = List.split_between
 @opacapi List_map = List.map
+@opacapi List_extract_p = List.extract_p

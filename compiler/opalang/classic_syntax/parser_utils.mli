@@ -450,6 +450,7 @@ val create_element :
   (string, 'a) expr
 val tag_mismatch : (string * annot) * (string * annot) -> (string * annot) * (string * annot) -> unit
 val pattern_tag_mismatch : (string * annot) * (string * annot) -> unit
+val xmlns_check_no_binding : label:annot -> 'a option -> 'a option -> unit
 val nochild_elem : (string * annot) * (string * annot) -> (string * annot) * (string * annot) -> bool -> (unit -> 'b) -> 'b option
 val add_arg :
   'a dom_tag_args option * annot ->
