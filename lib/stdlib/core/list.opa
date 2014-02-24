@@ -686,15 +686,15 @@ List = {{
    */
    split_between(l:list('a), min:int, max:int) : option((list('a),list('a))) =
      if max < 0 then {none} else
-     rec aux(acc,l,min,max) =
+     rec aux(acc,l2,min,max) =
        if max == 0 then
          if min <= 0 then
-           {some = (rev(acc),l)}
+           {some = (rev(acc),l2)}
          else
            {none}
        else
-         match l with
-         | [] -> /* the list is shorted than n */ {none}
+         match l2 with
+         | [] -> if min <= 0 then {some = (l,[])} else /* the list is shorted than min */ {none}
          | [h|t] -> aux([h|acc],t,min-1,max-1)
      aux([],l,min,max)
 
