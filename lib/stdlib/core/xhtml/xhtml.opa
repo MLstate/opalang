@@ -148,6 +148,7 @@ empty_xhtml = {fragment = []} : xhtml
 @specialize(Xml.to_xml:xhtml -> xhtml,
             Xml.to_xml:xmlns -> xmlns,
             Xml.create_fragment:list(xhtml) -> xhtml,
+            Xml.create_fragment:list(xmlns) -> xmlns,
             XmlConvert.of_string:string -> xhtml,
             XmlConvert.of_int:int -> xhtml,
             XmlConvert.of_float:float -> xhtml,
@@ -658,6 +659,10 @@ XmlConvert = {{
          TyName_args =
            [{TyName_ident = "xhtml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
           Xml.create_fragment(Magic.id(value))
+      | {TyName_ident = "list";
+         TyName_args =
+           [{TyName_ident = "xml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
+          Xml.create_fragment(Magic.id(value))
       | {TyName_args = args; TyName_ident = ident} ->
         OpaValue.todo_magic_container(
           %%BslValue.MagicContainer.xmlizer_get%%,
@@ -666,6 +671,8 @@ XmlConvert = {{
           value, [])
       | ty ->
         if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
+          Xml.create_fragment(Magic.id(value))
+        else if OpaTypeUnification.is_unifiable(ty, @typeval(list(xml))) then
           Xml.create_fragment(Magic.id(value))
         else {text = "Can't make an xml with {ty}"}
     aux(value, original_ty)
