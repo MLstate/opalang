@@ -121,23 +121,15 @@ let rec process_attribute attr content name =
     content, name
   | XmlAttrMatch (nsp, vp) ->
     let rem_attr = fresh_name ~name:"rem_attr" () in
-    let attr_pattern_p_k ~keep_unused =
-      let pns, kns = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"namespace" nsp.namespace in
-      let pname, kname = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"name" nsp.name in
-      let pvalue, kvalue = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"value" vp in
-      let p = C.P.coerce_name (C.P.record ["namespace",pns; "name",pname; "value",pvalue]) Opacapi.Types.Xml.attribute in
-      let k = kvalue (kns (kname Base.identity)) in
-      p, k in
-    let p, k = attr_pattern_p_k ~keep_unused:false in
-    let e = k (C.E.some (C.E.void ())) in
-    let e = C.E.match_opt e
-      (C.P.none (), C.E.false_ ())
-      (C.P.any (), C.E.true_ ()) in
-    let f = C.E.lambda [p] e in
-    let p, _ = attr_pattern_p_k ~keep_unused:true in
-    let content = C.E.match_ (!I.List.extract_p & [f; !rem_attr])
-      [ C.P.tuple_2 (C.P.none ()) (C.P.any ()), C.E.none ();
-        C.P.tuple_2 (C.P.some p) (C.P.var name), content ] in
+    let pns, kns = value_pattern_p_k ~optim_const:false ~name:"namespace" nsp.namespace in
+    let pname, kname = value_pattern_p_k ~optim_const:false ~name:"name" nsp.name in
+    let pvalue, kvalue = value_pattern_p_k ~optim_const:false ~name:"value" vp in
+    let p = C.P.coerce_name (C.P.record ["namespace",pns; "name",pname; "value",pvalue]) Opacapi.Types.Xml.attribute in
+    let k = kvalue (kns (kname Base.identity)) in
+    let cb = fresh_name ~name:"cb" () in
+    let e = k (C.E.letin name (!cb & []) content) in
+    let f = C.E.lambda [p;C.P.var cb] e in
+    let content = !I.List.find_map_cb & [f; !rem_attr] in
     content, rem_attr
   | XmlAttrPrefixed (XmlAnd, al) -> process_attributes name al content, name
   | XmlAttrPrefixed (XmlNot, al) ->

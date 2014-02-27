@@ -632,6 +632,27 @@ List = {{
         | {some=_} as res -> res
         | _             -> find_map(f, tl)): option('b)
 
+  /**
+   * Find the first element of a list verifying some condition and return it after treatment.
+   *
+   * The difference with [find_map] is that [f] takes a second argument which is a function returning the other elements, as [extract_p] would return.
+   *
+   * @param f A decision function returning [{none}] if the current item is not the one being
+   * searched, or [{some = x}] if the current item is the one being searched and the result should
+   * be [x].
+   * @param l A list, possibly empty.
+   * @return if [f] produced at least one result other than [{none}] on elements of [l], this result
+   * otherwise [{none}].
+   */
+  find_map_cb(f:'a, (-> list('a)) -> option('b), l:list('a)) =
+    rec aux(r, (acc : list)) =
+      match r : list with
+      | [] -> none
+      | [hd | tl] -> (match f(hd, (->rev_append(acc, tl))) with
+          | {some=_} as res -> res
+          | _               -> aux(tl, hd+>acc))
+    aux(l,[]): option('b)
+
 /**
  * {2 Removing things}
  */
@@ -749,6 +770,26 @@ List = {{
       | [] -> (none,l)
       | [hd | tl] -> if f(hd) then (some(hd),rev_append(acc,tl)) else aux(tl,hd+>acc)
     aux(l,[]): (option('a), list('a))
+
+  /**
+   * Extract the first element of a list verifying some condition and return it after treatment,
+   * as well as the remaining elements.
+   *
+   * @param f A decision function returning [{none}] if the current item is not the one being
+   * searched, or [{some = x}] if the current item is the one being searched and the result should
+   * be [x].
+   * @param l A list, possibly empty.
+   * @return Either [{none}] if no matching could be found or [{some = (x, rest)}] if an element [x] could be found
+   * and [rest] is equal to [l] minus the found element.
+   */
+  extract_map(f:'a -> option('b), l:list('a)) =
+    rec aux(r, (acc : list)) =
+      match r : list with
+      | [] -> none
+      | [hd | tl] -> (match f(hd) with
+          | {some=res} -> some((res, rev_append(acc, tl)))
+          | _               -> aux(tl, hd+>acc))
+    aux(l,[]): option(('b, list('a)))
 
 
   /**
@@ -1501,4 +1542,4 @@ type caml_list('a) = external
 @opacapi List_split_at_opt = List.split_at_opt
 @opacapi List_split_between = List.split_between
 @opacapi List_map = List.map
-@opacapi List_extract_p = List.extract_p
+@opacapi List_find_map_cb = List.find_map_cb
