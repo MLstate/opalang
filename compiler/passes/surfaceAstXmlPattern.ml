@@ -127,9 +127,11 @@ let rec process_attribute attr content name =
     let p = C.P.coerce_name (C.P.record ["namespace",pns; "name",pname; "value",pvalue]) Opacapi.Types.Xml.attribute in
     let k = kvalue (kns (kname Base.identity)) in
     let cb = fresh_name ~name:"cb" () in
-    let e = k (C.E.letin name (!cb & []) content) in
+    let e = k (C.E.letin name (!cb & []) (C.E.some content)) in
     let f = C.E.lambda [p;C.P.var cb] e in
-    let content = !I.List.find_map_cb & [f; !rem_attr] in
+    let content = C.E.match_opt (!I.List.find_map_cb & [f; !rem_attr])
+                                (C.P.none (), C.E.none ())
+                                (C.P.some (C.P.ident "some"), !"some") in
     content, rem_attr
   | XmlAttrPrefixed (XmlAnd, al) -> process_attributes name al content, name
   | XmlAttrPrefixed (XmlNot, al) ->
