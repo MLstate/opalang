@@ -37,6 +37,10 @@ let pattern_of_opt = function
   | None -> C.P.any ()
   | Some name -> C.P.ident name
 
+let pattern_as_of_opt = function
+| None -> Base.identity
+| Some name -> fun p -> C.P.as_ p name
+
 let bind_of_opt = function
 | None -> fun _ e -> e
 | Some name -> C.E.letin name
@@ -142,9 +146,9 @@ let rec process_attribute attr content name =
          (C.P.any (), C.E.none ())) in
     content, name
   | XmlAttrSuffixed (i, al, suffixo) ->
-    let content = match al with
-    | [XmlAttrMatch ({namespace=None,[];name=None,[]},(None,[]))] -> (
-      match suffixo with
+    match al with
+    | [XmlAttrMatch ({namespace=None,[];name=None,[]},(None,[]))] ->
+      let content = match suffixo with
       | None -> C.E.match_ !name
                  [ C.P.nil (), C.E.none ()
                  ; C.P.hd_tl (pattern_of_opt i) (C.P.ident name), content ]
@@ -165,9 +169,55 @@ let rec process_attribute attr content name =
       | Some (Xml_range (e1, e2)) -> C.E.match_opt (C.E.applys !I.List.split_between [!name;e1;e2])
                                       (C.P.none (), C.E.none ())
                                       (C.P.some (C.P.tuple_2 (pattern_of_opt i) (C.P.ident name)), content)
+      in content, name
+    | [(XmlAttrMatch (nsp, vp)) as attr] ->
+      if i = None && suffixo = None then
+        process_attribute attr content name
+      else (
+        let rem_attr = fresh_name ~name:"rem_attr" () in
+        let attr_pattern_p_k ~coerce ~keep_unused =
+          let pns, kns = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"namespace" nsp.namespace in
+          let pname, kname = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"name" nsp.name in
+          let pvalue, kvalue = value_pattern_p_k ~optim_const:false ~keep_unused ~name:"value" vp in
+          let p = C.P.record ["namespace",pns; "name",pname; "value",pvalue] in
+          let p = if coerce then C.P.coerce_name p Opacapi.Types.Xml.attribute else p in
+          let k = kvalue (kns (kname Base.identity)) in
+          p, k in
+        let p, k = attr_pattern_p_k ~coerce:true ~keep_unused:false in
+        let e = k (C.E.some (C.E.void ())) in
+        let e = C.E.match_opt e
+          (C.P.none (), C.E.false_ ())
+          (C.P.any (), C.E.true_ ()) in
+        let f = C.E.lambda [p] e in
+        let p_bindings ~coerce =
+          let p, _ = attr_pattern_p_k ~coerce ~keep_unused:true in
+          pattern_as_of_opt i p in
+        let content = match suffixo with
+        | None -> C.E.match_ (!I.List.extract_p & [f; !rem_attr])
+                    [ C.P.tuple_2 (C.P.none ()) (C.P.any ()), C.E.none ();
+                      C.P.tuple_2 (C.P.some (p_bindings ~coerce:true)) (C.P.var name), content ]
+        | Some Xml_question ->
+          let e = C.E.match_ (!I.List.extract_p & [f; !rem_attr])
+                    [ C.P.tuple_2 (C.P.none ()) (C.P.any ()), C.E.tuple_2 (C.E.record ["namespace", C.E.none (); "name", C.E.none (); "value", C.E.none ()]) (!rem_attr);
+                      C.P.tuple_2 (C.P.some (C.P.var "attr")) (C.P.var "rem_attrs"), C.E.tuple_2 (C.E.record ["namespace", C.E.some (C.E.dot !"attr" "namespace"); "name", C.E.some (C.E.dot !"attr" "name"); "value", C.E.some (C.E.dot !"attr" "value")]) !"rem_attrs"] in
+          C.E.match_ e [ C.P.tuple_2 (p_bindings ~coerce:false) (C.P.var name), content ]
+        | Some Xml_star -> C.E.match_ (!I.List.partition & [f; !rem_attr])
+                             [ C.P.tuple_2 (pattern_of_opt i) (C.P.var name), content ]
+        | Some Xml_plus -> C.E.match_ (!I.List.partition & [f; !rem_attr])
+                             [ C.P.tuple_2 (C.P.nil ()) (C.P.any ()), C.E.none ();
+                               C.P.tuple_2 (pattern_of_opt i) (C.P.var name), content ]
+        | Some (Xml_number e) ->
+          let n = fresh_name ~name:"n" () in
+          C.E.letin n e (C.E.match_opt (!I.List.partition_range & [f;!n;!n;!rem_attr])
+                           (C.P.none (), C.E.none ())
+                           (C.P.some (C.P.tuple_2 (pattern_of_opt i) (C.P.var name)), content) )
+        | Some (Xml_range (e1, e2)) -> C.E.match_opt (!I.List.partition_range & [f;e1;e2;!rem_attr])
+                                         (C.P.none (), C.E.none ())
+                                         (C.P.some (C.P.tuple_2 (pattern_of_opt i) (C.P.var name)), content)
+        in
+        content, rem_attr
       )
-    | _ -> failwith "Not implemented: binding/suffixing of any attribute pattern" in
-    content, name
+    | _ -> failwith "Not implemented: binding/suffixing of any attribute pattern list"
 
 and process_attributes (name:string) list content =
   if list = [] then content else

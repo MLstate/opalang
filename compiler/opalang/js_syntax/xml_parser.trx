@@ -164,11 +164,12 @@ let attribute_match binding = spacing (=attribute_lhs(binding)):lhs (=attribute_
                  match rhs, namep, suffix with
                  | (true, None, l), { name = None, [XmlValueConst (name, _)] }, None -> `normal_attr (XmlAttrMatch (namep, (Some name, l)))
                  | (_, i, l), _, None -> `normal_attr (XmlAttrMatch (namep, (i, l)))
+                 | (true, None, l), { name = None, [XmlValueConst (name, _)] }, Some (Xml_question, _) -> `normal_attr (XmlAttrSuffixed (None, [XmlAttrMatch (namep, (Some name, l))], Some Xml_question))
+                 | (_, i, l), _, Some (Xml_question, _) -> `normal_attr (XmlAttrSuffixed (None, [XmlAttrMatch (namep, (i, l))], Some Xml_question))
                  | (_, Some _, _), _, Some (_, label) -> error1 (Printf.sprintf "You cannot have at the same time an attribute value binding and a suffix") label
                  | _, { namespace = (Some _),_; name = (Some _),_ }, Some (_, label) -> error1 (Printf.sprintf "You cannot have at the same time an attribute namespace binding, an attribute name binding, and a suffix") label
-                 | _, _, Some (_, label) -> error1 (Printf.sprintf "Not implemented yet: suffix on any attribute pattern") label
-                 (* | (_, _, l), { namespace = ((Some _) as i),nsp }, Some (suffix, _) -> `normal_attr (XmlAttrSuffixed (i, [XmlAttrMatch ({ namep with namespace = None, nsp }, (None, l))], Some suffix)) *)
-                 (* | (_, _, l), { name = i, np }, Some (suffix, _) -> `normal_attr (XmlAttrSuffixed (i, [XmlAttrMatch ({ namep with name = None, np }, (None, l))], Some suffix)) *)
+                 | (_, _, l), { namespace = ((Some _) as i),nsp }, Some (suffix, _) -> `normal_attr (XmlAttrSuffixed (i, [XmlAttrMatch ({ namep with namespace = None, nsp }, (None, l))], Some suffix))
+                 | (_, _, l), { name = i, np }, Some (suffix, _) -> `normal_attr (XmlAttrSuffixed (i, [XmlAttrMatch ({ namep with name = None, np }, (None, l))], Some suffix))
              }}
 ;let attribute_list nattr = Opa_lexer.lpar_nosp spacing nattr+:l Opa_lexer.rpar spacing {{ l }}
                             / nattr:a {{ [a] }}

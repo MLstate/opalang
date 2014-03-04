@@ -112,7 +112,10 @@ struct
   let split_at_opt = !! "split_at_opt"
   let split_between = !! "split_between"
   let map = !! "map"
+  let extract_p = !! "extract_p"
   let find_map_cb = !! "find_map_cb"
+  let partition = !! "partition"
+  let partition_range = !! "partition_range"
 end
 
 module Mutable =

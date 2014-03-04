@@ -506,6 +506,25 @@ List = {{
       | _ -> (rev(acc_left),rev(acc_right))
     aux(l, 0, [], []) : (list('a), list('a))
 
+  /**
+   * Between {!List.partition} and {!List.split_between}.
+   *
+   * @return [{none}] if [f] returns [true] for less than [min] or more than [max] elements,
+   * [{some: List.partition(f, l)}] otherwise. The order of elements is preserved.
+   */
+  partition_range(f: 'a -> bool, min: int, max: int, l: list('a)) =
+    if max < 0 then {none} else
+    rec aux(acc1,acc2,l,min,max) =
+      if max == 0 then
+        if min <= 0 then
+          {some = (rev(acc1),rev_append(acc2,l))}
+        else
+          {none}
+      else
+        match l with
+        | [] -> if min <= 0 then {some = (rev(acc1),rev(acc2))} else {none}
+        | [h|t] -> if f(h) then aux([h|acc1],acc2,t,min-1,max-1) else aux(acc1,[h|acc2],t,min,max)
+    aux([],[],l,min,max)
 
  /**
   * {2 Searching}
@@ -1542,4 +1561,7 @@ type caml_list('a) = external
 @opacapi List_split_at_opt = List.split_at_opt
 @opacapi List_split_between = List.split_between
 @opacapi List_map = List.map
+@opacapi List_extract_p = List.extract_p
 @opacapi List_find_map_cb = List.find_map_cb
+@opacapi List_partition = List.partition
+@opacapi List_partition_range = List.partition_range
