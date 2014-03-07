@@ -67,6 +67,7 @@ svaluechars        <-
   / ((![\'&] .)+ $_)
 
 name                <- [a-zA-Z_0-9] [a-zA-Z_\-.0-9]*        $_
+name_cont           <- [a-zA-Z_\-.0-9]
 sname               <- name
 ename               <- name
 tname               <- name
@@ -90,7 +91,7 @@ htmltext           <- htmlchars+:s                      {{ concat_xml_text s }}
 deco_sname         =  deco sname;
 deco_ename         =  deco ename;
 deco_tname         =  deco tname;
-deco_html5voidtname =  deco (Html5.void_element !([a-zA-Z_\-.0-9]+));
+deco_html5voidtname =  deco (Html5.void_element !name_cont);
 deco_htmltext      =  deco htmltext;
 deco_svalue        =  deco svalue;
 deco_spaces        =  deco spaces;
@@ -190,7 +191,7 @@ has_children_nodes <-
 #
 
 ;attr_name_with_special_handling <- (*style_insensitive {{ Some () }}
-                                  /*) xhtml_specific tag_specific_a href_insensitive $
+                                  /*) xhtml_specific tag_specific_a href_insensitive !name_cont $
 
 #Ensure that [style] is always typed
 #Ensure that [a href] and [area href] are either static or checked dynamically
