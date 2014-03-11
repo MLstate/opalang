@@ -670,7 +670,9 @@ XmlConvert = {{
           aux(_, OpaType.type_of_name(ident, args)),
           value, [])
       | ty ->
-        if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
+        if OpaTypeUnification.is_unifiable(ty, @typeval(xhtml)) then
+          Magic.id(value)
+        else if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
           Xml.create_fragment(Magic.id(value))
         else if OpaTypeUnification.is_unifiable(ty, @typeval(list(xml))) then
           Xml.create_fragment(Magic.id(value))
