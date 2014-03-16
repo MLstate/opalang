@@ -1,5 +1,5 @@
 /*
-    Copyright © 2011 MLstate
+    Copyright © 2011-2014 MLstate
 
     This file is part of Opa.
 
@@ -11,7 +11,7 @@
 */
 
 /**
- * A configuarble widget displaying a login prompt or information about the logged user.
+ * A configurable widget displaying a login prompt or information about the logged user.
  *
  * @author Guillem Rieu, 2010
  * @author Hugo Heuzard, 2011
