@@ -1,4 +1,10 @@
-# Naming conventions:
+Thanks for looking at contributing to Opa!
+
+To contribute, please sign the online [Contributor License Agreement](http://www.clahub.com/agreements/MLstate/opalang) to get started.
+
+Below are coding conventions.
+
+# Naming conventions
 
 * the language is called Opa, not OPA or opa;
 * respectively, other languages are called JavaScript, OCaml, HTML, PHP;
@@ -16,7 +22,7 @@
 * source must be fully commented, in Opadoc style;
 * keywords are between ++
 
-# Typography:
+# Typography
 * don't forget semi-colons;
 * in lists, they are compulsory.
 
