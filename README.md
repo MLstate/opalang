@@ -11,7 +11,7 @@ This repository contains all the sources of both the Opa compiler and the Opa li
 
 Opa is open source. The compiler is released under the AGPL license, the library under the MIT license. 
 
-Applications written with Opa only include the library part, so are **free to release applications written with Opa under any proprietary or open source license**.
+Applications written with Opa only include the library part, so you are **free to release applications written with Opa under any proprietary or open source license**.
 
 If you want to create an online "cloud" application platform that includes the Opa compiler, you need to release the sources under the AGPL license as per the AGPL license terms.
 
