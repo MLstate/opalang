@@ -1393,6 +1393,15 @@ let tag_mismatch ((ns1,_annot), (tag1,tag1_annot)) ((ns2,_annot), (tag2,{QmlLoc.
     )
     else ()
 
+let pattern_tag_mismatch ((ns2, _annot), (tag2,{QmlLoc.pos = pos2})) =
+  error1 (sprintf "tag mismatch: opened with a pattern, closed with </%s>. Found at %s"
+            (hint_color (nstag_to_string ns2 tag2))
+            (QmlLoc.pos_to_short_string (pos2, false))) _annot
+
+let xmlns_check_no_binding ~label b1 b2 = match b1, b2 with
+| None, None -> ()
+| _ -> error1 (sprintf "Bindings are not allowed when in xmlns declarations") label
+
 let nochild_elem nstag close_tag has_children create =
   let ((ns1,_annot),(tag1,{QmlLoc.pos = pos1})) = nstag in
   let ((ns2,_),(tag2,_)) = close_tag in

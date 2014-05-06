@@ -441,6 +441,39 @@ Rule =
   )
 
   /**
+   * Make a parser from the simple sum type [ty].
+   * E.g. if [ty] is {a} / {b}, this function returns a parser which maps "a" to {a} and "b" to {b}
+   *
+   * To make a stringifier for your type, use [OpaValue.Record.get_uniq_field_name].
+   */
+  of_simple_sum_type(ty:OpaType.ty):Parser.general_parser('a) =
+  (
+    original_ty = ty
+    of_fields(fields) =
+    (
+      match fields with
+      | [{~label ~ty}] ->
+        value = Option.get_msg(->"Rule.of_simple_sum_type failed because {original_ty} contains a non-defaultable type",OpaValue.default_with_ty(ty))
+        field = OpaValue.Record.field_of_name_unsafe(label)
+        cons = OpaValue.Record.add_field(OpaValue.Record.empty_constructor(), field, value)
+        res = OpaValue.Record.make_record(cons)
+        map(of_string(label),_->res)
+      | _ -> error("Rule.of_simple_sum_type failed because {original_ty} contains a non-simple record type")
+    )
+    rec aux(ty) =
+    (
+      match ty with
+      | {TySum_col = lfields}
+      | {TySum_col = lfields; TySum_colvar = _} -> of_parsers(List.map(of_fields, lfields))
+      | {TyRecord_row = fields}
+      | {TyRecord_row = fields; TyRecord_rowvar = _} -> of_fields(fields)
+      | {TyName_args = args; TyName_ident = ident} -> aux(OpaType.type_of_name(ident, args))
+      | _ -> error("Rule.of_simple_sum_type failed because {original_ty} is not a sum type")
+    )
+    aux(ty)
+  )
+
+  /**
    * Transform an ['a] parser to an ['b] parser using the map function [f].
    */
   map(p:Parser.general_parser('a), f):Parser.general_parser('b) = i, b ->

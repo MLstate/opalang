@@ -320,10 +320,19 @@ OpaValue = {{
   default() : option('a) = default_with_ty(@typeval('a))
 
   /**
+   * Like [OpaValue.default] but with hints to generate fields that would normally
+   * make [OpaValue.default] fail.
+   * The hints must have the same structure as the one to generate.
+   */
+  default_with_hints(hints:'h) : option('a) = default_with_ty_and_hints(@typeval('a), {some = hints})
+
+  /**
    * As [OpaValue.default] but the type is explicitly given as an argument.
    * Note : Unsafe, use [OpaValue.default] for save generation
    */
-  default_with_ty(ty:OpaType.ty) =
+  default_with_ty(ty:OpaType.ty) = default_with_ty_and_hints(ty, none)
+
+  default_with_ty_and_hints(ty:OpaType.ty, hints:option('a)) =
     match ty with
     | {TyConst=const} ->
       aux_const(const) = match const with
@@ -335,12 +344,12 @@ OpaValue = {{
       rec aux_row(row, cons) =
         match row with
         | [] -> {some = Record.make_record(cons)}
-        | [t|q] -> match default_with_ty(t.ty) with
-          | {none} -> {none}
-          | {some = value} ->
+        | [t|q] -> 
             field = Record.field_of_name_unsafe(t.label)
-            aux_row(q, Record.add_field(cons, field, value))
-          end
+            match default_with_ty_and_hints(t.ty, Option.bind(Record.dot(_, field), hints)) with
+            | {none} -> {none}
+            | {some = value} -> aux_row(q, Record.add_field(cons, field, value))
+            end
       aux_row(row, Record.empty_constructor())
     | {TySum_col=col ...} ->
       rec aux_col(col) =
@@ -351,10 +360,10 @@ OpaValue = {{
             {some = Record.make_simple_record(field)}
           else aux_col(q)
         | [_|q] -> aux_col(q)
-        | [] -> none
+        | [] -> Magic.id(hints)
       aux_col(col)
-    | {TyName_args=tys TyName_ident=tyid} -> default_with_ty(OpaType.type_of_name(tyid, tys))
-    | _ -> none
+    | {TyName_args=tys TyName_ident=tyid} -> default_with_ty_and_hints(OpaType.type_of_name(tyid, tys), hints)
+    | _ -> Magic.id(hints)
 
   /**
    * {2 Record manipulation}

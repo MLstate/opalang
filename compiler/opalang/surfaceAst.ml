@@ -248,25 +248,30 @@ type ('ident, 'dir) code = ('ident, 'dir) code_elt list (**One (or more) complet
 (**
    {5 The ast for pattern matching on xml }
  *)
-type 'expr namespace = {namespace : 'expr ; name : string label}
+type 'expr xml_value_pattern =
+| XmlValueConst of string label (* a constant string *)
+| XmlValueStringExpr of 'expr (* an expression representing a string *)
+| XmlValueStringParser of 'expr (* an expression representing a string to transform into a parser *)
+| XmlValueParserExpr of 'expr (* an expression of type parser *)
+| XmlValueParser of 'expr Trx_ast.item list (* a parser *)
+type 'expr named_value_pattern = string option * 'expr xml_value_pattern list
+type 'expr namespace_pattern = {namespace : 'expr named_value_pattern ; name : 'expr named_value_pattern}
+type xml_prefix = XmlAnd | XmlNot
 type 'expr xml_suffix =
   | Xml_star
   | Xml_plus
   | Xml_question
   | Xml_number of 'expr
   | Xml_range of 'expr * 'expr
-type 'expr xml_pattern_attribute_value =
-  | XmlExists
-  | XmlName
-  | XmlAttrStringParser of 'expr
-  | XmlAttrParser of 'expr
 type 'expr xml_pattern_attribute =
   (* string is a unique name used by the parser generator *)
-  'expr namespace * string option * 'expr xml_pattern_attribute_value
+  | XmlAttrMatch of 'expr namespace_pattern * 'expr named_value_pattern (* ns:name=value *)
+  | XmlAttrPrefixed of xml_prefix * 'expr xml_pattern_attribute list (* !x=v &x=v *)
+  | XmlAttrSuffixed of string option * 'expr xml_pattern_attribute list * 'expr xml_suffix option (* x:=y* *)
 type 'expr xml_pattern =
   | XmlLetIn of (string * 'expr) list * 'expr xml_pattern (* this node allows to bind namespaces *)
   | XmlExpr of 'expr
-  | XmlNode of 'expr namespace *
+  | XmlNode of 'expr namespace_pattern *
             'expr xml_pattern_attribute list *
             'expr xml_named_pattern list
   | XmlAny
@@ -275,10 +280,11 @@ type 'expr xml_pattern =
        already anyway
        but then what about <toto a={e}>*
     *)
+  | XmlPrefixed of xml_prefix * 'expr xml_named_pattern list
 and 'expr xml_named_pattern = string option * 'expr xml_pattern * 'expr xml_suffix label option
 and 'expr xml_rule = 'expr xml_named_pattern list * 'expr (* one line of parser *)
 type 'expr xml_parser =
-  'expr xml_rule list (* the alternatives *)
+  'expr xml_rule list * 'expr option (* the alternatives *)
 
 
 (**

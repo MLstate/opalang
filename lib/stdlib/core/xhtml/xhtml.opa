@@ -148,6 +148,7 @@ empty_xhtml = {fragment = []} : xhtml
 @specialize(Xml.to_xml:xhtml -> xhtml,
             Xml.to_xml:xmlns -> xmlns,
             Xml.create_fragment:list(xhtml) -> xhtml,
+            Xml.create_fragment:list(xmlns) -> xmlns,
             XmlConvert.of_string:string -> xhtml,
             XmlConvert.of_int:int -> xhtml,
             XmlConvert.of_float:float -> xhtml,
@@ -538,6 +539,10 @@ XmlParser_Env_add_pbinds = XmlParser.Env.add_pbinds
 @opacapi
 XmlParser_Env_add_xbinds = XmlParser.Env.add_xbinds
 @opacapi
+XmlParser_Env_p_get_uri = XmlParser.Env.p_get_uri
+@opacapi
+XmlParser_Env_x_get_uri = XmlParser.Env.x_get_uri
+@opacapi
 XmlParser_make = XmlParser.make
 @opacapi
 XmlParser_set_env = XmlParser.set_env
@@ -557,6 +562,10 @@ XmlParser = {{
 
     add_xbinds(env:XmlParser.env, binds:list(Xml.binding)):XmlParser.env =
       {env with xbind = XmlNsEnv.add(env.xbind, binds)}
+
+    p_get_uri(env:XmlParser.env, ns:string) = XmlNsEnv.get_uri(ns, env.pbind)
+
+    x_get_uri(env:XmlParser.env, ns:string) = XmlNsEnv.get_uri(ns, env.xbind)
   }}
 
   flatten_and_discard_whitespace_aux(xml,acc) =
@@ -650,6 +659,10 @@ XmlConvert = {{
          TyName_args =
            [{TyName_ident = "xhtml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
           Xml.create_fragment(Magic.id(value))
+      | {TyName_ident = "list";
+         TyName_args =
+           [{TyName_ident = "xml"; TyName_args = (_ : list(OpaType.ty)) }]} ->
+          Xml.create_fragment(Magic.id(value))
       | {TyName_args = args; TyName_ident = ident} ->
         OpaValue.todo_magic_container(
           %%BslValue.MagicContainer.xmlizer_get%%,
@@ -657,7 +670,11 @@ XmlConvert = {{
           aux(_, OpaType.type_of_name(ident, args)),
           value, [])
       | ty ->
-        if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
+        if OpaTypeUnification.is_unifiable(ty, @typeval(xhtml)) then
+          Magic.id(value)
+        else if OpaTypeUnification.is_unifiable(ty, @typeval(list(xhtml))) then
+          Xml.create_fragment(Magic.id(value))
+        else if OpaTypeUnification.is_unifiable(ty, @typeval(list(xml))) then
           Xml.create_fragment(Magic.id(value))
         else {text = "Can't make an xml with {ty}"}
     aux(value, original_ty)

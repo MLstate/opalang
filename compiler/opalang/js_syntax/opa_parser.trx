@@ -876,7 +876,7 @@ match <- (=deco(Opa_lexer.MATCH lpar expr:e rpar {{Some (e:(_, _) SurfaceAst.exp
 
 match_case <- (Opa_lexer.CASE / match_sep)
 
-match_end_case <- (match_case $ / match_default_case $ / rbrace $)
+match_end_case <- (match_case $ / match_default_case $ / rbrace $ / rpar $)
 
 match_expr <- (((=deco(block_inner)):e &match_end_case {{e}}) / (expr:e &match_end_case {{e}}))
 
