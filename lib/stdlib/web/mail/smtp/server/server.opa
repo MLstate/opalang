@@ -85,7 +85,7 @@ module SmtpServer {
     function void command_common(SmtpServer.smtp_server srvrref, SmtpServer.state stateref, string command, string payload) {
       state = ServerReference.get(stateref)
       raiclient = state.raiclient
-      match (command) {
+      match (String.trim(command)) {
       case "vrfy":
         srvr = ServerReference.get(srvrref)
         send_single(raiclient, srvr.verify_callback(payload));
@@ -101,6 +101,8 @@ module SmtpServer {
         RAIServer.send(raiclient, "221 Bye")
         RAIServer.client_end(raiclient);
         ServerReference.set(stateref, ~{state with mode:{closed}});
+      case "":
+        RAIServer.send(raiclient, "250 Ok")
       default:
         Log.error("Bad command {command}")
         RAIServer.send(raiclient, "500 Command not recognised")
