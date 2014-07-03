@@ -100,7 +100,7 @@ struct
       else
         match String.split_char '/' m.Module.path with
         | _libroot,"" -> None
-        | _libroot,subpath -> Some { Graph.Graphviz.DotAttributes. sg_name = subpath; sg_attributes = [ `Label subpath ] }
+        | _libroot,subpath -> Some { Graph.Graphviz.DotAttributes. sg_name = subpath; sg_attributes = [ `Label subpath ]; sg_parent =  None }
     let default_edge_attributes _t = []
     let edge_attributes _e = []
   end
@@ -135,6 +135,7 @@ struct
           (fun repo -> {
              Graph.Graphviz.DotAttributes.sg_name = repo;
              Graph.Graphviz.DotAttributes.sg_attributes = [ `Label repo ];
+             Graph.Graphviz.DotAttributes.sg_parent = None ;
            })
           l.Lib.repo
     let default_edge_attributes _t = []

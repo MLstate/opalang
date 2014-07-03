@@ -159,6 +159,10 @@ for repo in $REPOS ; do
     elif ! is_git_root $repo; then
         echo "let ${repo}_git_version = 0"
         echo "let ${repo}_git_sha = \"\""
+# PL fix , seems build expects to find opa_git_version
+        echo "let opa_git_version = 0"
+        echo "let opa_git_sha = \"\""
+
     else
         if [ "$repo" = "$ROOT_REPO" ] ; then
             echo "let opa_git_version = $(in_repo $repo git_opalang_version_cmd)"
