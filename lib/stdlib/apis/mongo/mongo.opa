@@ -330,32 +330,114 @@ MongoDriver = {{
   @private get_opCode(mbuf:Mongo.mongo_buf) = getmbuf(mbuf,WP.get_opCode)
   @private reply_requestId(mbuf:Mongo.mongo_buf) = getmbuf(mbuf,WP.reply_requestId)
 
+  @private ssok(m, mbuf) = if m.conf.slaveok then set_query_flags(mbuf,MongoCommon.SlaveOkBit) else mbuf
+
+  @private update_mbox(connection, mbox) =
+    match mbox with
+    | {some=mbox} -> {connection with ~mbox}
+    | {none} -> connection
+    end
+
+  @private update_mongo(m, mbox) =
+    match m.conn with
+    | {some=connection} -> {m with conn={some=update_mbox(connection,mbox)}}
+    | {none} -> m
+    end
+
+  @private ll_command_on_channel(m, cmd) =
+    (mbox,result) = sr_swr(m,ssok(m, cmd))
+    m = update_mongo(m, mbox)
+    match result with
+    | {noconnection} -> {failure={Error="ll_command_on_channel: no connection"}}
+    | {reconnect} -> {failure={Error="ll_command_on_channel: can't reconnect"}}
+    | {sndrcvresult={some={MsgBody={Reply={documents=[doc]; numberReturned=1; startingFrom=0; ...}}; ...}}} -> {success=(m,doc)}
+    | _ -> {failure={Error="ll_command_on_channel: bad reply"}}
+    end
+
+  /* Dreadful hack.
+   * If the socket pool decides to open a new socket we need to authenticate
+   * it with mongo.  We use the authentication value stored in the socket pool
+   * as a flag but we need to do the authentication outside of this driver's
+   * normal computation path.  This function is a low-level authentication
+   * routine for authenticating a newly opened connection without accessing
+   * the socket pool.  It is not valid under concurrency but works only with
+   * fresh sockets for which this routine has unique access which is guaranteed
+   * by the enclosing cell.  Re-authenticating the socket later by the normal
+   * channels does no harm.
+   */
+  @private authenticate_on_current_channel(m) =
+    cmd = [WP.Query(0,0,"{m.name}.$cmd",[H.i32("getnonce",1)],0,1,{none})]
+    match ll_command_on_channel(m, cmd) with
+    | {success=(m,doc)} ->
+      //do Ansi.jlog("doc: %g{doc}%d")
+      if Bson.is_error(doc)
+      then {failure={Error="authenticate_on_current_channel: bad nonce document"}}
+      else
+        match Bson.find_string(doc,"nonce") with
+        | {some=nonce} ->
+          //do Ansi.jlog("nonce=%c{nonce}%d")
+          List.fold(
+            (auth, outcome:outcome(Mongo.db,Mongo.failure) ->
+              match outcome with
+              | {success=m} -> {success=m}
+              | {failure=_} ->
+                digest = %%BslMisc.md5%%("{auth.user}:mongo:{auth.password}")
+                hash = %%BslMisc.md5%%("{nonce}{auth.user}{digest}")
+                cmd = [H.i32("authenticate",1), H.str("user",auth.user), H.str("nonce",nonce), H.str("key",hash)]
+                cmd = [WP.Query(0,0,"{m.name}.$cmd",cmd,0,1,{none})]
+                match ll_command_on_channel(m, cmd) with
+                | {success=(m,doc)} ->
+                  //do Ansi.jlog("doc: %g{doc}%d")
+                  if Bson.is_error(doc)
+                  then {failure={Error="authenticate_on_current_channel: authentication failure"}}
+                  else {success=m}
+                | {~failure} ->
+                  do Log.info(m, "authenticate", "fail: {failure}")
+                  {failure={Error="authenticate_on_current_channel: failure {failure}"}}
+                end
+              end), m.conf.auths, {failure={Error="authenticate_on_current_channel: no auths"}})
+        | {none} -> {failure={Error="authenticate_on_current_channel: no nonce"}}
+        end
+    | {~failure} -> {failure={Error="authenticate_on_current_channel: failure {failure}"}}
+    end
+
+  @private check_auth(m:Mongo.db, authentication:SocketPool.auth) =
+    match (m.conf.auths,authentication) with
+    | ([],_) -> {success=(m, {authentication with authenticated=true})}
+    | (_,{authenticated={true}; i1=_; i2=_}) -> {success=(m,authentication)}
+    | _ ->
+       match authenticate_on_current_channel(m) with
+       | {success=m} -> {success=(m, {authentication with authenticated=true})}
+       | {~failure} -> {~failure}
+       end
+    end
+
   @private
   srpool(m:Mongo.db,msg:Mongo.sr): Mongo.srr =
-    match SocketPool.get(m.pool) with
-    | {success=connection} ->
+    match SocketPool.get_auth(m.pool) with
+    | {success=(connection,authentication)} ->
        conn = {some=connection}
-       ssok(mbuf) =
-         if m.conf.slaveok then
-           set_query_flags(mbuf,MongoCommon.SlaveOkBit)
-         else mbuf
-       (mbox,result) =
-         match msg with
-         | {send=(m,mbuf)} -> sr_snr({m with ~conn},ssok(mbuf))
-         | {sendrecv=(m,mbuf)} -> sr_swr({m with ~conn},ssok(mbuf))
-         | {senderror=(m,mbuf)} -> sr_swe({m with ~conn},ssok(mbuf))
-         | {stop} -> do Log.debug(m, "srpool","stop") @fail
-       connection =
-         match mbox with
-         | {some=mbox} -> {connection with ~mbox}
-         | {none} -> connection
-       do SocketPool.release(m.pool,connection)
-       result
+       match check_auth({m with ~conn}, authentication) with
+       | {success=(m,authentication)} ->
+         (mbox,result) =
+           match msg with
+           | {send=(m,mbuf)} -> sr_snr({m with ~conn},ssok(m,mbuf))
+           | {sendrecv=(m,mbuf)} -> sr_swr({m with ~conn},ssok(m,mbuf))
+           | {senderror=(m,mbuf)} -> sr_swe({m with ~conn},ssok(m,mbuf))
+           | {stop} -> do Log.debug(m, "srpool","stop") @fail
+         connection = update_mbox(connection, mbox)
+         do SocketPool.release_auth(m.pool,connection,authentication)
+         result
+       | {~failure} ->
+          do Log.error(m, "srpool","Can't authenticate {failure}")
+          {noconnection}
+       end
     | {~failure} ->
        do Log.error(m, "srpool","Can't get pool {failure}")
        if m.conf.attempt == 0
        then {noconnection}
        else {reconnect}
+    end
 
   @private reconnect_and_continue(m, mbuf, f, default) =
     if reconnect("send_no_reply", m) then f(m, mbuf)
@@ -448,10 +530,10 @@ MongoDriver = {{
    * @return
    */
   check(m:Mongo.db) =
-    match SocketPool.get(m.pool) with
+    match SocketPool.get_auth(m.pool) with
     | ~{failure} -> {failure={Error=failure}}
-    | {success=c} ->
-      do SocketPool.release(m.pool, c)
+    | {success=(c,a)} ->
+      do SocketPool.release_auth(m.pool, c, a)
       {success=m}
 
   /**
