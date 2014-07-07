@@ -284,7 +284,7 @@ module Schema = struct
           let next = next llschema node fragment in
           let setkind = get_setkind llschema node in
           let options = {DbAst.limit = None; skip = None; sort = None} in
-          let kind = SetAccess (setkind, path, Some (true, (DbAst.QEq expr, options)), None) in
+          let kind = SetAccess (setkind, path, Some (true, (DbAst.QEq (expr, false), options)), None) in
           (next, kind, path)
 
       | DbAst.FldKey key ->

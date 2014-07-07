@@ -350,7 +350,7 @@ struct
       | Some (`type_ (`enum, _, _) | `blob) ->
           let rec to_expr annotmap q =
             match q with
-            | QD.QEq e -> annotmap, e
+            | QD.QEq (e, _) -> annotmap, e
             | QD.QFlds flds ->
                 let annotmap, flds = List.fold_left_map
                   (fun annotmap (s, q) ->
@@ -365,7 +365,7 @@ struct
           | QD.QGte _ | QD.QLte _ | QD.QNe _ -> (annotmap, bindings), q
           | q ->
               let annotmap, e = to_expr annotmap q in
-              (annotmap, bindings), QD.QEq (e:Q.expr)
+              (annotmap, bindings), QD.QEq (e, false)
           end
       | Some `foreign _ -> assert false
       | _ -> (
@@ -380,7 +380,7 @@ struct
                 (annotmap, bindings) flds
               in
               (annotmap, bindings), QD.QFlds flds
-          | QD.QEq e ->
+          | QD.QEq (e, b) ->
               let ty = QmlAnnotMap.find_ty (Annot.annot (Q.Label.expr e)) annotmap in
               begin match QmlTypesUtils.Inspect.follow_alias_noopt_private gamma ty with
               | Q.TypeRecord (Q.TyRow (flds, _)) ->
@@ -390,12 +390,12 @@ struct
                          let annotmap, e = C.dot gamma annotmap e s in
                          let i = Ident.next "qdot" in
                          let annotmap, ie = C.ident annotmap i ty in
-                         let acc, q = aux (s::path) (annotmap, (i,e)::bindings) (QD.QEq ie) in
+                         let acc, q = aux (s::path) (annotmap, (i,e)::bindings) (QD.QEq (ie, false)) in
                          acc, ([`string s], q)
                       )
                       (annotmap, bindings) flds
                   in (annotmap, bindings), QD.QFlds flds
-              | _ -> (annotmap, bindings), QD.QEq e
+              | _ -> (annotmap, bindings), QD.QEq (e, b)
               end
           | QD.QAnd (q0, q1) ->
               binop path (annotmap, bindings) (fun q0 q1 -> QD.QAnd (q0,q1)) q0 q1
@@ -415,7 +415,7 @@ struct
     let rec aux fmt q =
       let pp x = Format.fprintf fmt x in
       match q with
-      | QD.QEq   e    -> pp " = %a" (pp_expr []) e
+      | QD.QEq  (e, _)    -> pp " = %a" (pp_expr []) e
       | QD.QGt   e    -> pp " > %a" (pp_expr []) e
       | QD.QLt   e    -> pp " < %a" (pp_expr []) e
       | QD.QGte  e    -> pp " >= %a" (pp_expr []) e
@@ -557,7 +557,7 @@ struct
               aux env path args q1
             in
             match ops with
-            | QD.QEq     (`expr e)
+            | QD.QEq     (`expr e, _)
             | QD.QGt     (`expr e)
             | QD.QLt     (`expr e)
             | QD.QGte    (`expr e)
@@ -915,7 +915,7 @@ struct
               let _, amap =
                 QmlAstWalk.DbWalk.Query.self_traverse_fold
                   (fun self tra (path, (amap:(string list * Q.expr) AnnotMap.t)) -> function
-                   | QD.QEq e | QD.QGt e | QD.QLt e | QD.QGte e | QD.QLte e
+                   | QD.QEq (e, _) | QD.QGt e | QD.QLt e | QD.QGte e | QD.QLte e
                    | QD.QNe e | QD.QIn e ->
                        let annot = Annot.annot (Q.Label.expr e) in
                        path, AnnotMap.add annot (List.rev path, e) amap
@@ -1043,7 +1043,7 @@ struct
     let rec aux q =
       let binop q0 q1 rb = rb (aux q0) (aux q1) in
       match q with
-      | QD.QEq e  -> QD.QEq (`expr e)
+      | QD.QEq (e, b)  -> QD.QEq (`expr e, b)
       | QD.QGt e  -> QD.QGt (`expr e)
       | QD.QLt e  -> QD.QLt (`expr e)
       | QD.QGte e -> QD.QGte (`expr e)
@@ -1261,7 +1261,7 @@ struct
                 [`string "_id"], QD.UExpr _0;
                 (List.map (fun s -> `string s) strpath), upd
               ] in
-              let query = QD.QFlds [[`string "_id"], QD.QEq _0], QD.default_query_options in
+              let query = QD.QFlds [[`string "_id"], QD.QEq (_0, false)], QD.default_query_options in
               resolve_sqlupdate ~tbl:"_default" {env with annotmap} node (Some query) None (upd, opt)
           | _ -> assert false
         end

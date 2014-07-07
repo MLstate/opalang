@@ -292,7 +292,7 @@ module Generator = struct
         let path =
           match query0 with
           | None -> path
-          | Some (_, (DbAst.QEq key, _)) -> `expr key :: path
+          | Some (_, (DbAst.QEq (key, _), _)) -> `expr key :: path
           | _ -> QmlError.error context
               "This kind of query is not yet implemented by dropbox backend"
         in
@@ -302,7 +302,7 @@ module Generator = struct
             | t::q -> match t with
               | DbAst.FldKey k -> aux ((`string k)::path) q
               | DbAst.ExprKey e
-              | DbAst.Query (DbAst.QEq e, _) -> aux ((`expr e)::path) q
+              | DbAst.Query (DbAst.QEq (e, _), _) -> aux ((`expr e)::path) q
               | _ -> QmlError.error context
                   "This kind of sub path is not yet implemented by dropbox backend"
           in aux path embed

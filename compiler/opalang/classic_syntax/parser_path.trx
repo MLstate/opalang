@@ -210,7 +210,8 @@ query_combine <-
   / Opa_lexer.lpar query:q1 Opa_lexer.rpar spacing query_double_builder:b spacing query:q2 {{ b q1 q2 }}
 
 query_simple_builder <-
-  / (=Opa_lexer.exact_symbol("==")) {{ fun e -> QmlAst.Db.QEq e }}
+  / (=Opa_lexer.exact_symbol("==")) {{ fun e -> QmlAst.Db.QEq (e, false) }}
+  / (=Opa_lexer.exact_symbol("=~")) {{ fun e -> QmlAst.Db.QEq (e, true) }}
   / (=Opa_lexer.exact_symbol(">"))  {{ fun e -> QmlAst.Db.QGt e }}
   / (=Opa_lexer.exact_symbol("<"))  {{ fun e -> QmlAst.Db.QLt e }}
   / (=Opa_lexer.exact_symbol(">=")) {{ fun e -> QmlAst.Db.QGte e }}
@@ -265,7 +266,8 @@ sqlquery_combine <-
   / Opa_lexer.lpar sqlquery:q1 Opa_lexer.rpar spacing sqlquery_double_builder:b spacing sqlquery:q2 {{ b q1 q2 }}
 
 sqlquery_simple_builder <-
-  / (=Opa_lexer.exact_symbol("==")) {{ fun e -> QmlAst.Db.QEq e }}
+  / (=Opa_lexer.exact_symbol("==")) {{ fun e -> QmlAst.Db.QEq (e, false) }}
+  / (=Opa_lexer.exact_symbol("=~")) {{ fun e -> QmlAst.Db.QEq (e, true) }}
   / (=Opa_lexer.exact_symbol(">"))  {{ fun e -> QmlAst.Db.QGt e }}
   / (=Opa_lexer.exact_symbol("<"))  {{ fun e -> QmlAst.Db.QLt e }}
   / (=Opa_lexer.exact_symbol(">=")) {{ fun e -> QmlAst.Db.QGte e }}

@@ -874,7 +874,7 @@ let is_uniq t node query =
         | Q.Db.QFlds (flds) ->
             let (flds : string list) =
               List.filter_map
-                (fun (f, q) -> match f, q with | [`string f], Q.Db.QEq _ -> Some f | _ -> None)
+                (fun (f, q) -> match f, q with | [`string f], Q.Db.QEq (_, false) -> Some f | _ -> None)
                 flds
             in
             List.for_all
@@ -885,7 +885,7 @@ let is_uniq t node query =
         end
     | Q.TypeConst _ ->
         begin match query with
-        | Q.Db.QEq _ -> true
+        | Q.Db.QEq (_, false) -> true
         | _ -> false
         end
     | _ -> false
@@ -973,7 +973,7 @@ let coerce_query_element ~qwrap ~quwrap ~context gamma ty (query, options) =
     in
     match query with
     | Db.QExists _ -> new_annots, query
-    | Db.QEq  expr -> coerce (fun e -> Db.QEq  e) ty expr
+    | Db.QEq (expr, b) -> coerce (fun e -> Db.QEq (e, b)) ty expr
     | Db.QGt  expr -> coerce (fun e -> Db.QGt  e) ty expr
     | Db.QLt  expr -> coerce (fun e -> Db.QLt  e) ty expr
     | Db.QGte expr -> coerce (fun e -> Db.QGte e) ty expr

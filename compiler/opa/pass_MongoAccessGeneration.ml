@@ -200,7 +200,7 @@ module Generator = struct
     List.map
       (function
        | DbAst.FldKey k -> fragconv (`string k)
-       | DbAst.Query (DbAst.QEq e , _)
+       | DbAst.Query (DbAst.QEq (e, false), _)
        | DbAst.ExprKey e -> fragconv (`expr e)
        | _ -> assert false)
       embed
@@ -220,12 +220,12 @@ module Generator = struct
       | DbAst.QFlds flds -> DbAst.QFlds (List.map (fun (f, q) -> (f, prepare_query q)) flds)
       | DbAst.QAnd (q1, q2) -> DbAst.QAnd (prepare_query q1, prepare_query q2)
       | DbAst.QOr (q1, q2)  -> DbAst.QOr  (prepare_query q1, prepare_query q2)
-      | DbAst.QNot DbAst.QEq  e -> DbAst.QNe  e
+      | DbAst.QNot DbAst.QEq  (e, false) -> DbAst.QNe  e
       | DbAst.QNot DbAst.QGt  e -> DbAst.QLte e
       | DbAst.QNot DbAst.QLt  e -> DbAst.QGte e
       | DbAst.QNot DbAst.QGte e -> DbAst.QLt  e
       | DbAst.QNot DbAst.QLte e -> DbAst.QGt  e
-      | DbAst.QNot DbAst.QNe  e -> DbAst.QEq  e
+      | DbAst.QNot DbAst.QNe  e -> DbAst.QEq  (e, false)
       | DbAst.QNot DbAst.QExists b -> DbAst.QExists (not b)
       | DbAst.QNot (DbAst.QIn _ | DbAst.QMod _) -> query
       | DbAst.QNot (DbAst.QNot query) -> query
@@ -235,6 +235,7 @@ module Generator = struct
           DbAst.QAnd (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
       | DbAst.QNot (DbAst.QAnd (q1, q2)) ->
           DbAst.QOr (prepare_query (DbAst.QNot q1), prepare_query (DbAst.QNot q2))
+      | _ -> assert false   (* raised with: QNot (QEq (e, true)): cannot take the negation of a case insensitive equality. *)
     in
     let query =
       match embed with
@@ -254,15 +255,25 @@ module Generator = struct
         let query = prepare_query query embed in
         let rec aux annotmap query =
           match query with
-          | DbAst.QEq e ->
+          | DbAst.QEq (e, false) ->
               let (annotmap, e) = C.shallow_copy annotmap e in
               opa2doc gamma annotmap e ()
+          | DbAst.QEq (e, true) ->
+              (* Make the 'i' (insensentive) option. *)
+              let annotmap, i = C.string annotmap "i" in
+              (* Make the expression. *)
+              let annotmap, e = C.shallow_copy annotmap e in
+              (* Make the query. *)
+              let annotmap, query = empty_query gamma annotmap in
+              let annotmap, query = add_to_document gamma annotmap "$regex" e query in
+              add_to_document gamma annotmap "$options" i query
+
           | DbAst.QMod _ -> assert false
           | DbAst.QExists b ->
               let annotmap, b = C.bool (annotmap, gamma) b in
               let annotmap, query = empty_query gamma annotmap in
               add_to_document gamma annotmap "$exists" b query
-          | DbAst.QGt e | DbAst.QLt e | DbAst.QGte e | DbAst.QLte e | DbAst.QNe e | DbAst.QIn e->
+          | DbAst.QGt e | DbAst.QLt e | DbAst.QGte e | DbAst.QLte e | DbAst.QNe e | DbAst.QIn e ->
               let name =
                 match query with
                 | DbAst.QGt _  -> "$gt"
@@ -280,7 +291,8 @@ module Generator = struct
                 (fun (annotmap, acc) (fld, query) ->
                    let annotmap, name = expr_of_strexprpath gamma annotmap fld in
                    match query with
-                   | DbAst.QEq e -> add_to_document0 gamma annotmap name e acc
+                    (* Other case redirected to aux function. *)
+                   | DbAst.QEq (e, false) -> add_to_document0 gamma annotmap name e acc
                    | _ ->
                        let annotmap, query = aux annotmap query in
                        add_to_document0 gamma annotmap name query acc
@@ -827,7 +839,8 @@ module Generator = struct
                          (fun ty -> posty (dot str ty)),
                          `string str :: embed_field
                      | DbAst.ExprKey uexpr
-                     | DbAst.Query (DbAst.QEq uexpr , _)->
+                     (* Subselection only with case sensitive equality. *)
+                     | DbAst.Query (DbAst.QEq (uexpr, false) , _)->
                          DbAst.SId (uexpr, select),
                          (fun (annotmap, expr) -> post (annotmap, expr)),
                          (fun dty ->

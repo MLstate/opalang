@@ -146,7 +146,7 @@ struct
     | SId of 'expr * 'expr select
 
   type ('epath, 'expr) query =
-    | QEq   of 'expr
+    | QEq   of 'expr * bool (* case insensitive: true *)
     | QGt   of 'expr
     | QLt   of 'expr
     | QGte  of 'expr
@@ -326,7 +326,8 @@ struct
     )
 
   let rec pp_query pp_epath pp_expr fmt = function
-    | QEq   expr -> pp fmt "== %a" pp_expr expr
+    | QEq  (expr, false) -> pp fmt "== %a" pp_expr expr
+    | QEq  (expr, true)  -> pp fmt "=~ %a" pp_expr expr
     | QGt   expr -> pp fmt "> %a" pp_expr expr
     | QLt   expr -> pp fmt "< %a" pp_expr expr
     | QGte  expr -> pp fmt ">= %a" pp_expr expr
@@ -570,7 +571,7 @@ struct
   let rec sub_db_query sub_ep sub_e sub_ty = function
     | QExists _
     | QMod  _ as e -> TU.sub_ignore e
-    | QEq   e -> TU.wrap (fun e -> QEq e) (sub_e e)
+    | QEq   (e, b) -> TU.wrap (fun e -> QEq (e, b)) (sub_e e)
     | QGt   e -> TU.wrap (fun e -> QGt e) (sub_e e)
     | QLt   e -> TU.wrap (fun e -> QLt e) (sub_e e)
     | QGte  e -> TU.wrap (fun e -> QGte e) (sub_e e)
