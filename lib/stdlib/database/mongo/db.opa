@@ -647,6 +647,12 @@ Then use 'opa --db-remote' instead of '--db-local'.
          (auth, (Text.to_string(host), port))
       parser seeds={Rule.parse_list(seed_parser, Rule.of_string(","))} -> f(seeds)
 
+    dbargs = Mutable.make((("",0),{none}):((string,int),
+                                           option({kind:option({remote:{auth:list(Mongo.auth);
+                                                                        seeds: list((string,int))}} /
+                                                               {local:{path:string}});
+                                                   name:string})))
+
     open(name:string, host, port) =
       seed = (host ? "localhost", port ? 27017)
       (suffix, msg) = match name with
@@ -689,6 +695,7 @@ Then use 'opa --db-remote' instead of '--db-local'.
           },
         ]
       })
+      do dbargs.set((seed,{some=args})) // We need access to this for backups
       match args.kind with
       | {some = ~{remote}} -> open_remote(args.name, remote, seed)
       | {some = ~{local}} -> open_local(args.name, local, seed)
@@ -711,6 +718,7 @@ Then use 'opa --db-remote' instead of '--db-local'.
   }}
 
   open = Init.open
+  dbargs = Init.dbargs
 
   @package drop(db:DbMongo.t) =
     db = db.get()
