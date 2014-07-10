@@ -417,8 +417,8 @@ MongoDriver = {{
     match SocketPool.get_auth(m.pool) with
     | {success=(connection,authentication)} ->
        conn = {some=connection}
-       match check_auth({m with ~conn}, authentication) with
-       | {success=(m,authentication)} ->
+//       match check_auth({m with ~conn}, authentication) with
+//       | {success=(m,authentication)} ->
          (mbox,result) =
            match msg with
            | {send=(m,mbuf)} -> sr_snr({m with ~conn},ssok(m,mbuf))
@@ -428,10 +428,10 @@ MongoDriver = {{
          connection = update_mbox(connection, mbox)
          do SocketPool.release_auth(m.pool,connection,authentication)
          result
-       | {~failure} ->
-          do Log.error(m, "srpool","Can't authenticate {failure}")
-          {noconnection}
-       end
+//       | {~failure} ->
+//          do Log.error(m, "srpool","Can't authenticate {failure}")
+//          {noconnection}
+//       end
     | {~failure} ->
        do Log.error(m, "srpool","Can't get pool {failure}")
        if m.conf.attempt == 0
