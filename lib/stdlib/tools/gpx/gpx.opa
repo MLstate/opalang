@@ -8,7 +8,7 @@ type Gpx.latitude = float
 type Gpx.longitude = float
 
  /** Geographical location in space, consisting of longitude and latitude */
-type Gpx.location = { lat : Gpx.latitude; lon : Gpx.longitude }
+type Gpx.location = { latitude : Gpx.latitude; longitude : Gpx.longitude }
 
  /** Bounding box, specified by upper-left (ul) and bottom-down (bd) corners */
 type Gpx.bounds = { ul : Gpx.location; bd : Gpx.location }
@@ -21,7 +21,7 @@ type Gpx.entry = { time: Date.date
                  }
 
 type Gpx.trace = { started_at : Date.date
-                 ; bounds : Gpx.bounds
+                 ; bounds : option(Gpx.bounds)
                  ; trace : list(Gpx.entry)
                  }
 
@@ -43,6 +43,10 @@ Gpx = {{
     bounds = xml_parser <bounds xmlns={xmlns} minlat={float} minlon={float}
       maxlat={float} maxlon={float} />
       ->
+      minlat = String.to_float("{minlat}")
+      minlon = String.to_float("{minlon}")
+      maxlat = String.to_float("{maxlat}")
+      maxlon = String.to_float("{maxlon}")
       { ul = { latitude=minlat; longitude=minlon }
       ; bd = { latitude=maxlat; longitude=maxlon }
       }
@@ -55,7 +59,7 @@ Gpx = {{
         (<link xmlns={xmlns}>_*</> -> void)*
         time={time}
         (<keywords xmlns={xmlns}>_*</> -> void)?
-        bounds={bounds}
+        bounds={bounds}?
         (<extensions xmlns={xmlns}>_*</> -> void)?
       </>
       -> ~{time bounds}
@@ -63,14 +67,16 @@ Gpx = {{
   @private trkseg =
     elevation =
       xml_parser <ele xmlns={xmlns} >elevation={xml_float}</>
-        -> {meters=Int.of_float(elevation)}
+        -> {meters=elevation}
     trk_pt = xml_parser
       <trkpt xmlns={xmlns} lat={float} lon={float}>
         elevation={elevation}?
         time={time}
       </>
       ->
-      location = { latitude=lat; longitude=lon }
+      latitude  = String.to_float("{lat}")
+      longitude = String.to_float("{lon}")
+      location : Gpx.location = ~{ latitude; longitude }
       ~{ location elevation time }
     xml_parser
       <trkseg xmlns={xmlns}>
@@ -110,6 +116,6 @@ Gpx = {{
       { started_at=metadata.time
       ; bounds=metadata.bounds
       ; trace=trk
-      }
+      } : Gpx.trace
 
 }}
