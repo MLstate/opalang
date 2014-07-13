@@ -4,7 +4,7 @@ jsbsl/bsl-sources.jsconf
 # external, kept separate for licensing issues.
 jsbsl/md5.js
 jsbsl/base64.js
-jsbsl/jquery-1.7.2.min.js
+jsbsl/jquery-1.8.3.min.js
 
 # Server specific bypass
 jsbsl/bslNativeLib.js
