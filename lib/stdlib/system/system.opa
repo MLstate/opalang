@@ -49,6 +49,13 @@ type System.process.out = {
      error : option(string)
 }
 
+type System.exec_options = {
+    input: string
+    cwd: option(string)
+    timeout: int
+    maxBuffer: int
+    killSignal: string
+}
 
 /**
  * Binding with module System
@@ -137,6 +144,10 @@ System = {{
    */
   gmt_launch_date = Date.now_gmt()
 
+  execo = @may_cps(%%bslSys.process.exec%%) : string, System.exec_options -> string
+
+  exec_default_options =  { input = "" cwd = {none} timeout = 0 maxBuffer = 204800 killSignal = "SIGTERM" } : System.exec_options
+
   /**
    * [exec(command, input)]
    * acts like: echo input | command > output
@@ -147,7 +158,7 @@ System = {{
    * In case of error, return the error message instead of the process output.
    * @return raw result
    */
-  exec = @may_cps(%%bslSys.process.exec%%) : string, string -> string
+  exec(command, input) = execo(command, {exec_default_options with ~input })
 
   @private
   async_shell_exec = %%bslSys.process.async_shell_exec%% : string, string, (System.process.out->void) -> System.process
