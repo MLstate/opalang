@@ -148,6 +148,19 @@ type Map('key,'order) = {{
     -> option(ordered_map('key,'val,'order))
 
   /**
+   * Add a key/value to a multimap.
+   *
+   * @param key The key added to the multimap. If a list already exists with this
+   *            key, [val] is inserted to it.
+   * @param val The value added to the multimap.
+   * @param m   The multimap to which to add.
+   * @return    A map containing all the elements of [m] plus the
+   *            association of [val] to [key].
+   */
+  add_to_multi: 'key, 'val, ordered_map('key,list('val),'order)
+    -> ordered_map('key,list('val),'order)
+
+  /**
    * Get the element associated to a given key.
    *
    * Performance note: if you are looping through a map, you should rather use
@@ -422,6 +435,18 @@ type Map('key,'order) = {{
      *         to the first value of to which it is also associated in [l].
      */
     assoc_list :   list( tuple_2('key,'val) ) -> ordered_map('key,'val,'order)
+
+    /**
+     * Convert a list of key/value pairs to a map.
+     *
+     * Unlike [assoc_list] elements of the map are lists containing all
+     * occurrences of a key.
+     *
+     * @param l A list of key/value pairs.
+     * @return A map containing all the keys of [l]. Each key [k] is associated
+     *         to a list of the values of to which it is also associated in [l].
+     */
+    assoc_list_multi :   list( tuple_2('key,'val) ) -> ordered_map('key,list('val),'order)
   }}
 
   /**
@@ -647,10 +672,23 @@ Map_private =
               | {none}     -> {none} //Nothing inserted, don't rebuild the map
               | {some = x} -> some(Map_private.bal(left,key,value,x))
             end
-    //match
     aux(m)
-    //   | {none} -> m
-    //   | {some = x} -> x
+
+  add_to_multi(order: order('key,'order),
+               x:'key, data:'val,
+               m:Map_private.map('key,list('val))) =
+    rec aux(m:Map_private.map('key, list('val))) = match m
+    | { empty } -> (true, singleton(x,[data]))
+    | ~{ left key value right height } ->
+        match Order.compare(x,key,order) with
+        | {eq} -> (false, node(left, key, List.cons(data,value), right, height))
+        | {lt} -> (rebal, left) = aux(left)
+                  (rebal, if rebal then bal(left, key, value, right)
+                                   else node(left, key, value, right, height))
+        | {gt} -> (rebal, right) = aux(right)
+                  (rebal, if rebal then bal(left, key, value, right)
+                                   else node(left, key, value, right, height))
+    aux(m).f2
 
   remove(order: order('key, 'order),
          x:'key, m:Map_private.map('key, 'val)) :
@@ -966,6 +1004,14 @@ Map_private =
         l,
         empty : Map_private.map('key, 'val)
       )
+
+    assoc_list_multi(order : order('key, 'order), l : list(('key, 'val)))
+    : Map_private.map('key, list('val)) =
+      List.fold(
+        ((k, v), acc -> add_to_multi(order, k, v, acc)),
+        l,
+        empty : Map_private.map('key, list('val))
+      )
   }}
 
   To = {{
@@ -1087,6 +1133,10 @@ Map_make(order: order('key,'order) ) : Map =
     : option(ordered_map('key,'val,'order)) =
     Map_private.add_without_erasing(order, x, data, m)
 
+  add_to_multi(x:'key, data:'val, m:ordered_map('key,list('val),'order))
+    : ordered_map('key,list('val),'order) =
+    Map_private.add_to_multi(order, x, data, m)
+
   remove(x:'key, m:ordered_map('key, 'val, 'order))
     : ordered_map('key, 'val, 'order) =
     Map_private.remove(order, x, m)
@@ -1204,6 +1254,9 @@ Map_make(order: order('key,'order) ) : Map =
   From = {{
     assoc_list(l : list(('key, 'val))) : ordered_map('key, 'val, 'order) =
       Map_private.From.assoc_list(order, l)
+
+    assoc_list_multi(l : list(('key, 'val))) : ordered_map('key, list('val), 'order) =
+      Map_private.From.assoc_list_multi(order, l)
   }}
 
   To = {{
