@@ -173,8 +173,8 @@ UriParser =
 
   mark = parser t=([\-_.!~*'()]+) -> Text.to_string(t);
 
-  escaped = parser "%" h1=Rule.hexadecimal h2=Rule.hexadecimal ->
-        String.of_utf8_val(h1 * 16 + h2)
+  escaped = parser "%" v=Rule.utf8hex_with_sep(Rule.of_string("%")) ->
+        String.of_utf8_val(v)
 
   unreserved = parser t=((Rule.alphanum_char | mark)+) -> Text.to_string(t);
 
