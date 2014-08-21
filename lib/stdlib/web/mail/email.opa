@@ -72,7 +72,7 @@ type Email.content =
  */
 type Email.send_status =
    { bad_sender }
- / { bad_recipient }
+ / { bad_recipients : string }
  / { sending }
  / { ok : string }
  / { error : string }
@@ -84,19 +84,13 @@ type Email.send_status =
  * We do NOT check if custom_headers already contains {b To:} or {b Cc:} fields.
  */
 type Email.options = {
+  from : Email.email
   to : list(Email.email)
   cc : list(Email.email)
   bcc : list(Email.email)
+  subject : string
   custom_headers : list((string, string))
   files : Email.files
-  via : option(string)
-  server_addr : option(string)
-  server_port : option(int)
-  auth : option(string)
-  user : option(string)
-  pass : option(string)
-  dryrun : bool
-  secure_type : option(SSL.secure_type)
 }
 
 type caml_tuple_2('a,'b) = external
@@ -107,20 +101,24 @@ type caml_tuple_4('a,'b,'c,'d) = external
  */
 Email = {{
 
+  dummy_address = {
+    local = ""
+    domain = ""
+  } : Email.address
+
+  dummy_email = {
+    name = {none}
+    address = dummy_address
+  } : Email.email
+
   default_options = {
+    from = dummy_email
     to = []
     cc = []
     bcc = []
+    subject = ""
     custom_headers = []
     files = []
-    via = none
-    server_addr = none
-    server_port = none
-    auth = none
-    user = none
-    pass = none
-    dryrun = false
-    secure_type = none
   } : Email.options
 
   /**
