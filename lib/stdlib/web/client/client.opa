@@ -20,6 +20,8 @@ type Client.location = {
   protocol : string
 }
 
+type History.state('a) = 'a
+
 type position = {x:int y:int} // FIXME: MOVE or KILL
 
 /* Js types definition */
@@ -65,6 +67,17 @@ type JsFunction = external
     (
        %% BslClientOnly.load_js_then %%(source, callback)
     )
+  }}
+
+  History = {{
+
+    length = %% BslAnchors.html5_history_length %%
+    state = %% BslAnchors.html5_history_state %%
+    go = %% BslAnchors.html5_history_go %%
+    back = %% BslAnchors.html5_history_back %%
+    forward = %% BslAnchors.html5_history_forward %%
+    pushState = %% BslAnchors.html5_history_push_state %%
+
   }}
 
   Anchor =
