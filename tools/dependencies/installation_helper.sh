@@ -198,7 +198,7 @@ sources () {
         findlib) echo "http://download.camlcity.org/download/findlib-1.3.3.tar.gz";;
         ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.6/ocaml-ssl-0.4.6.tar.gz";;
         cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/891/cryptokit-1.6.tar.gz";;
-        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.2.tar.gz";;
+        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.5.tar.gz";;
         camlzip) echo "http://forge.ocamlcore.org/frs/download.php/1037/camlzip-1.05.tar.gz";;
         camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
         ulex) echo "http://ftp.de.debian.org/debian/pool/main/u/ulex/ulex_1.1.orig.tar.gz";;
