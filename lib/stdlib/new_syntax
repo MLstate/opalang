@@ -11,6 +11,7 @@ lib/stdlib/core/wbxml/wbxml.opa
 lib/stdlib/core/unicode.opa
 lib/stdlib/web/utils/raiserver.opa
 lib/stdlib/web/mail/smtp/server/server.opa
+lib/stdlib/web/mail/imap/server/server.opa
 lib/stdlib/apis/ldap/ldap.opa
 lib/stdlib/apis/ldap/inetorgperson.opa
 
