@@ -223,6 +223,7 @@ let fake_hierar context = context +> empty_hierar
 
 (* Generate an exprIdent from a (source) name and a hierarchy
  * (list of string to make renaming somewhat stable) *)
+let ( |> ) x f = f x
 let ident_of_string ~label name ((_,l):hierar) =
   let filename = FilePos.get_file label.QmlLoc.pos in
   let buff = FBuffer.make 0 in
