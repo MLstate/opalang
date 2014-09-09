@@ -736,7 +736,7 @@ WBootstrap = {{
 
     navbar_header(brand) =
       target = Random.string(20)
-      html = 
+      html =
         <div class="navbar-header">
           <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#{target}">
             <span class="sr-only">Toggle navigation</span>
@@ -759,7 +759,7 @@ WBootstrap = {{
       <nav class="navbar navbar-{style_name}" data-spy="scroll" role="navigation">
         {header}
         <div class="collapse navbar-collapse" id="{brand_target}">{content}</div>
-      </nav> 
+      </nav>
       // |> Xhtml.update_class("navbar", _)
 
     /**
@@ -803,7 +803,7 @@ WBootstrap = {{
           else identity)
 
     nav(l, stacked) = make_tabs("", l, stacked, identity)
-    tabs(l, stacked, justified) = 
+    tabs(l, stacked, justified) =
       make_tabs("nav-tabs", l, stacked, Xhtml.add_attribute_unsafe("data-toggle", "tab", _))
       |> (if justified then Xhtml.update_class("nav-justified", _)
           else identity)

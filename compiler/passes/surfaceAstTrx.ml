@@ -107,7 +107,7 @@ let is_name_used_in_production_or_following_subrules code_opt subrules argName =
   Option.exists predicate code_opt || List.exists (exists_item predicate) subrules
 
 (* ==================== translation =================== *)
-
+let ( |> ) x f = f x
 let translate_class cl =
   let make_range r = C.T.coerce_name r range_type in
   let translate_range = function
