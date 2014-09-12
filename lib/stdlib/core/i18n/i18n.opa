@@ -49,7 +49,7 @@ I18n = {{
       on server side with a client context it is the client language
       on server side otherwise it is the server language */
   lang() : I18n.language = @sliced_expr({
-    client = ClientI18n.get_page_lang
+    client = UserI18n.get_lang() // ClientI18n.get_page_lang <- no, doesn't work
     server = UserI18n.get_lang()
   })
 
@@ -196,11 +196,13 @@ ServerI18n =
 
 }}
 
+/*
 @private
 @client
 ClientI18n = {{
   get_page_lang = %% BslI18n.page_lang %% : I18n.language
 }}
+*/
 
 
 
