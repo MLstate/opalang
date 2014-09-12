@@ -103,7 +103,7 @@ HttpRequest = {{
      * Try to get the "Accept-Language" header of a connexion
      */
     `get_Accept-Language`(x: HttpRequest.request): option(string) =
-      get_headers(x).header_get("Accept_Language")
+      get_headers(x).header_get("accept-language")
 
 
 
