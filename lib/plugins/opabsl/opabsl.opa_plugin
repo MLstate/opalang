@@ -26,6 +26,7 @@ jsbsl/bslBuffer.js
 jsbsl/jQueryExtends.js
 jsbsl/bslClientOnly.js
 jsbsl/bslAnchors.js
+jsbsl/bslStorage.js
 jsbsl/bslClient.js
 jsbsl/lowLevelArray.js
 jsbsl/bslClosure.js

@@ -24,6 +24,22 @@ type History.state('a) = 'a
 
 type position = {x:int y:int} // FIXME: MOVE or KILL
 
+/** Singature of HTML5 Storage objects. */
+type Storage.sign = {
+  // Shorter names.
+  set : string, string -> void
+  get : string -> option(string)
+  remove : string -> void
+  // Original names.
+  setItem : string, string -> void
+  getItem : string -> option(string)
+  removeItem : string -> void
+  clear : -> void
+  length : -> int
+  key : int -> option(string)
+}
+
+
 /* Js types definition */
 type JsTimerObjectI = external
 type jstimerobjecti = JsTimerObjectI
@@ -78,6 +94,30 @@ type JsFunction = external
     forward = %% BslAnchors.html5_history_forward %%
     pushState = %% BslAnchors.html5_history_push_state %%
 
+  }}
+
+  SessionStorage : Storage.sign = {{
+    set = %% BslStorage.session_setItem %%
+    get = %% BslStorage.session_getItem %%
+    remove = %% BslStorage.session_removeItem %%
+    setItem = %% BslStorage.session_setItem %%
+    getItem = %% BslStorage.session_getItem %%
+    removeItem = %% BslStorage.session_removeItem %%
+    clear = %% BslStorage.session_clear %%
+    length = %% BslStorage.session_length %%
+    key = %% BslStorage.session_key %%
+  }}
+
+  LocalStorage : Storage.sign = {{
+    set = %% BslStorage.local_setItem %%
+    get = %% BslStorage.local_getItem %%
+    remove = %% BslStorage.local_removeItem %%
+    setItem = %% BslStorage.local_setItem %%
+    getItem = %% BslStorage.local_getItem %%
+    removeItem = %% BslStorage.local_removeItem %%
+    clear = %% BslStorage.local_clear %%
+    length = %% BslStorage.local_length %%
+    key = %% BslStorage.local_key %%
   }}
 
   Anchor =
