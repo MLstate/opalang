@@ -1091,6 +1091,49 @@ opa_create "opa node application creator" "qmljs.opa.create" ["opabsl.qmljs.stam
 
 (* -- end opa-create -- *)
 
+(* -- begin po2opa -- *)
+
+let po2opa_prefix = prefix_me "tools/po2opa/src/po2opa" in
+let po2opa_src = po2opa_prefix ^ ".opa" in
+let po2opa_dst = po2opa_prefix ^ ".exe" in
+
+let dir_all_files dir =
+  List.filter (fun p -> (not (Pathname.is_directory p))) (dirlist dir)
+in
+
+let dir_rec_all_files dir =
+  let dirs =  rec_subdirs [ dir ] in
+  List.fold_right (fun dir acc -> dir_all_files dir @ acc) dirs []
+in
+
+let po2opa name stamp deps ?(more_app_opts=[]) app_opx_dir =
+rule name
+  ~deps:(deps @ tool_deps "opa-bin" @ dir_rec_all_files (prefix_me "tools/po2opa"))
+  ~stamp
+  ~prods: [po2opa_dst]
+  (fun env build ->
+     if no_tools then Nop
+     else (
+    set_mlstatelibs ();
+    Seq [
+      Cmd(S([
+	      get_tool "opa-bin";
+              A"-o"; P po2opa_dst; P po2opa_src;
+              A"--opx-dir"; A app_opx_dir;
+              A"--no-server";
+              A"--project-root"; P (source_dir/opalang_prefix); (* because the @static_resource in the stdlib expect this *)
+              A"-I"; A prefixed_plugins_dir
+	    ] @ more_app_opts));
+      unset_mlstatelibs
+    ]
+    )
+  )
+
+in
+po2opa "po to opa translation file" "qmljs.opa.create" ["opabsl.qmljs.stamp"; "plugins.qmljs.stamp"] "stdlib.qmljs";
+
+(* -- end po2opa -- *)
+
 (* -- begin misc -- *)
 
 rule "opa bash_completion: opa-bin -> bash_completion"
