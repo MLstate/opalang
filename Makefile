@@ -44,7 +44,6 @@ node: $(MYOCAMLBUILD)
 	$(OCAMLBUILD) plugins.qmljs.stamp $(call target-tools,$(ALL_TOOLS)) opa-node-packages.stamp qmljs.opa.create
 	@$(call copy-tools,$(ALL_TOOLS))
 	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
-	$(INSTALL) $(BUILD_DIR)/$(target-tool-po2opa) $(BUILD_DIR)/bin/po2opa
 
 .PHONY: node-runtime-libs
 node-runtime-libs: $(MYOCAMLBUILD)
@@ -67,7 +66,7 @@ opa-node-packages: $(MYOCAMLBUILD)
 stdlib: opa-node-packages
 
 .PHONY: opa-tools
-opa-tools: $(MYOCAMLBUILD) opa-create po2opa
+opa-tools: $(MYOCAMLBUILD) opa-create
 	@echo "Tools build"
 
 DISTRIB_TOOLS = opa-bin opa-plugin-builder-bin opa-plugin-browser-bin bslServerLib.ml opx2js-bin # opa-cloud opa-db-server opa-db-tool opatop opa-translate
@@ -78,7 +77,6 @@ distrib: $(MYOCAMLBUILD)
 	@$(call copy-tools,$(DISTRIB_TOOLS))
 	@mkdir -p $(BUILD_DIR)/bin
 	$(INSTALL) $(BUILD_DIR)/$(target-tool-opa-create) $(BUILD_DIR)/bin/opa-create
-	$(INSTALL) $(BUILD_DIR)/$(target-tool-po2opa) $(BUILD_DIR)/bin/po2opa
 
 ##
 ## MANPAGES - done in install_release.sh
@@ -110,25 +108,6 @@ install-opa-create:
 	@mkdir -p $(PREFIX)/bin
 	$(INSTALL) $(BUILD_DIR)/bin/opa-create $(INSTALL_DIR)/bin/opa-create
 	@chmod 755 $(INSTALL_DIR)/bin/opa-create
-
-##
-## PO2OPA
-##
-
-target-tool-po2opa = $(OPALANG_DIR)/tools/po2opa/src/po2opa.exe
-
-.PHONY: po2opa
-po2opa: $(MYOCAMLBUILD)
-	$(OCAMLBUILD) $(target-tool-po2opa)
-	@mkdir -p $(BUILD_DIR)/bin
-	$(INSTALL) $(BUILD_DIR)/$(target-tool-po2opa) $(BUILD_DIR)/bin/po2opa
-	@chmod 755 $(BUILD_DIR)/bin/po2opa
-
-.PHONY: install-po2opa
-install-po2opa:
-	@mkdir -p $(PREFIX)/bin
-	$(INSTALL) $(BUILD_DIR)/bin/po2opa $(INSTALL_DIR)/bin/po2opa
-	@chmod 755 $(INSTALL_DIR)/bin/po2opa
 
 ##
 ## INSTALLATION
