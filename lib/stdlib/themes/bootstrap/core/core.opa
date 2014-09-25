@@ -131,7 +131,7 @@ Bootstrap = {{
 
   @package
   import_css(v:string) = // css, no icons, no responsive
-    fname = 
+    fname =
       if String.lt(v, "3.0.0") then
         "bootstrap-css.min.css"
       else
@@ -153,7 +153,7 @@ Bootstrap = {{
   /**
    * Latest version of Bootstrap included in Opa
    */
-  latest = "3.0.3"
+  latest = "3.2.0"
   theme_path = "{bs_resources_path}/{latest}/css/bootstrap-theme.min.css"
 
   /**
