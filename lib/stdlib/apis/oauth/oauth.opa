@@ -74,9 +74,10 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     verifier = API_libs.get_field(data, "oauth_verifier")
     error = API_libs.get_field(data, "error")
     if token == ""
-    then { error=res }
-    else if error != ""
-    then { ~error }
+    then
+      if error != ""
+      then { ~error }
+      else { error=res }
     else
       success = { ~token ~secret ~verifier } : OAuth.token
       { ~success }
