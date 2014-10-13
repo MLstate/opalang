@@ -92,8 +92,6 @@ Contact
 
 All bug reports, feedback, comments, contributions or remarks are welcome.
 
-In particular, users are welcome to:
-* subscribe on the mailing list at [OWASP](https://lists.owasp.org/listinfo/opa);
-* participate in the [forum at opalang](http://forum.opalang.org).
+In particular, users are welcome to subscribe on the mailing list at [OWASP](https://lists.owasp.org/listinfo/opa).
 
 For more information, please consult the [opalang portal](http://opalang.org).
