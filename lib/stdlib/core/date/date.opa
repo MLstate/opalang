@@ -887,6 +887,7 @@ Date =
    * - [%y] last two digits of year (00..99)
    * - [%Y] year (ex. 2010)
    * - [%z] +hhmm numeric timezone (e.g., -0400)
+   * - [%Z] alphabetic timezone abbreviation (e.g., EDT)
    *
    * By default, numeric fields are padded with zeroes. The following optional flags
    * may follow `%':
