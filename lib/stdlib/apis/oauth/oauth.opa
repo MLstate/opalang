@@ -94,43 +94,34 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
   /* Signature functions */
   /* ------------------- */
 
-  build_base_string(uri, params, auth_params) =
-    // params = List.map((k,v)->(k,API_libs_private.url_encoder(v)), params)
-    aux0(acc, (pname, pval)) = Set.add((pname,pval), acc)
-    setorder = List.fold_left(aux0, Set.empty, auth_params)
-    setorder = List.fold_left(aux0, setorder, params)
-    aux1((pname, pval), acc) =
-      pval = API_libs_private.url_encoder(pval)
-      if (acc == "") then "{pname}={pval}"
-      else "{acc}&{pname}={pval}"
-    str_params = Set.fold(aux1, setorder, "")
-    str_params = API_libs_private.url_encoder(str_params)
-    uri = API_libs_private.url_encoder(uri)
-    "{method_to_string(p.http_method)}&{uri}&{str_params}"
+  normalize_parameters(params) =
+    normalize((key, value)) = "{Uri.encode_string(key)}={Uri.encode_string(value)}"
+    List.map(normalize, params) |> List.sort |> String.concat("&", _) |> Uri.encode_string
 
-  hmac_sha1_sign(secret, uri, params, auth_params) =
-    base_string = build_base_string(uri, params, auth_params)
-    do API_libs_private.apijlog("Base string: {base_string}")
-    key = Binary.of_string("{p.consumer_secret}&{secret}")
-    res = Crypto.Base64.encode(Crypto.HMAC.sha1(key, Binary.of_string(base_string)))
-    res = API_libs_private.url_encoder(res)
-    do API_libs_private.apijlog("Signature: {res}")
-    res
+  hmac_sha1_sign(consumer_secret, token_secret, method, uri, params) =
+    params = normalize_parameters(params)
+    uri = Uri.encode_string(uri)
+    method = method_to_string(method)
+    base_string = "{method}&{uri}&{params}"
+    key = Binary.of_string("{Uri.encode_string(consumer_secret)}&{Uri.encode_string(token_secret)}")
+    Crypto.Base64.encode(Crypto.HMAC.sha1(key, Binary.of_string(base_string)))
 
   signature_to_string(s) =
     match s : OAuth.signature_type with
     | {PLAINTEXT} -> "PLAINTEXT"
     | {HMAC_SHA1} -> "HMAC-SHA1"
 
-  sign_request(secret, uri, params, auth_params) =
-    auth_params = List.cons(("oauth_signature_method",
-                             signature_to_string(p.auth_method)), auth_params)
-    signature = match p.auth_method : OAuth.signature_type with
-      | {PLAINTEXT} ->
-        API_libs_private.url_encoder("{p.consumer_secret}&{secret}")
-        //"{API_libs_private.url_encoder(p.consumer_secret)}&{API_libs_private.url_encoder(secret)}"
-      | {HMAC_SHA1} -> hmac_sha1_sign(secret, uri, params, auth_params)
+  signature(consumer_secret, token_secret, http_method, uri, params, auth_method : OAuth.signature_type) =
+    params = List.filter(((name,_)) -> name != "oauth_signature" && name != "realm", params)
+    match auth_method with
+    | {PLAINTEXT} -> ""
+    | {HMAC_SHA1} -> hmac_sha1_sign(consumer_secret, token_secret, http_method, uri, params)
+    end
+
+  sign_request(consumer_secret, token_secret, uri, _params, auth_params) =
+    signature = signature(consumer_secret, token_secret, p.http_method, uri, auth_params, p.auth_method)
     List.cons(("oauth_signature", signature), auth_params)
+
 
   /* ------------------ */
   /* Download functions */
@@ -138,7 +129,6 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
 
   build_auth_text(uri:string, auth_params) =
     auth_params = List.cons(("OAuth realm", uri), auth_params)
-    //auth_params = List.cons((String.replace("Dbg","","OAuth realm"), uri), auth_params) // Debug feature, to be deleted.
     aux((pname:string, pval:string), acc:string) =
       if acc == "" then "{pname}=\"{pval}\""
       else "{acc}, {pname}=\"{pval}\""
@@ -150,10 +140,10 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     [("oauth_consumer_key", p.consumer_key), ("oauth_timestamp", "{timestamp}"),
      ("oauth_nonce", "{nonce}"), ("oauth_version", "1.0")]
 
-  get_res_2(more_auth, secret, uri, params) =
-    auth_params = build_basic_params()
-      |> List.append(_, more_auth)
-      |> sign_request(secret, uri, params, _)
+  get_res_2(more_auth, consumer_secret, token_secret, uri, params) =
+    auth_params = build_basic_params() |> List.append(_, more_auth)
+    auth_params = List.cons(("oauth_signature_method", signature_to_string(p.auth_method)), auth_params)
+    auth_params = sign_request(consumer_secret, token_secret, uri, params, auth_params)
 
     aux(acc:string, (pname:string, pval:string)) =
       pval =
@@ -206,8 +196,8 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     // do API_libs_private.apijlog("Result: '''{res}'''")
     res
 
-  get_res(more_auth, secret, uri, params, parse_fun) =
-    match get_res_2(more_auth, secret, uri, params) with
+  get_res(more_auth, consumer_secret, token_secret, uri, params, parse_fun) =
+    match get_res_2(more_auth, consumer_secret, token_secret, uri, params) with
     | {failure=_} -> parse_fun("")
     | {success=s} -> parse_fun(s.content)
     end
@@ -217,7 +207,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
       if (callback != "") then
         [("oauth_callback", callback)]
       else []
-    get_res(more_auth, "", p.request_token_uri, [], build_result)
+    get_res(more_auth, p.consumer_secret, "", p.request_token_uri, [], build_result)
 
   get_access_token(request_key, request_secret, verifier) =
     more_auth = [("oauth_token", request_key)]
@@ -225,19 +215,19 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
       if (verifier != "") then
         List.cons(("oauth_verifier", verifier), more_auth)
       else more_auth
-    get_res(more_auth, request_secret, p.access_token_uri, [], build_result)
+    get_res(more_auth, p.consumer_secret, request_secret, p.access_token_uri, [], build_result)
 
   get_protected_resource(uri, params, access_key, access_secret) =
     more_auth = match access_key
       | "" -> []
       | _ -> [("oauth_token", access_key)]
-    get_res(more_auth, access_secret, uri, params, identity)
+    get_res(more_auth, p.consumer_secret, access_secret, uri, params, identity)
 
   get_protected_resource2(uri, params, access_key, access_secret) =
     more_auth = match access_key
       | "" -> []
       | _ -> [("oauth_token", access_key)]
-    get_res_2(more_auth, access_secret, uri, params)
+    get_res_2(more_auth, p.consumer_secret, access_secret, uri, params)
 
 }}
 
