@@ -232,7 +232,7 @@ struct
     aux ty
 
   let make_env gamma annotmap schema = {
-    tb_init = ["CREATE LANGUAGE plpgsql"];
+    tb_init = ["CREATE OR REPLACE LANGUAGE plpgsql"];
     ty_init = StringListMap.empty;
     tb_default = StringListMap.empty;
     q_prepared = QueryMap.empty;
@@ -1342,7 +1342,7 @@ struct
     | Q.TypeRecord Q.TyRow (fields , None) ->
         let buffer = Buffer.create 256 in
         let fmt = Format.formatter_of_buffer buffer in
-        Format.fprintf fmt "CREATE TABLE %a("
+        Format.fprintf fmt "CREATE TABLE IF NOT EXISTS %a("
           pp_table_name path;
         let rec aux_field fmt (s, ty) =
           Format.fprintf fmt "%a %a" pp_pgfield s (pp_type_as_pgtype ~path:(List.rev (s::path)) env) ty
