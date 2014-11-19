@@ -298,6 +298,24 @@ Rule =
     | l=hexadecimal+ -> List.fold((i, acc -> acc * 16 + i), l, 0)
 
   /**
+   * A parser for hexadecimal-encoded UTF-8 characters with
+   * a byte separator. The result of parsing is a decimal value.
+   */
+  utf8hex_with_sep(sep) =
+    d07 = parser v=([0-7]) -> Int.of_string(Text.to_string(v))
+    // d47 = parser "4" -> 0 | "5" -> 1 | "6" -> 2 | "7" -> 3
+    h8B = parser "8" -> 0 | "9" -> 1 | ("a" | "A") -> 2 | ("b" | "B") -> 3
+    hCD = parser ("c" | "C") -> 0 | ("d" | "D") -> 1
+    bLow = parser h=h8B l=hexadecimal -> h * 16 + l
+    parser
+      | h=d07 l=hexadecimal -> h * 16 + l
+      | b1h=hCD b1l=hexadecimal sep b2=bLow -> b1h * 1024 + b1l * 64 + b2
+      | ("e" | "E") b1=hexadecimal sep b2=bLow sep b3=bLow -> b1 * 4096 + b2 * 64 + b3
+      | ("f" | "F") b1=d07 sep b2=bLow sep b3=bLow sep b4=bLow -> b1 * 262144 + b2 * 4096 + b3 * 64 + b4
+      // | ("f" | "F") b1=d47 sep b2=bLow sep b3=bLow sep b4=bLow sep b5=bLow -> b1 * 16777216 + b2 * 262144 + b3 * 4096 + b4 * 64 + b5
+      // | ("f" | "F") b1=hCD sep b2=bLow sep b3=bLow sep b4=bLow sep b5=bLow sep b6=bLow -> b1 * 1073741824 + b2 * 16777216 + b3 * 262144 + b4 * 4096 + b5 * 64 + b6
+
+  /**
    * A parser that checks for end of input. It succeeds only on
    * empty input, giving {!void} as result.
    */
