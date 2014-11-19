@@ -748,6 +748,20 @@ List = {{
    */
   split_middle(l: list('a)) = split_at(l, length(l)/2): (list('a), list('a))
 
+  /**
+   * Separate a list in lists of [n] elements.
+   *
+   * @param n The length of the sublists.
+   * @param l A list.
+   * @return A list of lists of [n] elements of [l]. The last list may be shorter.
+   * Elements are kept in the same order, i.e., List.flatten(split_n(n, l)) equals l.
+   */
+  split_n(n:int, l:list('a)) : list(list('a)) =
+    rec aux(i,cur,res,rem) = match rem : list with
+      | [] -> rev([cur|res])
+      | [hd | tl] -> if i <= 0 then aux(n-1,[hd],[rev(cur)|res],tl)
+                               else aux(i-1,[hd|cur],res,tl)
+    aux(n,[],[],l)
 
   /**
    * Remove the [n] first elements of a list.
