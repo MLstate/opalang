@@ -105,9 +105,9 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     method = method_to_string(method)
     base_string = "{method}&{uri}&{params}"
     do  API_libs_private.apijlog("OAuth: base_string={base_string}")
-    key = Binary.of_string("{Uri.encode_string(consumer_secret)}&{Uri.encode_string(token_secret)}")
-    do  API_libs_private.apijlog("OAuth: key={key}")
-    Crypto.Base64.encode(Crypto.HMAC.sha1(key, Binary.of_string(base_string)))
+    key_string = "{Uri.encode_string(consumer_secret)}&{Uri.encode_string(token_secret)}"
+    do  API_libs_private.apijlog("OAuth: key_string={key_string}")
+    Crypto.Base64.encode(Crypto.HMAC.sha1(Binary.of_string(key_string), Binary.of_string(base_string)))
 
   signature_to_string(s) =
     match s : OAuth.signature_type with
