@@ -68,6 +68,7 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
 
   /* Result format : oauth_token=requestkey&oauth_token_secret=requestsecret&... */
   build_result(res) : OAuth.token_res =
+    do  API_libs_private.apijlog("OAuth: res={res}")
     data = API_libs.get_data(res)
     token = API_libs.get_field(data, "oauth_token")
     secret = API_libs.get_field(data, "oauth_token_secret")
@@ -103,7 +104,9 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     uri = Uri.encode_string(uri)
     method = method_to_string(method)
     base_string = "{method}&{uri}&{params}"
+    do  API_libs_private.apijlog("OAuth: base_string={base_string}")
     key = Binary.of_string("{Uri.encode_string(consumer_secret)}&{Uri.encode_string(token_secret)}")
+    do  API_libs_private.apijlog("OAuth: key={key}")
     Crypto.Base64.encode(Crypto.HMAC.sha1(key, Binary.of_string(base_string)))
 
   signature_to_string(s) =
