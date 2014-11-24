@@ -37,6 +37,7 @@ type Storage.sign = {
   clear : -> void
   length : -> int
   key : int -> option(string)
+  exists : string -> bool
 }
 
 
@@ -57,6 +58,12 @@ type JsFunction = external
    */
   go(to: Uri.uri): void =
     %% BslClient.Client.goto %%(Uri.to_string(to))
+
+  /**
+   * Check if the user is online
+   */
+  checkOnline(): bool =
+    %% BslClient.Client.checkOnline %%()
 
   /**
    * Load dynamically and execute some JavaScript code.
@@ -106,6 +113,7 @@ type JsFunction = external
     clear = %% BslStorage.session_clear %%
     length = %% BslStorage.session_length %%
     key = %% BslStorage.session_key %%
+    exists(name:string) = "{get(name)}"!="null"
   }}
 
   LocalStorage : Storage.sign = {{
@@ -118,6 +126,7 @@ type JsFunction = external
     clear = %% BslStorage.local_clear %%
     length = %% BslStorage.local_length %%
     key = %% BslStorage.local_key %%
+    exists(name:string) = "{get(name)}"!="null"
   }}
 
   Anchor =
