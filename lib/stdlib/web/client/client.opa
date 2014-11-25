@@ -113,7 +113,7 @@ type JsFunction = external
     clear = %% BslStorage.session_clear %%
     length = %% BslStorage.session_length %%
     key = %% BslStorage.session_key %%
-    exists(_: string) = false
+    exists = %% BslStorage.session_keyExists %%
   }}
 
   LocalStorage : Storage.sign = {{
