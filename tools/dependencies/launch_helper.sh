@@ -12,6 +12,14 @@
 
 # On Debian, node is now called nodejs. The configure script prefers the latter
 # if it exists, as node might be some other program when both exist.
+foreverarg=no; for arg; do if [ "$arg" = "--forever" ]; then foreverarg=yes; fi done
+if [ $foreverarg = yes ]; then
+  forever=`which forever`
+  if [ -z "$forever" ] || [ ! -x "$forever" ]; then
+    echo "--> forever is not present, try installing with 'npm install forever -g'"
+    exit 1
+  fi
+else
 node=`which nodejs`
 if [ -z "$node" ]; then
     node=`which node`
@@ -79,8 +87,12 @@ if [ -z "$node" ] || [ ! -x "$node" ]; then
         fi;;
     *) echo "--> Aborting..."; exit 1
     esac
-
+fi
 fi;
 
 if [ $? -ne 0 ]; then exit $?; fi;
-$node "$0" "$@"; exit $?;
+if [ $foreverarg = yes -a -x $forever ]; then
+  $forever --minUptime 1000 --spinSleepTime 1000 "$0" "$@"; exit $?
+else
+  $node "$0" "$@"; exit $?
+fi;
