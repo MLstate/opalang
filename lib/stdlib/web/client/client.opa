@@ -103,7 +103,7 @@ type JsFunction = external
 
   }}
 
-  SessionStorage : Storage.sign = {{
+  SessionStorage = {{
     set = %% BslStorage.session_setItem %%
     get = %% BslStorage.session_getItem %%
     remove = %% BslStorage.session_removeItem %%
@@ -116,7 +116,7 @@ type JsFunction = external
     exists = %% BslStorage.session_keyExists %%
   }}
 
-  LocalStorage : Storage.sign = {{
+  LocalStorage = {{
     set = %% BslStorage.local_setItem %%
     get = %% BslStorage.local_getItem %%
     remove = %% BslStorage.local_removeItem %%
