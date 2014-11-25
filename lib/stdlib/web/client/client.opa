@@ -113,7 +113,7 @@ type JsFunction = external
     clear = %% BslStorage.session_clear %%
     length = %% BslStorage.session_length %%
     key = %% BslStorage.session_key %%
-    exists(name:string) = "{get(name)}"!="null"
+    exists(_: string) = false
   }}
 
   LocalStorage : Storage.sign = {{
@@ -126,7 +126,7 @@ type JsFunction = external
     clear = %% BslStorage.local_clear %%
     length = %% BslStorage.local_length %%
     key = %% BslStorage.local_key %%
-    exists(name:string) = "{get(name)}"!="null"
+    exists = %% BslStorage.local_keyExists %%
   }}
 
   Anchor =
