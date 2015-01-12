@@ -1205,6 +1205,32 @@ List = {{
     | [_ | tl] -> some(tl)
     | [] -> none
 
+  /**
+   * Return the list without its last element. If the list is empty, the result is also
+   * the empty list.
+   */
+  shift(xs) =
+    rec shiftaux(xs, acc) =
+      match (xs) with
+      | [] | [_] -> rev(acc)
+      | [x|xs] -> shiftaux(xs, [x|acc])
+      end
+    shiftaux(xs, [])
+
+  /** Extract the last element of the list. */
+  last(xs) =
+    match (xs) with
+    | [] -> error("List.last on empty list")
+    | [x] -> x
+    | [_|xs] -> last(xs)
+    end
+
+  last_opt(xs) =
+    match (xs) with
+    | [] -> none
+    | [x] -> some(x)
+    | [_|xs] -> last_opt(xs)
+    end
 
   head(lst) =
     match lst with
