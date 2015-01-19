@@ -76,7 +76,7 @@ let is_middle_char i = 128 <= i && i < 192
 ** Return the index of the first utf8-char before or at the given char.
 *)
 let prev_first_char str i =
-  let len = String.length str in
+  let len = Bytes.length str in
     if i>= len then myerror (Printf.sprintf "prev_first_char : index too big (i=%d, len=%d)"  i len);
     let rec aux i =
       if i<0 then myerror "prev_first_char : reach the begin of the string"
@@ -123,7 +123,7 @@ let prev_first_char s n =
 let pre_next str n = n + lenbytes (str @> n)
 
 let check str =
-  let len = String.length str in
+  let len = Bytes.length str in
   let rec aux i =
     if i<len then aux (pre_next str i)
     else if i=len then true
@@ -148,7 +148,7 @@ let length_until s pos =
   aux s 0 0 pos
 
 let length s =
-  length_until s (String.length s)
+  length_until s (Bytes.length s)
 
 (*
 ** next()
@@ -184,7 +184,7 @@ let nth =
   let cache_i = ref 0 in
     fun str th ->
       try
-        let len = String.length str in
+        let len = Bytes.length str in
           if not(!cache_s == str) then begin
             (* if str change then start from begining
                TODO could start from begin or end to be at least 2x faster
@@ -229,7 +229,7 @@ let sub_no_failure s i n =
                                         * but when n = 0, and i = 0, we say
                                         * [pj = nth s (-1)] which prints an unwanted
                                         * error ! *)
-  let len = String.length s in
+  let len = Bytes.length s in
   let pi = nth s i in
   let pj = nth s (i+n-1) in
   let pi' = max pi 0 in
@@ -238,7 +238,7 @@ let sub_no_failure s i n =
       len - pi'
     else
       min (pj-pi'+lenbytes (s @> pj)) (len-pi') in
-  let substring = String.sub s pi' pj' in
+  let substring = Bytes.sub s pi' pj' in
   let validity =
     if i < 0 then
       Invalid_range "cactutf.opa : sub(_, i<0 ,_) : index is negative"
@@ -256,7 +256,7 @@ let sub_no_failure s i n =
 
 (*
 ** sub()
-** Return an Unicode sub-string.
+** Return an Unicode sub-Bytes.
 *)
 (*##register sub : string -> int -> int -> string*)
 let sub s i n =
@@ -297,7 +297,7 @@ let four_bytes b1 b2 b3 b4 =
 
 (*
 ** charutf8()
-** Return the Unicode code at the index in a string.
+** Return the Unicode code at the index in a Bytes.
 *)
 (*register charutf8 : string -> int -> int*)
 let charutf8 str pos =
@@ -351,38 +351,38 @@ let csize n =
 let cons c =
   let c = if c < 0 then 0 else c in
   let s = csize c in
-  let str = String.create s in
+  let str = Bytes.create s in
   if (s = 1) then
-    (str.[0] <- char_of_int(c);
+    (Bytes.set str 0 (char_of_int c);
      str)
   else if (s = 2) then
     let n1 = c / 64 in
     let n2 = c - (n1 * 64) in
-    str.[0] <- char_of_int(n1 + 192);
-    str.[1] <- char_of_int(n2 + 128);
+    Bytes.set str 0 (char_of_int(n1 + 192));
+    Bytes.set str 1 (char_of_int(n2 + 128));
     str
   else if (s = 3) then
     let n1 = c / 4096 in
     let n2 = (c - (n1 * 4096)) / 64 in
     let n3 = (c - (n1 * 4096) - (n2 * 64)) in
-    str.[0] <- char_of_int(n1 + 224);
-    str.[1] <- char_of_int(n2 + 128);
-    str.[2] <- char_of_int(n3 + 128);
+    Bytes.set str 0 (char_of_int(n1 + 224));
+    Bytes.set str 1 (char_of_int(n2 + 128));
+    Bytes.set str 2 (char_of_int(n3 + 128));
     str
   else
     let n1 = c / 262144 in
     let n2 = (c - (n1 * 262144)) / 4096 in
     let n3 = (c - (n1 * 262144) - (n2 * 4096)) / 64 in
     let n4 = (c - (n1 * 262144) - (n2 * 4096)) - (n3 * 64) in
-    str.[0] <- char_of_int(n1 + 240);
-    str.[1] <- char_of_int(n2 + 128);
-    str.[2] <- char_of_int(n3 + 128);
-    str.[3] <- char_of_int(n4 + 128);
+    Bytes.set str 0 (char_of_int(n1 + 240));
+    Bytes.set str 1 (char_of_int(n2 + 128));
+    Bytes.set str 2 (char_of_int(n3 + 128));
+    Bytes.set str 3 (char_of_int(n4 + 128));
     str
 
 (*
 ** uppercase()
-** Return an Uppercase version of the string.
+** Return an Uppercase version of the Bytes.
 ** Beware of the Braille and some greeks caracters.
 *)
 (*##register uppercase : string -> string*)
@@ -513,7 +513,7 @@ let lowercase str =
 exception Done
 (*
 let remove_accents s =
-    let buffer = Buffer.create (String.length s) in
+    let buffer = Buffer.create (Bytes.length s) in
     let add    = Buffer.add_char buffer       in
     let add_array a ~start ~length=
       for i = 0 to length - 1 do

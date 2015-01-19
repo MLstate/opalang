@@ -71,7 +71,7 @@ struct
   open Digest
   open Unix
 
-  let caching_directory = Lazy.lazy_from_val (
+  let caching_directory = Lazy.from_val (
     Filename.concat (Lazy.force File.mlstate_dir) "opa/cache/parser"
   )
   let check_directory () =

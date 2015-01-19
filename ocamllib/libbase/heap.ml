@@ -92,7 +92,7 @@ module Binary(X : Ordered) = struct
   let insert h x =
     let resize h x =
       let n = Array.length h.data in
-      let data = Array.create (2 * n + 1) x in
+      let data = Array.make (2 * n + 1) x in
 	Array.blit h.data 0 data 0 n ; h.data <- data ; h
     in
     let h = if h.length = Array.length h.data then resize h x else h in
@@ -121,7 +121,7 @@ module Binary(X : Ordered) = struct
     in match h.length with
     | 0 -> h
     | _ -> aux 0 h.data.(n) ; h.length <- n ; h
-	
+
   let minimum h = if h.length = 0 then None else Some h.data.(0)
 
   let merge _ _ = assert false

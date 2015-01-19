@@ -23,8 +23,8 @@ let no_tools =
 let prefix_me s = opalang_prefix ^ s
 
 let clear_backslashes s =
-  let s = String.copy s in
-  String.iteri (fun i c -> if c = '\\' then s.[i] <- '/') s;
+  let s = Bytes.copy s in
+  Bytes.iteri (fun i c -> if c = '\\' then Bytes.set s i '/') s;
   s
 
 let source_dir = clear_backslashes Pathname.pwd
@@ -521,10 +521,11 @@ let _ = dispatch begin function
       flag ["ocaml"; "pack"; "rectypes"] (A"-rectypes");
       flag ["ocaml"; "doc"; "rectypes"] (A"-rectypes");
       flag ["ocaml"; "compile"; "noassert"] (A"-noassert");
-      if Config.is_release then
-	flag ["ocaml"; "compile"] (S[A"-w";A"-32"]);
-      flag ["extension:c"; "compile"; "c_wall"] (S[A"-ccopt";A c_wall;A"-ccopt";A c_werror]);
+      flag ["compile"; "ocaml"; "warnno_48"] (S[A"-w"; A"-48"]); (* Warning 48: implicit elimination of optional arguments. *)
 
+      if Config.is_release then
+	    flag ["ocaml"; "compile"] (S[A"-w";A"-32"]);
+      flag ["extension:c"; "compile"; "c_wall"] (S[A"-ccopt";A c_wall;A"-ccopt";A c_werror]);
 
       (* for C #includes *)
       flag ["extension:c"] (S[A"-I";P (build_dir)]);

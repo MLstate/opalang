@@ -35,15 +35,15 @@ let auto_resize = ref RM_stderr
 
 let empty () = { str=""; i=0; }
 
-let create size = { str=String.create size; i=0; }
+let create size = { str=Bytes.create size; i=0; }
 
-let make size ch = { str=String.make size ch; i=size; }
+let make size ch = { str=Bytes.make size ch; i=size; }
 
 (* More conservative than Buffer, we grow more slowly and
  * we allow shrinkage by giving negative values to extra.
  *)
 let resize buf extra =
-  let strlen = String.length buf.str in
+  let strlen = Bytes.length buf.str in
   let target = max 0 (if extra >= 0 then buf.i + extra else strlen + extra) in
   let newsize =
     if extra >= 0
@@ -60,9 +60,9 @@ let resize buf extra =
       else !newsize
     else target
   in
-  let str = String.create newsize in
+  let str = Bytes.create newsize in
   let newlen = min buf.i newsize in
-  if buf.i > 0 then String.unsafe_blit buf.str 0 str 0 newlen;
+  if buf.i > 0 then Bytes.unsafe_blit buf.str 0 str 0 newlen;
   buf.str <- str;
   buf.i <- newlen;
   if newsize > strlen
@@ -83,7 +83,7 @@ let autoresize buf extra msg =
   then resize buf extra
   else invalid_arg msg
 
-let copy buf = { str=String.copy buf.str; i=buf.i }
+let copy buf = { str=Bytes.copy buf.str; i=buf.i }
 
 let finalize buf unused younger =
   buf.i <- younger.i;
@@ -101,53 +101,53 @@ let reset buf = buf.str <- ""; buf.i <- 0
 
 let length buf = buf.i
 
-let real_length buf = String.length buf.str
+let real_length buf = Bytes.length buf.str
 
 let get buf i =
   if i < 0 || i >= buf.i then invalid_arg (Printf.sprintf "Buf.get index out of bounds %d" i);
-  String.get buf.str i
+  Bytes.get buf.str i
 let nth = get
 
-let unsafe_get buf i = String.unsafe_get buf.str i
+let unsafe_get buf i = Bytes.unsafe_get buf.str i
 
 let set buf i ch =
   if i < 0 || i >= buf.i then invalid_arg (Printf.sprintf "Buf.set index out of bounds %d" i);
-  String.set buf.str i ch
+  Bytes.set buf.str i ch
 
-let unsafe_set buf i ch = String.unsafe_set buf.str i ch
+let unsafe_set buf i ch = Bytes.unsafe_set buf.str i ch
 
 let sub buf base len =
   if base < 0 || base + len > buf.i then invalid_arg (Printf.sprintf "Buf.sub index out of bounds %d %d" base len);
-  String.sub buf.str base len
+  Bytes.sub buf.str base len
 
 let add_char buf ch =
-  if String.length buf.str - buf.i < 1 then autoresize buf 1 (Printf.sprintf "Buf.add_char %c" ch);
-  buf.str.[buf.i] <- ch;
+  if Bytes.length buf.str - buf.i < 1 then autoresize buf 1 (Printf.sprintf "Buf.add_char %c" ch);
+  Bytes.set buf.str buf.i ch;
   buf.i <- buf.i + 1
 
 let add_substring buf str base len =
-  if String.length buf.str - buf.i < len then autoresize buf len (Printf.sprintf "Buf.add_substring %s %d %d" str base len);
-  String.unsafe_blit str base buf.str buf.i len;
+  if Bytes.length buf.str - buf.i < len then autoresize buf len (Printf.sprintf "Buf.add_substring %s %d %d" str base len);
+  Bytes.unsafe_blit str base buf.str buf.i len;
   buf.i <- buf.i + len
 
 let append buf str len = add_substring buf str 0 len
 
 let extend buf len =
-  if String.length buf.str - buf.i < len then autoresize buf len (Printf.sprintf "Buf.extend %d" len);
+  if Bytes.length buf.str - buf.i < len then autoresize buf len (Printf.sprintf "Buf.extend %d" len);
   buf.i <- buf.i + len
 
 let add_string buf str =
-  append buf str (String.length str)
+  append buf str (Bytes.length str)
 
 let add_buf buf1 buf2 =
   append buf1 buf2.str buf2.i
 
-let of_string str = { str; i=String.length str; }
+let of_string str = { str; i=Bytes.length str; }
 
-let to_string buf = String.sub buf.str 0 buf.i
+let to_string buf = Bytes.sub buf.str 0 buf.i
 let contents = to_string
 
-let spare buf = String.length buf.str - buf.i
+let spare buf = Bytes.length buf.str - buf.i
 
 (* Test code *)
 (*

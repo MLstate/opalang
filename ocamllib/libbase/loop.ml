@@ -83,7 +83,7 @@ module FilterMap = struct
     Fold.array(a,[||])(fun i v narray ->
       if filter i v then (
         let image = image i v in
-        if narray = [||] then Array.create nb image
+        if narray = [||] then Array.make nb image
         else (narray.(i) <- image; narray)
       ) else narray)
 end
@@ -109,7 +109,7 @@ module FoldMap = struct
     let len = Array.length array in
     if len = 0 then [||],accu else
       let v0,accu = f 0 array.(0) accu in
-      let res = Array.create len v0 in
+      let res = Array.make len v0 in
       let rec aux i ecu =
         if i = len then ecu
         else

@@ -23,19 +23,19 @@ let empty = { str=""; base=0; len=0; }
 
 let length s = s.len
 
-let get s i = String.get s.str (s.base+i)
+let get s i = Bytes.get s.str (s.base+i)
 
-let set s i ch = String.set s.str (s.base+i) ch
+let set s i ch = Bytes.set s.str (s.base+i) ch
 
-let create len = { str=String.create len; base=0; len=len; }
+let create len = { str=Bytes.create len; base=0; len=len; }
 
-let unsafe_get s i = String.unsafe_get s.str (s.base+i)
+let unsafe_get s i = Bytes.unsafe_get s.str (s.base+i)
 
-let unsafe_set s i ch = String.unsafe_set s.str (s.base+i) ch
+let unsafe_set s i ch = Bytes.unsafe_set s.str (s.base+i) ch
 
-let unsafe_blit s soff d doff len = String.unsafe_blit s.str (s.base+soff) d.str (d.base+doff) len
+let unsafe_blit s soff d doff len = Bytes.unsafe_blit s.str (s.base+soff) d.str (d.base+doff) len
 
-let unsafe_fill s off len ch = String.unsafe_fill s.str (s.base+off) len ch
+let unsafe_fill s off len ch = Bytes.unsafe_fill s.str (s.base+off) len ch
 
 let make n c =
   let s = create n in
@@ -64,7 +64,7 @@ let fill s ofs len c =
 let blit s1 ofs1 s2 ofs2 len =
   if len < 0 || ofs1 < 0 || ofs1 > length s1 - len
              || ofs2 < 0 || ofs2 > length s2 - len
-  then invalid_arg "String.blit"
+  then invalid_arg "Bytes.blit"
   else unsafe_blit s1 ofs1 s2 ofs2 len
 
 let iter f a =
@@ -164,7 +164,7 @@ let index s c = index_rec s (length s) 0 c;;
 
 let index_from s i c =
   let l = length s in
-  if i < 0 || i > l then invalid_arg "String.index_from" else
+  if i < 0 || i > l then invalid_arg "Bytes.index_from" else
   index_rec s l i c;;
 
 let rec rindex_rec s i c =
@@ -174,18 +174,18 @@ let rec rindex_rec s i c =
 let rindex s c = rindex_rec s (length s - 1) c;;
 
 let rindex_from s i c =
-  if i < -1 || i >= length s then invalid_arg "String.rindex_from" else
+  if i < -1 || i >= length s then invalid_arg "Bytes.rindex_from" else
   rindex_rec s i c;;
 
 let contains_from s i c =
   let l = length s in
-  if i < 0 || i > l then invalid_arg "String.contains_from" else
+  if i < 0 || i > l then invalid_arg "Bytes.contains_from" else
   try ignore (index_rec s l i c); true with Not_found -> false;;
 
 let contains s c = contains_from s 0 c;;
 
 let rcontains_from s i c =
-  if i < 0 || i >= length s then invalid_arg "String.rcontains_from" else
+  if i < 0 || i >= length s then invalid_arg "Bytes.rcontains_from" else
   try ignore (rindex_rec s i c); true with Not_found -> false;;
 
 type t = slice
@@ -206,26 +206,26 @@ let compare s1 s2 =
 
 (* ---Specials--- *)
 
-let of_string str = { str; base=0; len=String.length str; }
+let of_string str = { str; base=0; len=Bytes.length str; }
 
-let to_string s = String.sub s.str s.base s.len
+let to_string s = Bytes.sub s.str s.base s.len
 
 let export s = (s.str,s.base,s.len)
 
 let import (str,base,len) = { str; base; len; }
 
-let widen s = s.base <- 0; s.len <- String.length s.str
+let widen s = s.base <- 0; s.len <- Bytes.length s.str
 
 let normalize s = { str=to_string s; base=0; len=s.len; }
 
-let real_size s = String.length s.str
+let real_size s = Bytes.length s.str
 
 let set_size s len =
-  let str = String.create len in
-  String.unsafe_blit s.str s.base str 0 (min s.len len);
+  let str = Bytes.create len in
+  Bytes.unsafe_blit s.str s.base str 0 (min s.len len);
   { str; base=0; len=len; }
 
 let rebase s =
   if s.base <> 0
-  then (String.unsafe_blit s.str s.base s.str 0 s.len;
+  then (Bytes.unsafe_blit s.str s.base s.str 0 s.len;
         s.base <- 0)

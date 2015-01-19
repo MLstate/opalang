@@ -44,10 +44,10 @@ let reverse_char = function
 
 (* sorry, we can't use String.init because Base depends on Journal *)
 let reverse_string s =
-  let len = String.length s in
-  let s' = String.make len ' ' in
+  let len = Bytes.length s in
+  let s' = Bytes.create len in
   for i = 0 to len - 1 do
-    s'.[i] <- reverse_char s.[len - 1 - i]
+    Bytes.set s' i (reverse_char s.[len - 1 - i])
   done;
   s'
 

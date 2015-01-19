@@ -30,18 +30,18 @@ let max_int () = Nativeint.to_int (Random.nativeint (Nativeint.of_int max_int))
 let max_int64 () = int64 Int64.max_int
 
 let string len =
-  let s = String.create len in
+  let s = Bytes.create len in
   for i = 0 to len - 1 do
-    s.[i] <- Char.chr (int 128);
+    Bytes.set s i (Char.chr (int 128));
   done;
   s
 
 let abstract_string alphabet len =
-  let apha_len = String.length alphabet in
-  let s = String.create len in
+  let apha_len = Bytes.length alphabet in
+  let s = Bytes.create len in
   for i = 0 to len - 1 do
       let x = int apha_len in
-      s.[i] <- alphabet.[x];
+      Bytes.set s i alphabet.[x];
   done;
   s
 

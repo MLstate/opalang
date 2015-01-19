@@ -382,7 +382,7 @@ String =
    *        are treated as one. If false then empty strings occur between
    *        consecutive separators. I.e.
    *        [explode_with("/", "/a//b/", true) = ["a","b"]]
-   *        [explode_with("/", "/a//b/", false) = ["a","","b"]]
+   *        ["explode_with("/", "/a//b/", false) = ["a","","b"]]
    * @return A list of segments from the string [source] in between
    *         [separator]s.
    */

@@ -30,13 +30,13 @@ let s_alloc min (i:int) =
 let create ?name:_ hint =
   {
     pos = 0 ;
-    data = [ String.create hint ] ;
+    data = [ Bytes.create hint ] ;
     len_data = 0
   }
 
 let diverge t =
   match t.data with
-  | h::q -> { t with data = (String.copy h)::q }
+  | h::q -> { t with data = (Bytes.copy h)::q }
   | _ -> t
 
 (* Mathieu : Sat Jul  3 01:26:23 CEST 2010
@@ -45,24 +45,24 @@ let diverge t =
 *)
 
 let add_substring t s start len_s =
-  ( if start < 0 || len_s < 0 || start + len_s > String.length s then invalid_arg "FBuffer.add_substring" ) ;
+  ( if start < 0 || len_s < 0 || start + len_s > Bytes.length s then invalid_arg "FBuffer.add_substring" ) ;
   let e = List.hd t.data in
-  let full_e = String.length e in
+  let full_e = Bytes.length e in
   let len_e = t.pos in
   let rest_e = full_e - len_e in
   if len_s <= rest_e
   then (* s can be inserted in place *)
-    let _ = String.unsafe_blit s start e len_e len_s in
+    let _ = Bytes.unsafe_blit s start e len_e len_s in
     { t with pos = len_e + len_s }
   else
     (* blit fully e, and allocated a new head *)
-    let _ = String.unsafe_blit s start e len_e rest_e in
+    let _ = Bytes.unsafe_blit s start e len_e rest_e in
     let rest_s = len_s - rest_e in
-    let snew = String.create (s_alloc rest_s (2 * full_e)) in
-    let _ = String.unsafe_blit s (start + rest_e) snew 0 rest_s in
+    let snew = Bytes.create (s_alloc rest_s (2 * full_e)) in
+    let _ = Bytes.unsafe_blit s (start + rest_e) snew 0 rest_s in
     { pos = rest_s ; data = snew :: t.data ; len_data = full_e + t.len_data }
 
-let add t s = add_substring t s 0 (String.length s)
+let add t s = add_substring t s 0 (Bytes.length s)
 
 let addln t s = add (add t s) "\n"
 
@@ -71,7 +71,7 @@ let iter f t =
   match t.data with
   | [] -> ()
   | s::q ->
-      let iter s = f s 0 (String.length s) in
+      let iter s = f s 0 (Bytes.length s) in
       List.iter iter (List.rev q) ;
       f s 0 t.pos
 
@@ -79,7 +79,7 @@ let fold f acc t =
   match t.data with
   | [] -> acc
   | s::q ->
-      let fold acc s = f acc s 0 (String.length s) in
+      let fold acc s = f acc s 0 (Bytes.length s) in
       let acc = List.fold_left fold acc (List.rev q) in
       f acc s 0 t.pos
 
@@ -88,7 +88,7 @@ let rev_iter f t =
   | [] -> ()
   | s::q ->
       f s 0 t.pos ;
-      let iter s = f s 0 (String.length s) in
+      let iter s = f s 0 (Bytes.length s) in
       List.iter iter q
 
 let rev_fold f acc t =
@@ -96,7 +96,7 @@ let rev_fold f acc t =
   | [] -> acc
   | s::q ->
       let acc = f acc s 0 t.pos in
-      let fold acc s = f acc s 0 (String.length s) in
+      let fold acc s = f acc s 0 (Bytes.length s) in
       List.fold_left fold acc q
 
 let iter_sub f t =
@@ -104,14 +104,14 @@ let iter_sub f t =
   | [] -> ()
   | s::q ->
       List.iter f (List.rev q) ;
-      f (String.sub s 0 t.pos)
+      f (Bytes.sub s 0 t.pos)
 
 let fold_sub f acc t =
   match t.data with
   | [] -> acc
   | s::q ->
       let acc = List.fold_left f acc (List.rev q) in
-      f acc (String.sub s 0 t.pos)
+      f acc (Bytes.sub s 0 t.pos)
 
 let concat t1 t2 =
   {
@@ -121,7 +121,7 @@ let concat t1 t2 =
       | hd :: tl ->
           (* please, keep tail rec *)
           List.rev_append (List.rev t2.data)
-            (String.sub hd 0 t1.pos :: tl)
+            (Bytes.sub hd 0 t1.pos :: tl)
       | [] -> t2.data
     ) ;
     len_data = t1.len_data + t1.pos + t2.len_data
@@ -130,50 +130,50 @@ let concat t1 t2 =
 let length t = t.pos + t.len_data
   (* without cache is : *)
   (* t.pos +
-     (List.fold_left (fun acc x -> acc + String.length x) 0 (List.tl t.data)) *)
+     (List.fold_left (fun acc x -> acc + Bytes.length x) 0 (List.tl t.data)) *)
 
 (* rev_iter has better perf, we could use it, or inline its code there *)
 let contents t =
   let len = length t in
   if len > Sys.max_string_length then invalid_arg "FBuffer.contents"
   else
-    let r = String.create len in
+    let r = Bytes.create len in
     let len_h = t.pos in
     let p = ref (len - len_h) in
     let _ =
       match t.data with
       | [] -> ()
       | h::q ->
-          String.unsafe_blit h 0 r !p len_h ;
+          Bytes.unsafe_blit h 0 r !p len_h ;
           List.iter
             ( fun s ->
-                let len_s = String.length s in
+                let len_s = Bytes.length s in
                 p := !p - len_s ;
-                String.unsafe_blit s 0 r !p len_s ) q
+                Bytes.unsafe_blit s 0 r !p len_s ) q
     in
     r
 
 let sub t start len =
   ( if start < 0 || len < 0 then invalid_arg "FBuffer.sub" ) ;
-  let s = String.create len in
+  let s = Bytes.create len in
   let len_data = t.len_data in
   let right_s = start + len in
   let length = len_data + t.pos in
   ( if right_s > length then invalid_arg "FBuffer.sub" ) ;
   let _ =
     if start >= len_data
-    then String.unsafe_blit (List.hd t.data) (start - len_data) s 0 len
+    then Bytes.unsafe_blit (List.hd t.data) (start - len_data) s 0 len
     else (* start < len_data *)
       (* bliting s from right to left. *)
       let blit =
         let p = ref len in
-        (fun src start len -> p := !p - len ; String.unsafe_blit src start s !p len)
+        (fun src start len -> p := !p - len ; Bytes.unsafe_blit src start s !p len)
       in
       (* please, keep tail rec *)
       let rec aux right_elt right_s = function
         | [] -> ()
         | elt::q ->
-            let left_elt = right_elt - (String.length elt) in
+            let left_elt = right_elt - (Bytes.length elt) in
             if right_s <= left_elt then aux left_elt right_s q
             else (* some piece of elt goes into s *)
               if start >= left_elt (* elt is the last elt going into s *)
@@ -185,11 +185,11 @@ let sub t start len =
                   aux left_elt left_elt q
                 end
       in
-      (* <!> special case for hd because (String.length hd <> t.pos) *)
+      (* <!> special case for hd because (Bytes.length hd <> t.pos) *)
       let right_elt = length in
       match t.data with
       | elt::q ->
-          let left_elt = right_elt - t.pos (* <> String.length elt *) in
+          let left_elt = right_elt - t.pos (* <> Bytes.length elt *) in
           if right_s <= left_elt then aux left_elt right_s q
           else (* some piece of elt goes into s *)
             if start >= left_elt (* elt is the last elt going into s *)

@@ -26,7 +26,7 @@ exception Error of string
 
 let buffer_size = 1024
 
-let char_buffer = String.create 1
+let char_buffer = Bytes.create 1
 
 type out_channel =
   { out_buffer: string;
@@ -44,7 +44,7 @@ let output_byte oz b =
 let open_out ?(level = 6) ?(only_deflate=false) () =
   if level < 1 || level > 9 then invalid_arg "Gzip.open_out: bad level";
   let oz = {
-    out_buffer = String.create buffer_size;
+    out_buffer = Bytes.create buffer_size;
     out_pos = 0;
     out_avail = buffer_size;
     out_stream = Zlib.deflate_init level false;
@@ -89,7 +89,7 @@ let rec output oz buf pos len =
   if used_in < len then output oz buf (pos + used_in) (len - used_in)
 
 let output_char oz c =
-  char_buffer.[0] <- c;
+  Bytes.set char_buffer 0 c;
   output oz char_buffer 0 1
 
 let output_byte oz b =

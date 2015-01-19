@@ -844,26 +844,26 @@ let plugins =
 (* -- begin packages -- *)
 
 let package_to_dir s0 =
-  let s = String.copy s0 in
-  for i = 0 to String.length s - 1 do
-    if s.[i] = '.' then s.[i] <- '/'
+  let s = Bytes.copy s0 in
+  for i = 0 to Bytes.length s - 1 do
+    if s.[i] = '.' then Bytes.set s i '/'
   done;
   s
 in
 
 let dir_to_package s0 =
-  let s = String.copy s0 in
-  let len_std = String.length stdlib_packages_dir in
+  let s = Bytes.copy s0 in
+  let len_std = Bytes.length stdlib_packages_dir in
   let pfx,s = (* remove optional stdlib_packages_dir prefix *)
     try
-      let pfx = String.sub s 0 len_std in
+      let pfx = Bytes.sub s 0 len_std in
       if pfx = stdlib_packages_dir
-      then pfx, String.sub s (len_std + 1) (String.length s - len_std - 1)
+      then pfx, Bytes.sub s (len_std + 1) (Bytes.length s - len_std - 1)
       else "", s
     with Invalid_argument _ -> "", s
   in
   for i = 0 to String.length s - 1 do
-    if s.[i] = '/' then s.[i] <- '.'
+    if s.[i] = '/' then Bytes.set s i '.'
   done;
   pfx, s
 in

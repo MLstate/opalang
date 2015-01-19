@@ -104,8 +104,8 @@ let rec stringify ?(custom=fun _ -> None) ?(depth=max_int) t =
       Buffer.add_string buffer "|]";
     ) else if tag = Obj.custom_tag then
       Buffer.add_string buffer "<custom>"
-    else if tag = Obj.final_tag then
-      Buffer.add_string buffer "<final>"
+    (* else if tag = Obj.final_tag then
+      Buffer.add_s tring buffer "<final>" *)
     else if tag = Obj.out_of_heap_tag then
       Buffer.add_string buffer "<out_of_heap>"
     else if tag = Obj.unaligned_tag then
@@ -185,7 +185,7 @@ let size a =
            tag = Obj.no_scan_tag ||
            tag = Obj.abstract_tag ||
            tag = Obj.custom_tag ||
-           tag = Obj.final_tag ||
+           (* tag = Obj.final_tag || *)
            tag = Obj.unaligned_tag ||
            tag >= Obj.no_scan_tag
     then

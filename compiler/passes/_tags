@@ -1,7 +1,7 @@
 # -*- conf -*- (for emacs)
 
 # preprocessing
-true: with_mlstate_debug, warn_A, warn_e, warn_error_A
+true: with_mlstate_debug, warn_A, warn_e, warn_error_A, warnno_48
 
 <**/*.{ml,mli}>: use_libbase, use_libqmlcompil, use_passlib, use_opalang, use_compilerlib, use_opacapi
 <surfaceAst*.{ml,mli}>: use_opalib, use_libbsl

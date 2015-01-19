@@ -23,46 +23,46 @@ type t =
 (* joke: who does want a Walker ? *)
 
 (* start size for a Leaf, after that perform each realloc * 2 *)
-let create hint = Leaf (0, String.create hint)
+let create hint = Leaf (0, Bytes.create hint)
 
 external length : t -> int = "%field0"
 
 let concat t t' = Node ((length t) + (length t'), t, t')
 
 let diverge = function
-  | Leaf (i, s) -> Leaf (i, String.copy s)
-  | Node (i, t, Leaf (j, s)) -> Node (i, t, Leaf (j, String.copy s))
+  | Leaf (i, s) -> Leaf (i, Bytes.copy s)
+  | Node (i, t, Leaf (j, s)) -> Node (i, t, Leaf (j, Bytes.copy s))
   | t -> t
 
 let s_alloc min (i:int) =
   Pervasives.min Sys.max_string_length (Pervasives.max min i)
 
 let add_leaf e len_e s =
-  let full_e = String.length e in
-  let len_s = String.length s in
+  let full_e = Bytes.length e in
+  let len_s = Bytes.length s in
   let len_es = len_e + len_s in
   let rest_e = full_e - len_e in
   if len_s <= rest_e
   then (* s can be inserted in place *)
-    let _ = String.unsafe_blit s 0 e len_e len_s in
+    let _ = Bytes.unsafe_blit s 0 e len_e len_s in
     Leaf (len_es, e)
   else
     (* blit fully e, and allocate a new Leaf *)
-    let _ = String.unsafe_blit s 0 e len_e rest_e in
+    let _ = Bytes.unsafe_blit s 0 e len_e rest_e in
     let rest_s = len_s - rest_e in
-    let snew = String.create (s_alloc rest_s (2 * full_e)) in
-    let _ = String.unsafe_blit s rest_e snew 0 rest_s in
+    let snew = Bytes.create (s_alloc rest_s (2 * full_e)) in
+    let _ = Bytes.unsafe_blit s rest_e snew 0 rest_s in
     Node (len_es, Leaf (full_e, e), Leaf (rest_s, snew))
 
 let add t s =
   match t with
   | Node (len_t, t, Leaf (len_e, e)) ->
       let t' = add_leaf e len_e s in
-      Node (len_t + (String.length s), t, t')
+      Node (len_t + (Bytes.length s), t, t')
   | Leaf (len_e, e) -> add_leaf e len_e s
   | _ ->
       let len_t = length t in
-      let len_s = String.length s in
+      let len_s = Bytes.length s in
       Node (len_t + len_s, t, Leaf (len_s, s))
 
 let addln t s = add (add t s) "\n"
@@ -148,15 +148,15 @@ let rev_fold f acc t =
   | Stack.Empty -> !acc
 
 
-let iter_sub f = iter (fun s start len -> f (String.sub s start len))
-let fold_sub f = fold (fun acc s start len -> f acc (String.sub s start len))
+let iter_sub f = iter (fun s start len -> f (Bytes.sub s start len))
+let fold_sub f = fold (fun acc s start len -> f acc (Bytes.sub s start len))
 
-let add_substring t s start len = add t (String.sub s start len)
+let add_substring t s start len = add t (Bytes.sub s start len)
 
 let contents t =
   let len = length t in
   if len > Sys.max_string_length then invalid_arg "SRope.contents" else
-  let s = String.create len in
+  let s = Bytes.create len in
   let push =
     let p = ref 0 in
     ( fun s' start len ->
@@ -167,11 +167,11 @@ let contents t =
 
 (* should be tail rec => Stack *)
 let sub t start len =
-  let s = String.create len in
+  let s = Bytes.create len in
   (* bliting from left to right *)
   let blit =
     let p = ref 0 in
-    (fun src start len -> String.unsafe_blit src start s !p len ; p := !p + len)
+    (fun src start len -> Bytes.unsafe_blit src start s !p len ; p := !p + len)
   in
   let stack = Stack.create () in
   let push t = Stack.push t stack in

@@ -20,7 +20,7 @@
 (* depends *)
 module Char = BaseChar
 
-include String
+include Bytes
 
 let compare_int (a:int) b = Pervasives.compare a b
 
@@ -28,7 +28,7 @@ let compare_int (a:int) b = Pervasives.compare a b
 
 let insert s pos text =
   let ls = length s in
-  if pos > ls then invalid_arg "String.insert" else
+  if pos > ls then invalid_arg "Bytes.insert" else
     let lt = length text in
     let r = create (ls + lt) in
     unsafe_blit s 0 r 0 pos ;
@@ -132,7 +132,7 @@ let ltrim ?(is_space=Char.is_space) s =
     else
       let c = unsafe_get s p in
       if is_space c then aux (succ p)
-      else String.sub s p (l - p)
+      else Bytes.sub s p (l - p)
   in
   aux 0
 
@@ -144,7 +144,7 @@ let rtrim ?(is_space=Char.is_space) s =
     else
       let c = unsafe_get s p in
       if is_space c then aux (pred p)
-      else String.sub s 0 (succ p)
+      else Bytes.sub s 0 (succ p)
   in
   aux (pred l)
 
@@ -195,11 +195,11 @@ let left s l =
   else
     let len = length s in
     if l > 0 then
-      if l > len then invalid_arg "String.left" else
+      if l > len then invalid_arg "Bytes.left" else
         sub s 0 l
     else (* l =< 0 *)
       let len' = l + len in
-      if len' < 0 then invalid_arg "String.left" else
+      if len' < 0 then invalid_arg "Bytes.left" else
         sub s 0 len'
 
 let right s l =
@@ -207,11 +207,11 @@ let right s l =
   else
     let len = length s in
     if l > 0 then
-      if l > len then invalid_arg "String.right" else
-        sub s (String.length s - l) l
+      if l > len then invalid_arg "Bytes.right" else
+        sub s (length s - l) l
     else (* l =< 0 *)
       let len' = l + len in
-      if len' < 0 then invalid_arg "String.right" else
+      if len' < 0 then invalid_arg "Bytes.right" else
         sub s (-l) len'
 
 (* left_at & right_at are implemented after findi & rev_findi *)
@@ -230,14 +230,14 @@ let remove_trail s =
 (* remove_prefix is implemeted after is_prefix *)
 
 let complete_left n c s =
-  if n < 0 then invalid_arg "String.complete_left" else
+  if n < 0 then invalid_arg "Bytes.complete_left" else
     let l = length s in
     if l < n then ( make (n - l) c ) ^ s
     else if l > n then unsafe_sub s (l - n) n
     else s
 
 let complete_right n c s =
-  if n < 0 then invalid_arg "String.complete_right" else
+  if n < 0 then invalid_arg "Bytes.complete_right" else
     let l = length s in
     if l < n then s ^ make (n - l) c
     else if l > n then unsafe_sub s 0 n
@@ -412,7 +412,7 @@ let is_universal_ident s =
 
 (* s is a substring of s1 starting at position p1 *)
 let is_substring s s1 p1 =
-  if p1 < 0 then invalid_arg "String.is_substring" else
+  if p1 < 0 then invalid_arg "Bytes.is_substring" else
     let l = length s and l1 = length s1 in
     let rec aux p =
       p = l || (
@@ -445,8 +445,8 @@ type replace_expr =
 let prepare_replace_data data =
   List.fold_left (
     fun acc (f, t) ->
-      let flen = String.length f in
-      let tlen = String.length t in
+      let flen = length f in
+      let tlen = length t in
       let rec create_end expr start stop =
         if start = stop then expr
         else
@@ -457,7 +457,7 @@ let prepare_replace_data data =
         if i < flen then
           let next = f.[i] in
           match CharMap.find_opt next map with
-          | Some (RepLeaf _) -> invalid_arg "String.multi_replace"
+          | Some (RepLeaf _) -> invalid_arg "Bytes.multi_replace"
               (* no overlapping replace *)
           | Some (RepNode node) ->
               CharMap.add next (RepNode (add node (succ i))) map
@@ -470,7 +470,7 @@ let prepare_replace_data data =
 (* Replacement algorithm based on a tree (generalisation of old http_encode) *)
 let multi_replace s data =
   let data = prepare_replace_data data in
-  let len = String.length s in
+  let len = length s in
   let b = Buffer.create (4*len) in
   let rec aux i j =
     if i < len then
@@ -530,13 +530,13 @@ let is_suffix suf s =
 (* example: remove_prefix "foo " "foo bar" gives "bar"
    raises Not_found if the prefix is not good *)
 let remove_prefix pre s =
-  if String.length pre = 0 then s
+  if length pre = 0 then s
   else
     if is_prefix pre s
     then right s (- (length pre))
     else raise Not_found
 let remove_prefix_if_possible pre s =
-  if String.length pre = 0 then s
+  if length pre = 0 then s
   else
     if is_prefix pre s
     then right s (- (length pre))
@@ -622,7 +622,7 @@ let tail ?(lines=10) s =
 
 let last_char s =
   let len = length s in
-  if len = 0 then invalid_arg "String.last_char" else
+  if len = 0 then invalid_arg "Bytes.last_char" else
     unsafe_get s (pred len)
 
 let rec aux_len_from func str len i =
@@ -632,7 +632,7 @@ let rec aux_len_from func str len i =
 let len_from func str index =
   let len = length str in
   if 0 <= index && index < len then (aux_len_from func str len index)-index
-  else invalid_arg (Printf.sprintf "String.len_from(_,len=%d,%d)" len index)
+  else invalid_arg (Printf.sprintf "Bytes.len_from(_,len=%d,%d)" len index)
 
 let hash = Hashtbl.hash
 
@@ -657,25 +657,25 @@ let rev_char_list_of_string s =
 let slice cut str =
   let rec aux pos =
     try
-      let i = String.index_from str pos cut in
+      let i = Bytes.index_from str pos cut in
       if i==pos then aux (succ pos)
       else unsafe_sub str pos (i - pos) :: aux (succ i)
     with Not_found | Invalid_argument _ ->
-      let l = String.length str in
+      let l = length str in
       if l==pos then []
       else [ unsafe_sub str pos (l - pos) ]
   in
   aux 0
 
 let slice_chars cut str =
-  let rec index_from pos = if String.contains cut str.[pos] then pos else index_from (succ pos) in
+  let rec index_from pos = if Bytes.contains cut str.[pos] then pos else index_from (succ pos) in
   let rec aux pos =
     try
       let i = index_from pos in
       if i==pos then aux (succ pos)
       else unsafe_sub str pos (i - pos) :: aux (succ i)
     with Invalid_argument _ ->
-      let l = String.length str in
+      let l = length str in
       if l==pos then []
       else [ unsafe_sub str pos (l - pos) ]
   in
@@ -683,14 +683,14 @@ let slice_chars cut str =
 
 let split_char c s =
   try
-    let i = String.index s c in
-    unsafe_sub s 0 i, unsafe_sub s (i + 1) (String.length s - i - 1)
+    let i = Bytes.index s c in
+    unsafe_sub s 0 i, unsafe_sub s (i + 1) (length s - i - 1)
   with Not_found -> s, ""
 
 let split_char_last c s =
   try
-    let i = String.rindex s c in
-    unsafe_sub s 0 i, unsafe_sub s (i + 1) (String.length s - i - 1)
+    let i = Bytes.rindex s c in
+    unsafe_sub s 0 i, unsafe_sub s (i + 1) (length s - i - 1)
   with Not_found -> s, ""
 
 (* =========================================================================== *)
@@ -720,7 +720,7 @@ let limit_width lim s =
   in
   let last = aux 0 0 in
   if last = l then s
-  else String.sub s 0 last ^ "..."
+  else Bytes.sub s 0 last ^ "..."
 
 let name_of_int n =
   assert (n>0) ;
@@ -747,12 +747,12 @@ let remove_accents s =
   let sa = "ÀÁÂÃÄÅàáâãäåÒÓÔÕÖØòóôõöøÈÉÊËèéêëÇçÌÍÎÏìíîïÙÚÛÜùúûüÿÑñ"
   and sb = "AAAAAAaaaaaaOOOOOOooooooEEEEeeeeCcIIIIiiiiUUUUuuuuyNn" in
   (* nb: "sa" is twice as long as "sb" since this is utf8. Code below relies on this! *)
-  let len = String.length sb in
+  let len = length sb in
   let rec aux i res =
     if i >= len then res
     else
-      let from = String.sub sa (2*i) 2 in
-      let sto = String.sub sb i 1 in
+      let from = Bytes.sub sa (2*i) 2 in
+      let sto = Bytes.sub sb i 1 in
       aux (succ i) (replace res from sto)
   in
   aux 0 s
@@ -768,42 +768,42 @@ let delete_trailing_whitespace s =
         else j
     in aux
   in
-  let rec aux len lines i = match try Some (String.index_from s i '\n') with Not_found -> None with
+  let rec aux len lines i = match try Some (Bytes.index_from s i '\n') with Not_found -> None with
     | Some j ->
         let j' = aux' i (pred j) in
         let l' = j'-i+1 in
         aux (len+l'+1) ((len, i, l')::lines) (succ j)
     | None ->
-        let j' = aux' i (pred (String.length s)) in
+        let j' = aux' i (pred (length s)) in
         let l' = j'-i+1 in
         (len+l'), (len, i, l'), lines
   in
   let len, (last_line_ir, last_line_is, last_line_l), lines = aux 0 [] 0 in
-  let r = String.create len in
+  let r = Bytes.create len in
   unsafe_blit s last_line_is r last_line_ir last_line_l;
   List.iter (fun (ir, is, l) -> unsafe_blit s is r ir l; unsafe_set r (ir+l) '\n') lines;
   r
 
 let to_hex s =
   let hex_char i = Char.chr (if i <= 9 then i + 48 else i + 87) in
-  init (String.length s lsl 1) (
+  init (length s lsl 1) (
     fun i ->
       hex_char (
-        let c = Char.code (String.unsafe_get s (i lsr 1)) in
+        let c = Char.code (Bytes.unsafe_get s (i lsr 1)) in
         if i land 1 = 1 then c land 15
         else  c lsr 4
       )
   )
 
 let from_hex s =
-  let l = String.length s in
-  if l land 1 = 1 then invalid_arg "String.from_hex" ;
+  let l = length s in
+  if l land 1 = 1 then invalid_arg "Bytes.from_hex" ;
   init (l lsr 1) (
     fun i ->
       let i = i lsl 1 in
       Char.chr (
-        (Char.hexa_value (String.unsafe_get s i) lsl 4) +
-          (Char.hexa_value (String.unsafe_get s (i+1)))
+        (Char.hexa_value (Bytes.unsafe_get s i) lsl 4) +
+          (Char.hexa_value (Bytes.unsafe_get s (i+1)))
       )
   )
 
@@ -819,8 +819,8 @@ let base64encode s =
     else if i = 63 then '/'
     else assert false
   in
-  let len = String.length s in
-  let buf = String.create (4 * ((len + 2) / 3)) in
+  let len = Bytes.length s in
+  let buf = Bytes.create (4 * ((len + 2) / 3)) in
   let rec aux i =
     let rem = len - i in
     if rem <= 0 then () else
@@ -854,7 +854,7 @@ let base64decode s =
     else if c = '=' then 0
     else raise (Invalid_argument "base64decode")
   in
-  let len = String.length s in
+  let len = length s in
   if len mod 4 <> 0 then raise (Invalid_argument "base64decode");
   let real_len =
     if len = 0 then 0
@@ -862,7 +862,7 @@ let base64decode s =
     else if unsafe_get s (len-1) = '=' then 3 * len / 4 - 1
     else 3 * len / 4
   in
-  let buf = String.create real_len in
+  let buf = Bytes.create real_len in
   let rec aux i =
     if i >= len then () else
       let c1 = decode (unsafe_get s i)

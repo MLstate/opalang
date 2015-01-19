@@ -659,7 +659,7 @@ type unification_change =
   | UC_row_var_link of
       (W_Algebra.row_variable * W_Algebra.row_variable_value)  (** Same thing
                       than [UC_ty_link] but for row variables. *)
-  | UC_column_var_link of 
+  | UC_column_var_link of
       (W_Algebra.column_variable * W_Algebra.column_variable_value)  (** Same
                       thing than [UC_ty_link] but for column variables. *)
 
@@ -969,7 +969,7 @@ let rec row_type_repr row =
         let (row'_fields, row'_ending) = row'_repr.W_Algebra.rt_value in
         (* We assume lists are already individually sorted. *)
         let all_fields =
-          Sort.merge (fun (f1, _) (f2, _) -> f1 < f2) row_fields row'_fields in
+          List.merge (fun (f1, _) (f2, _) -> String.compare f1 f2) row_fields row'_fields in
         change_row_link ~receiver: row ~link_val: (all_fields, row'_ending) ;
         row
       )

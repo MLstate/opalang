@@ -289,7 +289,7 @@ struct
   let from_string str =
     let oid = S.create 12 in
     for i = 0 to 11 do
-      oid.[i] <- Char.chr (Charf.c2h str.[i*2] str.[i*2+1]);
+      Bytes.set oid i (Char.chr (Charf.c2h str.[i*2] str.[i*2+1]));
     done;
     oid
 
@@ -297,8 +297,8 @@ struct
     let hex = [|'0';'1';'2';'3';'4';'5';'6';'7';'8';'9';'a';'b';'c';'d';'e';'f'|] in
     let str = S.create 24 in
     for i = 0 to 11 do
-      str.[2*i] <- hex.(((Char.code oid.[i]) land 0xf0) lsr 4);
-      str.[2*i+1] <- hex.((Char.code oid.[i]) land 0x0f);
+      Bytes.set str (2*i) hex.(((Char.code oid.[i]) land 0xf0) lsr 4);
+      Bytes.set str (2*i+1) hex.((Char.code oid.[i]) land 0x0f);
     done;
     str
 

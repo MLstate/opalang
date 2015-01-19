@@ -333,7 +333,7 @@ module Exe = struct
 
   let content_of_ic ic =
     let len = 10000 in
-    let str = String.create len in
+    let str = Bytes.create len in
     let buf = Buffer.create 10000 in
     let rec aux () =
       let read = input ic str 0 len in
@@ -363,7 +363,7 @@ module Exe = struct
         let size = stat.Unix.st_size in
         assert (size <= Sys.max_string_length) ;
         let ic = open_in_bin f
-        and buf = String.create size in
+        and buf = Bytes.create size in
         really_input ic buf 0 size ;
         close_in ic ;
         buf

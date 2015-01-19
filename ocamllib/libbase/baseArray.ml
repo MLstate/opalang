@@ -19,7 +19,7 @@
 
 include Array
 let is_empty a = Array.length a = 0
-let unsafe_create l = create l (Obj.magic 0)
+let unsafe_create l = Array.make l (Obj.magic 0)
 let copy_memory a =
   let l = length a in
   if l = 0 then [||] else begin
@@ -234,7 +234,7 @@ let filteri fct a =
           aux filter acc (succ i)
     in
     let filter, acc = aux 0 [] 0 in
-    let fa = create filter (unsafe_get a 0) in
+    let fa = Array.make filter (unsafe_get a 0) in
     let rec fill acc i =
       match acc with
       | [] -> ()
