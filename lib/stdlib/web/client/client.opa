@@ -258,14 +258,25 @@ type JsFunction = external
 
 
 
-  winopen(url : string, jswin : JsWindow, lis : list(string), b : bool) : client_window_element =
-   the_window = match jswin with
-     | {_self}
-     | {_blank} -> main_window()
-     | ~{win}   -> win
-   end
+  /**
+   * Bind window.open.
+   * @param url a resource url.
+   * @param jswin window in which the resource will be loaded.
+   * @param lis list of options.
+   */
+  winopen(url: string, jswin: JsWindow, lis: list(string), repl: bool) : client_window_element =
+    win = match jswin with
+    | {_self}
+    | {_blank} -> main_window()
+    | ~{win}   -> win
+    end
+    uid = match jswin with
+    | {_self}   -> "_self"
+    | {_blank}  -> "_blank"
+    | _         -> Random.string(32)
+    end
    bypass2 = %% BslClient.Client.winopen2 %% : string, client_window_element, list(string), bool, string -> client_window_element
-   bypass2(url, the_window, lis, b, Random.string(32))
+   bypass2(url, win, lis, repl, uid)
 
   winclose(win_opt : option(client_window_element)) =
     close = %% BslClient.Client.winclose %%: client_window_element -> void
