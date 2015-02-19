@@ -178,7 +178,7 @@ struct
            let acc, ftyl = List.fold_left_map_stable tra acc tyl in
            let acc, fty = tra acc ty in
            acc,
-           if tyl == ftyl && ty = fty then t else
+           if tyl == ftyl && ty == fty then t else
              Q.TypeArrow (ftyl, fty)
        | Q.TypeRecord (Q.TyRow (fields, rowvar)) ->
            let acc, ffields = List.fold_left_map_stable (foldmap_field_stable tra) acc fields in
@@ -239,7 +239,7 @@ struct
        | Q.TypeArrow (tyl, ty) ->
            let mtyl = List.map_stable tra tyl in
            let mty = tra ty in
-           if tyl == mtyl && ty = mty then t else
+           if tyl == mtyl && ty == mty then t else
              Q.TypeArrow (mtyl, mty)
        | Q.TypeRecord (Q.TyRow (fields, rowvar)) ->
            let mfields = List.map_stable (map_field_stable tra) fields in
