@@ -743,20 +743,29 @@ MongoDriver = {{
   create_simple_index(m:Mongo.db, ns:string, field:string, options:int): bool =
     create_index(m, ns, [H.i32(field,1)], options)
 
-  to_iterator(m:Mongo.db, ns:string, reply:Mongo.reply):iter(Bson.document) =
-    rec aux(i, size, reply) = (
-      if i < size then
+  /**
+   * Build an iterator out of the results returned in {reply}.
+   * If mongo has more elements, send OP_GET_MORE_MESSAGES to fetch
+   * the remainder.
+   * @param limit maximum number of elements added to the iterator.
+   *   should be the same as numberToReturn.
+   */
+  to_iterator(m:Mongo.db, ns:string, reply:Mongo.reply, limit:int):iter(Bson.document) =
+    rec aux(i, size, reply, total) = (
+      if limit > 0 && total >= limit then {none}
+      else if i < size then
         match MongoCommon.reply_document(reply, i) with
         | {none} -> @fail("Unexpected error: can't retreive document {i}/{size}")
-        | {some=doc} -> {some = (doc, {next = -> aux(i+1, size, reply)})}
+        | {some=doc} -> {some = (doc, {next = -> aux(i+1, size, reply, total+1)})}
       else
         cursor = MongoCommon.reply_cursorID(reply)
         if MongoCommon.is_null_cursorID(cursor) then {none}
         else
-          match MongoDriver.get_more(m, ns, 0, cursor) with
+          numberToReturn = if limit > 0 then limit-total else 0
+          match MongoDriver.get_more(m, ns, numberToReturn, cursor) with
           | {none} -> @fail("Can't get more document from cursor({MongoCommon.string_of_cursorID(cursor)})")
-          | {some=reply} -> aux(0, MongoCommon.reply_numberReturned(reply), reply)
+          | {some=reply} -> aux(0, MongoCommon.reply_numberReturned(reply), reply, total)
     )
-    { next = -> aux(0, MongoCommon.reply_numberReturned(reply), reply) }
+    { next = -> aux(0, MongoCommon.reply_numberReturned(reply), reply, 0) }
 
 }}

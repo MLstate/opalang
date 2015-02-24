@@ -426,7 +426,7 @@ Then use 'opa --db-remote' instead of '--db-local'.
 
     default_archive =
       arch = "x86_64" // TODO 32 BITS
-      ver  = "2.4.8"
+      ver  = "2.4.8" // "2.6.5"
       Option.map(os -> "mongodb-{os}-{arch}-{ver}", os)
 
     default_url =
@@ -772,13 +772,13 @@ DbMongoSet = {{
       List.iter(idx -> index(db, path, idx), idxs)
     )
 
-  @package genbuild(db, ns, id, default, reply):DbMongoSet.engine =
+  @package genbuild(db, ns, id, default, reply, limit:int):DbMongoSet.engine =
     match reply with
     | {none} ->
       do Log.error("DbGen/Mongo", "(failure) Read from {id} set doesn't returns anything")
       error("DbSet build error")
     | {some=reply} ->
-      iter = MongoDriver.to_iterator(db, ns, reply)
+      iter = MongoDriver.to_iterator(db, ns, reply, limit)
       default = Magic.black(default)
       ~{iter; db; default}
 
@@ -797,7 +797,7 @@ DbMongoSet = {{
         | {some=[]} -> {some=[{name="`" value={Int32=1}}]}
         | _ -> filter
     reply = MongoDriver.query(db.db, 0, ns, skip, limit, selector, filter)
-    engine = genbuild(db.db, ns, id, default, reply)
+    engine = genbuild(db.db, ns, id, default, reply, limit)
     iter = Iter.filter_map(Bson.doc2opa_default(_, default), engine.iter)
     DbSet_genbuild(iter, engine)
 

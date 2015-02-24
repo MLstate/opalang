@@ -349,7 +349,7 @@ module GridFS{
         match(File.query(grid, query, some([{name:"_id", value:{Int32:1}}]), 0, 0)){
         case {failure:_} as f : f
         case {success:reply} :
-            docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
+            docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply, 0)
             (_, ids) = Iter.fold(function(doc, (i, acc)){
                 match(doc){
                 case [{name:"_id", ~value}] : (i+1, {name:Int.to_string(i), ~value} +> acc)
@@ -422,7 +422,7 @@ module GridFS{
             match(File.query(grid, query, filter, skip, limit)){
             case {failure:_} as e : e
             case {success:reply} :
-                docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
+                docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply, 0)
                 {success : Iter.map(function(doc){
                     match(Bson.find_value(doc, "_id")){
                     case {none} :
@@ -447,7 +447,7 @@ module GridFS{
             match(File.query(grid, query, filter, skip, limit)){
             case {failure:_} as e : e
             case {success:reply} :
-                docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply)
+                docs = MongoDriver.to_iterator(grid.db, File.files_ns(grid), reply, 0)
                 {success : Iter.filter_map(function(doc){
                     match(get_metadata(doc)){
                     case {failure:e} : Log.error("GridFS", "{e}, skip it"); {none}
@@ -479,7 +479,7 @@ module GridFS{
         match(file.file){
         case ~{local ...} : local
         case {stored:~{grid, reply} ...} :
-            docs = MongoDriver.to_iterator(grid.db, Chunk.chunks_ns(grid), reply)
+            docs = MongoDriver.to_iterator(grid.db, Chunk.chunks_ns(grid), reply, 0)
             Iter.map(function(doc){
                 match(Bson.find_value(doc, "data")){
                 case {some : {Binary : bin}} : bin
