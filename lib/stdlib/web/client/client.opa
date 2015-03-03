@@ -267,12 +267,14 @@ type JsFunction = external
   winopen(url: string, jswin: JsWindow, lis: list(string), repl: bool) : client_window_element =
     win = match jswin with
     | {_self}
-    | {_blank} -> main_window()
+    | {_blank}
+    | {_top}   -> main_window()
     | ~{win}   -> win
     end
     uid = match jswin with
     | {_self}   -> "_self"
     | {_blank}  -> "_blank"
+    | {_top}    -> "_top"
     | _         -> Random.string(32)
     end
    bypass2 = %% BslClient.Client.winopen2 %% : string, client_window_element, list(string), bool, string -> client_window_element
@@ -293,9 +295,12 @@ type JsFunction = external
  * Deprecated zone: start
  */
 
-type JsWindow  = { _blank }
-               / { _self }
-               / { win: client_window_element }
+type JsWindow  =
+  { _blank }
+/ { _self }
+/ { _top }
+/ { win: client_window_element }
+
 type jswindow = JsWindow
 type client_window_element = external
 
