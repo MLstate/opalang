@@ -876,7 +876,7 @@ WebClient =
              raw = %%BslNet.Http_client.place_request%%:
                    /*hostname*/string, /*port*/int, /*path*/string,
                    /*request_kind*/string, /*data*/option(string),
-                   /*is_secure*/bool, /*auth*/option(string), /*SSL key*/ option(SSL.private_key), /*SSL policy*/ option(SSL.policy),
+                   /*is_secure*/bool, /*strict_ssl*/bool, /*auth*/option(string), /*SSL key*/ option(SSL.private_key), /*SSL policy*/ option(SSL.policy),
                    /*timeout*/option(time_t),
                    /*custom_agent*/option(string), /*more_headers*/list(string),
                    /*success*/(int, string, list(string), (string -> option(string)) -> void),
@@ -917,7 +917,7 @@ WebClient =
                      port = if is_secure then port?443 else port?80
                       // FIXME, broken date abstraction... [timeout_sec:float] fields in options should be replaced with [timeout:Duration.duration] but there was a problem with value restriction
                      timeout = Option.map((f:float -> Duration.ll_export(Duration.ms(Int.of_float(f * 1000.)))), options.timeout_sec)
-                     raw(domain, port, Uri.to_string(~{path query fragment is_directory is_from_root=true}), request_kind, content, is_secure,
+                     raw(domain, port, Uri.to_string(~{path query fragment is_directory is_from_root=true}), request_kind, content, is_secure, false,
                                  options.auth, options.ssl_key, options.ssl_policy, timeout,
                                  options.custom_agent, options.custom_headers,
                                  cb_success, cb_failure)
