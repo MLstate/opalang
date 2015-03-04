@@ -54,7 +54,7 @@ IPv4 =
    */
 
   ip_parser : Parser.general_parser(IPv4.ip) =
-    parser s1=Rule.byte "." s2=Rule.byte "." s3=Rule.byte "." s4=Rule.byte -> {a=s1 b=s2 c=s3 d=s4}
+    parser "::ffff:" ? s1=Rule.byte "." s2=Rule.byte "." s3=Rule.byte "." s4=Rule.byte -> {a=s1 b=s2 c=s3 d=s4}
 
   /**
    * {2 Conversion functions }
