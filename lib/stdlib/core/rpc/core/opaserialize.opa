@@ -219,8 +219,8 @@ OpaSerialize = {{
   /**
    * Serialize in intermediate format according to a type.
    *
-   * Note : [value] must be have the type represented by [ty] if isn't
-   * behavior is not defined.
+   * Note : [value] must be have the type represented by [ty]. The behaviour is
+   * undefined when this condition is not respected.
    */
   partial_serialize_options(value, ty:OpaType.ty, options:OpaSerialize.options) =
     original_ty = ty
@@ -329,15 +329,36 @@ OpaSerialize = {{
       #<End>
 
 
-    /* For record and sum, take value and fields */
+    /**
+     * For record and sum, take value and fields.
+     * Expanded list types are match here and converted
+     * to JSON list values (instead of {hd:<val>, tl:<list>}).
+     */
     and aux_rec(value, fields) =
-      {Record = Record.fold_with_fields(
-        (field, tyfield, value, json ->
-          name = Record.name_of_field_unsafe(field)
-          res = aux(value, tyfield)
-          [(name, res) | json]
-        ), value, fields, []
-      )}
+      // After lists have been removed.
+      aux_not_list() =
+        {Record = Record.fold_with_fields(
+          (field, tyfield, value, json ->
+            name = Record.name_of_field_unsafe(field)
+            res = aux(value, tyfield)
+            [(name, res) | json]
+          ), value, fields, []
+        )}
+      // Filter out list types.
+      match (fields) with
+      // Sometimes, the type of the list is {hd: 'a, tl: list('a)}
+      // which leads to lists being serialized under the form:
+      // {hd: <val>, tl: [<val>, ..]}.
+      | [ {label= "hd"; ty= tyval0},
+          {label= "tl"; ty= {TyName_ident= "list"; TyName_args= [tyval1]}} ]
+      | [ {label= "tl"; ty= {TyName_ident= "list"; TyName_args= [tyval1]}},
+          {label= "hd"; ty= tyval0} ] ->
+        if (tyval0 == tyval1) then
+          aux_list(Magic.id(value), tyval0)
+        else aux_not_list()
+      // Standard case.
+      | _ -> aux_not_list()
+      end
 
     /* For list */
     and aux_list(list, ty) = { List = List.map( aux(_,ty), list ) }
@@ -579,6 +600,7 @@ OpaSerialize = {{
     /* Function for record **********************/
     and aux_rec(js_lst:list, fields:OpaType.fields) =
       match fields with
+      // Single field record.
       | [{label=name; ty=ty}] ->
         if OpaType.is_void(ty) then
           /* build the optimized representation */
@@ -634,16 +656,18 @@ OpaSerialize = {{
        construct a couple (should be removed automatically)
        and an option (need to have a special folder)
      */
-    and aux_list(l,ty_arg_opt)=
-       match ty_arg_opt
-        {some=ty_arg}->
-           l=List.foldr(elmt,l -> match (l,aux(elmt,ty_arg))
-                                ({some=l},{some=hd}) -> some([hd|l])
-                                _ -> none,
-                      l,some([]))
-           Magic.id(l)
-        {none} -> error_ret("Empty list with a record wihtout hd field",none)
-        end
+    and aux_list(l, ty_arg_opt)=
+      match ty_arg_opt with
+      | {some= ty_arg}->
+        l= List.foldr(elmt, l ->
+          match (l, aux(elmt, ty_arg)) with
+          | ({some=l}, {some=hd}) -> some([hd|l])
+          | _ -> none
+          end,
+        l, some([]))
+        Magic.id(l)
+      | {none} -> error_ret("Empty list with a record wihtout hd field", none)
+      end
 
     /* Main aux function ************************/
     and aux(json:RPC.Json.json, ty:OpaType.ty) =
