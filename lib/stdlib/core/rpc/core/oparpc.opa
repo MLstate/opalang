@@ -398,17 +398,19 @@ OpaRPC_Server =
   rpc_return(cid, id, return) =
     match @atomic(
       match Hashtbl.try_find(rpc_infos, id) with
-      | {none} -> {some = "No rpc id:"^id}
+      | {none} -> {some= none}
       | {some = ~{k client}} ->
         if client.client == cid.client && client.page == cid.page then
           do Hashtbl.remove(rpc_infos, id)
           do Continuation.return(k, return)
           {none}
         else
-          {some = "Wrong client try to RPC reply"}
+          {some= some(client)}
     ) with
     | {none} -> true
-    | {some = msg} -> do Log.error("OpaRpc", msg) false
+    | {some = {none}} -> do Log.error("[OpaRpc]", "Unallocated RPC id {id}") false
+    | {some = {some= client}} -> do Log.error("[OpaRpc]", "Wrong RPC return client: {client.client}:{client.page} =/= {cid.client}:{cid.page}") false
+    end
   #<Else>
   @private
   send_response = %%BslRPC.call%%
