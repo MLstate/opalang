@@ -121,8 +121,9 @@ type OAuth.token_res = { success : OAuth.token } / { error : string }
     | {HMAC_SHA1} -> hmac_sha1_sign(consumer_secret, token_secret, http_method, uri, params)
     end
 
-  sign_request(consumer_secret, token_secret, uri, _params, auth_params) =
-    signature = signature(consumer_secret, token_secret, p.http_method, uri, auth_params, p.auth_method)
+  sign_request(consumer_secret, token_secret, uri, params, auth_params) =
+    params = if (p.http_method == {GET}) then List.rev_append(params, auth_params) else auth_params
+    signature = signature(consumer_secret, token_secret, p.http_method, uri, params, p.auth_method)
     List.cons(("oauth_signature", signature), auth_params)
 
 
