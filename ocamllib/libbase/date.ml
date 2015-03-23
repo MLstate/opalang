@@ -76,7 +76,7 @@ let date f dt = match f with
 
 let pretty_duration dur =
   if dur < 2. then
-    Printf.sprintf "00:00:0%0.3f" dur
+    Printf.sprintf "00:00:0%.3f" dur
   else if dur < 10. then
     Printf.sprintf "00:00:0%.2f" dur
   else if dur < 60. then
