@@ -960,6 +960,8 @@ let xml_parser xml_parser =
   directive0 (`xml_parser xml_parser) ()
 let magic_to_string e =
   directive1 `magic_to_string e
+let magic_to_string_annotated e fs =
+  directive `magic_to_string (e::fs)
 let magic_to_xml e =
   directive1 `magic_to_xml e
 let magic_to_text e =
@@ -968,6 +970,14 @@ let fun_action e =
   directive1 `fun_action e
 let magic_do e = (directive1 `magic_do e , nlabel e)
 let computed_string l = directive `string l
+
+(** ICU message formatting. *)
+
+let intl xs = directive (`intl xs) []
+let icu_text txt = IcuText (String.concat "" txt)
+let icu_simple key typ style = IcuSimple (key, typ, style)
+let icu_plural key offset cases = IcuPlural (key, offset, cases)
+let icu_select key cases = IcuSelect (key, cases)
 
 (*
  * stuff on list put here because they need coerce_name_expr

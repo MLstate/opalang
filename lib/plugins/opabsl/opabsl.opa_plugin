@@ -5,6 +5,7 @@ jsbsl/bsl-sources.jsconf
 jsbsl/md5.js
 jsbsl/base64.js
 jsbsl/jquery-1.11.2.min.js
+# jsbsl/intl-messageformat.min.js
 
 # Server specific bypass
 jsbsl/bslNativeLib.js
@@ -36,6 +37,8 @@ jsbsl/bslDom.js
 jsbsl/bslDomSupport.js
 jsbsl/hashtable.js
 jsbsl/bslHashtbl.js
+jsbsl/intlclient.js
+jsbsl/intlserver.nodejs
 
 # opasyntax (transitionnal)
 mlstatebsl/preprocess_formats.opa

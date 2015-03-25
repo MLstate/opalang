@@ -639,6 +639,7 @@ local_binding_directives <- (=deco(local_binding_directive:v))*
 ;
 directive0 <-
   / "i18n_lang"  {{ `i18n_lang }}
+  / "locale" {{ `locale }}
   / "thread_context" {{ `thread_context }}
   / "todo" {{ `todo }}
   / "toplevel" {{ `toplevel }}
@@ -691,6 +692,7 @@ directive <-
   (* FIXME: could accept assert_message(,_e)(s)
    * instead of just assert_message(s,e) *)
   / "@xml(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
+  / "@intl(" String_expr.icu_string:m ")" {{ m }}
   / "@typeval(" typ:t rpar {{
       (* For convenience, directive [@typeval] is handled as thin syntactic sugar.
          Therefore [@typeval(t)] is parsed as [@typeof(@unsafe_cast("dummy_for_typeval"):t)]
@@ -1060,6 +1062,7 @@ function_arguments2 <- function_arguments_nosp2
 opa_in_braces_nosp <- lbrace_nosp expr:e rbrace {{ e }}
 /** embedded opa **/
 opa_in_braces <- lbrace expr:e rbrace {{ e }}
+string_insert <- expr:e {{ e }}
 
 
 (**

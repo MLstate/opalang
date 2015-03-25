@@ -21,3 +21,6 @@ verbatim: true
 
 [base64\.js]
 verbatim: true
+
+[intl-messageformat.*]
+verbatim: true

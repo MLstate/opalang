@@ -132,6 +132,8 @@ type Date.set = ordered_set(Date.date, Date.order)
 // FIXME Should we merge Date.date & time_t ?
 type time_t = external
 
+@opacapi Date_raw_string = Date.to_raw_string
+
 @workable
 Date =
 {{
@@ -1023,6 +1025,9 @@ Date =
   **/
   @stringifier(Date.date) to_string(date : Date.date) : string =
     to_formatted_string(default_printer, date)
+
+  to_raw_string(date: Date.date): string =
+    "{in_milliseconds(date)}"
 
   /**
    * Generates a scanner (i.e. a parser) for dates in a given format.

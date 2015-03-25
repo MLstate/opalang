@@ -784,6 +784,8 @@ module Classic = struct
           (* computed string *)
       | `string -> Format.pp_print_string f "string"
           (* internationalization *)
+      | `intl _ -> Format.pp_print_string f "intl"
+      | `locale -> Format.pp_print_string f "locale"
       | `i18n -> Format.pp_print_string f "i18n"
       | `i18n_lang -> Format.pp_print_string f "i18n_lang"
           (* *)
@@ -1367,6 +1369,8 @@ module Js = struct
           (* computed string *)
       | `string -> Format.pp_print_string f "string"
           (* internationalization *)
+      | `intl _ -> Format.pp_print_string f "intl"
+      | `locale -> Format.pp_print_string f "locale"
       | `i18n -> Format.pp_print_string f "i18n"
       | `i18n_lang -> Format.pp_print_string f "i18n_lang"
           (* *)

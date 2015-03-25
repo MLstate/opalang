@@ -111,7 +111,7 @@ stringcharspecial <-
 
 ; stringchar <-
           [\\] stringcharspecial {{ Cactutf.cons __2 }}
-        / (![\\\"{] utf8char)+:l {{ BaseString.concat_map "" Cactutf.cons l }}
+        / (![\\\"{}] utf8char)+:l {{ BaseString.concat_map "" Cactutf.cons l }}
 
 char_char <-
           [\\] stringcharspecial {{ __2 }}

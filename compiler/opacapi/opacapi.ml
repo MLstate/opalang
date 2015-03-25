@@ -98,6 +98,20 @@ struct
   let lang = !! "lang"
 end
 
+module Intl =
+struct
+  let (!!) s = !! ("Intl_" ^ s)
+  let locale = !! "locale"
+  let printer = !! "printer"
+  let format = !! "format"
+end
+
+module Date =
+struct
+  let (!!) s = !! ("Date_" ^ s)
+  let raw = !! "raw_string"
+end
+
 module IntMap =
 struct
   let (!!) s = !! ("IntMap_" ^ s)

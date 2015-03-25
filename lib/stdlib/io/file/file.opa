@@ -217,7 +217,7 @@ File = {{
     %% BslFile.mimetype_opt %% : string -> option(string)
     #<End>
 
-  basename = %% BslFile.basename %% : string -> string
+  basename = %% BslFile.basename %% : string, option(string) -> string
   dirname = %% BslFile.dirname %% : string -> string
 
   readdir(path):outcome(llarray(string),string) =

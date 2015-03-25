@@ -555,6 +555,10 @@ let pass_CheckServerEntryPoint =
        let options = { e with PH.options = opt } in
        EnvUtils.create_sa_both_env options env)
 
+let pass_IntlDirective =
+  PassHandler.make_pass
+    (fun e -> EnvUtils.create_sa_both_env e (Pass_IntlDirective.process ~options:e.PH.options e.PH.env))
+
 let pass_I18nAndComputedString =
   PassHandler.make_pass
     (fun e -> EnvUtils.create_sa_both_env_uids e (I18nAndComputedString.process_directives__i18n__string ~options:e.PH.options e.PH.env))

@@ -154,6 +154,13 @@ val pass_CheckDuplication :
   )
   opa_pass
 
+val pass_IntlDirective :
+  (
+   (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAstPassesTypes.env_both_lcodes,
+   (SurfaceAst.nonuid, SurfaceAst.parsing_directive) SurfaceAstPassesTypes.env_both_lcodes
+  )
+  opa_pass
+
 val pass_I18nAndComputedString :
   (
    (SurfaceAst.uids, SurfaceAst.dependency_directive) SurfaceAstPassesTypes.env_both_lcodes,

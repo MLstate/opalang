@@ -599,7 +599,7 @@ GHRepos = {{
                   {form=("success_action_status","201")},{form=("Filename",dcr.name)},
                   {form=("AWSAccessKeyId",dcr.accesskeyid)},{form=("Policy",dcr.policy)},
                   {form=("Signature",dcr.signature)},{form=("Content-Type",dcr.mime_type)},
-                  {file=("file",File.basename(file),dcr.mime_type,string_of_binary(content))}]
+                  {file=("file",File.basename(file, none),dcr.mime_type,string_of_binary(content))}]
          ({some=dcr},GHLib.full_post_forms(dcr.s3_url, "", "", forms, GP.expect_201))
       | _ -> (none,none)
       end

@@ -36,7 +36,7 @@ let to_string_range_short print_fname fe r =
 
 let pp_filerange_short print_fname filename fmt r =
   let str = to_string_range_short print_fname filename r in
-  if print_fname 
+  if print_fname
    then Format.fprintf fmt "%s" (str ^ String.make (20 - String.length str) ' ')
    else Format.pp_print_string fmt str
 
@@ -44,8 +44,8 @@ let pp_filerange_short print_fname fmt {FilePos.filename=filename; FilePos.range
   let ranges = HdList.unwrap ranges in
   BaseFormat.pp_list "@\n" (pp_filerange_short print_fname  filename) fmt ranges
 
-let pp_pos_short fmt (pos, print_fname) = 
-  match pos with 
+let pp_pos_short fmt (pos, print_fname) =
+  match pos with
   | FilePos.Builtin pass -> Format.fprintf fmt "<no position available (%s)>" pass
   | FilePos.Files (files, _) ->
       let files = HdList.unwrap files in

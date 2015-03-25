@@ -287,9 +287,20 @@ type 'expr xml_parser =
   'expr xml_rule list * 'expr option (* the alternatives *)
 
 
-(**
-   {5 Various shorthands for directives}
-*)
+(** {5} ICU message format. *)
+
+type 'expr icu_message = 'expr icu_message_part list
+and 'expr icu_message_part =
+  | IcuText of string
+  | IcuSimple of 'expr * string option * string option
+  | IcuPlural of 'expr * int option * (icu_selector * 'expr icu_message) list
+  | IcuSelect of 'expr * (string * 'expr icu_message) list
+and icu_selector =
+  | IcuKeyword of string
+  | IcuCase of int
+
+(** {5} Various shorthands for directives. *)
+
 type magic_directive =
     [ `magic_to_string
     | `magic_to_xml
@@ -310,8 +321,9 @@ type magic_directive =
 type string_directive = [ `string ]
 
 type internationalization_directive = [
-    | `i18n (* indicate a point of translation *)
-    | `i18n_lang (* return the current context lang, add a directive to later prune js code pattern matching at running time *)
+  (** Identify translation points. *)
+  | `i18n (* indicate a point of translation *)
+  | `i18n_lang (* return the current context lang, add a directive to later prune js code pattern matching at running time *)
 ]
 
 type error_directive =
@@ -448,6 +460,8 @@ type ('ident,'dir) sugar_directive =
 type parsing_directive =
     [ `xml_parser of (string, parsing_directive) expr xml_parser
     | `parser_ of (string, parsing_directive) expr Trx_ast.expr
+    | `intl of (string, parsing_directive) expr icu_message
+    | `locale
     | renaming_directive
     | (string, parsing_directive) sugar_directive
     ]

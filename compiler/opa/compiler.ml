@@ -130,6 +130,8 @@ let compile backend_handlers =
 
     |+> ("CheckServerEntryPoint", S3.pass_CheckServerEntryPoint)
 
+    |+> ("IntlDirective", S3.pass_IntlDirective)
+
     |+> ("ParserGeneration", S3.pass_ParserGeneration)
 
     |+> ("CheckDuplication", S3.pass_CheckDuplication)

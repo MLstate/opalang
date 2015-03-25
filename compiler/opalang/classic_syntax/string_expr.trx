@@ -15,43 +15,110 @@
     You should have received a copy of the GNU Affero General Public License
     along with Opa. If not, see <http://www.gnu.org/licenses/>.
 *)
-(* importing some stuff *)
-{{ open Parser_utils }}
-;lbrace <- Opa_lexer.lbrace
-;rbrace_nosp <- Opa_lexer.rbrace_nosp
 
-(* parser for non constants strings like "f(3) is :{f(3)}!"
+(** Importing some stuff. *)
+
+{{ open Parser_utils }}
+
+; lbrace <- Opa_lexer.lbrace_nosp
+; rbrace <- Opa_lexer.rbrace_nosp
+; spacing <- Opa_lexer.spacing
+; opainsert <- Opa_parser.string_insert
+; number <- Opa_lexer.int
+; stringchar <- (![}] Opa_lexer.stringchar)
+
+(**
+ * Parser for non constants strings like "f(3) is :{f(3)}!"
  * the given example will be transformed in
  * [sc_list(["f(3)",f(3),"!"])]
  *)
 
-;/** string with embedded opa **/
-string_with_opa <- (=Opa_parser.deco(just_string_with_opa)):p
-  {{ let (l,label) = p in
-       (* slight optimization, but mostly it improves readability of pretty printed code *)
-       (computed_string l),label
-  }}
+(** String with embedded opa. *)
+; string_with_opa <- (=Opa_parser.deco(just_string_with_opa)):p
+  {{ let (l, label) = p in
+      (* slight optimization, but mostly it improves readability of pretty printed code *)
+      (computed_string l), label }}
 
 intchar <- (=Opa_parser.deco(Opa_lexer.char)):c {{c}}
 
-char <-
-  / intchar:c
-    {{
-      coerce_name_expr (int2 c) Opacapi.Types.char
-    }}
+char <- intchar:c {{
+  coerce_name_expr (int2 c) Opacapi.Types.char
+}}
 
-char_pat <- intchar:c
-  {{ coerce_name_pat (PatConst ((CInt (Big_int.big_int_of_int (undecorate c)))), label c)
-     Opacapi.Types.char  }}
+char_pat <- intchar:c {{
+  coerce_name_pat (PatConst ((CInt (Big_int.big_int_of_int (undecorate c)))), label c) Opacapi.Types.char
+}}
 
-/** unicode character **/
+(** unicode character *)
 string_or_char <-
   / string_with_opa
   / char
 
-;just_string_with_opa <- [\"] inner_string_element*:l (=Opa_lexer.or_eof([\"])):b {{ if not b then error_string (pos_only _filename _pos_beg _pos_end) else l }}
 
+(** Format annotations: a list of string identifiers. *)
+; format_annotation <- [","] spacing Opa_lexer.field_identifier_nosp:f spacing {{ f }}
+
+(** String without closing quotation marks. *)
+; just_string_with_opa <- [\"] inner_string_element*:l (=Opa_lexer.or_eof([\"])):b {{
+  if not b then
+    error_string (pos_only _filename _pos_beg _pos_end)
+  else l
+}}
+
+(** String part: either a raw string or a string insert. *)
 ; inner_string_element <-
-  / Opa_parser.opa_in_braces_nosp:e {{ wrap_e magic_to_string e }}
+  / Opa_lexer.lbrace_nosp Opa_parser.string_insert:i Opa_lexer.rbrace {{ wrap_e magic_to_string i }}
   / (=Opa_parser.careful_deco(Opa_lexer.stringchar+)):p
       {{ let l,label = p in string (String.concat "" l) label }}
+
+
+(**
+ * ICU message format. This format should be allowed only inside @intl directives,
+ * as it is specifically used for internationalisation.
+ *)
+
+;/** ICU string **/
+  icu_string <- [\"] icu_message:m [\"] {{ intl m }}
+;/** ICU message **/
+  icu_message <- icu_message_part*:ps {{ ps }}
+;/** ICU message part **/
+  icu_message_part <-
+  / icu_plural:p {{ p }}
+  / icu_select:s {{ s }}
+  / icu_simple:f {{ f }}
+  / icu_text:t {{ t }}
+
+(**  / icu_select:s {{ s }} *)
+
+;/** ICU text **/
+  icu_text <- (stringchar+):txt {{ icu_text txt }}
+;/** ICU formatted text **/
+  icu_simple <- lbrace opainsert:i (format_annotation?):typ (format_annotation?):style rbrace {{ icu_simple i typ style }}
+;/** ICU plural format **/
+  icu_plural <- lbrace opainsert:i "," spacing "plural" spacing "," icu_plural_style:s spacing rbrace {{
+  let (offset, cs) = s in
+  icu_plural i offset cs
+}}
+;/** ICU select format **/
+  icu_select <- lbrace opainsert:i "," spacing "select" spacing "," icu_select_style:cs spacing rbrace {{
+  icu_select i cs
+}}
+
+
+;/** ICU plural style **/
+  icu_plural_style <- spacing (icu_offset_value?):offset (icu_plural_case+):cs {{ (offset, cs) }}
+;/** ICU plural case **/
+  icu_plural_case <- spacing icu_plural_selector:s spacing lbrace icu_message:m rbrace {{ (s, m) }}
+;/** ICU offset value **/
+  icu_offset_value <- "offset:" number:n {{ n }}
+;/** ICU case selector **/
+  icu_plural_selector <-
+  / "=" number:n {{ IcuCase n }}
+  / Opa_lexer.field_identifier_nosp:k {{ IcuKeyword k }}
+
+;/** ICU select style **/
+  icu_select_style <- spacing (icu_select_case+):cs {{ cs }}
+;/** ICU select case **/
+  icu_select_case <- spacing icu_select_selector:s spacing lbrace icu_message:m rbrace {{ (s, m) }}
+;/** ICU case selector **/
+  icu_select_selector <- Opa_lexer.field_identifier_nosp:k {{ k }}

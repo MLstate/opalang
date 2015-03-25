@@ -390,10 +390,26 @@ val module_ : ('a,[> `module_] as 'b) expr -> ('a,'b) expr_node
 val open_ : ('a, [> `open_ ] as 'b) expr list -> ('a, 'b) expr -> ('a, 'b) expr
 val xml_parser : 'a -> ('b, [> `xml_parser of 'a ]) SurfaceAst.expr_node
 val magic_to_string : (string, [> `magic_to_string ] as 'a) expr -> (string, 'a) expr_node
+val magic_to_string_annotated : (string, [> `magic_to_string ] as 'a) expr -> (string, 'a) expr list -> (string, 'a) expr_node
 val magic_to_xml : (string, [> `magic_to_xml ] as 'a) expr -> (string, 'a) expr_node
 val magic_to_text : (string, [> `magic_to_text ] as 'a) expr -> (string, 'a) expr_node
 val magic_do : (string, [> `magic_do] as 'a) expr -> (string, 'a) expr
 val computed_string : (string, [> `string] as 'a) expr list -> (string, 'a) expr_node
+
+val intl: 'a -> ('b, [> `intl of 'a]) expr_node
+val icu_text: string list -> 'a icu_message_part
+val icu_simple:
+  ('a, 'b) expr ->
+  string option -> string option ->
+  ('a, 'b) expr icu_message_part
+val icu_plural:
+  ('a, 'b) expr -> int option ->
+  (icu_selector * ('a, 'b) expr icu_message) list ->
+  ('a, 'b) expr icu_message_part
+val icu_select:
+  ('a, 'b) expr ->
+  (string * ('a, 'b) expr icu_message) list ->
+  ('a, 'b) expr icu_message_part
 
 val toplevel_opens : ('a, [> `toplevel_open ] as 'b) expr list -> ('a, 'b) code_elt_node list
 val bypass : string -> ('a, 'b) expr_node
@@ -494,7 +510,7 @@ val push_xml : xml_or_xhtml -> unit
 val pop_xml : unit -> unit
 val xhtml_mode : unit -> bool
 
-exception No_tag 
+exception No_tag
 val push_tag: (string * annot) -> unit
 val pop_tag:  unit   -> unit
 val get_tag:  unit   -> string

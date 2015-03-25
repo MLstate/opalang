@@ -188,7 +188,7 @@ DbDropbox = {{
        on_message((counter, map), r) =
          map = match r with
                | { some = (path, value)} -> (
-                    basename = File.basename(path)
+                    basename = File.basename(path, none)
                     key = String.substring_opt(0, String.length(basename) - 5, basename) ? ""
                     map_add(key, value, map)
                     )

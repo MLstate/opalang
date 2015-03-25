@@ -97,6 +97,27 @@ module I18n = struct
 
 end
 
+module Intl = struct
+  let template_message ext = Printf.sprintf " Generate %s source code template as translation package, use --i18n-pkg to specify the output file name and corresponding opa package name" ext
+
+  module Type = struct
+    type options = { locales : string list }
+  end
+
+  include Type
+
+  let default_options = { locales = [] }
+
+  let r = ref default_options
+
+  let options =   [
+    "--intl-locales-dir",
+    Arg.String (fun str -> r := {locales = str :: (!r.locales)}),
+    " Indicate the location of locale translation files";
+  ]
+
+end
+
 let cwd = Sys.getcwd ()
 
 let available_js_back_end_list = Qml2jsOptions.backend_names ()
@@ -189,6 +210,7 @@ type opa_options = {
   publish_src_code : bool; (** if true, application source code will be published at [_internal_/src_code] *)
 
   i18n : I18n.options ;
+  intl : Intl.options ;
 
   parallelism : int; (* maximum number of // compilations *)
   package_version: string; (* The version to be used when outputting
@@ -917,6 +939,7 @@ struct
     publish_src_code = !ArgParser.publish_src_code;
 
     i18n = !I18n.r;
+    intl = !Intl.r;
 
     parallelism = !ArgParser.parallelism;
     package_version = !ArgParser.package_version;

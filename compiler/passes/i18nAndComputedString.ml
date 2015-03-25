@@ -112,13 +112,18 @@ let i18n_lang () =
   (* SAC.D.i18n_lang() *)
   (* SAC.E.string "WTF" *)
 
-
-(* generate a call to String.flatten with the given expr list as parameter, need with_label *)
+(* generate a call to directive intl_locale (or equivalent form *)
+(* when cleaning of js code must be done, shoud really use the directive to simplify code analysis *)
+(* let intl_locale () =
+  let intl_locale = SAC.E.ident  (OpaMapToIdent.val_ Opacapi.Intl.locale) in
+  SAC.E.applys intl_locale []
+ *)
+(** Generate a call to String.flatten with the given expr list as parameter, need with_label. *)
 let flattened_string expr_list =
   match expr_list with
   | hd :: [] -> hd
   | hd :: _ ->
-    SurfaceAstCons.with_same_pos hd (fun() ->
+    SurfaceAstCons.with_same_pos hd (fun () ->
       let flatten   = SAC.E.ident  (OpaMapToIdent.val_ Opacapi.String.flatten) in
       let expr_list = SAC.E.list   expr_list in
       let flattened = SAC.E.applys flatten [expr_list] in
@@ -126,12 +131,12 @@ let flattened_string expr_list =
     )
   | _ -> failwith "Empty flattened_string list"
 
-(* separate constant part and parameter part (inserts) of a string *)
+(** Separate constant part and parameter part (inserts) of a string *)
 let consts_and_expressions expr_list =
   List.partition (function
-  |SA.Const SA.CString _,_ -> true
-  |SA.Directive _,_ -> false
-  |_ -> assert false
+  | SA.Const SA.CString _,_ -> true
+  | SA.Directive _,_ -> false
+  | _ -> assert false
   ) expr_list
 
 (* generate an ident for a computed string that depends on constant part of the string and on inserts positions *)
