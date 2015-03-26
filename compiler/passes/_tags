@@ -15,4 +15,4 @@ true: with_mlstate_debug, warn_A, warn_e, warn_error_A, warnno_48
 <surfaceAstPasses.{ml,mli}>: use_qml2js
 <pass_CompileTimeDirective.{ml,mli}>: use_opalib, use_compilerlib, use_buildinfos
 <pass_IntlDirective.{ml,mli}>: use_opalib
-<i18nAndComputedString.{ml,mli}>: use_opalib
+<pass_ComputedString.{ml,mli}>: use_opalib

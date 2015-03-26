@@ -10,7 +10,7 @@
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, args, i18n}
+import stdlib.core.{parser, date, rpc.core, web.{core,resource,request}, xhtml, args, intl}
 import-plugin {unix, server}
 
 
@@ -315,7 +315,7 @@ Server_private = {{
             | uri=(.*) ->
               @with_thread_context(
                 create_thread_context_opt(),
-                do ServerI18n.touch_user_lang(winfo.http_request)
+                do Intl.touchLocale(winfo.http_request)
                 Parser.Text.parse(external_handler, uri)
               )
 

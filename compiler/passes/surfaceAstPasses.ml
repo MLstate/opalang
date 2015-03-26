@@ -34,18 +34,8 @@ let pass_load_objects ~options (special_parsed_files, user_parsed_files) k =
     | (Package ((`declaration | `import) as kind, name), label) ->
         Some (kind, name, label.QmlLoc.pos)
     | _ -> None in
-  let extract_current_package_name = function
-    | Package (`declaration, name), _label -> Some(name)
-    | _ -> None in
-  let package_name code = Base.List.find_map extract_current_package_name code in
-  let label s = {QmlLoc.pos=FilePos.nopos ("i18n, import "^s); QmlLoc.notes=SurfaceAstCons.Fresh.id()} in
   let map { parsedFile_lcode = code; parsedFile_filename = name; parsedFile_content = content } =
-    let exists = ObjectFiles.exists_package ~extrapath:options.OpaEnv.extrapath in
-    let package = package_name code in
-    (* adding internationalisation import *)
-    let i18n_to_import = I18nAndComputedString.may_import_package ?package ~exists ~options in
-    let imports =  BaseList.map (fun s -> Package(`import, s), label s) i18n_to_import in
-    (name,content,imports @ code)
+    (name,content,code)
   in
   let main_file (entry : Qml2jsOptions.extra_lib) =
     match entry with

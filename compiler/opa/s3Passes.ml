@@ -559,9 +559,9 @@ let pass_IntlDirective =
   PassHandler.make_pass
     (fun e -> EnvUtils.create_sa_both_env e (Pass_IntlDirective.process ~options:e.PH.options e.PH.env))
 
-let pass_I18nAndComputedString =
+let pass_ComputedString =
   PassHandler.make_pass
-    (fun e -> EnvUtils.create_sa_both_env_uids e (I18nAndComputedString.process_directives__i18n__string ~options:e.PH.options e.PH.env))
+    (fun e -> EnvUtils.create_sa_both_env_uids e (Pass_ComputedString.process ~options:e.PH.options e.PH.env))
 
 let pass_ParserGeneration =
   Adapter.adapt_sa_both SurfaceAstPasses.pass_parser_generation

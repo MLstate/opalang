@@ -11,7 +11,7 @@
 */
 
 import-plugin {server, unix}
-import stdlib.core.{parser, loop, date, web.core, rpc.core, web.request, cache, xhtml, args, set, i18n}
+import stdlib.core.{parser, loop, date, web.core, rpc.core, web.request, cache, xhtml, args, set, intl}
 import stdlib.core.compare
 
 /**
@@ -963,7 +963,7 @@ export_resource(external_css_files: list(string),
                    do Log.warning("Resource export",
                       "This page is exported from a context that doesn't have a valid client thread context. Replacing by random value {result}")
                    result
-          page_lang = ServerI18n.page_lang() // TODO by customizer
+          page_lang = Intl.locale() // TODO by customizer
           page_info = "var page_server = {num_page}; var page_lang = \"{page_lang}\";"
           js_base_url = Option.switch(base -> " var base_url = \"{base}\";", "", base_url)
           safari_hack = if not(safari_fix) then "var desactivate_safari_hack = true;" else ""

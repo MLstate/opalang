@@ -638,7 +638,6 @@ local_binding_directives <- (=deco(local_binding_directive:v))*
  *)
 ;
 directive0 <-
-  / "i18n_lang"  {{ `i18n_lang }}
   / "locale" {{ `locale }}
   / "thread_context" {{ `thread_context }}
   / "todo" {{ `todo }}
@@ -649,7 +648,6 @@ directive1 <-
   / "assert" {{ `assert_ }}
   / "atomic" {{ `atomic }}
   / "callcc" {{ `callcc }}
-  / "i18n"   {{ `i18n }}
   / "js_ident" {{ `js_ident }}
   / "may_cps" {{ `may_cps }}
   / "worker" {{ `worker }}

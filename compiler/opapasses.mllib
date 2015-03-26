@@ -6,7 +6,7 @@ compiler/passes/SurfaceAstTrx
 compiler/passes/SurfaceAstXmlPattern
 compiler/passes/SurfaceAstStaticInclude
 compiler/passes/pass_IntlDirective
+compiler/passes/pass_ComputedString
 compiler/passes/pass_CheckOptionsConsistency
-compiler/passes/I18nAndComputedString
 compiler/passes/pass_ServerDeclaration
 compiler/passes/pass_CompileTimeDirective

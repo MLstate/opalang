@@ -348,4 +348,27 @@ module Intl {
     localeOpt() ? systemLocale()
   }
 
+  /** Return the locale set in the request headers. */
+  function requestLocale(request) {
+    match (HttpRequest.Generic.`get_Accept-Language`(request)) {
+      case {some: locale}:
+        match (parseLocale(locale)) {
+          case {some: locale}: locale
+          default: systemLocale()
+        }
+      default: systemLocale()
+    }
+  }
+
+  /**
+   * If the locale is undefined for the context user, then initialize it using the value
+   * of the Accept-Language header.
+   */
+  function touchLocale(request) {
+    match (localeOpt()) {
+      case {none}: setLocale(requestLocale(request))
+      default: void
+    }
+  }
+
 } // END INTL

@@ -92,12 +92,6 @@ struct
   let serialize_ty_argument = !! "serialize_ty_argument"
 end
 
-module I18n =
-struct
-  let (!!) s = !! ("I18n_" ^ s)
-  let lang = !! "lang"
-end
-
 module Intl =
 struct
   let (!!) s = !! ("Intl_" ^ s)

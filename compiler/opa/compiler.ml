@@ -136,8 +136,7 @@ let compile backend_handlers =
 
     |+> ("CheckDuplication", S3.pass_CheckDuplication)
 
-    (* I18n, exit if generating template *)
-    |+> ("I18nAndComputedString", S3.pass_I18nAndComputedString)
+    |+> ("ComputedString", S3.pass_ComputedString)
 
     |+> ("ConvertStructure2", S3.pass_ConvertStructure2 ())
 

@@ -320,12 +320,6 @@ type magic_directive =
 
 type string_directive = [ `string ]
 
-type internationalization_directive = [
-  (** Identify translation points. *)
-  | `i18n (* indicate a point of translation *)
-  | `i18n_lang (* return the current context lang, add a directive to later prune js code pattern matching at running time *)
-]
-
 type error_directive =
     [ `assert_
     ]
@@ -416,7 +410,6 @@ type closure_instrumentation_directive = QmlAst.closure_instrumentation_directiv
 type basic_directive =
     [ magic_directive
     | string_directive
-    | internationalization_directive
     | coding_directive
     | error_directive
     | concurrency_directive

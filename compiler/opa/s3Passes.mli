@@ -161,7 +161,7 @@ val pass_IntlDirective :
   )
   opa_pass
 
-val pass_I18nAndComputedString :
+val pass_ComputedString :
   (
    (SurfaceAst.uids, SurfaceAst.dependency_directive) SurfaceAstPassesTypes.env_both_lcodes,
    (SurfaceAst.uids, SurfaceAst.dependency_directive) SurfaceAstPassesTypes.env_both_lcodes
