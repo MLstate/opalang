@@ -67,8 +67,6 @@ struct
   let full_separation ~options:_ _env =
     ObjectFiles.Arg.is_fully_separated ()
 
-  let i18n_template ~options _env = E.i18n_template options
-
   let database engine ~options _env =
     ignore options;
     List.mem engine (Pass_DbEngineImportation.get_engines ())
