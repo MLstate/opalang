@@ -22,13 +22,19 @@
 /**
  * A language is associated to each user (cookie defined), each time a page is generated
  * in destination to the user it get localised with the current associated language (using
- * ServerI18n.page_lang). The user can change its langage association (using I18n.set_lang).
+ * Intl.locale). The user can change its langage association (using Intl.setLocale).
  * The first time a user connect the association is initialised using Accept-language header
- * field (using ServerI18n.request_lang)
+ * field (using Intl.requestLocale)
  *
  * An initial language is associatd to the server using system specific environment var
- * (using ServerI18n.get_system_lang). Currenlty the language can't be updated later and
- * can be consulted (using ServerI18n.get_server_lang)
+ * (using Intl.systemLocale). Currenlty the language can't be updated later and
+ * can be consulted.
+ *
+ * String translations are stored server-side and loaded json files placed in a list of
+ * predefined locale directories (using Intl.includeLocaleDirectory). Translation maps are
+ * loaded whenever the server or a client makes a request for a translation in a new locale.
+ * These locale files are updated whenever the server comes upon a string that hasn't been
+ * trasnlated yet.
  */
 
 /* @author Henri Chataing */
@@ -59,6 +65,8 @@ type Intl.translation = {
 
 type Intl.printer = external
 type Intl.translationMap = Hashtbl.t(string, Intl.translation)
+type Intl.translationList = list((string, string))
+type Intl.Client.translationMap = option({Intl.locale locale, Intl.translationMap translations})
 
 module Intl {
 
@@ -76,8 +84,9 @@ module Intl {
     translate(format, locale).printer // Reuse the pre-defined printer.
   }
   client function Intl.printer clientPrinter(string format, Intl.locale locale) {
-    translation = translateString(format, locale) // Get the message translation from the server.
-    %%IntlClient.printer%%(translation, "{locale}") // Build the message format locally.
+    clientTranslate(format, locale).printer // Reuse the pre-defined printer.
+    // translation = translateString(format, locale) // Get the message translation from the server.
+    // %%IntlClient.printer%%(translation, "{locale}") // Build the message format locally.
   }
   function Intl.printer printer(string format, Intl.locale locale) {
     @sliced_expr({
@@ -200,17 +209,43 @@ module Intl {
    * existent).
    */
   protected loadedLocales = Mutable.make(stringmap(Intl.translationMap) StringMap.empty)
+  /**
+   * For each client, keep the translation map currently in use.
+   * This code is refused by the server, so the reference is created directly in the client code (file intlclient.js).
+   */
+  // client loadedTranslations = ClientReference.create(option({Intl.locale locale, Intl.translationMap translations}) none)
 
   /**
    * Read a locale file, parse it and import the translations into the loadedLocales map.
    * @return the new translation map.
    */
-  protected function loadLocale(Intl.locale locale) {
+  protected function Intl.translationMap loadLocale(Intl.locale locale) {
     translations = match (findLocaleFile(locale)) {
       case {some: localeFile}: importLocale(localeFile, locale)
       default: Hashtbl.create(32) // No locale file: import empty stringmap.
     }
     loadedLocales.set(StringMap.add("{locale}", translations, loadedLocales.get()))
+    translations
+  }
+
+  /** Fetch the server translation map for the given locale. */
+  exposed function Intl.translationList sendTranslations(Intl.locale locale) {
+    map = match (StringMap.get("{locale}", loadedLocales.get())) {
+      case {some: map}: map
+      default: loadLocale(locale)
+    }
+    Hashtbl.bindings(map) |>
+    LowLevelArray.fold(function (~{key, value}, list) { [(key, value.translation)|list] }, _, [])
+  }
+
+  client function Intl.translationMap fetchLocale(Intl.locale locale) {
+    list = sendTranslations(locale)
+    translations = Hashtbl.create(List.length(list))
+    List.iter(function ((msg, translation)) {
+      printer = %%IntlClient.printer%%(translation, "{locale}")
+      Hashtbl.add(translations, msg, ~{translation, printer})
+    }, list)
+    %%IntlClient.setTranslations%%(some(~{locale, translations}))
     translations
   }
 
@@ -220,8 +255,6 @@ module Intl {
    * locale directories for the translation file and dynamically load it.
    * If the translation still cannot be found, the translation defaults to the original string,
    * and a binding is added to the translation map with the default value.
-   *
-   * TODO should export the updated translation file.
    */
   protected function Intl.translation translate(string message, Intl.locale locale) {
     localeStr = "{locale}"
@@ -244,8 +277,23 @@ module Intl {
   }
 
   /** Same as translate, but returns only the string translation. */
-  exposed function string translateString(string message, Intl.locale locale) {
-    translate(message, locale).translation
+  client function Intl.translation clientTranslate(string message, Intl.locale locale) {
+    localeStr = "{locale}"
+    translationMap = match (%%IntlClient.getTranslations%%()) {
+      case {some: ~{locale: loadedLocale, translations}}:
+        if (loadedLocale == locale) translations
+        else fetchLocale(locale)
+      default: fetchLocale(locale)
+    }
+    match (Hashtbl.try_find(translationMap, message)) {
+      case {some: translation}: translation
+      default:
+        printer = %%IntlClient.printer%%(message, localeStr)
+        translation = ~{translation: message, printer}
+        Hashtbl.add(translationMap, message, translation)
+        // Missing translation should be notified somehow.
+        translation
+    }
   }
 
   /**
