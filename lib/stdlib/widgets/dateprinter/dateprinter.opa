@@ -31,6 +31,11 @@ type WDatePrinter.config = {
      duration_printer : Duration.printer
      title_printer : Date.date -> string
      css_class : string
+     /**
+      * Specifies the update interval. If no value is given, the builder
+      * will infer a minimal interval.
+      */
+     interval : option(int)
 
     /**
      * Whether or not the initial date comes from the server, and if it is to
@@ -51,6 +56,7 @@ WDatePrinter = {{
     title_printer = date -> Date.to_formatted_string(Date.default_printer, date)
     css_class = ""
     server_date = {cache}
+    interval = none
   }
 
   /**
@@ -110,22 +116,26 @@ WDatePrinter = {{
    */
   @private
   get_update_interval(config, text, printed_date, now) =
-    // minimal interval we consider is 1sec.
-    min = Date.advance(now, Duration.s(1))
-    // and the maximal one is 1 hour
-    max = Date.advance(now, Duration.h(1))
-    check(at, range) =
-       // we are happy with a resolution of 10 milliseconds
-      if DateRange.length(range) < Duration.ms(10) then
-        {eq}
-      else
-        at_text = get_text(config, at, printed_date)
-        if at_text == text then
-          {gt} // the text at [at] does not change, we need larger interval
+    match config.interval with
+    | {some= interval} -> interval
+    | _ ->
+      // minimal interval we consider is 1sec.
+      min = Date.advance(now, Duration.s(1))
+      // and the maximal one is 1 hour
+      max = Date.advance(now, Duration.h(1))
+      check(at, range) =
+         // we are happy with a resolution of 10 milliseconds
+        if DateRange.length(range) < Duration.ms(10) then
+          {eq}
         else
-          {lt}
-    date_to_update = Date.binary_search(check, DateRange.between(min, max)) ? min
-    Duration.between(now, date_to_update)
+          at_text = get_text(config, at, printed_date)
+          if at_text == text then
+            {gt} // the text at [at] does not change, we need larger interval
+          else
+            {lt}
+      date_to_update = Date.binary_search(check, DateRange.between(min, max)) ? min
+      Duration.between(now, date_to_update) |> Duration.in_milliseconds
+    end
 
   @private
   update(config, id, date, stop) =
@@ -140,7 +150,7 @@ WDatePrinter = {{
       _ = Dom.put_inside(dom, Dom.of_xhtml(<>{text}</>))
       interval = get_update_interval(config, text, date, now)
       rec val timer = Scheduler.make_timer(
-        Duration.in_milliseconds(interval),
+        interval,
         -> update(config, id, date, timer.stop)
       )
       do timer.start()
