@@ -192,15 +192,16 @@ mkdir -p $BUILD_DIR
 
 sources () {
     case $1 in
-        openssl) echo "http://www.openssl.org/source/openssl-1.0.0a.tar.gz";;
-        ocaml) echo "http://caml.inria.fr/pub/distrib/ocaml-4.00/ocaml-4.00.1.tar.gz" ;;
+        openssl) echo "http://www.openssl.org/source/openssl-1.0.2-latest.tar.gz";;
+        ocaml) echo "http://caml.inria.fr/pub/distrib/ocaml-4.02/ocaml-4.02.1.tar.gz" ;;
         # Sources obtained thanks to "apt-get --print-uris source <package>"
-        findlib) echo "http://download.camlcity.org/download/findlib-1.3.3.tar.gz";;
-        ocaml-ssl) echo "http://downloads.sourceforge.net/project/savonet/ocaml-ssl/0.4.6/ocaml-ssl-0.4.6.tar.gz";;
-        cryptokit) echo "http://forge.ocamlcore.org/frs/download.php/891/cryptokit-1.6.tar.gz";;
-        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.5.tar.gz";;
+        findlib) echo "http://download.camlcity.org/download/findlib-1.5.5.tar.gz";;
+        ocaml-ssl) echo "https://github.com/savonet/ocaml-ssl/archive/0.4.7.tar.gz";;
+		cryptokit) echo "https://forge.ocamlcore.org/frs/download.php/1493/cryptokit-1.10.tar.gz";;
+        ocamlgraph) echo "http://ocamlgraph.lri.fr/download/ocamlgraph-1.8.6.tar.gz";;
         camlzip) echo "http://forge.ocamlcore.org/frs/download.php/1037/camlzip-1.05.tar.gz";;
-        camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
+        # camlimages) echo "http://caml.inria.fr/distrib/bazar-ocaml/camlimages-3.0.2.tgz";;
+		camlimages) echo "https://bitbucket.org/camlspotter/camlimages/get/4.2.0.tar.gz";;
         ulex) echo "http://ftp.de.debian.org/debian/pool/main/u/ulex/ulex_1.1.orig.tar.gz";;
         syslog) echo "http://homepage.mac.com/letaris/syslog-1.4.tar.gz";;
         jpeg) echo "http://www.ijg.org/files/jpegsrc.v8b.tar.gz";;
