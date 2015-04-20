@@ -15,10 +15,10 @@
  *
  *
  * /!\ This file is shared between server (node) and client, it's why you can
- * found the Ifstatic preprocessing directive.  Indeed even if the client code
- * is not cps rewrited, the cps runtime is anyway used by the client (stdlib).
- * But the client cps runtime is a bit different than the server cps
- * runtime. It's why they are Ifstatic preprocessing directive.
+ * find this code uses Ifstatic preprocessing directives. Even if the client code
+ * is not rewritten, the cps runtime is still used by the client (stdlib).
+ * The client cps runtime is a bit different than the server cps runtime, and we use
+ * the Ifstatic preprocessing directive to distinguish sides.
  */
 
 /**
