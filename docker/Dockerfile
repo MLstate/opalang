@@ -24,7 +24,7 @@ RUN opam install -y ulex camlzip ocamlgraph ocamlfind
 # Download and build opa
 RUN git clone https://github.com/MLstate/opalang
 RUN eval `opam config env` && cd opalang && ./configure -ocamlfind `which ocamlfind` && make && make install
-RUN npm install -g opabsl.opp intl-messageformat intl
+RUN npm install -g intl-messageformat intl
 
 VOLUME ["/src"]
 WORKDIR /src
