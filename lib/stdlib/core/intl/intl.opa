@@ -321,12 +321,16 @@ module Intl {
           function (~{key, value}, size) { size + String.byte_length(key) + String.byte_length(value.translation) + pad },
           translations, String.byte_length("\{\n\}")
         )
+        orderedTranslations = LowLevelArray.fold(
+          function (~{key, value}, map) { StringMap.add(key, value, map) },
+          translations, StringMap.empty
+        ) |> StringMap.To.assoc_list
         content = Binary.create(sizeEstimate)
         Binary.add_string(content, "\{\n")
-        LowLevelArray.iteri(function (i, ~{key, value}) {
+        List.iteri(function (i, (key, value)) {
           if (i < size-1) Binary.add_string(content, "  \"{key}\": \"{value.translation}\",\n")
           else Binary.add_string(content, "  \"{key}\": \"{value.translation}\"\n")
-        }, translations)
+        }, orderedTranslations)
         Binary.add_string(content, "\}")
         // Write the content to the file.
         %%BslFile.write%%(file, content)
