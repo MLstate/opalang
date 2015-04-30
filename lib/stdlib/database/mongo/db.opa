@@ -85,29 +85,28 @@ DbMongo = {{
        match reply with
        | {none} ->
          do Log.error("DbGen/Query", "(failure) Read {id} didn't return anything")
-         error("DbGen/Mongo: Network Error")
+         @throw({fail= "Network Error" position="DbGen/Mongo"})
        | {some = reply} ->
          match MongoCommon.reply_document(reply, 0) with
-         | {none} -> error("DbGen/Mongo: Protocol Error (1)")
+         | {none} -> @throw({fail= "Protocol Error (1)" position="DbGen/Mongo"})
          | {some=doc} ->
            match Bson.find_float(doc, "ok") with
-           | {none} -> error("DbGen/Mongo: Protocol Error (2)")
+           | {none} -> @throw({fail= "Protocol Error (2)" position="DbGen/Mongo"})
            | {some = ok} ->
-             if ok != 1.0 then error("DbGen/Mongo: GetLastError Error")
+             if ok != 1.0 then @throw({fail= "GetLastError Error" position="DbGen/Mongo"})
              else match Bson.find_element(doc, "err") with
              | {none} -> void
-             | {some = {value = {String = str} ...}} -> error("DbGen/Mongo: {str}")
+             | {some = {value = {String = str} ...}} -> @throw({fail= str position="DbGen/Mongo"})
              | {some = {value = {Null} ...}} ->
                if not(upsert) &&
-                  not(Bson.find_bool(doc, "updatedExisting")
-                      ? error("DbGen/Mongo: Protocol Error (4)"))
-               then error("DbGen/Mongo: Update Error")
+                  not(Bson.find_bool(doc, "updatedExisting") ? @throw({fail= "Protocol Error (4)" position="DbGen/Mongo"}))
+               then @throw({fail= "Update Error" position="DbGen/Mongo"})
                else
                  #<Ifstatic:DBGEN_DEBUG>
                  do Log.notice("DbGen/Mongo", "(success) DbSet.update {doc}")
                  #<End>
                  void
-             | {some = err} -> error("DbGen/Mongo: Protocol Error (3) {err}")
+             | {some = err} -> @throw({fail= "Protocol Error (3) {err}" position="DbGen/Mongo"})
 //     # <End>
 
    @package gen_read(id, query, uncap, default:'a) =
