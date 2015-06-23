@@ -6,7 +6,7 @@
 #
 # Mount local folder as volume and create a 'chat' app:
 #
-# docker --rm -v `pwd`:/src -ti mlstate/opa create chat
+# docker run --rm -v `pwd`:/src -ti mlstate/opa create chat
 
 FROM phusion/baseimage:0.9.16
 
