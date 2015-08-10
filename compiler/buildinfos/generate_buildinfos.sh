@@ -101,7 +101,7 @@ is_git_root () {
     if [ "$LOOKED_FOR_REPO" != "$ROOT_REPO" ]; then
         cd $PATH_TO_REPOS/$LOOKED_FOR_REPO
     fi
-    if [ -d .git ] && git remote show -n origin | grep -q 'URL:.*'$LOOKED_FOR_REPO; then
+    if [ -d .git ] && git config --get remote.origin.url | grep -q $LOOKED_FOR_REPO; then
         cd $P
         return 0
     else
@@ -154,11 +154,11 @@ echo "let opa_version_name = \"${OPA_VERSION}${OPA_VERSION_SUFFIX}\""
 # git infos
 for repo in $REPOS ; do
     if [ "$MLSTATE_DIFFING" = 1 ] ; then
-        echo "let ${repo}_git_version = 0"
-        echo "let ${repo}_git_sha = \"diffing\""
+        echo "let opa_git_version = 0"
+        echo "let opa_git_sha = \"diffing\""
     elif ! is_git_root $repo; then
-        echo "let ${repo}_git_version = 0"
-        echo "let ${repo}_git_sha = \"\""
+        echo "let opa_git_version = 0"
+        echo "let opa_git_sha = \"\""
     else
         if [ "$repo" = "$ROOT_REPO" ] ; then
             echo "let opa_git_version = $(in_repo $repo git_opalang_version_cmd)"
