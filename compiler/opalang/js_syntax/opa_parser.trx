@@ -1225,6 +1225,7 @@ directive <-
    * instead of just assert_message(s,e) *)
   / "@xml(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
   / "@intl(" String_expr.icu_string:m ")" {{ m }}
+  / "@i18n(" String_expr.icu_string:m ")" {{ m }}
   / "@" (=exact_ident(directive0)):v !"("
     {{ Directive (v,[],[]) }}
   / "@" (=exact_ident(directive0pack)):v Opa_lexer.lpar_nosp package_identifier:pck rpar

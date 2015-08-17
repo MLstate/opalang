@@ -691,6 +691,7 @@ directive <-
    * instead of just assert_message(s,e) *)
   / "@xml(" spacing Xml.xmlns:xmlns rpar {{ undecorate xmlns }}
   / "@intl(" String_expr.icu_string:m ")" {{ m }}
+  / "@i18n(" String_expr.icu_string:m ")" {{ m }}
   / "@typeval(" typ:t rpar {{
       (* For convenience, directive [@typeval] is handled as thin syntactic sugar.
          Therefore [@typeval(t)] is parsed as [@typeof(@unsafe_cast("dummy_for_typeval"):t)]
