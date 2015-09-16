@@ -528,7 +528,7 @@ let get_tuple_size name =
             | Some n -> if n >= 0 then Some n else None
         )
     | _ -> None
-(** Interface to the stuff on tuples *)
+(* Interface to the stuff on tuples *)
 let add_tuple mk_ident name =
   match get_tuple_size name with
     | None -> `none
