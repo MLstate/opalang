@@ -577,7 +577,7 @@ let reorder_expr :
 *)
 let reorder_for_pat_bindings x =
   reorder_expr OpaWalk.Pattern.get_vars x
-(**
+(*
    same as above, with (ident * expr) list
 *)
 let reorder_for_ident_bindings x y =

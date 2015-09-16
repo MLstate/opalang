@@ -113,7 +113,7 @@ module WClass = struct
         ~err:false
         ~enable:true
         ()
-    (** when an exposed directive is adding an entry point uselessly TODO *)
+    (* when an exposed directive is adding an entry point uselessly TODO *)
     let useless =
       WarningClass.create
         ~parent:all
@@ -123,7 +123,7 @@ module WClass = struct
         ~err:false
         ~enable:true
         ()
-    (** when a exposed directive is generating first order call back to the client *)
+    (* when a exposed directive is generating first order call back to the client *)
     let misleading =
       WarningClass.create
         ~parent:all
