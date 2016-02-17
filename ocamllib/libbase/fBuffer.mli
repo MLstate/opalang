@@ -19,7 +19,7 @@
 (**
    Functionnal structure for efficient string production.
 
-   @author Unknown previous author
+   @author Henri Binsztok
    @author Mathieu Barbin
    @author Rudy Sicard
    @author Valentin Gatien-Baron
@@ -42,7 +42,7 @@
    Note that every function of this Module is tail recursive.
 
    <!> If you need to add a function to this module, respect this constraint.
-   (this module manipulate hudge structures)
+   (this module manipulate huge structures)
 
 *)
 
