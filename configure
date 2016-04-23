@@ -328,15 +328,16 @@ fi
 # - checking for nodejs version
 echo-check for nodejs version
 NODE_VERSION=$($NODE_EXEC --version)
+NODE_VERSION=${NODE_VERSION#v}
 NODE_VERSION_MAJOR=${NODE_VERSION%%.*}
 NODE_VERSION_MIDDLE=${NODE_VERSION%.*}
 NODE_VERSION_MIDDLE=${NODE_VERSION_MIDDLE#*.}
-NODE_MIN_VERSION=10
-if [ $NODE_VERSION_MIDDLE -ge $NODE_MIN_VERSION ]; then
+NODE_MIN_VERSION=4
+if [ $NODE_VERSION_MAJOR -ge $NODE_MIN_VERSION ]; then
     echo-ok $NODE_VERSION
 else
     echo-err $NODE_VERSION
-    echo "Node v0.$NODE_MIN_VERSION.0 or newer is required"
+    echo "Node $NODE_VERSION_MAJOR or newer is required"
     exit 1
 fi
 
