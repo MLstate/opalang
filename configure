@@ -99,7 +99,6 @@ EXT_EXE=".exe"
 case $(uname) in
     CYGWIN*)
         echo-ok Windows/cygwin
-        EXT_LIB="lib"
         EXT_SHARED="dll"
         EXT_EXE=".exe"
         IS_WINDOWS=1;;
