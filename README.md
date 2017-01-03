@@ -1,6 +1,6 @@
 # Opa #
 
-Opa is an advanced framework for JavaScript. There are real applications fully developed with Opa such as the [PEPS Communication Platform](https://github.com/MLstate/PEPS), [RiskyBird](https://github.com/alokmenghrajani/riskybird) and [many others](https://github.com/trending?l=opa&since=weekly).
+Opa is a functional programming language for the Web, that compiles to JavaScript. There are real applications fully developed with Opa such as the [PEPS Communication Platform](https://github.com/MLstate/PEPS), [RiskyBird](https://github.com/alokmenghrajani/riskybird) and [many others](https://github.com/trending?l=opa&since=weekly).
 
 Opa is made of two parts:
 
