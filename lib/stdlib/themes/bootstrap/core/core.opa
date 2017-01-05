@@ -123,6 +123,12 @@ Bootstrap = {{
     {none} -> void
 
   @private
+  import_bs_js(name:string) =
+    match Map.get(name, uri_bs)
+    {some=url} -> Resource.register_external_js(url)
+    {none} -> void
+
+  @private
   fallback_url(v:string) =
     if String.le(v, "1.4.0") then
       "http://twitter.github.com/bootstrap/{v}/bootstrap.min.css"
@@ -142,6 +148,8 @@ Bootstrap = {{
   import_responsive_css(v:string) = // responsive only
     if String.lt(v, "3.0.0") then
       import_bs("{bs_resources_path}/{v}/css/bootstrap-responsive.min.css")
+    else
+      import_bs_js("{bs_resources_path}/{v}/js/bootstrap.min.js")
 
   @package
   import_icons(v:string) = // icons only
