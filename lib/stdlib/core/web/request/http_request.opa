@@ -134,7 +134,7 @@ HttpRequest = {{
        header_get = s -> raw_values(request)(String.lowercase(s)) }
 
     get_host(x: HttpRequest.request): option(string) =
-      get_headers(x).header_get("Host")
+      get_headers(x).header_get("host")
 
     is_secured(x: HttpRequest.request): bool =
       request    = get_low_level_request(x)
